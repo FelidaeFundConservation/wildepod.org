@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+<!-- Set corresponding nav pill to active -->
+{% block nav_uploads %}active{% endblock %}
+
+{% block content %}
+<div class="container mt-2 mt-md-5 uploads">
+  <div class="row text-center">
+      <a class="nav-link" href="{% url 'uploads:upload' %}">
+        <button type="button" class="btn btn-dark cta">
+          <span class="material-icons align-top">add</span> Create Upload
+        </button>
+      </a>
+  </div>
+  <div class="row mt-2 mt-md-5">
+    <h2>Pending Uploads</h2>
+    {% if num_pending > 0 %}
+      {% if user.is_staff %}
+        <p>Hey, {{user.username}}! Since you're a staff member, you can see the list of all pending uploads for all volunteers.
+        You can also find this on the <a href="{% url 'admin:uploads_upload_changelist'%}" class="text-decoration-none">admin</a>
+        page.
+        </p>
+      {% else %}
+        <p>If all pictures have been uploaded onto Google Drive, please click on the finalize button.</p>
+      {% endif %}
+      <table class="table mt-2 mt-md-4 align-middle">
+        <thead>
+          <tr>
+            <th scope="col">Trap ID</th>
+            <th scope="col">Site</th>
+            <th scope="col">Park</th>
+            <th scope="col">Date Retrieved</th>
+            <th scope="col">Action</th>
+            <th scope="col">Upload location</th>
+            {% if user.is_staff %}<th scope="col">Volunteer</th>{% endif %}
+            <th scope="col"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for object in object_list%}
+            {% if not object.upload_complete %}
+              <tr>
+                <td>{{object.camera_trap.trap_id}}</td>
+                <td>{{object.camera_trap.micro_site}}</td>
+                <td>{{object.camera_trap.micro_site.macro_site}}</td>
+                <td>{{object.date_retrieved}}</td>
+                <td>{{object.last_action}}</td>
+                <td><a href="{{object.gdrive_link}}" target="_blank" class="text-decoration-none">Google Drive 🔗</a></td>
+                {% if user.is_staff %}<td>{{object.volunteer.username}}</td>{% endif %}
+                <td><a href="{% url 'uploads:finalize' object.id %}"><button type="button" class="btn btn-light btn-mark-complete">Finalize</button></a></td>
+                {% comment %} <td><a href="{% url 'uploads:finalize' object.id %}" class="text-decoration-none">Finalize upload</a></td> {% endcomment %}
+              </tr>
+            {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>There are no pending uploads!</h2>
+      <hr/>
+    {% endif %}
+  </div>
+
+  <div class="row mt-2 mt-md-5">
+    {% if num_completed > 0 %}
+      <h2>Completed Uploads</h2>
+      {% if user.is_staff %}
+        <p>Hey, {{user.username}}! This is just your completed uploads. Since you're a staff member, navigate to the
+        <a href="{% url 'admin:uploads_upload_changelist'%}" class="text-decoration-none">admin</a>
+        page for the full list of uploads across all volunteers.
+        </p>
+      {% endif %}
+        <table class="table mt-2 mt-md-4 align-middle">
+          <thead>
+            <tr>
+              <th scope="col">Trap ID</th>
+              <th scope="col">Site</th>
+              <th scope="col">Park</th>
+              <th scope="col">Date Retrieved</th>
+              <th scope="col">Action</th>
+              <th scope="col">Error</th>
+              <th scope="col">Effect</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for object in object_list%}
+              {% if object.upload_complete and object.volunteer == user %}
+                <tr>
+                  <td>{{object.camera_trap.trap_id}}</td>
+                  <td>{{object.camera_trap.micro_site}}</td>
+                  <td>{{object.camera_trap.micro_site.macro_site}}</td>
+                  <td>{{object.date_retrieved}}</td>
+                  <td>{{object.last_action}}</td>
+                  <td>{{object.error}}</td>
+                  <td>{{object.error_effect}}</td>
+                </tr>
+              {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

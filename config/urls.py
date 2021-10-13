@@ -28,5 +28,6 @@ urlpatterns = [
         include(("locations.urls", "locations"), namespace="locations"),
     ),
     path("uploads/", include(("uploads.urls", "uploads"), namespace="uploads")),
-    path("", include(("tags.urls", "tags"), namespace="tags")),
+    path("tags/", include(("tags.urls", "tags"), namespace="tags")),
+    path("", include(("home.urls", "home"), namespace="home")),
 ]

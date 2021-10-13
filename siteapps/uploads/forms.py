@@ -109,24 +109,3 @@ class UploadFinalizeForm(forms.ModelForm):
         widgets = {
             "date_retrieved": forms.DateInput(attrs={"type": "date"}),
         }
-
-    # def __init__(self, *args, **kwargs):
-    #     super().__init__(*args, **kwargs)
-    #     self.helper = FormHelper()
-    #     self.helper.layout = Layout(
-    #         Row(
-    #             Column('upload_complete', css_class='form-group'),
-    #             css_class='form-row mt-3 lead'
-    #         ),
-    #         Row(
-    #             Column(
-    #                 Submit('submit', 'Submit', css_class="btn-secondary"),
-    #             ),
-    #             css_class='form-row'
-    #         )
-    #     )
-    #     self.helper.form_show_errors = True
-
-    # class Meta:
-    #     model = Upload
-    #     fields = ['upload_complete']

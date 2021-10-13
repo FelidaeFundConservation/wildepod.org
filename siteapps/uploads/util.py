@@ -27,3 +27,10 @@ class GdriveClient:
         folder = self.service.files().create(body=body, fields=fields).execute()
         folder_id = folder.get("id")
         return f"https://drive.google.com/drive/folders/{folder_id}"
+
+    def list_directory(self, directory_id):
+        response = self.service.files().list(q=f"'{directory_id}' in parents").execute()
+        return response
+
+    def get_thumbnail(self, file_id):
+        return self.service.files().get(fileId=file_id, fields="thumbnailLink")

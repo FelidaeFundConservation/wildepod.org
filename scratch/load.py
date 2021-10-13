@@ -4,6 +4,7 @@ from datetime import datetime
 import pandas as pd
 from inventory.models import Camera, CameraBrand, CameraModel, Padlock, PythonLock
 from locations.models import Area, CameraTrap, County, Grid, HabitatType, MacroSite, MicroSite, TrailType
+from tags.models import SpeciesTag
 from uploads.models import CameraTrapAction, UploadError, UploadErrorEffect
 
 # Download active camera data sheet as tsv into the local_data folder and rename as necessary
@@ -228,3 +229,15 @@ actions = [
 
 for action in actions:
     model, _ = CameraTrapAction.objects.get_or_create(action=action)
+
+
+species_list = [
+    "horse",
+    "deer",
+    "puma",
+    "human",
+    "turkey",
+]
+
+for species in species_list:
+    model, _ = SpeciesTag.objects.get_or_create(name=species)

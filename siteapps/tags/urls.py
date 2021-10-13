@@ -1,7 +1,8 @@
 from django.urls import path
 
-from .views import TagView
+from .views import TagBlankView, TagSpeciesView
 
 urlpatterns = [
-    path("", TagView.as_view(), name="tag"),
+    path("blank", TagBlankView.as_view(), name="blank"),
+    path("species", TagSpeciesView.as_view(), name="species"),
 ]

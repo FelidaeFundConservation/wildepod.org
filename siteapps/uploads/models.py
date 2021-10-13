@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 from django.urls import reverse
+from googleapiclient import model
 from locations.models import CameraTrap
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
@@ -75,10 +76,6 @@ class Upload(TimeStampedModel):
     # Upload status. This defaults to false. After gdrive upload has been completed, this should be set to true by the uploader
     upload_complete = models.BooleanField("Upload to Google Drive complete?", default=False)
 
-    # Processing status. This defaults to false. After the uploader marks upload as complete, all the images should be moved & processed
-    # After that, this flag will be set on the upload.
-    processed = models.BooleanField(default=False)
-
     # History of model instance changes
     history = HistoricalRecords()
 
@@ -87,9 +84,21 @@ class Upload(TimeStampedModel):
     # to have a semantic folder structure
 
     def save(self, *args, **kwargs):
-        client = GdriveClient()
-        folder_name = f"{self.camera_trap.trap_id} - {self.date_retrieved}"
-        self.gdrive_link = client.create_folder(folder_name)
+        # If the object is being created for the first time, create a GDrive directory
+        if not self.id:
+            client = GdriveClient()
+            folder_name = f"{self.camera_trap.trap_id} - {self.date_retrieved}"
+            self.gdrive_link = client.create_folder(folder_name)
+        if self.upload_complete:
+            client = GdriveClient()
+            response = client.list_directory(self.gdrive_link.split("/")[-1])
+
+            for img_dict in response["files"]:
+                # Get or create to make sure duplicate objects aren't created by admin changes
+                img_obj, created = Image.objects.get_or_create(
+                    upload=self, filename=img_dict["name"], gdrive_id=img_dict["id"], mime_type=img_dict["mimeType"]
+                )
+
         super(Upload, self).save(*args, **kwargs)
 
     def __str__(self):
@@ -99,26 +108,49 @@ class Upload(TimeStampedModel):
         ordering = ("-created",)
 
 
-# Each processed Image from an upload
-# This is auto-created in the background after images move from an SD card
-# to a gdrive location to google storage
+class ImageMeta(TimeStampedModel):
+    # A deterministic hash of the image metadata and its content for deduplication purposes
+    image_hash = models.CharField(max_length=100, unique=True, blank=True, null=True)
 
+    # Date taken
+    date_taken = models.DateField()
 
-class Image(TimeStampedModel):
-    # An image ID generated as a unique identifier from the content of the image
-    # Ideally a hash of the entire image or exif metadata (this might cause collisions)
-    image_id = models.CharField(max_length=100, unique=True)
-    # Camera trap the uploads are linked to
-    upload = models.ForeignKey(Upload, on_delete=models.PROTECT)
-
-    # TODO: This requires the pipeline in the background to be setup to figure out
-    # what fields are required
+    # TODO: incomplete set of meta attributes
 
     # History of model instance changes
     history = HistoricalRecords()
 
     def __str__(self):
-        return self.camera_trap
+        return self.gdrive_id
+
+    class Meta:
+        ordering = ("-created",)
+
+
+# Each processed Image from an upload
+# This is auto-created in the background after an upload to Google Drive has been finalized
+# It is auto-updated later in the stream
+class Image(TimeStampedModel):
+    # Specific camera trap upload the images are linked to
+    upload = models.ForeignKey(Upload, on_delete=models.PROTECT)
+    # Original filename
+    filename = models.CharField(max_length=250)
+    # Initial Google Drive id. This is obsolete once it moves to Google storage
+    gdrive_id = models.CharField(max_length=100, unique=True)
+    # Gdrive Media type
+    mime_type = models.CharField(max_length=100)
+
+    # Google storage id. Empty initially but populated once it is moved
+    gstorage_id = models.CharField(max_length=100, unique=True, blank=True, null=True)
+
+    # Meta information from the image content itself
+    meta = models.OneToOneField(ImageMeta, on_delete=models.PROTECT, blank=True, null=True)
+
+    # History of model instance changes
+    history = HistoricalRecords()
+
+    def __str__(self):
+        return self.gdrive_id
 
     class Meta:
         ordering = ("-created",)

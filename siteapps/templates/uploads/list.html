@@ -7,11 +7,11 @@
 {% block content %}
 <div class="container mt-2 mt-md-5 uploads">
   <div class="row text-center">
-      <a class="nav-link" href="{% url 'uploads:upload' %}">
-        <button type="button" class="btn btn-dark cta">
-          <span class="material-icons align-top">add</span> Create Upload
-        </button>
+    <div class="col-12 col-sm-6 offset-sm-3">
+      <a class="btn btn-dark cta" role="button" href="{% url 'uploads:upload' %}">
+        <span class="material-icons align-top">add</span> Create Upload
       </a>
+    </div>
   </div>
   <div class="row mt-2 mt-md-5">
     <h2>Pending Uploads</h2>
@@ -48,8 +48,7 @@
                 <td>{{object.last_action}}</td>
                 <td><a href="{{object.gdrive_link}}" target="_blank" class="text-decoration-none">Google Drive 🔗</a></td>
                 {% if user.is_staff %}<td>{{object.volunteer.username}}</td>{% endif %}
-                <td><a href="{% url 'uploads:finalize' object.id %}"><button type="button" class="btn btn-light btn-mark-complete">Finalize</button></a></td>
-                {% comment %} <td><a href="{% url 'uploads:finalize' object.id %}" class="text-decoration-none">Finalize upload</a></td> {% endcomment %}
+                <td><a href="{% url 'uploads:finalize' object.id %}"><button type="button" class="btn btn-light">Finalize</button></a></td>
               </tr>
             {% endif %}
           {% endfor %}

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse
 from django.views.generic import CreateView, ListView, UpdateView
@@ -7,10 +8,9 @@ from .models import Upload
 
 
 class UploadCreateView(LoginRequiredMixin, CreateView):
-    # TODO: Use reverse with the url name instead of hardcoded url
     model = Upload
     form_class = UploadForm
-    login_url = "/accounts/login"
+    login_url = settings.LOGIN_URL
     template_name = "uploads/upload.html"
 
     def get_success_url(self):
@@ -18,9 +18,8 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
 
 
 class UploadListView(LoginRequiredMixin, ListView):
-    # TODO: Use reverse with the url name instead of hardcoded url
     model = Upload
-    login_url = "/accounts/login"
+    login_url = settings.LOGIN_URL
     template_name = "uploads/list.html"
 
     # Staff can access all uploads across all users.
@@ -43,10 +42,9 @@ class UploadListView(LoginRequiredMixin, ListView):
 
 
 class UploadFinalizeView(LoginRequiredMixin, UpdateView):
-    # TODO: Use reverse with the url name instead of hardcoded url
     model = Upload
     form_class = UploadFinalizeForm
-    login_url = "/accounts/login"
+    login_url = settings.LOGIN_URL
     template_name = "uploads/finalize.html"
 
     def get_success_url(self):

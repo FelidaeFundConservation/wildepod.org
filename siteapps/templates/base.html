@@ -25,28 +25,42 @@
 <body>
   <nav class="navbar sticky-top navbar-expand-lg navbar-light">
     <div class="container">
-      <a class="navbar-brand" href="#">Felidae</a>
+      <a class="navbar-brand" href="{% url 'home:index' %}">Felidae</a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
         <span class="material-icons">menu</span>
       </button>
       <div class="collapse navbar-collapse" id="navbarSupportedContent">
         <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
           <li class="nav-item mx-2">
-            <a class="nav-link {% block nav_tag %}{% endblock %}" aria-current="page" href="{% url 'tags:tag' %}">
-              Tag
+            <a class="nav-link {% block nav_home %}{% endblock %}" aria-current="page" href="{% url 'home:index' %}">
+              Home
             </a>
           </li>
+          {% if user.is_authenticated %}
+          <li class="nav-item dropdown mx-2">
+            <a class="nav-link dropdown-toggle {% block nav_tag %}{% endblock %}" href="#" id="navbarTagDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              Tag
+            </a>
+            <ul class="dropdown-menu tag-dropdown" aria-labelledby="navbarTagDropdown">
+              <li><a class="dropdown-item" href="{% url 'tags:blank' %}">Blanks</a></li>
+              <li><a class="dropdown-item" href="{% url 'tags:species' %}">Species</a></li>
+            </ul>
+          </li>
+          {% comment %} <li class="nav-item mx-2">
+            <a class="nav-link {% block nav_tag %}{% endblock %}" aria-current="page" href="{% url 'tags:blank' %}">
+              Tag
+            </a>
+          </li> {% endcomment %}
           <li class="nav-item mx-2">
             <a class="nav-link {% block nav_uploads %}{% endblock %}" href="{% url 'uploads:list' %}">
               Uploads
             </a>
           </li>
-          {% if user.is_authenticated %}
+          {% endif %}
+          {% if user.is_authenticated and user.is_active and user.is_staff %}
           <li class="nav-item mx-2">
               <a class="nav-link {% block nav_map %}{% endblock %}"href="{% url 'locations:map' %}">Map</a>
           </li>
-          {% endif %}
-          {% if user.is_authenticated and user.is_active and user.is_staff %}
           <li class="nav-item mx-2">
               <a class="nav-link" href="{% url 'admin:index' %}">Admin</a>
           </li>

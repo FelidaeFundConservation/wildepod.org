@@ -44,9 +44,11 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "siteapps.home",
     "siteapps.profiles",
     "siteapps.inventory",
     "siteapps.locations",
+    "siteapps.mlbots",
     "siteapps.uploads",
     "siteapps.tags",
     "crispy_forms",
@@ -112,7 +114,7 @@ ADMIN_SECRET_SUFFIX = env("ADMIN_SECRET_SUFFIX")
 
 # Account settings
 LOGIN_REDIRECT_URL = "/"
-LOGOUT_REDIRECT_URL = "/accounts/login/"
+LOGOUT_REDIRECT_URL = "/"
 
 # Override default user model
 AUTH_USER_MODEL = "profiles.Profile"
@@ -138,6 +140,10 @@ JAZZMIN_SETTINGS = {
     "order_with_respect_to": [
         "auth",
         "profiles",
+        "inventory",
+        "inventory.Camera",
+        "inventory.CameraModel",
+        "inventory.CameraBrand",
         "locations",
         "locations.CameraTrap",
         "locations.MicroSite",
@@ -145,9 +151,10 @@ JAZZMIN_SETTINGS = {
         "locations.MacroSite",
         "locations.County",
         "locations.Area",
-        "inventory.Camera",
-        "inventory.CameraModel",
-        "inventory.CameraBrand",
+        "uploads",
+        "uploads.Upload",
+        "uploads.Image",
+        "uploads.ImageMeta",
     ],
 }
 

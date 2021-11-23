@@ -14,10 +14,11 @@ sys.path.append(os.path.join(BASE_DIR, "siteapps"))
 env = environ.Env(DEBUG=(bool, False))
 env_file = os.path.join(BASE_DIR, ".env")
 
+
 # If there is a local secret file, load. Otherwise, pull it from gcloud
 if os.path.isfile(env_file):
     env.read_env(env_file)
-elif os.environ.get("GOOGLE_CLOUD_PROJECT_ID", None):
+elif os.environ.get("GOOGLE_CLOUD_PROJECT", None):
     # Pull secrets from Secret Manager
     project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
 
@@ -104,8 +105,6 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 USE_L10N = True
 USE_TZ = True
-
-STATIC_URL = "/static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

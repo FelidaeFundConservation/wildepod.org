@@ -19,6 +19,10 @@ active_cameras_df = active_cameras_df.fillna("")
 for i, rec in camera_inventory_df.iterrows():
     if not rec["Serial #"].strip():
         continue
+
+    if len(rec["Serial #"]) >= 24:
+        continue
+
     print(f'(Row - {i}) Loading Camera with Serial number - {rec["Serial #"]}')
     brand, _ = CameraBrand.objects.get_or_create(name=rec["Brand"].strip())
     power_source = "solar" if rec["# of batteries"].lower() == "solar" else "battery"

@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 <!-- Set corresponding nav pill to active -->
 {% block nav_tag %}active{% endblock %}
@@ -30,7 +31,7 @@
         <div class="row text-center mt-3 mt-md-5 pt-2 pt-md-5">
             <h3>There are no more images to annotate! Come back later!</h3>
             <div class="col-12 col-md-10 offset-md-1 col-lg-8 offset-lg-2 mt-2 mt-md-5 pt-2">
-                <img class="img-fluid rounded" src="https://p0.pikist.com/photos/640/41/puma-sleeping-zoo-cougar-fur-mountain-lion-catamount-wildlife-big-cat.jpg">
+                <img class="img-fluid rounded" src="{% static 'images/puma_sleeping.jpg' %}">
             </div>
         </div>
     {% endif %}

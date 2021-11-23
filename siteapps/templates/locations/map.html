@@ -7,7 +7,11 @@
 {% block content %}
 
 <!--The div element for the map -->
-<div id="map"></div>
+<div class="map">
+    <div id="map"></div>
+</div>
+
+
 <!-- Async script executes immediately and must be after any DOM elements used in callback. -->
 <script
     src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDsUCF2ksorF0V8acHvCDo0AsZYAWImGkg&callback=initMap&libraries=&v=weekly"

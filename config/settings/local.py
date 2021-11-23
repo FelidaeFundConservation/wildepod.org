@@ -13,6 +13,6 @@ DATABASES = {
     }
 }
 
+STATIC_URL = "/static/"
 MEDIA_ROOT = Path.joinpath(BASE_DIR, "siteapps", "media")
-STATIC_ROOT = Path.joinpath(BASE_DIR, "siteapps", "static_root")
 STATICFILES_DIRS = [Path.joinpath(BASE_DIR, "siteapps", "static")]

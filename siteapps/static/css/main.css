@@ -1,10 +1,54 @@
+/* TODO: Split the file & add django compressor to combine them in post */
+
 /* ------------ Generic site wide styling ------------ */
 html, body {
   height: 100%;
-  font-family: 'Exo';
+  font-family: 'Titillium Web', sans-serif;
 }
 
-/* Select 2 generic styling */
+h1, h2, h3, h4 {
+  font-family: 'Exo';
+  font-weight: 600;
+  color: rgb(34, 105, 44);
+}
+
+h1 {
+  font-size: 2em;
+}
+
+h2 {
+  font-size: 1.8em;
+}
+
+h3 {
+  font-size: 1.6em;
+}
+
+p {
+  line-height: 1.75;
+  font-size: 1.25em;
+  color: rgb(49, 49, 49);
+}
+
+li {
+  line-height: 1.75;
+}
+
+a {
+  text-decoration: none;
+  color:rgb(136, 86, 255);
+}
+
+a:hover {
+  color:rgb(25, 167, 12)
+}
+
+.btn-light {
+  background-color: #e4e8ed;
+}
+
+
+/* -------- Select 2 generic styling -------- */
 .select2-container .select2-selection--single{
   height: 2.6em;
 }
@@ -19,28 +63,69 @@ html, body {
   padding-bottom: .4em;
 }
 
-/* ------------ Nav bar ------------ */
+
+/* ------------ Navbar & Footer styling ------------ */
 .navbar {
-  background-color: rgb(248, 248, 248);
+  background-color: rgb(255, 255, 255);
+  box-shadow: 0px 3px 10px rgba(117, 117, 117, 0.15);
 }
 
 .navbar-brand{
-    font-weight: 700;
-    font-size: 1.5em;
-    color: rgb(99, 32, 12) !important;
+  font-family: 'Overlock', cursive;
+  font-size: 1.8em;
+  font-weight: 700;
+  color: rgb(22, 136, 46) !important;
 }
+
 
 .nav-link {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1.25em;
   font-weight: 600;
+  color: rgb(17, 136, 57) !important;
 }
 
-.nav-link.active{
-  border-bottom: 3px solid rgba(128, 36, 36, 0.521);
+.nav-link:hover {
+  color: rgb(0, 83, 11) !important;
+}
+
+.nav-item.active .nav-link {
+  color: rgb(0, 83, 11) !important;
+  font-weight: 700;
+}
+
+@media (min-width: 767.98px) {
+  .nav-item.active .nav-link{
+      border-bottom: 3px solid rgba(16, 190, 74, 0.5);
+  }
 }
 
 .tag-dropdown {
-  background-color: rgb(248, 248, 248);
+  border: 1px solid rgb(197, 219, 197);
+  border: none;
+  box-shadow: 0px 4px 6px rgba(117, 117, 117, 0.2);
 }
+
+.tag-dropdown a {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1.1em;
+  font-weight: 600;
+  color: rgb(17, 136, 57) !important;
+}
+
+@media (min-width: 767.98px) {
+  .tag-dropdown {
+      border: none;
+      box-shadow: 0px 5px 10px rgba(117, 117, 117, 0.2);
+  }
+}
+
+.footer p {
+  font-family: 'Exo', sans-serif;
+  font-size: 0.9em;
+  color:rgb(12, 87, 31)
+}
+
 
 /* ------------ Uploads ------------ */
 .uploads .cta {
@@ -54,13 +139,13 @@ html, body {
   font-size: 1.25em;
 }
 
-.btn-light {
-  background-color: #e4e8ed;
-}
-
 
 /* Set the size of the div element that contains the map */
+.map {
+  height: 94.5vh;
+}
+
 #map {
-  height: 94.5%;
+  height: 100%;
   width: 100%;
 }

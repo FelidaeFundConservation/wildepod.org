@@ -18,6 +18,6 @@ DEFAULT_FILE_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
 STATICFILES_STORAGE = "storages.backends.gcloud.GoogleCloudStorage"
 
 STATIC_URL = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/"
-MEDIA_ROOT = Path.joinpath(BASE_DIR, "siteapps", "media")
-STATIC_ROOT = Path.joinpath(BASE_DIR, "siteapps", "static_root")
-STATICFILES_DIRS = [Path.joinpath(BASE_DIR, "siteapps", "static")]
+MEDIA_ROOT = os.path.join(BASE_DIR, "siteapps", "media")
+STATIC_ROOT = os.path.join(BASE_DIR, "siteapps", "static_root")
+STATICFILES_DIRS = [os.path.join(BASE_DIR, "siteapps", "static")]

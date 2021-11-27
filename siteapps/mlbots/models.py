@@ -8,7 +8,7 @@ from uploads.models import Image
 # Type of tasks the bot can do Ex: "Object detection", "Species identification"
 class BotTaskType(TimeStampedModel):
 
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=250, unique=True)
 
     # History of model instance changes
     history = HistoricalRecords()
@@ -23,7 +23,7 @@ class BotTaskType(TimeStampedModel):
 # Meta information about specific bots - These are specific trained ML models
 class Bot(TimeStampedModel):
     # The file name & the type of task it does
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=250, unique=True)
     task_type = models.ForeignKey(BotTaskType, on_delete=models.PROTECT)
     # Version id for the specific model
     version = models.CharField(max_length=100)

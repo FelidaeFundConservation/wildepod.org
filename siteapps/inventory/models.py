@@ -6,7 +6,7 @@ from simple_history.models import HistoricalRecords
 
 # Model for different padlock types
 class Padlock(TimeStampedModel):
-    name = models.CharField("Padlock type", max_length=50, unique=True)
+    name = models.CharField("Padlock type", max_length=250, unique=True)
     count = models.IntegerField(verbose_name="Number of units", default=1)
     # History of model instance changes
     history = HistoricalRecords()
@@ -21,7 +21,7 @@ class Padlock(TimeStampedModel):
 # Model for different python locks
 class PythonLock(TimeStampedModel):
     # Python lock number and if it has a duplicate key
-    number = models.CharField("Python Lock number", max_length=10, unique=True)
+    number = models.CharField("Python Lock number", max_length=25, unique=True)
     duplicate_key_exists = models.BooleanField("Is there a duplicate key?", default=True)
     # History of model instance changes
     history = HistoricalRecords()
@@ -35,7 +35,7 @@ class PythonLock(TimeStampedModel):
 
 # Model to track different camera box models
 class Box(TimeStampedModel):
-    name = models.CharField("Box model", max_length=50, unique=True)
+    name = models.CharField("Box model", max_length=250, unique=True)
     count = models.IntegerField(verbose_name="Number of empty units")
     comments = models.TextField("Additional notes", blank=True)
     # History of model instance changes
@@ -51,7 +51,7 @@ class Box(TimeStampedModel):
 
 # Model for camera brands
 class CameraBrand(TimeStampedModel):
-    name = models.CharField("Brand Name", max_length=25, unique=True)
+    name = models.CharField("Brand Name", max_length=250, unique=True)
     # History of model instance changes
     history = HistoricalRecords()
 
@@ -65,8 +65,8 @@ class CameraBrand(TimeStampedModel):
 # Model for different camera models
 class CameraModel(TimeStampedModel):
     # Model number, name & brand
-    number = models.CharField("Model number", max_length=25, unique=True, null=True, blank=True)
-    name = models.CharField("Model name", max_length=100, null=True, blank=True)
+    number = models.CharField("Model number", max_length=250, unique=True, null=True, blank=True)
+    name = models.CharField("Model name", max_length=250, null=True, blank=True)
     brand = models.ForeignKey(CameraBrand, on_delete=models.PROTECT)
 
     # Meta information about the model. Power source & number of batteries
@@ -86,7 +86,7 @@ class CameraModel(TimeStampedModel):
 # Model to house metadata for specific physical camera units
 class Camera(TimeStampedModel):
     # Each model must have a serial number or some unique identifier used to physically tag the camera
-    serial_number = models.CharField(max_length=25, unique=True)
+    serial_number = models.CharField(max_length=250, unique=True)
     # Linked camera model type
     model = models.ForeignKey(CameraModel, on_delete=models.PROTECT)
     # Status of the camera

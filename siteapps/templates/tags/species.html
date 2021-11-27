@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 <!-- Set corresponding nav pill to active -->
 {% block nav_tag %}active{% endblock %}
@@ -13,7 +14,7 @@
             <div class="col-12 col-sm-6 offset-sm-3">
                 <form action="" method="post">
                     {% csrf_token %}
-                    <input type="hidden" name="image_id" value={{image.gdrive_id}}>
+                    <input type="hidden" name="image_id" value={{image.pk}}>
                     {% for species in species_list%}
                         <input type="submit" class="btn btn-secondary" name="species" value="{{species}}">
                     {% endfor%}
@@ -22,16 +23,14 @@
         </div>
         <div class="row mt-2 mt-md-4 px-2">
             <div class="col-12 text-center">
-                {% comment %} Dummy image for now since gdrive is throttling requests. Once things move to storage, thing should be fine {% endcomment %}
-                <img src="https://drive.google.com/uc?export=view&id={{image}}" class="img-thumbnail">
-                {% comment %} <img width="100%" src="https://dummyimage.com/1600x900/eee/000" class="img-thumbnail"> {% endcomment %}
+                <img src="{{image.dropbox_share_url}}" class="img-thumbnail">
             </div>
         </div>
     {% else %}
         <div class="row text-center mt-3 mt-md-5 pt-2 pt-md-5">
             <h3>There are no more images to annotate! Come back later!</h3>
             <div class="col-12 col-md-10 offset-md-1 col-lg-8 offset-lg-2 mt-2 mt-md-5 pt-2">
-                <img class="img-fluid rounded" src="https://p0.pikist.com/photos/640/41/puma-sleeping-zoo-cougar-fur-mountain-lion-catamount-wildlife-big-cat.jpg">
+                <img class="img-fluid rounded" src="{% static 'images/puma_sleeping.jpg' %}">
             </div>
         </div>
     {% endif %}

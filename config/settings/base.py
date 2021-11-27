@@ -1,13 +1,12 @@
 import io
 import os
 import sys
-from pathlib import Path
 
 import environ
 from google.cloud import secretmanager
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 sys.path.append(os.path.join(BASE_DIR, "siteapps"))
 
 # Read env variables
@@ -52,6 +51,7 @@ INSTALLED_APPS = [
     "siteapps.mlbots",
     "siteapps.uploads",
     "siteapps.tags",
+    "siteapps.help",
     "crispy_forms",
     "crispy_bootstrap5",
     "simple_history",
@@ -72,7 +72,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [Path.joinpath(BASE_DIR, "siteapps", "templates")],
+        "DIRS": [os.path.join(BASE_DIR, "siteapps", "templates")],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -104,7 +104,6 @@ LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_L10N = True
-USE_TZ = True
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -162,4 +161,4 @@ CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
 CRISPY_TEMPLATE_PACK = "bootstrap5"
 
 # Custom django env settings
-GDRIVE_SHARED_FOLDER_ID = env("GDRIVE_SHARED_FOLDER_ID")
+DROPBOX_AUTH_TOKEN = env("DROPBOX_AUTH_TOKEN")

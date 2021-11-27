@@ -11,7 +11,7 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
     model = Upload
     form_class = UploadForm
     login_url = settings.LOGIN_URL
-    template_name = "uploads/upload.html"
+    template_name = "uploads/create.html"
 
     def get_success_url(self):
         return reverse("uploads:finalize", args=(self.object.id,))

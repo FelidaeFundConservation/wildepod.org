@@ -1,7 +1,7 @@
 from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 
-from .models import Area, CameraTrap, County, Grid, HabitatType, MacroSite, MicroSite, TrailType
+from .models import Area, CameraStation, County, Grid, HabitatType, MacroSite, MicroSite, TrailType
 
 
 @admin.register(Area)
@@ -53,9 +53,9 @@ class HabitatTypeAdmin(SimpleHistoryAdmin):
     search_fields = ["name"]
 
 
-@admin.register(CameraTrap)
-class CameraTrapdmin(SimpleHistoryAdmin):
-    list_display = ["trap_id", "date_deployed", "latitude", "longitude", "micro_site"]
-    list_display_links = ["trap_id", "micro_site"]
+@admin.register(CameraStation)
+class CameraStationAdmin(SimpleHistoryAdmin):
+    list_display = ["station_id", "date_deployed", "latitude", "longitude", "micro_site"]
+    list_display_links = ["station_id", "micro_site"]
     ordering = ["-date_deployed"]
-    search_fields = ["trap_id", "micro_site__name", "macro_site__macro_site__name"]
+    search_fields = ["station_id", "micro_site__name", "macro_site__macro_site__name"]

@@ -12,7 +12,7 @@ class UploadForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.layout = Layout(
-            Row(Column("camera_trap", css_class="form-group"), css_class="form-row mb-3"),
+            Row(Column("camera_station", css_class="form-group"), css_class="form-row mb-3"),
             Row(
                 Column("volunteer", css_class="form-group col-md-4"),
                 Column("date_retrieved", css_class="form-group col-md-4"),
@@ -36,7 +36,7 @@ class UploadForm(forms.ModelForm):
 
     class Meta:
         model = Upload
-        fields = ["camera_trap", "date_retrieved", "volunteer", "last_action", "error", "error_effect", "comments"]
+        fields = ["camera_station", "date_retrieved", "volunteer", "last_action", "error", "error_effect", "comments"]
 
         widgets = {
             "date_retrieved": forms.DateInput(attrs={"type": "date"}),
@@ -74,7 +74,7 @@ class UploadFinalizeForm(forms.ModelForm):
                 css_class="form-row mb-3",
             ),
             Row(
-                Row(Column("camera_trap", css_class="form-group"), css_class="form-row my-3"),
+                Row(Column("camera_station", css_class="form-group"), css_class="form-row my-3"),
                 Row(
                     Column("volunteer", css_class="form-group col-md-4"),
                     Column("date_retrieved", css_class="form-group col-md-4"),
@@ -96,7 +96,7 @@ class UploadFinalizeForm(forms.ModelForm):
     class Meta:
         model = Upload
         fields = [
-            "camera_trap",
+            "camera_station",
             "date_retrieved",
             "volunteer",
             "last_action",

@@ -15,5 +15,5 @@ if os.getenv("USE_CLOUD_SQL_AUTH_PROXY", None):
     DATABASES["default"]["PORT"] = 5434
 
 STATIC_URL = "/static/"
-MEDIA_ROOT = Path.joinpath(BASE_DIR, "siteapps", "media")
-STATICFILES_DIRS = [Path.joinpath(BASE_DIR, "siteapps", "static")]
+MEDIA_ROOT = os.path.join(BASE_DIR, "siteapps", "media")
+STATICFILES_DIRS = [os.path.join(BASE_DIR, "siteapps", "static")]

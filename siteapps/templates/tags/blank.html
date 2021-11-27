@@ -14,7 +14,7 @@
             <div class="col-12 col-sm-6 offset-sm-3">
                 <form action="" method="post">
                     {% csrf_token %}
-                    <input type="hidden" name="image_id" value={{image.gdrive_id}}>
+                    <input type="hidden" name="image_id" value={{image.pk}}>
                     <input type="submit" class="btn btn-secondary" name="object_of_interest" value="yes">
                     <input type="submit" class="btn btn-secondary" name="object_of_interest" value="no">
                 </form>
@@ -22,9 +22,7 @@
         </div>
         <div class="row mt-2 mt-md-4 px-2">
             <div class="col-12 text-center">
-                {% comment %} Dummy image for now since gdrive is throttling requests. Once things move to storage, thing should be fine {% endcomment %}
-                <img src="https://drive.google.com/uc?export=view&id={{image}}" class="img-thumbnail">
-                {% comment %} <img width="100%" src="https://dummyimage.com/1600x900/eee/000" class="img-thumbnail"> {% endcomment %}
+                <img src="{{image.dropbox_share_url}}" class="img-thumbnail">
             </div>
         </div>
     {% else %}

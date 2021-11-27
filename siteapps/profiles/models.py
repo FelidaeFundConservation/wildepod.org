@@ -6,7 +6,7 @@ from simple_history.models import HistoricalRecords
 
 # Model to extend django user model to have additional profile fields
 class Profile(AbstractUser, TimeStampedModel):
-    phone_number = models.CharField("Phone Number", max_length=50, blank=True)
+    phone_number = models.CharField("Phone Number", max_length=25, blank=True)
 
     # History of model instance changes
     history = HistoricalRecords()

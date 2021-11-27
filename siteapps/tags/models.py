@@ -8,7 +8,7 @@ from uploads.models import Image
 
 # Model to maintain different species tags
 class SpeciesTag(TimeStampedModel):
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=250, unique=True)
 
     # History of model instance changes
     history = HistoricalRecords()
@@ -31,7 +31,7 @@ class BlankTagByBot(TimeStampedModel):
     history = HistoricalRecords()
 
     def __str__(self):
-        return f"{self.image.filename} | {self.bot.name} | Blank - {self.blank} | Score - {self.score}"
+        return f"{self.image.dropbox_file_path} | {self.bot.name} | Blank - {self.blank} | Score - {self.score}"
 
     class Meta:
         ordering = ("created",)
@@ -47,7 +47,7 @@ class SpeciesTagByBot(TimeStampedModel):
     history = HistoricalRecords()
 
     def __str__(self):
-        return f"{self.image.filename} | {self.bot.name} | Species - {self.species} | Score - {self.score}"
+        return f"{self.image.dropbox_file_path} | {self.bot.name} | Species - {self.species} | Score - {self.score}"
 
     class Meta:
         ordering = ("created",)
@@ -63,7 +63,7 @@ class BlankTagByHuman(TimeStampedModel):
     history = HistoricalRecords()
 
     def __str__(self):
-        return f"{self.image.filename} | {self.human.username} | Blank - {self.blank}"
+        return f"{self.image.dropbox_file_path} | {self.human.username} | Blank - {self.blank}"
 
     class Meta:
         ordering = ("created",)
@@ -78,7 +78,7 @@ class SpeciesTagByHuman(TimeStampedModel):
     history = HistoricalRecords()
 
     def __str__(self):
-        return f"{self.image.filename} | {self.human.username} | Species - {self.species}"
+        return f"{self.image.dropbox_file_path} | {self.human.username} | Species - {self.species}"
 
     class Meta:
         ordering = ("created",)

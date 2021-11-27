@@ -1,8 +1,13 @@
+# Move this later to upload/image app
+import dropbox
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.generic import FormView, TemplateView
 
 from .models import BlankTagByHuman, Image, SpeciesTag, SpeciesTagByHuman
+
+# Create a dropbox client
+dbx = dropbox.Dropbox(settings.DROPBOX_AUTH_TOKEN)
 
 
 class TagBlankView(LoginRequiredMixin, TemplateView):
@@ -13,7 +18,12 @@ class TagBlankView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         # TODO: Layer smarter selection logic in here
         # For now, this simple selects an object that does not have any human tag
-        context["image"] = Image.objects.filter(blanktagbyhuman__isnull=True).first()
+        image_obj = Image.objects.filter(blanktagbyhuman__isnull=True).first()
+        if image_obj:
+            response = dbx.sharing_create_shared_link(image_obj.dropbox_file_path)
+            image_obj.dropbox_share_url = response.url.replace("?dl=0", "?raw=1")
+        context["image"] = image_obj
+        # Enables a share link for each dropbox image if share url is missing
 
         return context
 
@@ -30,7 +40,7 @@ class TagBlankView(LoginRequiredMixin, TemplateView):
 
             # Create an annotation for this user and image
             obj, created = BlankTagByHuman.objects.get_or_create(
-                human=self.request.user, image=Image.objects.get(gdrive_id=image_id), blank=blank
+                human=self.request.user, image=Image.objects.get(pk=image_id), blank=blank
             )
         return super().get(request)
 
@@ -57,6 +67,10 @@ class TagSpeciesView(LoginRequiredMixin, TemplateView):
             if first_non_blank:
                 break
 
+        if first_non_blank:
+            response = dbx.sharing_create_shared_link(first_non_blank.dropbox_file_path)
+            first_non_blank.dropbox_share_url = response.url.replace("?dl=0", "?raw=1")
+
         context["image"] = first_non_blank
 
         context["species_list"] = SpeciesTag.objects.all()
@@ -71,7 +85,7 @@ class TagSpeciesView(LoginRequiredMixin, TemplateView):
             # Create an annotation for this user and image
             obj, created = SpeciesTagByHuman.objects.get_or_create(
                 human=self.request.user,
-                image=Image.objects.get(gdrive_id=image_id),
+                image=Image.objects.get(pk=image_id),
                 species=SpeciesTag.objects.get(name=species),
             )
         return super().get(request)

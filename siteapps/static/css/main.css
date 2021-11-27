@@ -80,7 +80,7 @@ a:hover {
 
 .nav-link {
   font-family: 'Rajdhani', sans-serif;
-  font-size: 1.25em;
+  font-size: 1.2em;
   font-weight: 600;
   color: rgb(17, 136, 57) !important;
 }
@@ -92,12 +92,6 @@ a:hover {
 .nav-item.active .nav-link {
   color: rgb(0, 83, 11) !important;
   font-weight: 700;
-}
-
-@media (min-width: 767.98px) {
-  .nav-item.active .nav-link{
-      border-bottom: 3px solid rgba(16, 190, 74, 0.5);
-  }
 }
 
 .tag-dropdown {

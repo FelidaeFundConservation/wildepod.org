@@ -3,9 +3,9 @@ from datetime import datetime
 
 import pandas as pd
 from inventory.models import Camera, CameraBrand, CameraModel, Padlock, PythonLock
-from locations.models import Area, CameraTrap, County, Grid, HabitatType, MacroSite, MicroSite, TrailType
+from locations.models import Area, CameraStation, County, Grid, HabitatType, MacroSite, MicroSite, TrailType
 from tags.models import SpeciesTag
-from uploads.models import CameraTrapAction, UploadError, UploadErrorEffect
+from uploads.models import CameraStationAction, UploadError, UploadErrorEffect
 
 # Download active camera data sheet as tsv into the local_data folder and rename as necessary
 active_cameras_df = pd.read_csv("local_data/active_cameras.tsv", delimiter="\t")
@@ -61,15 +61,15 @@ for i, rec in camera_inventory_df.iterrows():
         )
         print(f'Successfully created record for camera with serial number - {rec["Serial #"]}')
 
-# Load active camera traps
+# Load active camera stations
 for i, rec in active_cameras_df.iterrows():
-    camera_trap_id = rec["Unnamed: 0"]
-    print(f"(Row - {i}) Loading Camera trap with id - {camera_trap_id}")
-    if not camera_trap_id or not rec["Latitude"] or not rec["Longitude"]:
-        print("Missing camera trap id or lat/long. Skipping...")
+    camera_station_id = rec["Unnamed: 0"]
+    print(f"(Row - {i}) Loading Camera station with id - {camera_station_id}")
+    if not camera_station_id or not rec["Latitude"] or not rec["Longitude"]:
+        print("Missing camera station id or lat/long. Skipping...")
         continue
     # These are offending camera IDs that don't quite fit the existing schema.
-    if camera_trap_id in [
+    if camera_station_id in [
         "LAH13Bsnare2",
         "DIA01A",
         "DIA02A",
@@ -95,7 +95,7 @@ for i, rec in active_cameras_df.iterrows():
         "SPVexp",
         "PUC09C",
     ]:
-        print("This camera trap doesn't quite fit the schema. Skipping...")
+        print("This camera station doesn't quite fit the schema. Skipping...")
         continue
     area, _ = Area.objects.get_or_create(name=rec["Unnamed: 1"].strip())
     county, _ = County.objects.get_or_create(name=rec["County"].strip(), area=area)
@@ -118,8 +118,8 @@ for i, rec in active_cameras_df.iterrows():
         if rec["Secondary Habitat Type"]
         else (None, None)
     )
-    camera_trap_obj, _ = CameraTrap.objects.get_or_create(
-        trap_id=camera_trap_id,
+    camera_station_obj, _ = CameraStation.objects.get_or_create(
+        station_id=camera_station_id,
         latitude=rec["Latitude"],
         longitude=rec["Longitude"],
         micro_site=micro_site,
@@ -127,7 +127,7 @@ for i, rec in active_cameras_df.iterrows():
         habitat_type=habitat_type,
         date_deployed=datetime.strptime(rec["Date Deployed"], "%m/%d/%Y").date(),
     )
-    camera_trap_obj.secondary_habitat_type = secondary_habitat_type
+    camera_station_obj.secondary_habitat_type = secondary_habitat_type
 
     elevation = None
     elevation_unit = None
@@ -138,17 +138,17 @@ for i, rec in active_cameras_df.iterrows():
         elevation = int(rec["Elevation (ft)"].replace("m", "").strip())
         elevation_unit = "m"
 
-    camera_trap_obj.elevation = elevation
-    camera_trap_obj.elevation_unit = elevation_unit
+    camera_station_obj.elevation = elevation
+    camera_station_obj.elevation_unit = elevation_unit
 
     if rec["Date Last Checked"].strip():
         try:
-            camera_trap_obj.date_last_checked = datetime.strptime(rec["Date Last Checked"], "%m/%d/%Y").date()
+            camera_station_obj.date_last_checked = datetime.strptime(rec["Date Last Checked"], "%m/%d/%Y").date()
         except:
             print(f"Format issue with 'Date Last Checked' field")
     if rec["Date to Be Checked"].strip():
         try:
-            camera_trap_obj.date_to_be_checked = datetime.strptime(rec["Date to Be Checked"], "%m/%d/%Y").date()
+            camera_station_obj.date_to_be_checked = datetime.strptime(rec["Date to Be Checked"], "%m/%d/%Y").date()
         except:
             print(f"Format issue with 'Date to Be Checked' field")
             pass
@@ -163,7 +163,7 @@ for i, rec in active_cameras_df.iterrows():
                 duplicate_key_exists=duplicate_key_exists,
             )
 
-    camera_trap_obj.python_lock = python_lock
+    camera_station_obj.python_lock = python_lock
     padlock = rec["Padlock Type"] if rec["Padlock Type"] else ""
     if padlock:
         padlock, created = Padlock.objects.get_or_create(name=padlock)
@@ -171,25 +171,25 @@ for i, rec in active_cameras_df.iterrows():
             padlock.count += 1
             padlock.save()
 
-    camera_trap_obj.instructions = rec["Contact before check?"]
-    camera_trap_obj.picture_instructions = rec["Send pictures?"]
-    camera_trap_obj.notes = rec["Comments"]
+    camera_station_obj.instructions = rec["Contact before check?"]
+    camera_station_obj.picture_instructions = rec["Send pictures?"]
+    camera_station_obj.notes = rec["Comments"]
 
     camera_obj = None
     boxed = False
-    camera_row = camera_inventory_df.loc[camera_inventory_df["Camera ID"] == camera_trap_id]
+    camera_row = camera_inventory_df.loc[camera_inventory_df["Camera ID"] == camera_station_id]
     if not camera_row.empty:
         camera_row = camera_row.to_dict(orient="records")[0]
         if Camera.objects.filter(serial_number=camera_row["Serial #"]).exists():
             camera_obj = Camera.objects.get(serial_number=camera_row["Serial #"])
         boxed = True if camera_row["Box?"] == "Yes" else False
 
-    camera_trap_obj.camera = camera_obj
-    camera_trap_obj.boxed = boxed
+    camera_station_obj.camera = camera_obj
+    camera_station_obj.boxed = boxed
 
-    camera_trap_obj.save()
+    camera_station_obj.save()
 
-    print(f"Successfully created record for camera trap with id- {camera_trap_id}")
+    print(f"Successfully created record for camera station with id- {camera_station_id}")
 
 # Create upload errors, error effects & action taken etc
 errors = [
@@ -232,7 +232,7 @@ actions = [
 ]
 
 for action in actions:
-    model, _ = CameraTrapAction.objects.get_or_create(action=action)
+    model, _ = CameraStationAction.objects.get_or_create(action=action)
 
 
 species_list = [

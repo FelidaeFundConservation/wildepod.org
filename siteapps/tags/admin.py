@@ -7,29 +7,30 @@ from .models import BlankTagByBot, BlankTagByHuman, SpeciesTag, SpeciesTagByBot,
 @admin.register(BlankTagByHuman)
 class BlankTagByHumanAdmin(SimpleHistoryAdmin):
     def filename(self, obj):
-        return obj.image.filename
+        return obj.image.dropbox_file_name.split(" - ")[1:]
 
-    def trap_id(self, obj):
-        return obj.image.upload.camera_trap.trap_id
+    def station_id(self, obj):
+        return obj.image.upload.camera_station.station_id
 
     def micro_site(self, obj):
-        return obj.image.upload.camera_trap.micro_site.name
+        return obj.image.upload.camera_station.micro_site.name
 
     def macro_site(self, obj):
-        return obj.image.upload.camera_trap.micro_site.macro_site.name
+        return obj.image.upload.camera_station.micro_site.macro_site.name
 
-    def date_retrieved(self, obj):
-        return obj.image.upload.date_retrieved
+    def time_taken(self, obj):
+        return obj.image.time_taken
 
-    list_display = ["filename", "human", "blank", "trap_id", "micro_site", "macro_site", "date_retrieved"]
+    list_display = ["filename", "human", "blank", "station_id", "micro_site", "macro_site", "time_taken"]
     list_display_links = [
-        "trap_id",
+        "filename",
+        "station_id",
         "micro_site",
         "macro_site",
-        "date_retrieved",
+        "time_taken",
     ]
     ordering = ["-created"]
-    search_fields = ["filename", "human", "trap_id", "micro_site", "macro_site"]
+    search_fields = ["filename", "human", "station_id", "micro_site", "macro_site"]
 
 
 @admin.register(BlankTagByBot)
@@ -45,29 +46,30 @@ class SpeciesTagAdmin(SimpleHistoryAdmin):
 @admin.register(SpeciesTagByHuman)
 class SpeciesTagByHumanAdmin(SimpleHistoryAdmin):
     def filename(self, obj):
-        return obj.image.filename
+        return obj.image.dropbox_file_name.split(" - ")[1:]
 
-    def trap_id(self, obj):
-        return obj.image.upload.camera_trap.trap_id
+    def station_id(self, obj):
+        return obj.image.upload.camera_station.station_id
 
     def micro_site(self, obj):
-        return obj.image.upload.camera_trap.micro_site.name
+        return obj.image.upload.camera_station.micro_site.name
 
     def macro_site(self, obj):
-        return obj.image.upload.camera_trap.micro_site.macro_site.name
+        return obj.image.upload.camera_station.micro_site.macro_site.name
 
-    def date_retrieved(self, obj):
-        return obj.image.upload.date_retrieved
+    def time_taken(self, obj):
+        return obj.image.time_taken
 
-    list_display = ["filename", "human", "species", "trap_id", "micro_site", "macro_site", "date_retrieved"]
+    list_display = ["filename", "human", "species", "station_id", "micro_site", "macro_site", "time_taken"]
     list_display_links = [
-        "trap_id",
+        "filename",
+        "station_id",
         "micro_site",
         "macro_site",
-        "date_retrieved",
+        "time_taken",
     ]
     ordering = ["-created"]
-    search_fields = ["filename", "human", "species", "trap_id", "micro_site", "macro_site"]
+    search_fields = ["filename", "human", "species", "station_id", "micro_site", "macro_site"]
 
 
 @admin.register(SpeciesTagByBot)

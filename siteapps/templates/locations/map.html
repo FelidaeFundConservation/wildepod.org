@@ -6,40 +6,48 @@
 
 {% block content %}
 
-<!--The div element for the map -->
-<div class="map">
-    <div id="map"></div>
-</div>
+    <!--The div element for the map -->
+    <div class="map">
+        <div id="map"></div>
+    </div>
 
 
-<!-- Async script executes immediately and must be after any DOM elements used in callback. -->
-<script
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDsUCF2ksorF0V8acHvCDo0AsZYAWImGkg&callback=initMap&libraries=&v=weekly"
-    async
-    ></script>
+    <!-- Async script executes immediately and must be after any DOM elements used in callback. -->
+    <script
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDsUCF2ksorF0V8acHvCDo0AsZYAWImGkg&callback=initMap&libraries=&v=weekly"
+        async
+        ></script>
+    {% endblock %}
+
+    {% block footer_includes %}
+    <script>
+    const camera_stations = [
+        {% for camera_station in object_list %}
+            {lat: {{ camera_station.latitude }}, lng: {{ camera_station.longitude }}, title: "{{ camera_station.micro_site }}"},
+        {% endfor %}
+    ]
+    // Initialize and add the map
+    function initMap() {
+        // The map, centered at the first co-ordinate
+        const map = new google.maps.Map(document.getElementById("map"), {
+        zoom: 9,
+        center: {lat: camera_stations[0]['lat'], lng: camera_stations[0]['lng']},
+        });
+        for (let i = 0; i < camera_stations.length; i++){
+            new google.maps.Marker({
+                position: {lat: camera_stations[i]['lat'], lng: camera_stations[i]['lng']},
+                map: map,
+                title: camera_stations[i]['title']
+            });
+        }
+    }
+    </script>
 {% endblock %}
 
-{% block footer_includes %}
-<script>
-const camera_traps = [
-    {% for camera_trap in object_list %}
-        {lat: {{ camera_trap.latitude }}, lng: {{ camera_trap.longitude }}, title: "{{ camera_trap.micro_site }}"},
-    {% endfor %}
-]
-// Initialize and add the map
-function initMap() {
-    // The map, centered at the first co-ordinate
-    const map = new google.maps.Map(document.getElementById("map"), {
-      zoom: 9,
-      center: {lat: camera_traps[0]['lat'], lng: camera_traps[0]['lng']},
-    });
-    for (let i = 0; i < camera_traps.length; i++){
-        new google.maps.Marker({
-            position: {lat: camera_traps[i]['lat'], lng: camera_traps[i]['lng']},
-            map: map,
-            title: camera_traps[i]['title']
-        });
-    }
-  }
-</script>
+{% comment %}
+    Void out the footer to enable easy full page map scrolling
+    This will probably change if the page is updated to include more information in addition to mapping
+ {% endcomment %}
+{% block footer %}
+
 {% endblock %}

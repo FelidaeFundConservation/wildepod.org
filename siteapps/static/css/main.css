@@ -133,6 +133,10 @@ a:hover {
   font-size: 1.25em;
 }
 
+#map-widget {
+  min-height: 500px;
+}
+
 
 /* Set the size of the div element that contains the map */
 .map {

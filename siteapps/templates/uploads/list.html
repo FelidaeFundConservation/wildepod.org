@@ -1,5 +1,4 @@
 {% extends 'base.html' %}
-{% load crispy_forms_tags %}
 
 <!-- Set corresponding nav pill to active -->
 {% block nav_uploads %}active{% endblock %}
@@ -26,7 +25,7 @@
                     <p>If all pictures have been uploaded to Dropbox, please click on the finalize button.</p>
                 {% endif %}
 
-                <table class="table mt-2 mt-md-4 align-middle">
+                <table class="table mt-2 mt-md-4 align-middle text-center">
                     <thead>
                         <tr>
                             <th scope="col">Camera Station ID</th>
@@ -34,25 +33,25 @@
                             <th scope="col">Park</th>
                             <th scope="col">Date Retrieved</th>
                             <th scope="col">Action</th>
-                            <th scope="col">Upload location</th>
+                            <th scope="col">Dropbox</th>
                             {% if user.is_staff %}<th scope="col">Volunteer</th>{% endif %}
                             <th scope="col"></th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for object in object_list%}
-                        {% if not object.upload_complete %}
-                            <tr>
-                            <td>{{object.camera_station.station_id}}</td>
-                            <td>{{object.camera_station.micro_site}}</td>
-                            <td>{{object.camera_station.micro_site.macro_site}}</td>
-                            <td>{{object.date_retrieved}}</td>
-                            <td>{{object.last_action}}</td>
-                            <td><a href="{{object.dropbox_request_url}}" target="_blank" class="text-decoration-none">Dropbox 🔗</a></td>
-                            {% if user.is_staff %}<td>{{object.volunteer.username}}</td>{% endif %}
-                            <td><a href="{% url 'uploads:finalize' object.id %}"><button type="button" class="btn btn-light">Finalize</button></a></td>
-                            </tr>
-                        {% endif %}
+                            {% if not object.upload_complete %}
+                                <tr>
+                                <td>{{object.camera_station.station_id}}</td>
+                                <td>{{object.camera_station.micro_site}}</td>
+                                <td>{{object.camera_station.micro_site.macro_site}}</td>
+                                <td>{{object.date_retrieved}}</td>
+                                <td>{{object.last_action}}</td>
+                                <td><a href="{{object.dropbox_request_url}}" target="_blank" class="text-decoration-none">Open</a></td>
+                                {% if user.is_staff %}<td>{{object.volunteer.username}}</td>{% endif %}
+                                <td><a href="{% url 'uploads:finalize' object.id %}"><button type="button" class="btn btn-light">Finalize</button></a></td>
+                                </tr>
+                            {% endif %}
                         {% endfor %}
                     </tbody>
                 </table>
@@ -67,36 +66,58 @@
                 <h2>Completed Uploads</h2>
                 {% if user.is_staff %}
                     <p>
-                        Hey, {{user.username}}! This is just your completed uploads. Since you're a staff member, navigate to the
-                        <a href="{% url 'admin:uploads_upload_changelist'%}" class="text-decoration-none">admin</a>
-                        page for the full list of uploads across all volunteers.
+                        Hey, {{user.username}}! Since you're a staff member, this is the list of all uploads from all users.
+                        Dropbox urls are not public and will only be available if you are logged into the dropbox org account.
                     </p>
+                {% else %}
+                    <p>Hey, {{user.username}}! Here is a list of all your uploads</p>
                 {% endif %}
 
-                <table class="table mt-2 mt-md-4 align-middle">
+                <table class="table mt-2 mt-md-4 align-middle text-center">
                     <thead>
                     <tr>
                         <th scope="col">Station ID</th>
                         <th scope="col">Site</th>
                         <th scope="col">Park</th>
-                        <th scope="col">Date Retrieved</th>
-                        <th scope="col">Action</th>
-                        <th scope="col">Error</th>
-                        <th scope="col">Effect</th>
+                        <th scope="col">Date Retrieved </th>
+                        <th scope="col"># Images</th>
+                        {% if user.is_staff %}
+                            <th scope="col">Volunteer</th>
+                            <th scope="col">Dropbox</th>
+                        {% endif %}
+                        <th scope="col"></th>
                     </tr>
                     </thead>
                     <tbody>
                         {% for object in object_list%}
-                            {% if object.upload_complete and object.volunteer == user %}
-                            <tr>
-                                <td>{{object.camera_station.station_id}}</td>
-                                <td>{{object.camera_station.micro_site}}</td>
-                                <td>{{object.camera_station.micro_site.macro_site}}</td>
-                                <td>{{object.date_retrieved}}</td>
-                                <td>{{object.last_action}}</td>
-                                <td>{{object.error}}</td>
-                                <td>{{object.error_effect}}</td>
-                            </tr>
+                            {% if object.upload_complete %}
+                                <tr>
+                                    <td>{{object.camera_station.station_id}}</td>
+                                    <td>{{object.camera_station.micro_site}}</td>
+                                    <td>{{object.camera_station.micro_site.macro_site}}</td>
+                                    <td>{{object.date_retrieved}}</td>
+                                    {% if object.processed %}
+                                        <th scope="col">{{object.image_set.all.count}}</th>
+                                    {% else %}
+                                        <th scope="col">-</th>
+                                    {% endif %}
+                                    {% if user.is_staff %}
+                                        <td>{{object.volunteer.username}}</td>
+                                        <td>
+                                            {% comment %} Change this with the correct prefix later {% endcomment %}
+                                            <a href="https://www.dropbox.com/home/Apps/abhay_test/{{object.dropbox_folder_path}}" target="_blank" class="text-decoration-none">
+                                                Open
+                                            </a>
+                                        </td>
+                                    {% endif %}
+                                    <td>
+                                        {% if object.processed %}
+                                            <a href="{% url 'uploads:detail' object.id %}"><button type="button" class="btn btn-light">View</button></a>
+                                        {% else %}
+                                            <th scope="col">processing..</th>
+                                        {% endif %}
+                                    </td>
+                                </tr>
                             {% endif %}
                         {% endfor %}
                     </tbody>

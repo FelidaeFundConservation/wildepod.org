@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% load static %}
+
+<!-- Set corresponding nav pill to active -->
+{% block nav_uploads %}active{% endblock %}
+
+{% block content %}
+    <div class="container py-4 my-4">
+
+        {% if object.volunteer == user or user.is_staff %}
+            {% if not object.processed %}
+                <h3 class="py-4 my-4 text-center">Warning: This upload is still being processed and might not have all the images yet</h3>
+            {% endif %}
+            <div class="row">
+                <div class="col-12 col-md-6 pt-2 mt-2">
+                    <h1 class="text-center">{{object.camera_station.micro_site.macro_site}} - {{object.date_retrieved}}</h1>
+                    <hr>
+                    <div class="row">
+                        <div class="col-4 text-end">
+                            <p><b>Site:</b></p>
+                        </div>
+                        <div class="col-8">
+                            <p>{{object.camera_station.micro_site}}</p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-4 text-end">
+                            <p><b>Station ID:</b></p>
+                        </div>
+                        <div class="col-8">
+                            <p>{{object.camera_station.station_id}}</p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-4 text-end">
+                            <p><b>Date Retrived:</b></p>
+                        </div>
+                        <div class="col-8">
+                            <p><b>{{object.date_retrieved}}</b></p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-4 text-end">
+                            <p><b>Latitude:</b></p>
+                        </div>
+                        <div class="col-8">
+                            <p>{{object.camera_station.latitude}}</p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-4 text-end">
+                            <p><b>Longitude:</b></p>
+                        </div>
+                        <div class="col-8">
+                            <p>{{object.camera_station.longitude}}</p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-4 text-end">
+                            <p><b># Images:</b></p>
+                        </div>
+                        <div class="col-8">
+                            <p>{{object.image_set.all.count}}</p>
+                        </div>
+                    </div>
+                    {% if user.is_staff and user.is_active %}
+                        <div class="row">
+                            <div class="col-4 text-end">
+                                <p><b>Dropbox:</b></p>
+                            </div>
+                            <div class="col-8">
+                                <p>
+                                    <a href="https://www.dropbox.com/home/Apps/abhay_test/{{object.dropbox_folder_path}}" target="_blank" class="text-decoration-none">
+                                        open
+                                    </a>
+                                </p>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="col-12 col-md-6 pt-2 mt-2">
+                    <div id="map-widget"></div>
+                </div>
+            </div>
+            <div class="row pt-5 mt-5">
+                <div class="col-12 pb-2 mb-2">
+                    <h2 class="text-center">Image list</h2>
+                </div>
+            </div>
+            {% for image in object.image_set.all %}
+                <div class="row pt-3 mt-3">
+                    <div class="col-6 col-md-6 text-center">
+                        {% comment %} The slice is needed here since there is a trailing & leading slash {% endcomment %}
+                        <img class="img-fluid img-thumbnail" src="{% get_media_prefix %}{{image.thumbnail_1024_url|slice:"1:"}}">
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <p>Time taken: {{image.time_taken}}</p>
+                        <p>Blank: No</p>
+                        <p>Species: Puma</p>
+                        <p><a href="https://www.dropbox.com/home/Apps/abhay_test/{{image.dropbox_file_path}}" target="_blank" class="text-decoration-none">View Original</a></p>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="row text-center">
+                <h3>You are not authorized to view this upload. Please login as admin/staff.</h3>
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}
+
+
+{% block footer_includes %}
+    <!-- Async script executes immediately and must be after any DOM elements used in callback. -->
+    <script
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDsUCF2ksorF0V8acHvCDo0AsZYAWImGkg&callback=initMap&libraries=&v=weekly"
+        async
+        ></script>
+    <script>
+    const camera_station = {
+            lat: {{ object.camera_station.latitude }},
+            lng: {{ object.camera_station.longitude }},
+            title: "{{ object.camera_station.micro_site }}"
+    }
+    // Initialize and add the map
+    function initMap() {
+        // The map, centered at the first co-ordinate
+        const map = new google.maps.Map(document.getElementById("map-widget"), {
+            zoom: 10,
+            center: {lat: camera_station['lat'], lng: camera_station['lng']},
+        });
+        new google.maps.Marker({
+            position: {lat: camera_station['lat'], lng: camera_station['lng']},
+            map: map,
+            title: camera_station['title']
+        });
+    }
+    </script>
+{% endblock %}

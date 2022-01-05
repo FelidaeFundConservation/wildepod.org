@@ -1,10 +1,16 @@
+import threading
+
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import HttpResponse
 from django.urls import reverse
-from django.views.generic import CreateView, ListView, UpdateView
+from django.views import View
+from django.views.generic import CreateView, DetailView, ListView, UpdateView
+from django.views.generic.base import TemplateView
 
 from .forms import UploadFinalizeForm, UploadForm
 from .models import Upload
+from .utils import process_upload
 
 
 class UploadCreateView(LoginRequiredMixin, CreateView):
@@ -47,5 +53,27 @@ class UploadFinalizeView(LoginRequiredMixin, UpdateView):
     login_url = settings.LOGIN_URL
     template_name = "uploads/finalize.html"
 
+    # Override post method to trigger a cloud task to process the upload
+    def post(self, request, *args, **kwargs):
+        # Process upload only if "upload_complete" was checked in the form
+        if request.POST.get("upload_complete"):
+            # Create a thread to process the upload
+            thread = threading.Thread(target=process_upload, args=[self.get_object().id])
+            # Move it to the background
+            thread.setDaemon(True)
+            # Start running the thread
+            thread.start()
+
+        return super().post(request, *args, **kwargs)
+
     def get_success_url(self):
         return reverse("uploads:list")
+
+
+class UploadDetailView(LoginRequiredMixin, DetailView):
+    model = Upload
+    login_url = settings.LOGIN_URL
+    template_name = "uploads/detail.html"
+
+    def get_success_url(self):
+        return reverse("uploads:detail")

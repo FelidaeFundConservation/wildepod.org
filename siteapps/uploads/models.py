@@ -5,9 +5,7 @@ from locations.models import CameraStation
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
 
-# Create a dropbox client
 dbx = dropbox.Dropbox(settings.DROPBOX_AUTH_TOKEN)
-
 
 # Model for error types & its effects
 class UploadError(TimeStampedModel):
@@ -91,6 +89,9 @@ class Upload(TimeStampedModel):
     # Upload status. This defaults to false. After dropbox upload has been completed, this should be set to true by the uploader
     upload_complete = models.BooleanField("Upload to Dropbox complete?", default=False)
 
+    # Processed flag. This defaults to false. After all images have been processed, this flag will be set to true.
+    processed = models.BooleanField("Processed upload?", default=False)
+
     # History of model instance changes
     history = HistoricalRecords()
 
@@ -115,61 +116,7 @@ class Upload(TimeStampedModel):
             self.dropbox_request_url = response.url
             self.dropbox_request_open = response.is_open
 
-        # When the upload is marked as complete, close the request and trigger a cloud task to process all the images
-        # Initially this would be just listing the objects & saving their metadata.
-        # Later, this will likely include image thumbnail creation for faster rendering and running ML to get tags
-        if self.upload_complete:
-            # First close the request
-            dbx.file_requests_update(id=self.dropbox_request_id, open=False)
-
-            # Next, get the list of all files in this directory and create relevant image objects
-            # All the code starting here should be moved into an asynchronous task
-            response = dbx.files_list_folder(self.dropbox_folder_path, recursive=True)
-            entries = response.entries
-            # TODO: The part where pagination happens is untested
-            while response.has_more:
-                response = dbx.files_list_folder_continue(response.cursor)
-                entries += response.entries
-
-            # Process each entry & create relevant image/video objects
-            for entry in entries:
-                # Skip all folders
-                if isinstance(entry, dropbox.files.FileMetadata):
-                    # Retrieve their metadata along with media info
-                    # "include_media_info" is deprecated in the files_list_folder API requiring a call for each file again
-                    # TODO: Maybe this can be offloaded to an on-demand functionality that retrieves data only if needed
-                    response = dbx.files_get_metadata(entry.path_lower, include_media_info=True)
-                    media_info = response.media_info.get_metadata()
-                    # Only process image or video content
-                    if isinstance(media_info, dropbox.files.PhotoMetadata) or isinstance(
-                        media_info, dropbox.files.VideoMetadata
-                    ):
-                        img_obj, created = Image.objects.get_or_create(
-                            upload=self,
-                            dropbox_file_name=response.name,
-                            dropbox_file_path=response.path_lower,
-                            dropbox_file_path_display=response.path_display,
-                            dropbox_content_hash=response.content_hash,
-                            dropbox_file_id=response.id,
-                            file_size=response.size,
-                            is_video=isinstance(media_info, dropbox.files.VideoMetadata),
-                        )
-
-                        # Update other fields along with custom data extracted if they exist
-                        if media_info.time_taken:
-                            img_obj.time_taken = media_info.time_taken
-                        if media_info.dimensions:
-                            img_obj.height = media_info.dimensions.height
-                            img_obj.width = media_info.dimensions.width
-                        if media_info.location:
-                            img_obj.latitude = media_info.location.latitude
-                            img_obj.longitude = media_info.location.longitude
-                        if img_obj.is_video and media_info.duration:
-                            img_obj.duration = media_info.duration
-
-                        img_obj.save()
-
-        super(Upload, self).save(*args, **kwargs)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.dropbox_folder_name
@@ -221,6 +168,10 @@ class Image(TimeStampedModel):
     longitude = models.FloatField(blank=True, null=True)
     # Only relevant for video
     duration = models.IntegerField(blank=True, null=True)
+
+    # Thumbnail location. Only populated for images & is directly saved into a bucket with the url set.
+    # These thumbnails are transient, i.e. there is no guarantee that they will persist
+    thumbnail_1024_url = models.URLField(blank=True, null=True)
 
     # History of model instance changes
     history = HistoricalRecords()

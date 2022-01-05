@@ -5,21 +5,18 @@
 {% block nav_map %}active{% endblock %}
 
 {% block content %}
-
     <!--The div element for the map -->
     <div class="map">
         <div id="map"></div>
     </div>
+{% endblock %}
 
-
+{% block footer_includes %}
     <!-- Async script executes immediately and must be after any DOM elements used in callback. -->
     <script
         src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDsUCF2ksorF0V8acHvCDo0AsZYAWImGkg&callback=initMap&libraries=&v=weekly"
         async
         ></script>
-    {% endblock %}
-
-    {% block footer_includes %}
     <script>
     const camera_stations = [
         {% for camera_station in object_list %}

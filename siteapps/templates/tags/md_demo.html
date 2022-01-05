@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% load static %}
+
+<!-- Set corresponding nav pill to active -->
+{% block nav_tag %}active{% endblock %}
+
+{% block content %}
+    <div class="container">
+        <div class="row justify-content-evenly">
+            <div class="col-12 my-3 py-3 text-center">
+                <h1>MegaDetector Demo</h1>
+            </div>
+            <hr>
+            <div class="col-12 my-3 py-3">
+                <form action="/tags/md-demo/" enctype="multipart/form-data" method="post" >
+                    {% csrf_token %}
+                    <p>Enter image URL: {{ form.url }}</p>
+                    <h3>OR</h3>
+                    <p>Upload Image: {{form.image}}</p>
+                    <p><input type="submit" value="Submit"></p>
+                </form>
+            </div>
+            <hr>
+            {% if image %}
+                <div class="col-12 col-md-10 col-lg-8 my-3 py-3 text-center">
+                    <h2 class="mb-3 pb-3">Source Image</h2>
+                    {% if image_type == "url" %}
+                        <img class="img-fluid" src="{{image}}">
+                    {% else %}
+                        <img class="img-fluid" src="data:image/jpg;base64,{{image}}">
+                    {% endif %}
+                </div>
+                <hr/>
+                <div class="col-12 col-md-10 col-lg-8 my-3 py-3 text-center">
+                    <h2 class="mb-3 pb-3">Result</h2>
+                    <img class="img-fluid" src="data:image/jpg;base64,{{output_image}}">
+                </div>
+                <hr>
+                {% for cropped_img, meta in cropped_images%}
+                    <div class="col-12 col-md-6 my-3 py-3 text-center">
+                        <img class="img-fluid" src="data:image/jpg;base64,{{cropped_img}}">
+                    </div>
+                    <div class="col-12 col-md-6 my-3 py-3">
+                        <p>Object type: <b>{{meta.category}}</b></p>
+                        <p>Confidence: <b>{{meta.conf}}</b></p>
+                    </div>
+                {% endfor %}
+                <hr>
+                <div class="col-12 my-3 py-3">
+                    <h2 class="mb-3 pb-3">Raw Result</h2>
+<pre>{{raw_result}}</pre>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

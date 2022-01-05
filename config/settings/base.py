@@ -159,6 +159,3 @@ JAZZMIN_SETTINGS = {
 # Crispy form settings
 CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
 CRISPY_TEMPLATE_PACK = "bootstrap5"
-
-# Custom django env settings
-DROPBOX_AUTH_TOKEN = env("DROPBOX_AUTH_TOKEN")

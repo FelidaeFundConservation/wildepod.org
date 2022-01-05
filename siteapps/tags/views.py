@@ -96,7 +96,6 @@ from io import BytesIO
 
 import requests
 from django.shortcuts import render
-from PIL import Image
 
 from .forms import MLDemoForm
 from .tmp_utils import crop_image, load_image_from_binary_string, load_web_image, render_detection_bounding_boxes

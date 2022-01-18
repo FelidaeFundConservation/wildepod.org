@@ -1,9 +1,10 @@
 from django.conf import settings
 from django.db import models
-from mlbots.models import Bot
+from images.models import Bot, Image
+
+# from mlbots.models import Bot
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
-from uploads.models import Image
 
 
 # Model to maintain different species tags

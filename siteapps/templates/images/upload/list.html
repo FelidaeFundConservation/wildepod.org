@@ -1,65 +1,62 @@
 {% extends 'base.html' %}
 
 <!-- Set corresponding nav pill to active -->
-{% block nav_uploads %}active{% endblock %}
+{% block nav_upload %}active{% endblock %}
 
 {% block content %}
     <div class="container uploads">
         <div class="row pt-3 mt-3 text-center">
             <div class="col-12 col-sm-6 offset-sm-3">
-                <a class="btn btn-dark cta" role="button" href="{% url 'uploads:create' %}">
-                    <span class="material-icons align-top">add</span> Create Upload
+                <a class="btn btn-dark cta" role="button" href="{% url 'images:create_upload' %}">
+                    <span class="material-icons align-top">add</span> Upload Images
                 </a>
             </div>
         </div>
 
+        {% if num_pending > 0 %}
         <div class="row pt-3 mt-3">
             <h2>Pending Uploads</h2>
-            {% if num_pending > 0 %}
-                {% if user.is_staff %}
-                    <p>Hey, {{user.username}}! Since you're a staff member, you can see the list of all pending uploads for all volunteers.
-                        You can also find this on the <a href="{% url 'admin:uploads_upload_changelist'%}" class="text-decoration-none">admin</a>
-                        page.
-                    </p>
-                {% else %}
-                    <p>If all pictures have been uploaded to Dropbox, please click on the finalize button.</p>
-                {% endif %}
-
-                <table class="table mt-2 mt-md-4 align-middle text-center">
-                    <thead>
-                        <tr>
-                            <th scope="col">Camera Station ID</th>
-                            <th scope="col">Site</th>
-                            <th scope="col">Park</th>
-                            <th scope="col">Date Retrieved</th>
-                            <th scope="col">Action</th>
-                            <th scope="col">Dropbox</th>
-                            {% if user.is_staff %}<th scope="col">Volunteer</th>{% endif %}
-                            <th scope="col"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for object in object_list%}
-                            {% if not object.upload_complete %}
-                                <tr>
-                                <td>{{object.camera_station.station_id}}</td>
-                                <td>{{object.camera_station.micro_site}}</td>
-                                <td>{{object.camera_station.micro_site.macro_site}}</td>
-                                <td>{{object.date_retrieved}}</td>
-                                <td>{{object.last_action}}</td>
-                                <td><a href="{{object.dropbox_request_url}}" target="_blank" class="text-decoration-none">Open</a></td>
-                                {% if user.is_staff %}<td>{{object.volunteer.username}}</td>{% endif %}
-                                <td><a href="{% url 'uploads:finalize' object.id %}"><button type="button" class="btn btn-light">Finalize</button></a></td>
-                                </tr>
-                            {% endif %}
-                        {% endfor %}
-                    </tbody>
-                </table>
+            {% if user.is_staff %}
+                <p>Hey, {{user.username}}! Since you're a staff member, you can see the list of all pending uploads for all volunteers.
+                    You can also find this on the <a href="{% url 'admin:images_upload_changelist'%}" class="text-decoration-none">admin</a>
+                    page.
+                </p>
             {% else %}
-                <p>There are no pending uploads!</h2>
-                <hr/>
+                <p>If all pictures have been uploaded to Dropbox, please click on the "Complete" button.</p>
             {% endif %}
+
+            <table class="table mt-2 mt-md-4 align-middle text-center">
+                <thead>
+                    <tr>
+                        <th scope="col">Camera Station ID</th>
+                        <th scope="col">Site</th>
+                        <th scope="col">Park</th>
+                        <th scope="col">Date Retrieved</th>
+                        <th scope="col">Action</th>
+                        <th scope="col">Dropbox</th>
+                        {% if user.is_staff %}<th scope="col">Volunteer</th>{% endif %}
+                        <th scope="col"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for object in object_list%}
+                        {% if not object.upload_complete %}
+                            <tr>
+                            <td>{{object.camera_station.station_id}}</td>
+                            <td>{{object.camera_station.micro_site}}</td>
+                            <td>{{object.camera_station.micro_site.macro_site}}</td>
+                            <td>{{object.date_retrieved}}</td>
+                            <td>{{object.last_action}}</td>
+                            <td><a href="{{object.dropbox_request_url}}" target="_blank" class="text-decoration-none">Open</a></td>
+                            {% if user.is_staff %}<td>{{object.volunteer.username}}</td>{% endif %}
+                            <td><a href="{% url 'images:complete_upload' object.id %}"><button type="button" class="btn btn-light">Complete</button></a></td>
+                            </tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
+        {% endif %}
 
         <div class="row mt-2 mt-md-5">
             {% if num_completed > 0 %}
@@ -112,7 +109,7 @@
                                     {% endif %}
                                     <td>
                                         {% if object.processed %}
-                                            <a href="{% url 'uploads:detail' object.id %}"><button type="button" class="btn btn-light">View</button></a>
+                                            <a href="{% url 'images:view_upload' object.id %}"><button type="button" class="btn btn-light">View</button></a>
                                         {% else %}
                                             <th scope="col">processing..</th>
                                         {% endif %}

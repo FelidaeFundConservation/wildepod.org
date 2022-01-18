@@ -8,6 +8,11 @@ from .models import Upload
 
 # User facing form to create an upload
 class UploadForm(forms.ModelForm):
+
+    date_retrieved = forms.SplitDateTimeField(
+        widget=forms.widgets.SplitDateTimeWidget(date_attrs={"type": "date"}, time_attrs={"type": "time"}),
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
@@ -36,16 +41,22 @@ class UploadForm(forms.ModelForm):
 
     class Meta:
         model = Upload
+        date_retrieved = forms.SplitDateTimeField()
         fields = ["camera_station", "date_retrieved", "volunteer", "last_action", "error", "error_effect", "comments"]
 
-        widgets = {
-            "date_retrieved": forms.DateInput(attrs={"type": "date"}),
+        labels = {
+            "date_retrieved": "Date & time retrieved",
         }
 
 
 # User facing form to examine & mark an upload as completed
 # after all pictures have been uploaded to Google Drive
-class UploadFinalizeForm(forms.ModelForm):
+class UploadCompleteForm(forms.ModelForm):
+
+    date_retrieved = forms.SplitDateTimeField(
+        widget=forms.widgets.SplitDateTimeWidget(date_attrs={"type": "date"}, time_attrs={"type": "time"}),
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
@@ -106,6 +117,6 @@ class UploadFinalizeForm(forms.ModelForm):
             "upload_complete",
         ]
 
-        widgets = {
-            "date_retrieved": forms.DateInput(attrs={"type": "date"}),
+        labels = {
+            "date_retrieved": "Date & time retrieved",
         }

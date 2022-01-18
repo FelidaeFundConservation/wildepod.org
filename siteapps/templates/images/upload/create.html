@@ -2,7 +2,7 @@
 {% load crispy_forms_tags %}
 
 <!-- Set corresponding nav pill to active -->
-{% block nav_uploads %}active{% endblock %}
+{% block nav_upload %}active{% endblock %}
 
 {% block header_includes %}
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
@@ -29,7 +29,7 @@
     </div>
 
     <div class="row text-center">
-        <small><a href="{% url 'uploads:list' %}" class="text-decoration-none">⬅ back</a></small>
+        <small><a href="{% url 'images:list_uploads' %}" class="text-decoration-none">⬅ back</a></small>
     </div>
 
     <div class="row mt-4 mb-5">

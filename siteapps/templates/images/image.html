@@ -2,39 +2,31 @@
 {% load static %}
 
 <!-- Set corresponding nav pill to active -->
-{% block nav_tag %}active{% endblock %}
+{% block nav_upload %}active{% endblock %}
 
 {% block content %}
-<div class="container mt-3 mt-md-5">
-    {% if image %}
+    <div class="container mt-3 mt-md-5">
         <div class="row text-center">
-            <h3>Is there any object of interest in this image?</h3>
-        </div>
-        <div class="row text-center mt-2 mt-md-3">
-            <div class="col-12 col-sm-6 offset-sm-3">
-                <form action="" method="post">
-                    {% csrf_token %}
-                    <input type="hidden" name="image_id" value={{image.pk}}>
-                    <input type="submit" class="btn btn-secondary" name="object_of_interest" value="yes">
-                    <input type="submit" class="btn btn-secondary" name="object_of_interest" value="no">
-                </form>
-            </div>
+            <small><a href="{% url 'images:view_upload' image.upload.id %}" class="text-decoration-none">⬅ back</a></small>
         </div>
         <div class="row mt-2 mt-md-4 px-2">
             <div class="col-12 text-center">
-                {% comment %} The slice is needed here since there is a trailing & leading slash {% endcomment %}
                 <img id="{{image.id}}" class="img-fluid m-0 p-0" src="{% get_media_prefix %}{{image.thumbnail_url}}">
             </div>
         </div>
-    {% else %}
-        <div class="row text-center mt-3 mt-md-5 pt-2 pt-md-5">
-            <h3>There are no more images to annotate! Come back later!</h3>
-            <div class="col-12 col-md-10 offset-md-1 col-lg-8 offset-lg-2 mt-2 mt-md-5 pt-2">
-                <img class="img-fluid rounded" src="{% static 'images/puma_sleeping.jpg' %}">
+        <div class="row text-center">
+            <canvas id="cropped-preview"></canvas>
+        </div>
+    </div>
+    <div class="container mt-3 mt-md-5">
+        <div class="row mt-2 mt-md-4 px-2">
+            <div class="col-12 text-center">
+                {% for annotation in image.annotation_set.all %}
+                    {{annotation}}
+                {% endfor %}
             </div>
         </div>
-    {% endif %}
-</div>
+    </div>
 
 {% endblock %}
 

@@ -2,14 +2,12 @@ import threading
 
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import HttpResponse
 from django.urls import reverse
-from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 from django.views.generic.base import TemplateView
 
-from .forms import UploadFinalizeForm, UploadForm
-from .models import Upload
+from .forms import UploadCompleteForm, UploadForm
+from .models import Image, Upload
 from .utils import process_upload
 
 
@@ -17,16 +15,16 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
     model = Upload
     form_class = UploadForm
     login_url = settings.LOGIN_URL
-    template_name = "uploads/create.html"
+    template_name = "images/upload/create.html"
 
     def get_success_url(self):
-        return reverse("uploads:finalize", args=(self.object.id,))
+        return reverse("images:complete_upload", args=(self.object.id,))
 
 
 class UploadListView(LoginRequiredMixin, ListView):
     model = Upload
     login_url = settings.LOGIN_URL
-    template_name = "uploads/list.html"
+    template_name = "images/upload/list.html"
 
     # Staff can access all uploads across all users.
     # Non-staff users can see only their uploads
@@ -47,11 +45,11 @@ class UploadListView(LoginRequiredMixin, ListView):
         return context
 
 
-class UploadFinalizeView(LoginRequiredMixin, UpdateView):
+class UploadCompleteView(LoginRequiredMixin, UpdateView):
     model = Upload
-    form_class = UploadFinalizeForm
+    form_class = UploadCompleteForm
     login_url = settings.LOGIN_URL
-    template_name = "uploads/finalize.html"
+    template_name = "images/upload/complete.html"
 
     # Override post method to trigger a cloud task to process the upload
     def post(self, request, *args, **kwargs):
@@ -67,13 +65,17 @@ class UploadFinalizeView(LoginRequiredMixin, UpdateView):
         return super().post(request, *args, **kwargs)
 
     def get_success_url(self):
-        return reverse("uploads:list")
+        return reverse("images:list_uploads")
 
 
 class UploadDetailView(LoginRequiredMixin, DetailView):
     model = Upload
     login_url = settings.LOGIN_URL
-    template_name = "uploads/detail.html"
+    template_name = "images/upload/detail.html"
 
-    def get_success_url(self):
-        return reverse("uploads:detail")
+
+class ImageDetailView(LoginRequiredMixin, DetailView):
+    model = Image
+
+    login_url = settings.LOGIN_URL
+    template_name = "images/image.html"

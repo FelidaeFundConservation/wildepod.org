@@ -1,7 +1,18 @@
 from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 
-from .models import CameraStationAction, Image, Upload, UploadError, UploadErrorEffect
+from .models import (
+    Annotation,
+    AnnotationType,
+    Annotator,
+    Bot,
+    CameraStationAction,
+    Image,
+    Species,
+    Upload,
+    UploadError,
+    UploadErrorEffect,
+)
 
 
 @admin.register(Upload)
@@ -67,3 +78,28 @@ class ImageAdmin(SimpleHistoryAdmin):
     )
     ordering = ["-created"]
     search_fields = ["dropbox_folder_name"]
+
+
+@admin.register(Bot)
+class BotAdmin(SimpleHistoryAdmin):
+    pass
+
+
+@admin.register(Species)
+class SpeciesAdmin(SimpleHistoryAdmin):
+    pass
+
+
+@admin.register(Annotator)
+class AnnotatorAdmin(SimpleHistoryAdmin):
+    pass
+
+
+@admin.register(Annotation)
+class AnnotationAdmin(SimpleHistoryAdmin):
+    pass
+
+
+@admin.register(AnnotationType)
+class AnnotationTypeAdmin(SimpleHistoryAdmin):
+    pass

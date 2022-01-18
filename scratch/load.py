@@ -2,10 +2,9 @@
 from datetime import datetime
 
 import pandas as pd
+from images.models import Bot, CameraStationAction, Species, UploadError, UploadErrorEffect
 from inventory.models import Camera, CameraBrand, CameraModel, Padlock, PythonLock
 from locations.models import Area, CameraStation, County, Grid, HabitatType, MacroSite, MicroSite, TrailType
-from tags.models import SpeciesTag
-from uploads.models import CameraStationAction, UploadError, UploadErrorEffect
 
 # Download active camera data sheet as tsv into the local_data folder and rename as necessary
 active_cameras_df = pd.read_csv("local_data/active_cameras.tsv", delimiter="\t")
@@ -244,4 +243,13 @@ species_list = [
 ]
 
 for species in species_list:
-    model, _ = SpeciesTag.objects.get_or_create(name=species)
+    model, _ = Species.objects.get_or_create(name=species)
+
+# TODO: Change this as needed
+bot, _ = Bot.objects.get_or_create(
+    name="MegaDetector",
+    version="4.1.0",
+    task_type="Object Detection",
+    model_api_url="http://us-west2-zara-82380.cloudfunctions.net/megadetector_open",
+    model_file_url="gs://feldae_models/md_v4.1.0.pb",
+)

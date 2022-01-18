@@ -3,17 +3,19 @@ import time
 from io import BytesIO
 
 import dropbox
+import requests
 from django.conf import settings
 
 from config.settings.custom_storages import MediaStorage
 
-from .models import Image, Upload
+from .models import Annotation, Annotator, Bot, Image, Upload
 
 # Setup a logger
 logger = logging.getLogger(__name__)
 
 # Create a dropbox client
 dbx = dropbox.Dropbox(settings.DROPBOX_AUTH_TOKEN)
+
 # Create a storage object instance
 storage = MediaStorage()
 
@@ -32,12 +34,53 @@ def add_thumbnail(image: Image):
         size=dropbox.files.ThumbnailSize("w1024h768", None),
         mode=dropbox.files.ThumbnailMode("bestfit", None),
     )
+
     # Convert image binary to bytestream
     img_bytes = BytesIO(response.content)
-    target_path = f"/compressed/1024/{image.dropbox_content_hash}.jpg"
+    target_path = f"compressed/1024/{image.dropbox_content_hash}.jpg"
     gcloud_url = storage.save(target_path, img_bytes)
 
-    image.thumbnail_1024_url = gcloud_url
+    image.thumbnail_url = gcloud_url
+
+
+# Function to process an image
+def process_image(image: Image):
+    """Function to process an image and create relevant metadata"""
+    # First, add a thumbnail to the image object
+    add_thumbnail(image)
+
+    # Next, run MegaDetector on each image and create the relevant annotation objects
+    image_url = f"""gs://{settings.GS_MEDIA_STORAGE_BUCKET_NAME}/{image.thumbnail_url}"""
+    # TODO: Probably a better way to handle this. Hardcoded for now. Might not even need a model/record for this
+    bot, _ = Bot.objects.get_or_create(
+        name="MegaDetector",
+        version="4.1.0",
+        task_type="Object Detection",
+        model_api_url="http://us-west2-zara-82380.cloudfunctions.net/megadetector_open",
+        model_file_url="gs://feldae_models/md_v4.1.0.pb",
+    )
+    annotator, _ = Annotator.objects.get_or_create(type="bot", bot=bot)
+    # Call the MegaDetector cloud function
+    result = requests.post(bot.model_api_url, json={"image": image_url, "model": bot.model_file_url}).json()
+    # TODO: Handle errors
+    print(result)
+    # For each detected bounding box, create a corresponding annotation object
+    for detection in result["detections"]:
+        print(detection)
+        # Create a new annotation object
+        annotation, _ = Annotation.objects.get_or_create(
+            image=image,
+            primary_class=detection["category"],
+            confidence=detection["conf"],
+            x=detection["bbox"][0],
+            y=detection["bbox"][1],
+            w=detection["bbox"][2],
+            h=detection["bbox"][3],
+            created_by=annotator,
+        )
+
+    # TODO: Additional Species detection annotations go here.
+    # Add annotation type automatically linked to each annotation perhaps?
 
 
 # Function to process an upload
@@ -57,6 +100,7 @@ def process_upload(upload_id: int):
     total_attempts = 10
     number_attempts = 0
     seconds_between_attempts = 2
+
     for attempt in range(total_attempts):
         # Get the upload object
         upload = Upload.objects.get(pk=upload_id)
@@ -122,11 +166,13 @@ def process_upload(upload_id: int):
                 if img_obj.is_video and media_info.duration:
                     img_obj.duration = media_info.duration
 
-                # Add thumbnail for the image object if it isn't a video
+                # Process the image.
+                # This involves getting an image thumbnail and saving it to google cloud storage
+                # followed by running ML to detect and identify objects in the image
                 if not img_obj.is_video:
-                    add_thumbnail(img_obj)
+                    process_image(img_obj)
 
-                img_obj.requires_processing = False
+                img_obj.processed = True
 
                 img_obj.save()
 

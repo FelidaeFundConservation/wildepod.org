@@ -171,7 +171,14 @@
                     },
                 {% endfor %}
             ];
-            bbox_objs['{{image.id}}'] = renderBoundingBoxes("{{image.id}}", bbox_srcs['{{image.id}}'], config=annotorious_config);
         {% endfor %}
+        // Render annotations only after the entire window has finished loading
+        // This is to prevent errors when trying to access an image that hasn't loaded yet
+        // TODO: There is probably a better way to do where rendering happens per image load this but hey, this works for now!
+        window.addEventListener('load', function() {
+            {% for image in object.image_set.all %}
+                bbox_objs['{{image.id}}'] = renderBoundingBoxes("{{image.id}}", bbox_srcs['{{image.id}}'], config=annotorious_config);
+            {% endfor %}
+        });
     </script>
 {% endblock %}

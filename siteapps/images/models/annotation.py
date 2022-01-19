@@ -64,7 +64,7 @@ class Annotator(TimeStampedModel):
 # Bounding boxes are identified by x,y,w,h where w,h are normalized width & height
 # Each annotation has a creator that is either an ML model or a human
 # Each annotation can be accepted/rejected by a human
-# Each annotation has a primary class from MegaDetector i.e one of 'Animal', 'Human', 'Vehicle'
+# Each annotation has a primary class from MegaDetector i.e one of 'Animal', 'Person', 'Vehicle'
 # and a secondary class that identifies the species
 class BoundingBox(TimeStampedModel):
     # A unique identifier for the annotation
@@ -114,7 +114,7 @@ class Category(TimeStampedModel):
     bounding_box = models.ForeignKey(BoundingBox, on_delete=models.PROTECT)
 
     # The main category of the detected object. This can be "Animal", "Human" or "Vehicle"
-    name = models.CharField(max_length=10, choices=[("animal", "animal"), ("vehicle", "vehicle"), ("human", "human")])
+    name = models.CharField(max_length=10, choices=[("animal", "animal"), ("vehicle", "vehicle"), ("person", "person")])
 
     # The creator of the annotation
     created_by = models.ForeignKey(Annotator, on_delete=models.PROTECT, related_name="created_category_annotation")

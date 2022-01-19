@@ -63,9 +63,11 @@ def process_md_annotations(image_id: str, annotations: list, annotator: Annotato
     for bbox_id in initial_bboxes:
         # If the annotation is not in the list of annotations, it is a rejection
         if bbox_id not in formatted_annotations:
+            print(f"Deleting {bbox_id}")
             # First get the bounding box
             bbox_obj = BoundingBox.objects.get(id=bbox_id)
             # Add the annotator to its rejection list
+            bbox_obj.accepted_by.remove(annotator)
             bbox_obj.rejected_by.add(annotator)
             bbox_obj.save()
 
@@ -84,6 +86,22 @@ def process_md_annotations(image_id: str, annotations: list, annotator: Annotato
                 confidence=formatted_annotations[bbox_id]["confidence"],
                 created_by=annotator,
             )
+            bbox_obj, _ = BoundingBox.objects.get_or_create(
+                image=Image.objects.get(id=image_id),
+                x=formatted_annotations[bbox_id]["x"],
+                y=formatted_annotations[bbox_id]["y"],
+                w=formatted_annotations[bbox_id]["w"],
+                h=formatted_annotations[bbox_id]["h"],
+                confidence=formatted_annotations[bbox_id]["confidence"],
+                created_by=annotator,
+            )
+            # Next, create a category annotation for it
+            category_obj, _ = Category.objects.get_or_create(
+                bounding_box=bbox_obj,
+                name=formatted_annotations[bbox_id]["category"],
+                created_by=annotator,
+                confidence=formatted_annotations[bbox_id]["confidence"],
+            )
             bbox_obj.save()
 
     # Finally handle updates. This includes accept/reject depending on the category labels provided
@@ -91,23 +109,27 @@ def process_md_annotations(image_id: str, annotations: list, annotator: Annotato
         if bbox_id in formatted_annotations:
             # Get the bounding box object
             bbox_obj = BoundingBox.objects.get(id=bbox_id)
+            bbox_obj.rejected_by.remove(annotator)
             bbox_obj.accepted_by.add(annotator)
 
             # If the class label is the same, its an accept. Else, its a rejection + a new label addition/accept if it exists
             if initial_bboxes[bbox_id]["category"] == formatted_annotations[bbox_id]["category"]:
                 category_obj = Category.objects.get(bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"])
+                category_obj.rejected_by.remove(annotator)
                 category_obj.accepted_by.add(annotator)
                 category_obj.save()
             else:
                 category_obj = Category.objects.get(bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"])
+                category_obj.accepted_by.remove(annotator)
                 category_obj.rejected_by.add(annotator)
                 category_obj.save()
 
-                # Create a new category if it doesn't exit
+                # Create a new category if it doesn't exist
                 try:
                     new_category_obj = Category.objects.get(
                         bounding_box=bbox_obj, name=formatted_annotations[bbox_id]["category"]
                     )
+                    new_category_obj.rejected_by.remove(annotator)
                     new_category_obj.accepted_by.add(annotator)
                     new_category_obj.save()
 
@@ -116,6 +138,7 @@ def process_md_annotations(image_id: str, annotations: list, annotator: Annotato
                         bounding_box=bbox_obj,
                         name=formatted_annotations[bbox_id]["category"],
                         created_by=annotator,
+                        confidence=formatted_annotations[bbox_id]["confidence"],
                     )
 
             bbox_obj.save()

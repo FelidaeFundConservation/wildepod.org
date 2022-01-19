@@ -83,47 +83,49 @@
                 },
             {% endfor %}
         ];
-        let anno = renderBoundingBoxes("{{image.id}}", bboxes);
-        renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
-        anno.on("createAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
-        anno.on("deleteAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
-        anno.on("updateAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
-    </script>
+        // Set up annotations, rendering and submit hooks after the window has fully loaded
+        window.addEventListener('load', function() {
+            let anno = renderBoundingBoxes("{{image.id}}", bboxes);
+            renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
+            anno.on("createAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
+            anno.on("deleteAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
+            anno.on("updateAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
 
-    <script>
-        $("#submit_annotations").click(function(e){
-            // First, prevent the default action of the form
-            e.preventDefault();
-            // Get the CSRF token from the DOM
-            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-            console.log(bboxes)
-            // Send back all the bbox ids back to the server to log bbox deletions
-            // Make an AJAX request
-            $.ajax({
-                url: '{% url 'images:md_annotation_processor'%}',
-                method: 'POST',
-                data: {
-                    'image_id': '{{image.id}}',
-                    'initial_bboxes': JSON.stringify(bboxes),
-                    'annotations': JSON.stringify(anno.getAnnotations()),
-                    'csrfmiddlewaretoken': csrftoken,
-                },
-                dataType: 'json',
-                success: function (data){
-                    if (data.success){
-                        $("#status-success").removeClass("d-none");
-                        setTimeout(function(){
-                            $("#status-success").addClass("d-none");
-                        }, 5000);
-                    }
-                    else {
-                        $("#status-failure").removeClass("d-none");
-                        setTimeout(function(){
-                            $("#status-failure").addClass("d-none");
-                        }, 10000);
-                    }
-                },
-            })
+            // Submit annotations to the server
+            $("#submit_annotations").click(function(e){
+                // First, prevent the default action of the form
+                e.preventDefault();
+                // Get the CSRF token from the DOM
+                const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                console.log(bboxes)
+                // Send back all the bbox ids back to the server to log bbox deletions
+                // Make an AJAX request
+                $.ajax({
+                    url: '{% url 'images:md_annotation_processor'%}',
+                    method: 'POST',
+                    data: {
+                        'image_id': '{{image.id}}',
+                        'initial_bboxes': JSON.stringify(bboxes),
+                        'annotations': JSON.stringify(anno.getAnnotations()),
+                        'csrfmiddlewaretoken': csrftoken,
+                    },
+                    dataType: 'json',
+                    success: function (data){
+                        if (data.success){
+                            $("#status-success").removeClass("d-none");
+                            setTimeout(function(){
+                                $("#status-success").addClass("d-none");
+                            }, 5000);
+                        }
+                        else {
+                            $("#status-failure").removeClass("d-none");
+                            setTimeout(function(){
+                                $("#status-failure").addClass("d-none");
+                            }, 10000);
+                        }
+                    },
+                })
+            });
         });
     </script>
 {% endblock %}

@@ -5,10 +5,11 @@ from io import BytesIO
 import dropbox
 import requests
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 
 from config.settings.custom_storages import MediaStorage
 
-from .models import Annotation, Annotator, Bot, Image, Upload
+from .models import Annotator, Bot, BoundingBox, Category, Image, Upload
 
 # Setup a logger
 logger = logging.getLogger(__name__)
@@ -18,6 +19,107 @@ dbx = dropbox.Dropbox(settings.DROPBOX_AUTH_TOKEN)
 
 # Create a storage object instance
 storage = MediaStorage()
+
+
+def flatten_annotorious_annotations(annotations: list):
+    """Function to take an annotorious formatted list and flatten it with numerical bounding boxes"""
+    formatted_annotations = {}
+    for annotation in annotations:
+        # Annotorious created ids add a # in front of the annotation id. Remove it
+        clean_uuid = annotation["id"].replace("#", "")
+
+        # Get the x,y,w,h values from the annotation
+        # Annotorious values are in percent so divide by 100 to conform with Mega Detectors values
+        [x, y, w, h] = annotation["target"]["selector"]["value"].split(":")[1].split(",")
+        [x, y, w, h] = list(map(lambda x: round(float(x), 6) / 100, [x, y, w, h]))
+
+        # Append the annotation to the list
+        formatted_annotations[clean_uuid] = {
+            "id": clean_uuid,
+            "category": annotation["body"][0]["value"],
+            "confidence": annotation["body"][0]["confidence"],
+            "x": x,
+            "y": y,
+            "w": w,
+            "h": h,
+        }
+
+    return formatted_annotations
+
+
+# Function to process a list of annotations for MegaDetector's Object Detection model
+# Annotations follow the Annotorious format
+def process_md_annotations(image_id: str, annotations: list, annotator: Annotator, initial_bboxes: list):
+    """Function to process a list of annotations for MegaDetector's Object Detection model
+
+    Annotations follow the Annotorious format
+    """
+    # Format the annotorious annotations
+    formatted_annotations = flatten_annotorious_annotations(annotations)
+    # Convert initial boxes into the same structure
+    initial_bboxes = {bbox["id"]: bbox for bbox in initial_bboxes}
+
+    # First handle all deletions
+    for bbox_id in initial_bboxes:
+        # If the annotation is not in the list of annotations, it is a rejection
+        if bbox_id not in formatted_annotations:
+            # First get the bounding box
+            bbox_obj = BoundingBox.objects.get(id=bbox_id)
+            # Add the annotator to its rejection list
+            bbox_obj.rejected_by.add(annotator)
+            bbox_obj.save()
+
+    # Next, handles all additions
+    for bbox_id in formatted_annotations:
+        # If the annotation is not in the initial list, it is a new annotation
+        if bbox_id not in initial_bboxes:
+            # Create a new bounding box
+            bbox_obj = BoundingBox(
+                image=Image.objects.get(id=image_id),
+                x=formatted_annotations[bbox_id]["x"],
+                y=formatted_annotations[bbox_id]["y"],
+                w=formatted_annotations[bbox_id]["w"],
+                h=formatted_annotations[bbox_id]["h"],
+                category=formatted_annotations[bbox_id]["category"],
+                confidence=formatted_annotations[bbox_id]["confidence"],
+                created_by=annotator,
+            )
+            bbox_obj.save()
+
+    # Finally handle updates. This includes accept/reject depending on the category labels provided
+    for bbox_id in initial_bboxes:
+        if bbox_id in formatted_annotations:
+            # Get the bounding box object
+            bbox_obj = BoundingBox.objects.get(id=bbox_id)
+            bbox_obj.accepted_by.add(annotator)
+
+            # If the class label is the same, its an accept. Else, its a rejection + a new label addition/accept if it exists
+            if initial_bboxes[bbox_id]["category"] == formatted_annotations[bbox_id]["category"]:
+                category_obj = Category.objects.get(bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"])
+                category_obj.accepted_by.add(annotator)
+                category_obj.save()
+            else:
+                category_obj = Category.objects.get(bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"])
+                category_obj.rejected_by.add(annotator)
+                category_obj.save()
+
+                # Create a new category if it doesn't exit
+                try:
+                    new_category_obj = Category.objects.get(
+                        bounding_box=bbox_obj, name=formatted_annotations[bbox_id]["category"]
+                    )
+                    new_category_obj.accepted_by.add(annotator)
+                    new_category_obj.save()
+
+                except ObjectDoesNotExist:
+                    new_category_obj = Category.objects.create(
+                        bounding_box=bbox_obj,
+                        name=formatted_annotations[bbox_id]["category"],
+                        created_by=annotator,
+                    )
+
+            bbox_obj.save()
+
 
 # Function to save the thumbnails of the image
 # This function is run for every valid image uploaded into dropbox
@@ -46,8 +148,10 @@ def add_thumbnail(image: Image):
 # Function to process an image
 def process_image(image: Image):
     """Function to process an image and create relevant metadata"""
+    print("STARTING STUFF")
     # First, add a thumbnail to the image object
     add_thumbnail(image)
+    print("THUMBNAIL ADDED")
 
     # Next, run MegaDetector on each image and create the relevant annotation objects
     image_url = f"""gs://{settings.GS_MEDIA_STORAGE_BUCKET_NAME}/{image.thumbnail_url}"""
@@ -64,19 +168,26 @@ def process_image(image: Image):
     result = requests.post(bot.model_api_url, json={"image": image_url, "model": bot.model_file_url}).json()
     # TODO: Handle errors
     print(result)
+
     # For each detected bounding box, create a corresponding annotation object
+    # Confidence for bounding box & category are the same for MegaDetector
     for detection in result["detections"]:
-        print(detection)
         # Create a new annotation object
-        annotation, _ = Annotation.objects.get_or_create(
+        bounding_box, _ = BoundingBox.objects.get_or_create(
             image=image,
-            primary_class=detection["category"],
             confidence=detection["conf"],
             x=detection["bbox"][0],
             y=detection["bbox"][1],
             w=detection["bbox"][2],
             h=detection["bbox"][3],
             created_by=annotator,
+        )
+        # Next, create a category annotation for it
+        category, _ = Category.objects.get_or_create(
+            bounding_box=bounding_box,
+            name=detection["category"],
+            created_by=annotator,
+            confidence=detection["conf"],
         )
 
     # TODO: Additional Species detection annotations go here.
@@ -97,11 +208,10 @@ def process_upload(upload_id: int):
     # To ensure the latest copy of the object is retrieved here, the function
     # will wait until the "upload_complete" flag is set in the retrieved object
     # TODO: This is a hacky piece of code. Might need a cleaner implementation here
-    total_attempts = 10
-    number_attempts = 0
+    total_attempts = 5
     seconds_between_attempts = 2
 
-    for attempt in range(total_attempts):
+    for _ in range(total_attempts):
         # Get the upload object
         upload = Upload.objects.get(pk=upload_id)
         # Break out of the loop if upload_complete flag is set

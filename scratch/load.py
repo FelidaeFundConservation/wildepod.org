@@ -2,7 +2,7 @@
 from datetime import datetime
 
 import pandas as pd
-from images.models import Bot, CameraStationAction, Species, UploadError, UploadErrorEffect
+from images.models import Bot, CameraStationAction, SpeciesName, UploadError, UploadErrorEffect
 from inventory.models import Camera, CameraBrand, CameraModel, Padlock, PythonLock
 from locations.models import Area, CameraStation, County, Grid, HabitatType, MacroSite, MicroSite, TrailType
 
@@ -243,7 +243,7 @@ species_list = [
 ]
 
 for species in species_list:
-    model, _ = Species.objects.get_or_create(name=species)
+    model, _ = SpeciesName.objects.get_or_create(name=species)
 
 # TODO: Change this as needed
 bot, _ = Bot.objects.get_or_create(

@@ -2,13 +2,14 @@ from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 
 from .models import (
-    Annotation,
-    AnnotationType,
     Annotator,
     Bot,
+    BoundingBox,
     CameraStationAction,
+    Category,
     Image,
     Species,
+    SpeciesName,
     Upload,
     UploadError,
     UploadErrorEffect,
@@ -85,21 +86,26 @@ class BotAdmin(SimpleHistoryAdmin):
     pass
 
 
-@admin.register(Species)
-class SpeciesAdmin(SimpleHistoryAdmin):
-    pass
-
-
 @admin.register(Annotator)
 class AnnotatorAdmin(SimpleHistoryAdmin):
     pass
 
 
-@admin.register(Annotation)
-class AnnotationAdmin(SimpleHistoryAdmin):
+@admin.register(BoundingBox)
+class BoundingBoxAdmin(SimpleHistoryAdmin):
     pass
 
 
-@admin.register(AnnotationType)
-class AnnotationTypeAdmin(SimpleHistoryAdmin):
+@admin.register(SpeciesName)
+class SpeciesNameAdmin(SimpleHistoryAdmin):
+    pass
+
+
+@admin.register(Species)
+class SpeciesAdmin(SimpleHistoryAdmin):
+    pass
+
+
+@admin.register(Category)
+class CategoryAdmin(SimpleHistoryAdmin):
     pass

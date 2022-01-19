@@ -66,7 +66,7 @@ class Annotator(TimeStampedModel):
 # Each annotation can be accepted/rejected by a human
 # Each annotation has a primary class from MegaDetector i.e one of 'Animal', 'Human', 'Vehicle'
 # and a secondary class that identifies the species
-class Annotation(TimeStampedModel):
+class BoundingBox(TimeStampedModel):
     # A unique identifier for the annotation
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
@@ -81,33 +81,64 @@ class Annotation(TimeStampedModel):
 
     # The creator of the annotation
     created_by = models.ForeignKey(Annotator, on_delete=models.PROTECT, related_name="created_annotation")
+    # Confidence. This is the probability that the annotation is correct which includes both bounding box & class
+    # This is the score from the model if its a bot. It is 1 if its by a human initially
+    # Later, the human confidence itself can be added in as a function of tenure
+    confidence = models.FloatField(default=1.0)
 
     # List of accept/rejects for this annotation
     accepted_by = models.ManyToManyField(Annotator, related_name="accepted_annotation", blank=True)
     rejected_by = models.ManyToManyField(Annotator, related_name="rejected_annotation", blank=True)
 
-    # The primary class of the annotation. This can be "Animal", "Human" or "Vehicle"
-    primary_class = models.CharField(
-        max_length=15, choices=[("animal", "animal"), ("vehicle", "vehicle"), ("human", "human")]
-    )
+    # History of model instance changes
+    history = HistoricalRecords()
 
-    # Confidence. This is the probability that the annotation is correct
-    # This is the score from the model if its a bot. It is 1 if its by a human initially
-    # Later, the human confidence itself can be added in as a function of tenure
+    def __str__(self):
+        return (
+            f"{self.image.upload.camera_station.micro_site.macro_site.name} |"
+            f" {self.image.upload.camera_station.micro_site.name} | {self.id}"
+        )
+
+    class Meta:
+        ordering = ("-created",)
+        verbose_name_plural = "Bounding Boxes"
+
+
+# Each annotation is futher linked to an Annotation Type if the primary class is an animal
+# This is the Species of the animal identified
+class Category(TimeStampedModel):
+    # UUID identifier
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    # The bounding box this category annotation is linked to
+    bounding_box = models.ForeignKey(BoundingBox, on_delete=models.PROTECT)
+
+    # The main category of the detected object. This can be "Animal", "Human" or "Vehicle"
+    name = models.CharField(max_length=10, choices=[("animal", "animal"), ("vehicle", "vehicle"), ("human", "human")])
+
+    # The creator of the annotation
+    created_by = models.ForeignKey(Annotator, on_delete=models.PROTECT, related_name="created_category_annotation")
+
+    # This, if created by Megadetector, is the same confidence as the bounding box
     confidence = models.FloatField(default=1.0)
+
+    # List of accept/rejects for this annotation
+    accepted_by = models.ManyToManyField(Annotator, related_name="accepted_category_annotation", blank=True)
+    rejected_by = models.ManyToManyField(Annotator, related_name="rejected_category_annotation", blank=True)
 
     # History of model instance changes
     history = HistoricalRecords()
 
     def __str__(self):
-        return f"{self.id}: {self.primary_class}"
+        return f"{self.id} | {self.name} | BBox: {self.bounding_box.id}"
 
     class Meta:
         ordering = ("-created",)
+        verbose_name_plural = "Categories"
 
 
 # Model to maintain different species types
-class Species(TimeStampedModel):
+class SpeciesName(TimeStampedModel):
     name = models.CharField(max_length=250, unique=True)
 
     # History of model instance changes
@@ -118,30 +149,37 @@ class Species(TimeStampedModel):
 
     class Meta:
         ordering = ("created",)
-        verbose_name_plural = "Species"
+        verbose_name_plural = "Species Names"
 
 
 # Each annotation is futher linked to an Annotation Type if the primary class is an animal
 # This is the Species of the animal identified
-class AnnotationType(TimeStampedModel):
-    # The annotation that is linked to this annotation type
-    annotation = models.ForeignKey(Annotation, on_delete=models.PROTECT)
+class Species(TimeStampedModel):
+    # UUID identifier
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    # The bounding box this category annotation is linked to
+    bounding_box = models.ForeignKey(BoundingBox, on_delete=models.PROTECT)
 
     # The species of the animal
-    species = models.ForeignKey(Species, on_delete=models.PROTECT)
+    name = models.ForeignKey(SpeciesName, on_delete=models.PROTECT)
 
     # The creator of the annotation
-    created_by = models.ForeignKey(Annotator, on_delete=models.PROTECT, related_name="created_annotation_type")
+    created_by = models.ForeignKey(Annotator, on_delete=models.PROTECT, related_name="created_species_annotation")
+
+    # Confidence from the species detection model
+    confidence = models.FloatField(default=1.0)
 
     # List of accept/rejects for this annotation
-    accepted_by = models.ManyToManyField(Annotator, related_name="accepted_annotation_type", blank=True)
-    rejected_by = models.ManyToManyField(Annotator, related_name="rejected_annotation_type", blank=True)
+    accepted_by = models.ManyToManyField(Annotator, related_name="accepted_species_annotation", blank=True)
+    rejected_by = models.ManyToManyField(Annotator, related_name="rejected_species_annotation", blank=True)
 
     # History of model instance changes
     history = HistoricalRecords()
 
     def __str__(self):
-        return self.species
+        return self.name.name
 
     class Meta:
         ordering = ("-created",)
+        verbose_name_plural = "Species"

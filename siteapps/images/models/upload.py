@@ -9,6 +9,7 @@ from simple_history.models import HistoricalRecords
 
 dbx = dropbox.Dropbox(settings.DROPBOX_AUTH_TOKEN)
 
+
 # Models for error types & its effects
 class UploadError(TimeStampedModel):
     error = models.CharField("Error type", max_length=100, unique=True)

@@ -89,21 +89,21 @@
                 </div>
             </div>
             <div class="row pt-3 mt-3">
-            {% for image in object.image_set.all %}
-                <div class="col-12 col-md-6 col-xl-4 text-center">
-                    {% if image.trigger_timestamp %}
-                        <div>Timestamp: {{image.trigger_timestamp}}</div>
-                    {% else %}
-                        <div>Timestamp: N/A</div>
-                    {% endif %}
-                    <a href="{% url 'images:image' image.id %}" class="text-decoration-none">
-                        <img id="{{image.id}}" class="img-fluid" src="{% get_media_prefix %}{{image.thumbnail_url}}">
-                    </a>
-                    <a href="{% url 'images:image' image.id %}"><button type="button" class="btn btn-light">View/Edit</button></a>
-                    {% comment %} TODO: Change the url {% endcomment %}
-                    <a href="https://www.dropbox.com/home/Apps/abhay_test/{{image.dropbox_file_path}}" target="_blank"><button type="button" class="btn btn-light">View Original</button></a>
-                </div>
-            {% endfor %}
+                {% for image in object.image_set.all %}
+                    <div class="col-12 col-md-6 col-xl-4 text-center py-3">
+                        {% if image.trigger_timestamp %}
+                            <div>Timestamp: {{image.trigger_timestamp}}</div>
+                        {% else %}
+                            <div>Timestamp: N/A</div>
+                        {% endif %}
+                        <a href="{% url 'images:image' image.id %}" class="text-decoration-none">
+                            <img id="{{image.id}}" class="img-fluid" src="{% get_media_prefix %}{{image.thumbnail_url}}">
+                        </a>
+                        <a href="{% url 'images:image' image.id %}"><button type="button" class="btn btn-light">View/Edit</button></a>
+                        {% comment %} TODO: Change the url {% endcomment %}
+                        <a href="https://www.dropbox.com/home/Apps/abhay_test/{{image.dropbox_file_path}}" target="_blank"><button type="button" class="btn btn-light">View Original</button></a>
+                    </div>
+                {% endfor %}
             </div>
         {% else %}
             <div class="row text-center">
@@ -121,50 +121,57 @@
         async
         ></script>
     <script>
-    const camera_station = {
-            lat: {{ object.camera_station.latitude }},
-            lng: {{ object.camera_station.longitude }},
-            title: "{{ object.camera_station.micro_site }}"
-    }
-    // Initialize and add the map
-    function initMap() {
-        // The map, centered at the first co-ordinate
-        const map = new google.maps.Map(document.getElementById("map-widget"), {
-            zoom: 10,
-            center: {lat: camera_station['lat'], lng: camera_station['lng']},
-        });
-        new google.maps.Marker({
-            position: {lat: camera_station['lat'], lng: camera_station['lng']},
-            map: map,
-            title: camera_station['title']
-        });
-    }
+        const camera_station = {
+                lat: {{ object.camera_station.latitude }},
+                lng: {{ object.camera_station.longitude }},
+                title: "{{ object.camera_station.micro_site }}"
+        }
+        // Initialize and add the map
+        function initMap() {
+            // The map, centered at the first co-ordinate
+            const map = new google.maps.Map(document.getElementById("map-widget"), {
+                zoom: 10,
+                center: {lat: camera_station['lat'], lng: camera_station['lng']},
+            });
+            new google.maps.Marker({
+                position: {lat: camera_station['lat'], lng: camera_station['lng']},
+                map: map,
+                title: camera_station['title']
+            });
+        }
     </script>
+
     <!-- Annotorious generic & custom stylesheets -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@recogito/annotorious@2.6.1/dist/annotorious.min.css">
     <!-- Jquery & Annotorious -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@recogito/annotorious-shape-labels@latest/dist/annotorious-shape-labels.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@recogito/annotorious@2.6.1/dist/annotorious.min.js"></script>
-    <!-- Annotorious custom JS -->
-    <script src="{% static 'js/md_class_selector_widget.js' %}"></script>
 
     <script>
         {% comment %} Create a javascript variable holding all the annotations and render annotations{% endcomment %}
+        let bbox_srcs = {}
+        let bbox_objs = {}
+        let annotorious_config = {
+            readOnly: true,
+            disableSelect: true,
+            disableEditor: true,
+        }
         {% for image in object.image_set.all %}
-            var annotations = [
-                {% for annotation in image.annotation_set.all %}
+            bbox_srcs['{{image.id}}'] = [
+                {% for bbox in image.boundingbox_set.all %}
                     {
-                        "id": "{{annotation.id}}",
-                        "class": "{{annotation.primary_class}}",
-                        "x": {{annotation.x}},
-                        "y": {{annotation.y}},
-                        "w": {{annotation.w}},
-                        "h": {{annotation.h}},
+                        "id": "{{bbox.id}}",
+                        "category": "{{bbox.category_set.all.0.name}}",
+                        "confidence": {{bbox.category_set.all.0.confidence}},
+                        "x": {{bbox.x}},
+                        "y": {{bbox.y}},
+                        "w": {{bbox.w}},
+                        "h": {{bbox.h}},
                     },
                 {% endfor %}
             ];
-            var anno = renderAnnotations("{{image.id}}", annotations, readOnly=true);
+            bbox_objs['{{image.id}}'] = renderBoundingBoxes("{{image.id}}", bbox_srcs['{{image.id}}'], config=annotorious_config);
         {% endfor %}
     </script>
 {% endblock %}

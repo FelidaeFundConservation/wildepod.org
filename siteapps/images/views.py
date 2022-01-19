@@ -1,14 +1,17 @@
+import json
 import threading
 
+import requests
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http.response import JsonResponse
 from django.urls import reverse
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
-from django.views.generic.base import TemplateView
+from django.views.generic.base import TemplateView, View
 
 from .forms import UploadCompleteForm, UploadForm
-from .models import Image, Upload
-from .utils import process_upload
+from .models import Annotator, Image, Upload
+from .utils import process_md_annotations, process_upload
 
 
 class UploadCreateView(LoginRequiredMixin, CreateView):
@@ -76,6 +79,24 @@ class UploadDetailView(LoginRequiredMixin, DetailView):
 
 class ImageDetailView(LoginRequiredMixin, DetailView):
     model = Image
-
     login_url = settings.LOGIN_URL
     template_name = "images/image.html"
+
+
+class MDAnnotationProcessorView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        # Get the image id
+        image_id = request.POST.get("image_id")
+        # Get bounding box ids that were sent to infer deleted annotations
+        initial_bboxes = request.POST.get("initial_bboxes")
+        initial_bboxes = json.loads(initial_bboxes)
+
+        # Get the annotation paylaod from the request and convert it to a dict
+        annotations = request.POST.get("annotations")
+        annotations = json.loads(annotations)
+        # Get the annotator object for the current user
+        annotator, _ = Annotator.objects.get_or_create(type="human", human=request.user)
+        # Process the annotations
+        process_md_annotations(image_id, annotations, annotator, initial_bboxes)
+
+        return JsonResponse({"success": True})

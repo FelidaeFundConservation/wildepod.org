@@ -6,7 +6,19 @@ from locations.models import CameraStation
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
 
+from .annotator import Annotator
 from .upload import Upload
+
+
+# Bounding Box manager. For now, this simply returns "valid" bounding boxes as determined
+# by the accept/reject ratio
+class ImageManager(models.Manager):
+    def annotated(self):
+        return self.annotate(
+            num_objects=models.functions.Coalesce(models.Count("boundingbox"), 0),
+            num_viewed_by_for_bbox=models.functions.Coalesce(models.Count("viewed_by_for_bbox"), 0),
+            num_viewed_by_for_species=models.functions.Coalesce(models.Count("viewed_by_for_species"), 0),
+        )
 
 
 # Each processed Image from an upload
@@ -58,10 +70,20 @@ class Image(TimeStampedModel):
 
     # Thumbnail location. Only populated for images & is directly saved into a bucket with the url set.
     # These thumbnails are transient, i.e. there is no guarantee that they will persist
-    thumbnail_url = models.URLField(blank=True, null=True)
+    thumbnail_gcloud_path = models.CharField(max_length=250, blank=True, null=True)
+
+    # TODO: Might need to remove/refactor these
+    # Bookkeeping fields. These are used as convenience fields to track users and images they've seen/skipped
+    viewed_by_for_bbox = models.ManyToManyField(Annotator, related_name="viewed_images_for_bbox", blank=True)
+    skipped_by_for_bbox = models.ManyToManyField(Annotator, related_name="skipped_images_for_bbox", blank=True)
+    viewed_by_for_species = models.ManyToManyField(Annotator, related_name="viewed_images_for_species", blank=True)
+    skipped_by_for_species = models.ManyToManyField(Annotator, related_name="skipped_images_for_species", blank=True)
 
     # History of model instance changes
     history = HistoricalRecords()
+
+    # Custom manager
+    objects = ImageManager()
 
     def __str__(self):
         return self.dropbox_file_name

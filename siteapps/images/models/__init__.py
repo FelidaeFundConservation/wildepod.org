@@ -1,3 +1,4 @@
-from .annotation import Annotator, Bot, BoundingBox, Category, Species, SpeciesName
+from .annotation import BoundingBox, Category, Species, SpeciesName
+from .annotator import Annotator, Bot
 from .image import Image
 from .upload import CameraStationAction, Upload, UploadError, UploadErrorEffect

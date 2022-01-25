@@ -1,0 +1,156 @@
+import logging
+
+from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
+from images.models import Annotator, BoundingBox, Category, Image
+
+# Setup a logger
+logger = logging.getLogger(__name__)
+
+
+def flatten_annotorious_annotations(annotations: list) -> dict:
+    """Function to take an annotorious formatted list and flatten it with numerical bounding boxes"""
+    formatted_annotations = {}
+    for annotation in annotations:
+        # Annotorious created ids add a # in front of the annotation id. Remove it
+        clean_uuid = annotation["id"].replace("#", "")
+
+        # Get the x,y,w,h values from the annotation
+        # Annotorious values are in percent so divide by 100 to conform with Mega Detectors values
+        [x, y, w, h] = annotation["target"]["selector"]["value"].split(":")[1].split(",")
+        [x, y, w, h] = list(map(lambda x: round(float(x), 6) / 100, [x, y, w, h]))
+
+        # Append the annotation to the list
+        formatted_annotations[clean_uuid] = {
+            "id": clean_uuid,
+            "category": annotation["body"][0]["value"],
+            "confidence": annotation["body"][0]["confidence"],
+            "x": x,
+            "y": y,
+            "w": w,
+            "h": h,
+        }
+
+    return formatted_annotations
+
+
+# Function to process a list of annotations for MegaDetector's Object Detection model
+# Annotations follow the Annotorious format
+def process_md_annotations(
+    image_id: str, annotations: list, initial_bboxes: list, user: settings.AUTH_USER_MODEL, skip: bool = False
+):
+    """Function to process a list of annotations for MegaDetector's Object Detection model
+
+    Annotations follow the Annotorious format
+    """
+    # Get the annotator object for the current user
+    annotator, _ = Annotator.objects.get_or_create(type="human", human=user)
+
+    # Add the annotator to the image's viewed by list
+    image = Image.objects.get(id=image_id)
+
+    # If the user skipped this, add the user to the image skipped list & move on
+    if skip:
+        image.skipped_by_for_bbox.add(annotator)
+        return
+
+    image.viewed_by_for_bbox.add(annotator)
+
+    # Prep the annotations data
+    # Format the annotorious annotations
+    formatted_annotations = flatten_annotorious_annotations(annotations)
+    # Convert initial boxes into the same structure
+    initial_bboxes = {bbox["id"]: bbox for bbox in initial_bboxes}
+
+    # First handle all deletions
+    for bbox_id in initial_bboxes:
+        if bbox_id not in formatted_annotations:
+            # First get the bounding box
+            bbox_obj = BoundingBox.objects.get(id=bbox_id)
+            # If the annotator is the same as the current user or if it is a staff user, then the object can be deleted
+            if user.is_staff or bbox_obj.created_by == annotator:
+                # Then delete it
+                bbox_obj.delete()
+            else:
+                # Add the annotator to its rejection list
+                bbox_obj.accepted_by.remove(annotator)
+                bbox_obj.rejected_by.add(annotator)
+                bbox_obj.save()
+
+    # Next, handles all additions
+    for bbox_id in formatted_annotations:
+        # If the annotation is not in the initial list, it is a new annotation
+        if bbox_id not in initial_bboxes:
+            bbox_obj = BoundingBox.objects.create(
+                image=image,
+                x=formatted_annotations[bbox_id]["x"],
+                y=formatted_annotations[bbox_id]["y"],
+                w=formatted_annotations[bbox_id]["w"],
+                h=formatted_annotations[bbox_id]["h"],
+                confidence=formatted_annotations[bbox_id]["confidence"],
+                created_by=annotator,
+            )
+            # Next, create a category annotation for it
+            category_obj = Category.objects.create(
+                bounding_box=bbox_obj,
+                name=formatted_annotations[bbox_id]["category"],
+                created_by=annotator,
+                confidence=formatted_annotations[bbox_id]["confidence"],
+            )
+            bbox_obj.save()
+
+    # Finally handle updates. This includes accept/reject depending on the category labels provided
+    for bbox_id in initial_bboxes:
+        if bbox_id in formatted_annotations:
+            # Get the initial bounding box & category object
+            bbox_obj = BoundingBox.objects.get(id=bbox_id)
+            category_obj = Category.objects.get(bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"])
+
+            # Update accept/reject if not created by the same user
+            if bbox_obj.created_by != annotator:
+                bbox_obj.rejected_by.remove(annotator)
+                bbox_obj.accepted_by.add(annotator)
+
+            # Bounding box co-ordinates can be modified if the annotator is staff or if the annotator is the same as the user
+            if user.is_staff or bbox_obj.created_by == annotator:
+                bbox_obj.x = formatted_annotations[bbox_id]["x"]
+                bbox_obj.y = formatted_annotations[bbox_id]["y"]
+                bbox_obj.w = formatted_annotations[bbox_id]["w"]
+                bbox_obj.h = formatted_annotations[bbox_id]["h"]
+
+            # Next, labels can be also be modified if the annotator is staff or if the annotator is the same as the user
+            # Else, its either a reject/accept/create
+            if initial_bboxes[bbox_id]["category"] == formatted_annotations[bbox_id]["category"]:
+                # Vote cast only if the user is not the creator
+                if bbox_obj.created_by != annotator:
+                    category_obj.rejected_by.remove(annotator)
+                    category_obj.accepted_by.add(annotator)
+            else:
+                # If staff or creator, directory update. Else, create a new category object
+                if user.is_staff or bbox_obj.created_by == annotator:
+                    category_obj.name = formatted_annotations[bbox_id]["category"]
+                    category_obj.confidence = formatted_annotations[bbox_id]["confidence"]
+                else:
+                    # Cast a reject vote to the existing category & create/vote for the new category
+                    category_obj.rejected_by.add(annotator)
+                    category_obj.accepted_by.remove(annotator)
+                    # Else cast a vote for the set category if it exists, else create.
+                    try:
+                        new_category_obj = Category.objects.get(
+                            bounding_box=bbox_obj, name=formatted_annotations[bbox_id]["category"]
+                        )
+                        new_category_obj.rejected_by.remove(annotator)
+                        new_category_obj.accepted_by.add(annotator)
+                        new_category_obj.save()
+
+                    except ObjectDoesNotExist:
+                        new_category_obj = Category.objects.create(
+                            bounding_box=bbox_obj,
+                            name=formatted_annotations[bbox_id]["category"],
+                            created_by=annotator,
+                            confidence=formatted_annotations[bbox_id]["confidence"],
+                        )
+
+            # Save the objects
+            category_obj.save()
+            bbox_obj.save()

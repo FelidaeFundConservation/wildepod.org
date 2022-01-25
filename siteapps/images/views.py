@@ -1,17 +1,23 @@
 import json
 import threading
 
-import requests
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.paginator import Paginator
+from django.db.models import Q
 from django.http.response import JsonResponse
 from django.urls import reverse
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 from django.views.generic.base import TemplateView, View
+from images.processors import process_md_annotations, process_upload
 
 from .forms import UploadCompleteForm, UploadForm
-from .models import Annotator, Image, Upload
-from .utils import process_md_annotations, process_upload
+from .models import Annotator, BoundingBox, Image, Upload
+
+# Offset by which accept has to be greater than rejection to be shown
+ANNOTATION_REJECTION_OFFSET = 0
+# Pagination size for images displayed for the upload detail page
+IMAGE_PAGINATION_LIMIT = 24
 
 
 class UploadCreateView(LoginRequiredMixin, CreateView):
@@ -76,27 +82,92 @@ class UploadDetailView(LoginRequiredMixin, DetailView):
     login_url = settings.LOGIN_URL
     template_name = "images/upload/detail.html"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Get valid annotations for this image
+        images = self.get_object().image_set.all()
+        paginator = Paginator(images, IMAGE_PAGINATION_LIMIT)
+        page_number = self.request.GET.get("page")
+        paged_images = paginator.get_page(page_number)
+
+        context["paged_images"] = paged_images
+
+        return context
+
 
 class ImageDetailView(LoginRequiredMixin, DetailView):
     model = Image
     login_url = settings.LOGIN_URL
     template_name = "images/image.html"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Get valid annotations for this image
+        bounding_boxes = BoundingBox.objects.valid().filter(image=self.get_object())
+        context["bounding_boxes"] = bounding_boxes
+
+        return context
+
+
+class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
+    login_url = settings.LOGIN_URL
+    template_name = "images/annotate/objects.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # First get the annotator object for the user
+        annotator, _ = Annotator.objects.get_or_create(type="human", human=self.request.user)
+
+        images = (
+            Image.objects.annotated()
+            .filter(
+                ~Q(viewed_by_for_bbox__in=[annotator]) & ~Q(skipped_by_for_bbox__in=[annotator]),
+                processed=True,
+                num_objects__gt=0,
+            )
+            .order_by("num_viewed_by_for_bbox", "num_objects")
+        )
+
+        # Serve the first image
+        image = images.first()
+        context["image"] = image
+
+        # If there is a valid image, add bounding box information
+        if image:
+            bounding_boxes = BoundingBox.objects.valid().filter(image=image)
+            context["bounding_boxes"] = bounding_boxes
+
+        return context
+
+
+class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
+    login_url = settings.LOGIN_URL
+    template_name = "images/annotate/species.html"
+
 
 class MDAnnotationProcessorView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         # Get the image id
         image_id = request.POST.get("image_id")
-        # Get bounding box ids that were sent to infer deleted annotations
-        initial_bboxes = request.POST.get("initial_bboxes")
-        initial_bboxes = json.loads(initial_bboxes)
 
-        # Get the annotation paylaod from the request and convert it to a dict
-        annotations = request.POST.get("annotations")
-        annotations = json.loads(annotations)
-        # Get the annotator object for the current user
-        annotator, _ = Annotator.objects.get_or_create(type="human", human=request.user)
-        # Process the annotations
-        process_md_annotations(image_id, annotations, annotator, initial_bboxes)
+        # Check if the image needs to be skipped
+        if request.POST.get("skip"):
+            skip = True
+            initial_bboxes = []
+            annotations = []
+
+            # Process the annotations
+            process_md_annotations(image_id, annotations, initial_bboxes, request.user, skip)
+        else:
+            # Get bounding box ids that were sent to infer deleted annotations
+            initial_bboxes = request.POST.get("initial_bboxes")
+            initial_bboxes = json.loads(initial_bboxes)
+
+            # Get the annotation paylaod from the request and convert it to a dict
+            annotations = request.POST.get("annotations")
+            annotations = json.loads(annotations)
+
+            # Process the annotations
+            process_md_annotations(image_id, annotations, initial_bboxes, request.user)
 
         return JsonResponse({"success": True})

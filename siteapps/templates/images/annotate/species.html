@@ -24,7 +24,7 @@
         <div class="row mt-2 mt-md-4 px-2">
             <div class="col-12 text-center">
                 {% comment %} The slice is needed here since there is a trailing & leading slash {% endcomment %}
-                <img class="img-fluid img-thumbnail" src="{% get_media_prefix %}{{image.thumbnail_url}}">
+                <img class="img-fluid img-thumbnail" src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}">
             </div>
         </div>
     {% else %}

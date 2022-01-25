@@ -27,7 +27,6 @@ urlpatterns = [
     path("explore/", include(("explore.urls", "explore"), namespace="explore")),
     path("profile/", include(("profiles.urls", "profiles"), namespace="profiles")),
     path("images/", include(("images.urls", "images"), namespace="images")),
-    path("tags/", include(("tags.urls", "tags"), namespace="tags")),
     path("help/", include(("help.urls", "help"), namespace="help")),
     path("", include(("home.urls", "home"), namespace="home")),
 ]

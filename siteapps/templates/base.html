@@ -64,9 +64,18 @@
                                     <a class="nav-link dropdown-toggle" href="#" id="navbarExploreDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                         Explore
                                     </a>
-                                    <ul class="dropdown-menu tag-dropdown text-center text-md-start" aria-labelledby="navbarExploreDropdown">
+                                    <ul class="dropdown-menu nav-dropdown text-center text-md-start" aria-labelledby="navbarExploreDropdown">
                                         <li><a class="dropdown-item" href="{% url 'explore:map' %}">Camera Stations</a></li>
                                         <li><a class="dropdown-item" href="{% url 'explore:megadetector' %}">Megadetector</a></li>
+                                    </ul>
+                                </li>
+                                <li class="nav-item dropdown mx-2 {% block nav_tag %}{% endblock %}">
+                                    <a class="nav-link dropdown-toggle" href="#" id="navbarAnnotateDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Classify
+                                    </a>
+                                    <ul class="dropdown-menu nav-dropdown text-center text-md-start" aria-labelledby="navbarAnnotateDropdown">
+                                        <li><a class="dropdown-item" href="{% url 'images:annotate_objects' %}">Blank</a></li>
+                                        <li><a class="dropdown-item" href="{% url 'images:annotate_species' %}">Species</a></li>
                                     </ul>
                                 </li>
                                 <li class="nav-item mx-2 {% block nav_upload %}{% endblock %}">
@@ -74,20 +83,11 @@
                                         Upload
                                     </a>
                                 </li>
-                                <li class="nav-item dropdown mx-2 {% block nav_tag %}{% endblock %}">
-                                    <a class="nav-link dropdown-toggle" href="#" id="navbarTagDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                        Tag
-                                    </a>
-                                    <ul class="dropdown-menu tag-dropdown text-center text-md-start" aria-labelledby="navbarTagDropdown">
-                                        <li><a class="dropdown-item" href="{% url 'tags:blank' %}">Blank</a></li>
-                                        <li><a class="dropdown-item" href="{% url 'tags:species' %}">Species</a></li>
-                                    </ul>
-                                </li>
                                 <li class="nav-item dropdown mx-2">
                                     <a class="nav-link dropdown-toggle" href="#" id="navbarSettingsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                         <i class="bi bi-person"></i>
                                     </a>
-                                <ul class="dropdown-menu tag-dropdown text-center text-md-start" aria-labelledby="navbarSettingsDropdown">
+                                <ul class="dropdown-menu nav-dropdown text-center text-md-start" aria-labelledby="navbarSettingsDropdown">
                                     <li><a class="dropdown-item" href="{% url 'profiles:profile' %}">Profile</a></li>
                                     {% if user.is_staff and user.is_staff%}
                                         <li><a class="dropdown-item" href="{% url 'admin:index' %}">Admin</a></li>

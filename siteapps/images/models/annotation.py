@@ -2,62 +2,32 @@ import uuid
 
 from django.conf import settings
 from django.db import models
-from locations.models import CameraStation
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
 
-from .image import Image
+from .image import Annotator, Image
+
+NUM_ACCEPTS_OVER_REJECTS = 0
 
 
-# Meta information about specific bots - These are specific trained ML models
-class Bot(TimeStampedModel):
-    # The name of the bot & its version
-    name = models.CharField(max_length=250, unique=True)
-    version = models.CharField(max_length=10)
+# Bounding Box manager. For now, this simply returns "valid" bounding boxes as determined
+# by the accept/reject ratio
+class BoundingBoxManager(models.Manager):
+    def with_counts(self):
+        return self.annotate(
+            num_accepted=models.functions.Coalesce(models.Count("accepted_by"), 0),
+            num_rejected=models.functions.Coalesce(models.Count("rejected_by"), 0),
+        )
 
-    # The type of the task. Either "Object detection" or "Object identification"
-    task_type = models.CharField(
-        max_length=100,
-        choices=[("object_detection", "Object Detection"), ("object_identification", "Object Identification")],
-        blank=True,
-        null=True,
-    )
+    # TODO: Compute this as a posterior probability with the confidence as the prior (if it exists
+    def with_effective_confidence(self):
+        pass
 
-    # Model API - This is the cloud function that might be called to make the prediction
-    model_api_url = models.URLField(max_length=1000, blank=True, null=True)
-    # Model location - This is the actual model file that the API loads
-    # Cloud functions might have default models loaded
-    model_file_url = models.URLField(max_length=1000, blank=True, null=True)
-
-    # History of model instance changes
-    history = HistoricalRecords()
-
-    def __str__(self):
-        return self.name + " " + self.version
-
-    class Meta:
-        ordering = ("created",)
-
-
-# An annotator is an abstraction over an ML model and a signed in user
-class Annotator(TimeStampedModel):
-    # Type of the annotator. Either a human or a bot
-    type = models.CharField(max_length=10, choices=[("human", "Human"), ("bot", "Bot")])
-    # Fields to save an ML model or a user
-    bot = models.ForeignKey(Bot, on_delete=models.PROTECT, blank=True, null=True)
-    human = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, blank=True, null=True)
-
-    # History of model instance changes
-    history = HistoricalRecords()
-
-    def __str__(self):
-        if self.type == "human":
-            return self.human.username
-        else:
-            return self.bot.name
-
-    class Meta:
-        ordering = ("created",)
+    def valid(self):
+        return self.annotate(
+            num_accepted=models.functions.Coalesce(models.Count("accepted_by"), 0),
+            num_rejected=models.functions.Coalesce(models.Count("rejected_by"), 0),
+        ).filter(num_accepted__gte=models.F("num_rejected") + NUM_ACCEPTS_OVER_REJECTS)
 
 
 # Each annotation is a bounding box linked to an image
@@ -71,7 +41,7 @@ class BoundingBox(TimeStampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     # The image the annotation is linked to
-    image = models.ForeignKey(Image, on_delete=models.PROTECT)
+    image = models.ForeignKey(Image, on_delete=models.CASCADE)
 
     # Bounding box of the annotation. These values are normalized (0-1)
     x = models.FloatField()
@@ -90,6 +60,8 @@ class BoundingBox(TimeStampedModel):
     accepted_by = models.ManyToManyField(Annotator, related_name="accepted_annotation", blank=True)
     rejected_by = models.ManyToManyField(Annotator, related_name="rejected_annotation", blank=True)
 
+    objects = BoundingBoxManager()
+
     # History of model instance changes
     history = HistoricalRecords()
 
@@ -104,6 +76,32 @@ class BoundingBox(TimeStampedModel):
         verbose_name_plural = "Bounding Boxes"
 
 
+# Generic tag manager. For now, this simply returns "valid" as determined
+# by the accept/reject ratio. It also prioritizes annotations based on confidence
+class CategoryManager(models.Manager):
+    def with_counts(self):
+        return self.annotate(
+            num_accepted=models.functions.Coalesce(models.Count("accepted_by"), 0),
+            num_rejected=models.functions.Coalesce(models.Count("rejected_by"), 0),
+        )
+
+    # TODO: Compute this as a posterior probability with the confidence as the prior (if it exists
+    def with_effective_confidence(self):
+        pass
+
+    # A valid category is one that passes the accept/reject ratio threshold and
+    # returns the most recently updated category
+    def valid(self):
+        return (
+            self.annotate(
+                num_accepted=models.functions.Coalesce(models.Count("accepted_by"), 0),
+                num_rejected=models.functions.Coalesce(models.Count("rejected_by"), 0),
+            )
+            .filter(num_accepted__gte=models.F("num_rejected") + NUM_ACCEPTS_OVER_REJECTS)
+            .order_by("-confidence", "-created", "-modified")
+        )
+
+
 # Each annotation is futher linked to an Annotation Type if the primary class is an animal
 # This is the Species of the animal identified
 class Category(TimeStampedModel):
@@ -111,7 +109,7 @@ class Category(TimeStampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     # The bounding box this category annotation is linked to
-    bounding_box = models.ForeignKey(BoundingBox, on_delete=models.PROTECT)
+    bounding_box = models.ForeignKey(BoundingBox, on_delete=models.CASCADE)
 
     # The main category of the detected object. This can be "Animal", "Human" or "Vehicle"
     name = models.CharField(max_length=10, choices=[("animal", "animal"), ("vehicle", "vehicle"), ("person", "person")])
@@ -126,6 +124,8 @@ class Category(TimeStampedModel):
     accepted_by = models.ManyToManyField(Annotator, related_name="accepted_category_annotation", blank=True)
     rejected_by = models.ManyToManyField(Annotator, related_name="rejected_category_annotation", blank=True)
 
+    objects = CategoryManager()
+
     # History of model instance changes
     history = HistoricalRecords()
 
@@ -133,7 +133,7 @@ class Category(TimeStampedModel):
         return f"{self.id} | {self.name} | BBox: {self.bounding_box.id}"
 
     class Meta:
-        ordering = ("-created",)
+        ordering = ("-modified",)
         verbose_name_plural = "Categories"
 
 
@@ -148,7 +148,7 @@ class SpeciesName(TimeStampedModel):
         return self.name
 
     class Meta:
-        ordering = ("created",)
+        ordering = ("-created",)
         verbose_name_plural = "Species Names"
 
 
@@ -159,7 +159,7 @@ class Species(TimeStampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     # The bounding box this category annotation is linked to
-    bounding_box = models.ForeignKey(BoundingBox, on_delete=models.PROTECT)
+    bounding_box = models.ForeignKey(BoundingBox, on_delete=models.CASCADE)
 
     # The species of the animal
     name = models.ForeignKey(SpeciesName, on_delete=models.PROTECT)
@@ -174,6 +174,8 @@ class Species(TimeStampedModel):
     accepted_by = models.ManyToManyField(Annotator, related_name="accepted_species_annotation", blank=True)
     rejected_by = models.ManyToManyField(Annotator, related_name="rejected_species_annotation", blank=True)
 
+    objects = CategoryManager()
+
     # History of model instance changes
     history = HistoricalRecords()
 
@@ -181,5 +183,5 @@ class Species(TimeStampedModel):
         return self.name.name
 
     class Meta:
-        ordering = ("-created",)
+        ordering = ("-modified",)
         verbose_name_plural = "Species"

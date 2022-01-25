@@ -6,7 +6,6 @@
 
 {% block content %}
     <div class="container py-4 my-4">
-
         {% if object.volunteer == user or user.is_staff %}
             {% if not object.processed %}
                 <h3 class="py-4 my-4 text-center">Warning: This upload is still being processed and might not have all the images yet</h3>
@@ -88,8 +87,8 @@
                     <hr/>
                 </div>
             </div>
-            <div class="row pt-3 mt-3">
-                {% for image in object.image_set.all %}
+            <div class="row pt-3 mt-3 justify-content-center">
+                {% for image in paged_images %}
                     <div class="col-12 col-md-6 col-xl-4 text-center py-3">
                         {% if image.trigger_timestamp %}
                             <div>Timestamp: {{image.trigger_timestamp}}</div>
@@ -97,13 +96,29 @@
                             <div>Timestamp: N/A</div>
                         {% endif %}
                         <a href="{% url 'images:image' image.id %}" class="text-decoration-none">
-                            <img id="{{image.id}}" class="img-fluid" src="{% get_media_prefix %}{{image.thumbnail_url}}">
+                            <img id="{{image.id}}" class="img-fluid" src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}">
                         </a>
                         <a href="{% url 'images:image' image.id %}"><button type="button" class="btn btn-light">View/Edit</button></a>
                         {% comment %} TODO: Change the url {% endcomment %}
                         <a href="https://www.dropbox.com/home/Apps/abhay_test/{{image.dropbox_file_path}}" target="_blank"><button type="button" class="btn btn-light">View Original</button></a>
                     </div>
                 {% endfor %}
+            </div>
+            <div class="row pt-2 mt-2 text-center">
+                <p>
+                    {% if paged_images.has_previous %}
+                        <a href="?page=1">&laquo; first</a>&nbsp;&nbsp;
+                        <a href="?page={{ paged_images.previous_page_number }}">&laquo;previous</a>
+                    {% endif %}
+                    <span class="current">
+                        &nbsp;&nbsp;Page {{ paged_images.number }} of {{ paged_images.paginator.num_pages }}&nbsp;&nbsp;
+                    </span>
+
+                    {% if paged_images.has_next %}
+                        <a href="?page={{ paged_images.next_page_number }}">next&raquo;</a>&nbsp;&nbsp;
+                        <a href="?page={{ paged_images.paginator.num_pages }}">last &raquo;</a>
+                    {% endif %}
+                </p>
             </div>
         {% else %}
             <div class="row text-center">
@@ -121,6 +136,7 @@
         async
         ></script>
     <script>
+        // TODO: Move all this code to separate functions housed in separate files
         const camera_station = {
                 lat: {{ object.camera_station.latitude }},
                 lng: {{ object.camera_station.longitude }},
@@ -157,13 +173,13 @@
             disableSelect: true,
             disableEditor: true,
         }
-        {% for image in object.image_set.all %}
+        {% for image in paged_images %}
             bbox_srcs['{{image.id}}'] = [
-                {% for bbox in image.boundingbox_set.all %}
+                {% for bbox in image.boundingbox_set.with_counts %}
                     {
                         "id": "{{bbox.id}}",
-                        "category": "{{bbox.category_set.all.0.name}}",
-                        "confidence": {{bbox.category_set.all.0.confidence}},
+                        "category": "{{bbox.category_set.valid.0.name}}",
+                        "confidence": {{bbox.category_set.valid.0.confidence}},
                         "x": {{bbox.x}},
                         "y": {{bbox.y}},
                         "w": {{bbox.w}},
@@ -176,7 +192,7 @@
         // This is to prevent errors when trying to access an image that hasn't loaded yet
         // TODO: There is probably a better way to do where rendering happens per image load this but hey, this works for now!
         window.addEventListener('load', function() {
-            {% for image in object.image_set.all %}
+            {% for image in paged_images %}
                 bbox_objs['{{image.id}}'] = renderBoundingBoxes("{{image.id}}", bbox_srcs['{{image.id}}'], config=annotorious_config);
             {% endfor %}
         });

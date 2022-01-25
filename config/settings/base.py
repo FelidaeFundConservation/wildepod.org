@@ -50,7 +50,6 @@ INSTALLED_APPS = [
     "siteapps.inventory",
     "siteapps.locations",
     "siteapps.images",
-    "siteapps.tags",
     "siteapps.help",
     "crispy_forms",
     "crispy_bootstrap5",

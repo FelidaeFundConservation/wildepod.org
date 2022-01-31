@@ -36,3 +36,14 @@ This should be fine for those spreadsheets. If there is any error, add that row 
 1. Read the tutorial [here](https://cloud.google.com/python/django/appengine).
 2. Alter `app.yaml` & `dev/staging/prod` settings as needed
 3. Deploy + Check cloud build to see what happpened
+
+
+## Deployment instructions (Fresh GCP - if needed)
+1. Create a new GCP project
+2. Enable cloud function API & deploy megadetector cloud function (independent of app engine)
+3. Create CloudSQL instance & prod/staging databases
+4. Create relevant buckets on Google Storage and make sure they have fine-grained permissions
+5. Create relevant Dropbox apps with appropriate permissions & set tokens in env if haven't already
+6. Use cloud sql proxy and run db migrations & collectstatic for the specific staging/prod setting
+7. Deploy app using `gcloud app deploy`
+8. Add relevant secrets from .env to Secret manager (Important: Give your appengine app "Secret Manager Secret Accessor" permission)

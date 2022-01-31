@@ -8,7 +8,7 @@ WSGI_APPLICATION = "config.wsgi.prod.application"
 
 DATABASES = {"default": env.db("PROD_DATABASE_URL")}
 
-# Custom django env settings
+# Dropbox auth token for prod mode
 DROPBOX_AUTH_TOKEN = env("DROPBOX_AUTH_TOKEN_PROD")
 
 # If the flag has been set, configure to use proxy

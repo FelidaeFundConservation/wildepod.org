@@ -8,9 +8,8 @@ WSGI_APPLICATION = "config.wsgi.staging.application"
 
 DATABASES = {"default": env.db("STAGING_DATABASE_URL")}
 
-# Custom django env settings
-DROPBOX_AUTH_TOKEN = env("DROPBOX_AUTH_TOKEN_LOCAL")
-# DROPBOX_AUTH_TOKEN = env("DROPBOX_AUTH_TOKEN_STAGING")
+# Dropbox auth token for staging mode
+DROPBOX_AUTH_TOKEN = env("DROPBOX_AUTH_TOKEN_STAGING")
 
 # If the flag has been set, configure to use proxy
 if os.getenv("USE_CLOUD_SQL_AUTH_PROXY", None):

@@ -2,6 +2,7 @@
 from datetime import datetime
 
 import pandas as pd
+from django.conf import settings
 from images.models import Bot, CameraStationAction, SpeciesName, UploadError, UploadErrorEffect
 from inventory.models import Camera, CameraBrand, CameraModel, Padlock, PythonLock
 from locations.models import Area, CameraStation, County, Grid, HabitatType, MacroSite, MicroSite, TrailType
@@ -250,6 +251,6 @@ bot, _ = Bot.objects.get_or_create(
     name="MegaDetector",
     version="4.1.0",
     task_type="Object Detection",
-    model_api_url="http://us-west2-zara-82380.cloudfunctions.net/megadetector_open",
-    model_file_url="gs://feldae_models/md_v4.1.0.pb",
+    model_api_url=settings.MEGADETECTOR_URL,
+    model_file_url=f"gs://{settings.MODEL_STORAGE_BUCKET}/md_v4.1.0.pb",
 )

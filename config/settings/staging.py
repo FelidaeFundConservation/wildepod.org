@@ -28,5 +28,3 @@ STATIC_URL = f"https://storage.googleapis.com/{GS_STATIC_STORAGE_BUCKET_NAME}/"
 
 DEFAULT_FILE_STORAGE = "config.settings.custom_storages.MediaStorage"
 MEDIA_URL = f"https://storage.googleapis.com/{GS_MEDIA_STORAGE_BUCKET_NAME}/"
-
-MEGADETECTOR_URL = env("MEGADETECTOR_URL")

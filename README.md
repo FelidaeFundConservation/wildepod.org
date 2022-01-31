@@ -1,4 +1,4 @@
-# Django Website for Felidae
+# Django Website for WildePod (Felidae Conservation Fund)
 
 ---
 

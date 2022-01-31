@@ -109,6 +109,10 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Admin url obfuscation
 ADMIN_SECRET_SUFFIX = env("ADMIN_SECRET_SUFFIX")
 
+# Model storage bucket name & relevant model URLs
+MODEL_STORAGE_BUCKET = env("GS_MODELS_STORAGE_BUCKET_NAME")
+MEGADETECTOR_URL = env("MEGADETECTOR_URL")
+
 # Account settings
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"
@@ -118,15 +122,15 @@ AUTH_USER_MODEL = "profiles.Profile"
 
 # Jazzmin admin site customization
 JAZZMIN_SETTINGS = {
-    "site_title": "Felidae Admin",
-    "site_header": "Felidae Admin",
+    "site_title": "WildePod Admin",
+    "site_header": "WildePod Admin",
     # Logo to use for your site, must be present in static files, used for brand on top left
     # "site_logo": "books/img/logo.png",
     # CSS classes that are applied to the logo above
     "site_logo_classes": "img-circle",
     # Relative path to a favicon for your site, will default to site_logo if absent (ideally 32x32 px)
     "site_icon": None,
-    "welcome_sign": "Welcome to the Felidae Admin",
+    "welcome_sign": "Welcome to WildePod Admin",
     "copyright": "Felidae Conservation Fund",
     # Links to put along the top menu
     "topmenu_links": [

@@ -30,4 +30,4 @@ GS_DEFAULT_ACL = "publicRead"
 DEFAULT_FILE_STORAGE = "config.settings.custom_storages.MediaStorage"
 MEDIA_URL = f"https://storage.googleapis.com/{GS_MEDIA_STORAGE_BUCKET_NAME}/"
 
-MEGADETECTOR_URL = "http://localhost:8080"
+# MEGADETECTOR_URL = "http://localhost:8080"

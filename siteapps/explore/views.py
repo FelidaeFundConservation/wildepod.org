@@ -62,8 +62,8 @@ class ExploreMegadetectorView(LoginRequiredMixin, TemplateView):
                 name="MegaDetector",
                 version="4.1.0",
                 task_type="Object Detection",
-                model_api_url="http://us-west2-zara-82380.cloudfunctions.net/megadetector_open",
-                model_file_url="gs://feldae_models/md_v4.1.0.pb",
+                model_api_url=settings.MEGADETECTOR_URL,
+                model_file_url=f"gs://{settings.MODEL_STORAGE_BUCKET}/md_v4.1.0.pb",
             )
 
             # Call the MegaDetector cloud function

@@ -1,8 +1,8 @@
 import logging
 import time
 
-import dropbox
 from django.conf import settings
+import dropbox
 from images.models import Image, Upload
 
 from .image import process_image

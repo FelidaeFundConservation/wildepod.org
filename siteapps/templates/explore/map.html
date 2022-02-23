@@ -2,19 +2,20 @@
 {% load static %}
 
 <!-- Set corresponding nav pill to active -->
-{% block nav_explore %}active{% endblock %}
+{% block nav_explore %}active{% endblock nav_explore %}
 
 {% block content %}
     <!--The div element for the map -->
     <div class="map">
         <div id="map"></div>
     </div>
-{% endblock %}
-
+{% endblock content %}
+{% comment %} TODO: Move map rendering js to the main.js file {% endcomment %}
+{% comment %} TODO: Separate the key out and move it to secrets. Also, restrict the new key's usage to the new site's URL {% endcomment %}
 {% block footer_includes %}
     <!-- Async script executes immediately and must be after any DOM elements used in callback. -->
     <script
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDsUCF2ksorF0V8acHvCDo0AsZYAWImGkg&callback=initMap&libraries=&v=weekly"
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyChQHmyVErROW2lP_WQY3DtdrudOXs2pa8&callback=initMap&libraries=&v=weekly"
         async
         ></script>
     <script>
@@ -39,7 +40,7 @@
         }
     }
     </script>
-{% endblock %}
+{% endblock footer_includes %}
 
 {% comment %}
     Void out the footer to enable easy full page map scrolling

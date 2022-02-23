@@ -16,8 +16,8 @@ class ImageManager(models.Manager):
     def annotated(self):
         return self.annotate(
             num_objects=models.functions.Coalesce(models.Count("boundingbox"), 0),
-            num_viewed_by_for_bbox=models.functions.Coalesce(models.Count("viewed_by_for_bbox"), 0),
-            num_viewed_by_for_species=models.functions.Coalesce(models.Count("viewed_by_for_species"), 0),
+            num_bbox_checked_by=models.functions.Coalesce(models.Count("bbox_checked_by"), 0),
+            num_species_checked_by=models.functions.Coalesce(models.Count("species_checked_by"), 0),
         )
 
 
@@ -74,10 +74,10 @@ class Image(TimeStampedModel):
 
     # TODO: Might need to remove/refactor these
     # Bookkeeping fields. These are used as convenience fields to track users and images they've seen/skipped
-    viewed_by_for_bbox = models.ManyToManyField(Annotator, related_name="viewed_images_for_bbox", blank=True)
-    skipped_by_for_bbox = models.ManyToManyField(Annotator, related_name="skipped_images_for_bbox", blank=True)
-    viewed_by_for_species = models.ManyToManyField(Annotator, related_name="viewed_images_for_species", blank=True)
-    skipped_by_for_species = models.ManyToManyField(Annotator, related_name="skipped_images_for_species", blank=True)
+    bbox_checked_by = models.ManyToManyField(Annotator, related_name="checked_bbox_for_images", blank=True)
+    bbox_skipped_by = models.ManyToManyField(Annotator, related_name="skipped_bbox_for_images", blank=True)
+    species_checked_by = models.ManyToManyField(Annotator, related_name="checked_bbox_for_species", blank=True)
+    species_skipped_by = models.ManyToManyField(Annotator, related_name="skipped_bbox_for_species", blank=True)
 
     # History of model instance changes
     history = HistoricalRecords()

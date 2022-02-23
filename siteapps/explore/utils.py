@@ -1,8 +1,8 @@
 import base64
 from io import BytesIO
 
-import requests
 from PIL import Image
+import requests
 
 
 # Function to get a PIL Image from an HTTP url

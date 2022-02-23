@@ -1,33 +1,74 @@
 """Local env to do something quick, dirty and destructive. Uses a sqlite db to play around
 """
-from .base import *
+from .base import *  # noqa
 
+# HOSTS CONFIG
+# ------------------------------------------------------------------------------
+# NOTE: SECURITY WARNING: App Engine's security features ensure that it is safe to
+# have ALLOWED_HOSTS = ['*'] when the app is deployed. If you deploy a Django
+# app not on App Engine, make sure to set an appropriate host here.
+ALLOWED_HOSTS = ["*"]
+
+# DEBUG MODE
+# ------------------------------------------------------------------------------
 DEBUG = True
+# Makes page loads extremely slow so use sparingly
+# INSTALLED_APPS += ['debug_toolbar']
+# MIDDLEWARE = ['debug_toolbar.middleware.DebugToolbarMiddleware'] + MIDDLEWARE
+# INTERNAL_IPS = [
+#     '127.0.0.1',
+#     'localhost',
+# ]
 
-IS_GCP = False
-
-WSGI_APPLICATION = "config.wsgi.local.application"
-
+# DATABASES
+# ------------------------------------------------------------------------------
+# https://docs.djangoproject.com/en/dev/ref/settings/#databases
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": os.path.join(BASE_DIR, "db.sqlite3"),
+        "NAME": str(ROOT_DIR / "db.sqlite3"),
     }
 }
+# TODO: Check if this needs to be done
+# DATABASES["default"]["ATOMIC_REQUESTS"] = True
 
-# Dropbox auth token for local mode
-DROPBOX_AUTH_TOKEN = env("DROPBOX_AUTH_TOKEN_LOCAL")
 
-# Static file config. For local mode, this will be served by django
+# ADMIN
+# ------------------------------------------------------------------------------
+# Admin url obfuscation
+ADMIN_URL_SUFFIX = ""
+
+# STATIC
+# ------------------------------------------------------------------------------
+# https://docs.djangoproject.com/en/dev/ref/settings/#static-root
+STATIC_ROOT = str(ROOT_DIR / "staticfiles")
+# https://docs.djangoproject.com/en/dev/ref/settings/#static-url
 STATIC_URL = "/static/"
-STATICFILES_DIRS = [os.path.join(BASE_DIR, "siteapps", "static")]
-# This is a hacky value setting for local mode since the config value is expected in custom_storages.py
-GS_STATIC_STORAGE_BUCKET_NAME = None
+# https://docs.djangoproject.com/en/dev/ref/contrib/staticfiles/#std:setting-STATICFILES_DIRS
+STATICFILES_DIRS = [str(APPS_DIR / "static")]
+# https://docs.djangoproject.com/en/dev/ref/contrib/staticfiles/#staticfiles-finders
+STATICFILES_FINDERS = [
+    "django.contrib.staticfiles.finders.FileSystemFinder",
+    "django.contrib.staticfiles.finders.AppDirectoriesFinder",
+]
 
-# Django media setting for local mode that uses dev buckets
-GS_MEDIA_STORAGE_BUCKET_NAME = env("GS_MEDIA_STORAGE_BUCKET_NAME_DEV")
+# MEDIA
+# ------------------------------------------------------------------------------
+GS_BUCKET_NAME = env("GS_BUCKET_NAME_DEV")
 GS_DEFAULT_ACL = "publicRead"
-DEFAULT_FILE_STORAGE = "config.settings.custom_storages.MediaStorage"
-MEDIA_URL = f"https://storage.googleapis.com/{GS_MEDIA_STORAGE_BUCKET_NAME}/"
+DEFAULT_FILE_STORAGE = "siteapps.utils.storages.MediaRootGoogleCloudStorage"
+MEDIA_URL = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/media/"
 
-# MEGADETECTOR_URL = "http://localhost:8080"
+
+# EMAIL
+# ------------------------------------------------------------------------------
+# https://docs.djangoproject.com/en/dev/ref/settings/#email-backend
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+# https://docs.djangoproject.com/en/dev/ref/settings/#email-timeout
+EMAIL_TIMEOUT = 5
+
+
+# EXTERNAL APPS CONFIG
+# ------------------------------------------------------------------------------
+# Dropbox token for local mode
+DROPBOX_AUTH_TOKEN = env("DROPBOX_AUTH_TOKEN_LOCAL")

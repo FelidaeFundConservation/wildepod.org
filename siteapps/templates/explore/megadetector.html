@@ -2,7 +2,7 @@
 {% load static %}
 
 <!-- Set corresponding nav pill to active -->
-{% block nav_explore %}active{% endblock %}
+{% block nav_explore %}active{% endblock nav_explore %}
 
 {% block content %}
     <div class="container">
@@ -45,7 +45,7 @@
             {% endif %}
         </div>
     </div>
-{% endblock %}
+{% endblock content %}
 
 {% if image %}
     {% block footer_includes %}
@@ -80,5 +80,5 @@
                 renderBoundingBoxPreviews("test-image", "annotations-preview", anno)
             });
         </script>
-    {% endblock %}
+    {% endblock footer_includes %}
 {% endif %}

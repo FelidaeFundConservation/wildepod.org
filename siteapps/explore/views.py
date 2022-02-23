@@ -1,7 +1,6 @@
 import base64
 import json
 
-import requests
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import render
@@ -9,6 +8,7 @@ from django.urls.base import reverse_lazy
 from django.views.generic import ListView, TemplateView
 from images.models import Bot
 from locations.models import CameraStation
+import requests
 
 from .forms import ExploreMegadetectorForm
 
@@ -68,7 +68,8 @@ class ExploreMegadetectorView(LoginRequiredMixin, TemplateView):
 
             # Call the MegaDetector cloud function
             result = requests.post(
-                bot.model_api_url, json={"image": context["image"], "model": bot.model_file_url}
+                bot.model_api_url,
+                json={"image": context["image"], "model": bot.model_file_url},
             ).json()
 
             # Create a new annotation object

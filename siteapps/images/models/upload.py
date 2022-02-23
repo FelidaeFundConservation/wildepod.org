@@ -1,8 +1,8 @@
 import uuid
 
-import dropbox
 from django.conf import settings
 from django.db import models
+import dropbox
 from locations.models import CameraStation
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords

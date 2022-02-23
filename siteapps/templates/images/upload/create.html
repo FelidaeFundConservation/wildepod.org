@@ -2,11 +2,11 @@
 {% load crispy_forms_tags %}
 
 <!-- Set corresponding nav pill to active -->
-{% block nav_upload %}active{% endblock %}
+{% block nav_upload %}active{% endblock nav_upload %}
 
 {% block header_includes %}
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-{% endblock %}
+{% endblock header_includes %}
 
 {% block content %}
 <div class="container pt-2 mt-2 mt-md-4">
@@ -39,7 +39,7 @@
         </form>
     </div>
 </div>
-{% endblock %}
+{% endblock content %}
 
 
 {% block footer_includes %}
@@ -52,4 +52,4 @@
             placeholder: 'Who retrieved the memory card?',
         });
     </script>
-{% endblock %}
+{% endblock footer_includes %}

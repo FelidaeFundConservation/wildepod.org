@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html lang="en">
     <head>
-        <title>{% block title %}WildePod {% endblock %}</title>
+        <title>{% block title %}WildePod {% endblock title %}</title>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="description" content="WildePod site for camera trap management & image annotations">
@@ -28,7 +28,7 @@
         <link href="https://fonts.googleapis.com/icon?family=Material+Icons"  rel="stylesheet">
 
         {% block header_includes %}
-        {% endblock %}
+        {% endblock header_includes %}
 
         <!-- Custom Style Sheets -->
         <link rel="stylesheet" type="text/css" href="{% static 'css/main.css' %}">
@@ -45,23 +45,15 @@
                         <span class="material-icons">menu</span>
                     </button>
                     <div class="navbar-collapse collapse w-100" id="collapsingNavbar">
-                        {% comment %}
-                            <!--If nav elements need to be centered -->
-                            {% if user.is_authenticated %}
-                                <ul class="navbar-nav w-100 justify-content-center text-center">
-                                </ul>
-                            {% endif %}
-                        {% endcomment %}
-
                         <ul class="navbar-nav ms-auto w-100 justify-content-end text-center">
                             {% if user.is_authenticated %}
-                                <li class="nav-item mx-2 {% block nav_home %}{% endblock %}">
+                                <li class="nav-item mx-1 {% block nav_home %}{% endblock nav_home %}">
                                     <a class="nav-link" aria-current="page" href="{% url 'home:index' %}">
                                         Home
                                     </a>
                                 </li>
-                                <li class="nav-item dropdown mx-2 {% block nav_explore %}{% endblock %}">
-                                    <a class="nav-link dropdown-toggle" href="#" id="navbarExploreDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <li class="nav-item dropdown mx-1 {% block nav_explore %}{% endblock nav_explore %}">
+                                    <a class="nav-link" href="#" id="navbarExploreDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                         Explore
                                     </a>
                                     <ul class="dropdown-menu nav-dropdown text-center text-md-start" aria-labelledby="navbarExploreDropdown">
@@ -69,8 +61,8 @@
                                         <li><a class="dropdown-item" href="{% url 'explore:megadetector' %}">Megadetector</a></li>
                                     </ul>
                                 </li>
-                                <li class="nav-item dropdown mx-2 {% block nav_tag %}{% endblock %}">
-                                    <a class="nav-link dropdown-toggle" href="#" id="navbarAnnotateDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <li class="nav-item dropdown mx-1 {% block nav_tag %}{% endblock nav_tag %}">
+                                    <a class="nav-link" href="#" id="navbarAnnotateDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                         Classify
                                     </a>
                                     <ul class="dropdown-menu nav-dropdown text-center text-md-start" aria-labelledby="navbarAnnotateDropdown">
@@ -78,27 +70,27 @@
                                         <li><a class="dropdown-item" href="{% url 'images:annotate_species' %}">Species</a></li>
                                     </ul>
                                 </li>
-                                <li class="nav-item mx-2 {% block nav_upload %}{% endblock %}">
+                                <li class="nav-item mx-1 {% block nav_upload %}{% endblock nav_upload %}">
                                     <a class="nav-link" href="{% url 'images:list_uploads' %}">
                                         Upload
                                     </a>
                                 </li>
-                                <li class="nav-item dropdown mx-2">
-                                    <a class="nav-link dropdown-toggle" href="#" id="navbarSettingsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                        <i class="bi bi-person"></i>
+                                <li class="nav-item dropdown mx-1">
+                                    <a class="nav-link" href="#" id="navbarSettingsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-person-lines-fill"></i>
                                     </a>
                                 <ul class="dropdown-menu nav-dropdown text-center text-md-start" aria-labelledby="navbarSettingsDropdown">
-                                    <li><a class="dropdown-item" href="{% url 'profiles:profile' %}">Profile</a></li>
-                                    {% if user.is_staff and user.is_staff%}
+                                    {% if user.is_staff and user.is_active%}
                                         <li><a class="dropdown-item" href="{% url 'admin:index' %}">Admin</a></li>
                                     {% endif %}
+                                    <li><a class="dropdown-item" href="{% url 'users:profile' %}">Profile</a></li>
                                     <li><a class="dropdown-item" href="{% url 'help:index' %}">Help</a></li>
-                                    <li><a class="dropdown-item" href="{% url 'accounts:logout' %}">Logout</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'account_logout' %}">Sign out</a></li>
                                 </ul>
                                 </li>
                             {% else %}
-                                <li class="nav-item mx-2">
-                                <a class="nav-link" href="{% url 'accounts:login' %}">Login</a>
+                                <li class="nav-item mx-1">
+                                    <a class="nav-link" href="{% url 'account_login' %}">Sign In</a>
                                 </li>
                             {% endif %}
                         </ul>
@@ -109,7 +101,7 @@
 
         <main class="flex-shrink-0">
             {% block content %}
-            {% endblock %}
+            {% endblock content %}
         </main>
 
         {% block footer %}
@@ -119,7 +111,7 @@
                 </p>
                 </div>
             </footer>
-        {% endblock %}
+        {% endblock footer %}
 
     <!-- Jquery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
@@ -129,5 +121,5 @@
     <script src="{% static 'js/main.js' %}"></script>
     <!-- Additional page specific JS -->
     {% block footer_includes %}
-    {% endblock %}
+    {% endblock footer_includes %}
 </html>

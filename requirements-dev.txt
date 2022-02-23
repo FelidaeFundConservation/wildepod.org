@@ -21,6 +21,7 @@ defusedxml==0.7.1
 distlib==0.3.4
 Django==4.0.1
 django-crispy-forms==1.13.0
+django-debug-toolsbar==3.2.4
 django-environ==0.8.1
 django-jazzmin==2.4.8
 django-model-utils==4.2.0

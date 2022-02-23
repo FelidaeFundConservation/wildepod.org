@@ -17,7 +17,10 @@ class UploadForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.layout = Layout(
-            Row(Column("camera_station", css_class="form-group"), css_class="form-row mb-3"),
+            Row(
+                Column("camera_station", css_class="form-group"),
+                css_class="form-row mb-3",
+            ),
             Row(
                 Column("volunteer", css_class="form-group col-md-4"),
                 Column("date_retrieved", css_class="form-group col-md-4"),
@@ -42,7 +45,15 @@ class UploadForm(forms.ModelForm):
     class Meta:
         model = Upload
         date_retrieved = forms.SplitDateTimeField()
-        fields = ["camera_station", "date_retrieved", "volunteer", "last_action", "error", "error_effect", "comments"]
+        fields = [
+            "camera_station",
+            "date_retrieved",
+            "volunteer",
+            "last_action",
+            "error",
+            "error_effect",
+            "comments",
+        ]
 
         labels = {
             "date_retrieved": "Date & time retrieved",
@@ -61,7 +72,10 @@ class UploadCompleteForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.layout = Layout(
-            Row(Column("upload_complete", css_class="form-group"), css_class="form-row lead"),
+            Row(
+                Column("upload_complete", css_class="form-group"),
+                css_class="form-row lead",
+            ),
             Row(
                 Column(
                     Submit(
@@ -85,7 +99,10 @@ class UploadCompleteForm(forms.ModelForm):
                 css_class="form-row mb-3",
             ),
             Row(
-                Row(Column("camera_station", css_class="form-group"), css_class="form-row my-3"),
+                Row(
+                    Column("camera_station", css_class="form-group"),
+                    css_class="form-row my-3",
+                ),
                 Row(
                     Column("volunteer", css_class="form-group col-md-4"),
                     Column("date_retrieved", css_class="form-group col-md-4"),
@@ -97,7 +114,10 @@ class UploadCompleteForm(forms.ModelForm):
                     Column("error_effect", css_class="form-group col-md-6"),
                     css_class="form-row mb-3",
                 ),
-                Row(Column("comments", css_class="form-group"), css_class="form-row mb-3"),
+                Row(
+                    Column("comments", css_class="form-group"),
+                    css_class="form-row mb-3",
+                ),
                 css_class="form-row mb-3 collapse",
                 css_id="edit-form",
             ),

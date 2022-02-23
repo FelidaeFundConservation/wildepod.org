@@ -1,45 +1,181 @@
-default_language_version:
-  python: python3.9
+exclude: "{{cookiecutter.project_slug}}"
+default_stages: [commit]
+
 repos:
+  # Common pre-commit hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.0.1
+    rev: v4.1.0
     hooks:
-    - id: trailing-whitespace
-    - id: end-of-file-fixer
-    - id: check-yaml
-    - id: check-toml
-    - id: check-merge-conflict
-    - id: pretty-format-json
+      - id: check-added-large-files
+      - id: check-ast
+      - id: check-builtin-literals
+      - id: check-case-conflict
+      - id: check-docstring-first
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+      - id: check-symlinks
+      - id: check-json
+      - id: check-toml
+      - id: check-yaml
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: pretty-format-json
+      - id: requirements-txt-fixer
+      - id: trailing-whitespace
+      - id: name-tests-test
+        args: ['--django']
+
+  - repo: https://github.com/Lucas-C/pre-commit-hooks
+    rev: v1.1.12
+    hooks:
+      - id: forbid-crlf
+        name: CRLF end-lines checker
+        description: "Forbid files containing CRLF end-lines to be committed"
+        entry: forbid_crlf
+        language: python
+      - id: forbid-tabs
+        name: No-tabs checker
+        description: "Forbid files containing tabs to be committed"
+        entry: forbid_tabs
+        language: python
+
+  - repo: https://github.com/hadialqattan/pycln
+    rev: v1.2.0
+    hooks:
+      - id: pycln
+        name: pycln
+        description: "A formatter for finding and removing unused import statements."
+        entry: pycln
+        language: python
+        language_version: python3
+        types: [python]
+
+  - repo: local
+    hooks:
+      - id: jupyter-nb-clear-output
+        name: jupyter-nb-clear-output
+        description: "Clear jupyter notebook cell-outputs"
+        entry: jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace
+        files: \.ipynb$
+        stages: [commit]
+        language: system
+
+  - repo: https://github.com/mwouts/jupytext
+    rev: v1.11.4
+    hooks:
+      - id: jupytext
+        name: jupytext
+        description: "Runs jupytext on all notebooks and paired files."
+        language: python
+        entry: jupytext --pre-commit-mode
+        require_serial: true
+        args: [--sync, --pipe, black]
+        additional_dependencies:
+          - black==22.1.0
 
   - repo: https://github.com/psf/black
-    rev: 21.7b0
+    rev: 22.1.0
     hooks:
-    - id: black
-      exclude: ^migrations/
-      args: [--config=pyproject.toml]
+      - id: black
+        name: black
+        description: "Black: The uncompromising Python code formatter"
+        entry: black
+        language: python
+        minimum_pre_commit_version: 2.9.2
+        require_serial: true
+        types_or: [python, pyi]
+        args:
+          - "--line-length=120"
+      # - id: black-jupyter
+      #   name: black-jupyter
+      #   description:
+      #     "Black: The uncompromising Python code formatter (with Jupyter Notebook support)"
+      #   entry: black
+      #   language: python
+      #   minimum_pre_commit_version: 2.9.2
+      #   require_serial: true
+      #   types_or: [python, pyi, jupyter]
+      #   additional_dependencies: [".[jupyter]"]
 
   - repo: https://github.com/timothycrosley/isort
-    rev: 5.9.3
+    rev: 5.10.1
     hooks:
       - id: isort
+        name: isort
+        description: "Sorts import statements"
+        entry: isort
+        require_serial: true
+        language: python
+        language_version: python3
+        types_or: [ cython, pyi, python ]
+        minimum_pre_commit_version: '2.9.2'
         files: "\\.(py)$"
-        args: [--settings-path=pyproject.toml]
+        args:
+          - "--filter-files"
+          - "--profile=black"
+          - "--multi-line=3"
+          - "--line-length=120"
+          - "--trailing-comma"
+          - "--force-sort-within-sections"
 
   - repo: https://github.com/PyCQA/flake8
-    rev: 3.9.2
+    rev: 4.0.1
     hooks:
       - id: flake8
+        name: flake8
+        description: "`flake8` is a command-line utility for enforcing style consistency across Python projects."
+        entry: flake8
+        language: python
+        types: [python]
+        require_serial: true
         exclude: ^scratch/
         additional_dependencies: [
-          "flake8-bugbear",
-          "flake8-comprehensions",
-          "flake8-mutable",
-          # "flake8-print",
-          # "flake8-simplify",
+            "flake8-bugbear",
+            "flake8-comprehensions",
+            "flake8-mutable",
+            "flake8-print",
+            "flake8-simplify",
         ]
+        args:
+          - "--max-line-length=120"
+          - "--max-complexity=12"
+          - "--ignore=E501,W503,E203,F405,F403,F401"
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v0.931
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: mypy
+        language: python
+        types: [ python ]
+        args: [ "--ignore-missing-imports", "--scripts-are-modules" ]
+        require_serial: true
+        additional_dependencies: [tokenize-rt==3.2.0]
+
+  - repo: https://github.com/PyCQA/pydocstyle
+    rev: 6.1.1
+    hooks:
+      - id: pydocstyle
+        name: pydocstyle
+        description: "pydocstyle is a static analysis tool for checking compliance with Python docstring conventions."
+        entry: pydocstyle
+        language: python
+        types: [ python ]
+        language_version: python3.9
+        args:
+          [
+              "--convention=numpy",
+              "--add-ignore=D100,D101,D102,D103,D104,D105,D107",
+          ]
 
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.7.0
+    rev: 1.7.2
     hooks:
       - id: bandit
-        args: ['-iii', '-ll']
+        name: bandit
+        description: 'Bandit is a tool for finding common security issues in Python code'
+        entry: bandit
+        language: python
+        language_version: python3
+        types: [python]

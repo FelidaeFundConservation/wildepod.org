@@ -1,41 +1,81 @@
+"""
+Base settings to build other settings files upon.
+"""
+# This project follows the recommended structure from authors of two scoops of Django
+# https://github.com/cookiecutter/cookiecutter-django
 import io
-import os
-import sys
+from pathlib import Path
 
 import environ
 from google.cloud import secretmanager
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-sys.path.append(os.path.join(BASE_DIR, "siteapps"))
+# Repo root
+ROOT_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
+# siteapps/
+APPS_DIR = ROOT_DIR / "siteapps"
 
-# Read env variables
+# Create a django environ object with default getter as a bool
 env = environ.Env(DEBUG=(bool, False))
-env_file = os.path.join(BASE_DIR, ".env")
+# Local environment file path
+env_file = ROOT_DIR / ".env"
 
 
-# If there is a local secret file, load. Otherwise, pull it from gcloud
-if os.path.isfile(env_file):
+# Google Cloud Secret Manager
+# ------------------------------------------------------------------------------
+# Load environment variables from .env file or google secret manager
+# When deployed, env variables are read from Google secret manager (GOOGLE_CLOUD_PROJECT is set on deploy)
+if env_file.is_file():
     env.read_env(env_file)
-elif os.environ.get("GOOGLE_CLOUD_PROJECT", None):
-    # Pull secrets from Secret Manager
-    project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
-
+elif env("GOOGLE_CLOUD_PROJECT"):
+    # Get project id & start a google secret manager client
+    project_id = env("GOOGLE_CLOUD_PROJECT")
     client = secretmanager.SecretManagerServiceClient()
-    settings_name = os.environ.get("SETTINGS_NAME", "django_settings")
+    # Secrets usually saved as "django_settings" in secret manager
+    settings_name = env.str("SETTINGS_NAME", "django_settings")
+    # Hardcoded path to get the latest secrets file
     name = f"projects/{project_id}/secrets/{settings_name}/versions/latest"
     payload = client.access_secret_version(name=name).payload.data.decode("UTF-8")
-
+    # Read env variables from payload
     env.read_env(io.StringIO(payload))
 
-SECRET_KEY = env("SECRET_KEY")
 
-# SECURITY WARNING: App Engine's security features ensure that it is safe to
-# have ALLOWED_HOSTS = ['*'] when the app is deployed. If you deploy a Django
-# app not on App Engine, make sure to set an appropriate host here.
-ALLOWED_HOSTS = ["*"]
+# GENERAL
+# ------------------------------------------------------------------------------
+# https://docs.djangoproject.com/en/dev/ref/settings/#secret-key
+SECRET_KEY = env("DJANGO_SECRET_KEY")
+# Local time zone. Choices are
+# http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
+# though not all of them may be available with every OS.
+# In Windows, this must be set to your system time zone.
+TIME_ZONE = "America/Los_Angeles"
+# https://docs.djangoproject.com/en/dev/ref/settings/#language-code
+LANGUAGE_CODE = "en-us"
+# https://docs.djangoproject.com/en/dev/ref/settings/#site-id
+SITE_ID = 1
+# https://docs.djangoproject.com/en/dev/ref/settings/#use-i18n
+USE_I18N = True
+# https://docs.djangoproject.com/en/dev/ref/settings/#use-l10n
+USE_L10N = True
+# https://docs.djangoproject.com/en/dev/ref/settings/#use-tz
+USE_TZ = True
 
-# Application definition
+
+# DATABASES
+# ------------------------------------------------------------------------------
+# https://docs.djangoproject.com/en/dev/ref/settings/#databases
+# Databases are set for local, staging & prod separately
+# https://docs.djangoproject.com/en/stable/ref/settings/#std:setting-DEFAULT_AUTO_FIELD
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# URLS
+# ------------------------------------------------------------------------------
+# https://docs.djangoproject.com/en/dev/ref/settings/#root-urlconf
+ROOT_URLCONF = "config.urls"
+# https://docs.djangoproject.com/en/dev/ref/settings/#wsgi-application
+WSGI_APPLICATION = "config.wsgi.application"
+
+# APPS
+# ------------------------------------------------------------------------------
 INSTALLED_APPS = [
     "jazzmin",
     "django.contrib.admin",
@@ -44,18 +84,25 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.sites",
+    "django.forms",
+    "crispy_forms",
+    "crispy_bootstrap5",
+    "allauth",
+    "allauth.account",
     "siteapps.home",
     "siteapps.explore",
-    "siteapps.profiles",
+    "siteapps.users",
     "siteapps.inventory",
     "siteapps.locations",
     "siteapps.images",
     "siteapps.help",
-    "crispy_forms",
-    "crispy_bootstrap5",
     "simple_history",
 ]
 
+# MIDDLEWARE
+# ------------------------------------------------------------------------------
+# https://docs.djangoproject.com/en/dev/ref/settings/#middleware
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -63,64 +110,141 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.common.BrokenLinkEmailsMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "simple_history.middleware.HistoryRequestMiddleware",
 ]
 
-ROOT_URLCONF = "config.urls"
+# AUTHENTICATION
+# ------------------------------------------------------------------------------
+# https://docs.djangoproject.com/en/dev/ref/settings/#authentication-backends
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
+# https://docs.djangoproject.com/en/dev/ref/settings/#auth-user-model
+AUTH_USER_MODEL = "users.User"
+# https://docs.djangoproject.com/en/dev/ref/settings/#login-redirect-url
+LOGIN_REDIRECT_URL = "/"
+# https://docs.djangoproject.com/en/dev/ref/settings/#login-url
+LOGIN_URL = "account_login"
 
+# django-allauth
+# ------------------------------------------------------------------------------
+ACCOUNT_ALLOW_REGISTRATION = env.bool("DJANGO_ACCOUNT_ALLOW_REGISTRATION", False)
+# https://django-allauth.readthedocs.io/en/latest/configuration.html
+ACCOUNT_AUTHENTICATION_METHOD = "email"
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+ACCOUNT_ADAPTER = "siteapps.users.adapters.AccountAdapter"
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+ACCOUNT_USERNAME_REQUIRED = False
+ACCOUNT_CONFIRM_EMAIL_ON_GET = True
+ACCOUNT_MAX_EMAIL_ADDRESSES = 2
+ACCOUNT_LOGIN_ON_PASSWORD_RESET = True
+ACCOUNT_LOGOUT_ON_PASSWORD_CHANGE = True
+ACCOUNT_SESSION_REMEMBER = True
+# https://django-allauth.readthedocs.io/en/latest/forms.html
+ACCOUNT_FORMS = {"signup": "siteapps.users.forms.UserSignupForm"}
+
+
+# PASSWORDS
+# ------------------------------------------------------------------------------
+# https://docs.djangoproject.com/en/dev/ref/settings/#password-hashers
+PASSWORD_HASHERS = [
+    # https://docs.djangoproject.com/en/dev/topics/auth/passwords/#using-argon2-with-django
+    "django.contrib.auth.hashers.Argon2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2PasswordHasher",
+    "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
+    "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
+]
+# https://docs.djangoproject.com/en/dev/ref/settings/#auth-password-validators
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+
+
+# TEMPLATES
+# ------------------------------------------------------------------------------
+# https://docs.djangoproject.com/en/dev/ref/settings/#templates
 TEMPLATES = [
     {
+        # https://docs.djangoproject.com/en/dev/ref/settings/#std:setting-TEMPLATES-BACKEND
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [os.path.join(BASE_DIR, "siteapps", "templates")],
+        # https://docs.djangoproject.com/en/dev/ref/settings/#dirs
+        "DIRS": [str(APPS_DIR / "templates")],
+        # https://docs.djangoproject.com/en/dev/ref/settings/#app-dirs
         "APP_DIRS": True,
         "OPTIONS": {
+            # https://docs.djangoproject.com/en/dev/ref/settings/#template-context-processors
             "context_processors": [
                 "django.template.context_processors.debug",
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
+                "django.template.context_processors.i18n",
+                "django.template.context_processors.media",
+                "django.template.context_processors.static",
+                "django.template.context_processors.tz",
                 "django.contrib.messages.context_processors.messages",
+                "siteapps.users.context_processors.allauth_settings",
             ],
         },
-    },
+    }
 ]
 
-AUTH_PASSWORD_VALIDATORS = [
-    {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+# https://docs.djangoproject.com/en/dev/ref/settings/#form-renderer
+FORM_RENDERER = "django.forms.renderers.TemplatesSetting"
+
+# http://django-crispy-forms.readthedocs.io/en/latest/install.html#template-packs
+CRISPY_TEMPLATE_PACK = "bootstrap5"
+CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
+
+
+# FIXTURES
+# ------------------------------------------------------------------------------
+# https://docs.djangoproject.com/en/dev/ref/settings/#fixture-dirs
+FIXTURE_DIRS = (str(APPS_DIR / "fixtures"),)
+
+
+# SECURITY
+# ------------------------------------------------------------------------------
+# https://docs.djangoproject.com/en/dev/ref/settings/#session-cookie-httponly
+SESSION_COOKIE_HTTPONLY = True
+# https://docs.djangoproject.com/en/dev/ref/settings/#csrf-cookie-httponly
+CSRF_COOKIE_HTTPONLY = True
+# https://docs.djangoproject.com/en/dev/ref/settings/#secure-browser-xss-filter
+SECURE_BROWSER_XSS_FILTER = True
+# https://docs.djangoproject.com/en/dev/ref/settings/#x-frame-options
+X_FRAME_OPTIONS = "DENY"
+
+
+# LOGGING
+# ------------------------------------------------------------------------------
+# https://docs.djangoproject.com/en/dev/ref/settings/#logging
+# See https://docs.djangoproject.com/en/dev/topics/logging for
+# more details on how to customize your logging configuration.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {"verbose": {"format": "%(levelname)s %(asctime)s %(module)s %(process)d %(thread)d %(message)s"}},
+    "handlers": {
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        }
     },
-    {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
-    },
-]
+    "root": {"level": "INFO", "handlers": ["console"]},
+}
 
-LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
-USE_I18N = True
-USE_L10N = True
 
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
-# Admin url obfuscation
-ADMIN_SECRET_SUFFIX = env("ADMIN_SECRET_SUFFIX")
-
-# Model storage bucket name & relevant model URLs
-MODEL_STORAGE_BUCKET = env("GS_MODELS_STORAGE_BUCKET_NAME")
-MEGADETECTOR_URL = env("MEGADETECTOR_URL")
-
-# Account settings
-LOGIN_REDIRECT_URL = "/"
-LOGOUT_REDIRECT_URL = "/"
-
-# Override default user model
-AUTH_USER_MODEL = "profiles.Profile"
-
+# JAZZMIN
+# ------------------------------------------------------------------------------
 # Jazzmin admin site customization
+# https://django-jazzmin.readthedocs.io/configuration/
 JAZZMIN_SETTINGS = {
     "site_title": "WildePod Admin",
     "site_header": "WildePod Admin",
@@ -140,7 +264,8 @@ JAZZMIN_SETTINGS = {
     # List of apps (and/or models) to base side menu ordering off of (does not need to contain all apps/models)
     "order_with_respect_to": [
         "auth",
-        "profiles",
+        "users",
+        "account",
         "inventory",
         "inventory.Camera",
         "inventory.CameraModel",
@@ -159,6 +284,10 @@ JAZZMIN_SETTINGS = {
     ],
 }
 
-# Crispy form settings
-CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
-CRISPY_TEMPLATE_PACK = "bootstrap5"
+
+# CUSTOM VARIABLES
+# ------------------------------------------------------------------------------
+# GCF cloud url where MegaDetector currently serves requests
+MEGADETECTOR_URL = env("MEGADETECTOR_URL")
+# Model storage bucket name & relevant model URLs
+MODEL_STORAGE_BUCKET = env("GS_MODELS_BUCKET_NAME")

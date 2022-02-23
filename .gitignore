@@ -16,6 +16,7 @@ db.sqlite3-journal
 media
 migrations
 static_root
+staticfiles
 
 # Custom data files
 local_data/

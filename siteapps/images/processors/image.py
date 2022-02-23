@@ -1,13 +1,23 @@
-import logging
-import time
 from io import BytesIO
+import logging
 
-import dropbox
-import requests
 from django.conf import settings
+import dropbox
 from images.models import Annotator, Bot, BoundingBox, Category, Image
+import requests
+from utils.storages import MediaRootGoogleCloudStorage
 
-from config.settings.custom_storages import MediaStorage
+# from config.settings.custom_storages import MediaStorage
+
+# # Setup a logger
+# logger = logging.getLogger(__name__)
+
+# # Create a dropbox client
+# dbx = dropbox.Dropbox(settings.DROPBOX_AUTH_TOKEN)
+
+# # Create a storage object instance
+# storage = MediaStorage()
+
 
 # Setup a logger
 logger = logging.getLogger(__name__)
@@ -16,7 +26,7 @@ logger = logging.getLogger(__name__)
 dbx = dropbox.Dropbox(settings.DROPBOX_AUTH_TOKEN)
 
 # Create a storage object instance
-storage = MediaStorage()
+storage = MediaRootGoogleCloudStorage()
 
 
 # Function to save the thumbnails of the image
@@ -51,7 +61,7 @@ def process_image(image: Image):
     add_thumbnail(image)
     # TODO: Handle error or Rollback on failure
     # Next, run MegaDetector on each image and create the relevant annotation objects
-    image_url = f"""gs://{settings.GS_MEDIA_STORAGE_BUCKET_NAME}/{image.thumbnail_gcloud_path}"""
+    image_url = f"""gs://{settings.GS_BUCKET_NAME}/media/{image.thumbnail_gcloud_path}"""
     # TODO: Probably a better way to handle this. Hardcoded for now. Might not even need a model/record for this
     bot, _ = Bot.objects.get_or_create(
         name="MegaDetector",
@@ -64,6 +74,7 @@ def process_image(image: Image):
     # Call the MegaDetector cloud function
     result = requests.post(bot.model_api_url, json={"image": image_url, "model": bot.model_file_url}).json()
     # TODO: Handle errors
+    # TODO: Investigate pros/cons of making these db operations an atomic transaction within django
 
     # For each detected bounding box, create a corresponding annotation object
     # Confidence for bounding box & category are the same for MegaDetector

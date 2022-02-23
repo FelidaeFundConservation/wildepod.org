@@ -2,7 +2,7 @@
 {% load static %}
 
 <!-- Set corresponding nav pill to active -->
-{% block nav_upload %}active{% endblock %}
+{% block nav_upload %}active{% endblock nav_upload%}
 
 {% block content %}
     <div class="container py-4 my-4">
@@ -126,13 +126,14 @@
             </div>
         {% endif %}
     </div>
-{% endblock %}
+{% endblock content %}
 
-
+{% comment %} TODO: Move map rendering js to the main.js file {% endcomment %}
+{% comment %} TODO: Separate the key out and move it to secrets. Also, restrict the new key's usage to the new site's URL {% endcomment %}
 {% block footer_includes %}
     <!-- Async script executes immediately and must be after any DOM elements used in callback. -->
     <script
-        src="https://maps.googleapis.com/maps/api/js?key=REDACTED_GOOGLE_KEY&callback=initMap&libraries=&v=weekly"
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyChQHmyVErROW2lP_WQY3DtdrudOXs2pa8&callback=initMap&libraries=&v=weekly"
         async
         ></script>
     <script>
@@ -197,4 +198,4 @@
             {% endfor %}
         });
     </script>
-{% endblock %}
+{% endblock footer_includes %}

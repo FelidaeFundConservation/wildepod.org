@@ -12,7 +12,7 @@ from django.views.generic.base import TemplateView, View
 from images.processors import process_md_annotations, process_upload
 
 from .forms import UploadCompleteForm, UploadForm
-from .models import Annotator, BoundingBox, Image, Upload
+from .models import Annotator, BoundingBox, Image, SpeciesName, Upload
 
 # Offset by which accept has to be greater than rejection to be shown
 ANNOTATION_REJECTION_OFFSET = 0
@@ -121,11 +121,11 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
         images = (
             Image.objects.annotated()
             .filter(
-                ~Q(viewed_by_for_bbox__in=[annotator]) & ~Q(skipped_by_for_bbox__in=[annotator]),
+                ~Q(bbox_checked_by__in=[annotator]) & ~Q(bbox_skipped_by__in=[annotator]),
                 processed=True,
                 num_objects__gt=0,
             )
-            .order_by("num_viewed_by_for_bbox", "num_objects")
+            .order_by("num_bbox_checked_by", "num_objects")
         )
 
         # Serve the first image
@@ -143,6 +143,33 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
 class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
     login_url = settings.LOGIN_URL
     template_name = "images/annotate/species.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # First get the annotator object for the user
+        annotator, _ = Annotator.objects.get_or_create(type="human", human=self.request.user)
+
+        images = (
+            Image.objects.annotated()
+            .filter(
+                ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
+                processed=True,
+                num_objects__gt=0,
+            )
+            .order_by("num_species_checked_by", "num_objects")
+        )
+
+        # Serve the first image
+        image = images.first()
+        context["image"] = image
+        context["species_list"] = SpeciesName.objects.all()
+
+        # If there is a valid image, add bounding box information
+        if image:
+            bounding_boxes = BoundingBox.objects.valid().filter(image=image)
+            context["bounding_boxes"] = bounding_boxes
+
+        return context
 
 
 class MDAnnotationProcessorView(LoginRequiredMixin, View):

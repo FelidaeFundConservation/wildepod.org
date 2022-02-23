@@ -13,7 +13,10 @@ class Bot(TimeStampedModel):
     # The type of the task. Either "Object detection" or "Object identification"
     task_type = models.CharField(
         max_length=100,
-        choices=[("object_detection", "Object Detection"), ("object_identification", "Object Identification")],
+        choices=[
+            ("object_detection", "Object Detection"),
+            ("object_identification", "Object Identification"),
+        ],
         blank=True,
         null=True,
     )
@@ -47,7 +50,7 @@ class Annotator(TimeStampedModel):
 
     def __str__(self):
         if self.type == "human":
-            return self.human.username
+            return self.human.name
         else:
             return self.bot.name
 

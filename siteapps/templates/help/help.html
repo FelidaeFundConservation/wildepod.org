@@ -2,12 +2,12 @@
 {% load static %}
 
 <!-- Set corresponding nav pill to active -->
-{% block nav_home %}active{% endblock %}
+{% block nav_home %}active{% endblock nav_home %}
 
 {% block content %}
-<div class="container mt-4 pt-4 help">
-    <h2>Help Text here</h2>
-    <hr>
-    <p>Some how-to use instructions</p>
-</div>
-{% endblock %}
+    <div class="container mt-4 pt-4 help">
+        <h2>Help Text here</h2>
+        <hr>
+        <p>Some how-to use instructions</p>
+    </div>
+{% endblock content %}

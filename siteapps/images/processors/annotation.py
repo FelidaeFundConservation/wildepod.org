@@ -37,7 +37,11 @@ def flatten_annotorious_annotations(annotations: list) -> dict:
 # Function to process a list of annotations for MegaDetector's Object Detection model
 # Annotations follow the Annotorious format
 def process_md_annotations(
-    image_id: str, annotations: list, initial_bboxes: list, user: settings.AUTH_USER_MODEL, skip: bool = False
+    image_id: str,
+    annotations: list,
+    initial_bboxes: list,
+    user: settings.AUTH_USER_MODEL,
+    skip: bool = False,
 ):
     """Function to process a list of annotations for MegaDetector's Object Detection model
 
@@ -51,10 +55,10 @@ def process_md_annotations(
 
     # If the user skipped this, add the user to the image skipped list & move on
     if skip:
-        image.skipped_by_for_bbox.add(annotator)
+        image.bbox_skipped_by.add(annotator)
         return
 
-    image.viewed_by_for_bbox.add(annotator)
+    image.bbox_checked_by.add(annotator)
 
     # Prep the annotations data
     # Format the annotorious annotations
@@ -137,7 +141,8 @@ def process_md_annotations(
                     # Else cast a vote for the set category if it exists, else create.
                     try:
                         new_category_obj = Category.objects.get(
-                            bounding_box=bbox_obj, name=formatted_annotations[bbox_id]["category"]
+                            bounding_box=bbox_obj,
+                            name=formatted_annotations[bbox_id]["category"],
                         )
                         new_category_obj.rejected_by.remove(annotator)
                         new_category_obj.accepted_by.add(annotator)

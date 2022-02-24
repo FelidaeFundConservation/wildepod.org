@@ -1,5 +1,26 @@
+import uuid
+
+from allauth.account.models import EmailAddress
 from django.contrib.auth.base_user import BaseUserManager
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
 from django.utils.translation import gettext_lazy as _
+
+
+def send_welcome_email(user, password_generated):
+    subject = "Welcome to WildePod!"
+    context = {"user": user, "password_generated": password_generated}
+    html_message = render_to_string("account/email/welcome.html", context)
+    plain_message = strip_tags(html_message)
+    send_mail(
+        subject,
+        plain_message,
+        "WildePod Admin <noreply@wildepod.org>",
+        [user.email],
+        html_message=html_message,
+        fail_silently=False,
+    )
 
 
 # Code copied from https://testdriven.io/blog/django-custom-user-model/
@@ -19,8 +40,18 @@ class UserManager(BaseUserManager):
             raise ValueError(_("The Email must be set"))
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
+        # If the password field is None, generate a password and send it in the email
+        password_generated = None if password else uuid.uuid4().hex[:12]
+        password = password if password else password_generated
         user.set_password(password)
         user.save(using=self._db)
+        # TODO: This might not be ideal when sign up is opened up to regular users since it bypasses the verification process
+        # Create an email address for django all auth and set it to verified & primary
+        # This only happens when users are created programmatically since sign up is disabled
+        EmailAddress.objects.create(user=user, email=email, primary=True, verified=True)
+
+        send_welcome_email(user, password_generated)
+        # send_mail('Welcome to WildePod!','You were signed up for WildePod!')
 
         return user
 

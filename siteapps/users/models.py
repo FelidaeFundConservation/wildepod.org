@@ -19,7 +19,7 @@ class User(AbstractUser, TimeStampedModel):
     last_name = None  # type: ignore
 
     # Additional flag to indicate if user is a volunteer
-    is_volunteer = models.BooleanField(default=True)
+    is_volunteer = models.BooleanField(default=False)
     # Phone number if needed
     phone_number = models.CharField("Phone Number", max_length=25, blank=True)
 

@@ -86,16 +86,6 @@ repos:
         types_or: [python, pyi]
         args:
           - "--line-length=120"
-      # - id: black-jupyter
-      #   name: black-jupyter
-      #   description:
-      #     "Black: The uncompromising Python code formatter (with Jupyter Notebook support)"
-      #   entry: black
-      #   language: python
-      #   minimum_pre_commit_version: 2.9.2
-      #   require_serial: true
-      #   types_or: [python, pyi, jupyter]
-      #   additional_dependencies: [".[jupyter]"]
 
   - repo: https://github.com/timothycrosley/isort
     rev: 5.10.1

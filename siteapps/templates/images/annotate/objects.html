@@ -87,9 +87,11 @@
                 },
             {% endfor %}
         ];
+        let categories = ['animal','human','vehicle']
+        let MDClassSelectorWidget = createCategoryWidget(categories)
         // Set up annotations, rendering and submit hooks after the window has fully loaded
         window.addEventListener('load', function() {
-            let anno = renderBoundingBoxes("{{image.id}}", bboxes);
+            let anno = renderBoundingBoxes("{{image.id}}", bboxes=bboxes, widgets=[MDClassSelectorWidget]);
             renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
             anno.on("createAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
             anno.on("deleteAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})

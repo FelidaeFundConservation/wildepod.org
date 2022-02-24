@@ -5,6 +5,7 @@ from .views import (
     AnnotateSpeciesView,
     ImageDetailView,
     MDAnnotationProcessorView,
+    SpeciesAnnotationProcessorView,
     UploadCompleteView,
     UploadCreateView,
     UploadDetailView,
@@ -27,5 +28,10 @@ urlpatterns = [
         "md-annotation-processor/",
         MDAnnotationProcessorView.as_view(),
         name="md_annotation_processor",
+    ),
+    path(
+        "species-annotation-processor/",
+        SpeciesAnnotationProcessorView.as_view(),
+        name="species_annotation_processor",
     ),
 ]

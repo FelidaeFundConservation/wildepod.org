@@ -2,10 +2,12 @@ import logging
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
-from images.models import Annotator, BoundingBox, Category, Image
+from images.models import Annotator, BoundingBox, Category, Image, Species, SpeciesName
 
 # Setup a logger
 logger = logging.getLogger(__name__)
+
+# TODO: This entire module is very hacky and needs to be refactored
 
 
 def flatten_annotorious_annotations(annotations: list) -> dict:
@@ -159,3 +161,64 @@ def process_md_annotations(
             # Save the objects
             category_obj.save()
             bbox_obj.save()
+
+
+# Function to process a list of annotations for MegaDetector's Object Detection model
+# Annotations follow the Annotorious format
+def process_species_annotations(
+    image_id: str,
+    annotations: list,
+    initial_bboxes: list,
+    user: settings.AUTH_USER_MODEL,
+    skip: bool = False,
+) -> bool:
+    """Function to process a list of annotations for MegaDetector's Object Detection model
+
+    Annotations follow the Annotorious format
+    """
+    # Get the annotator object for the current user
+    annotator, _ = Annotator.objects.get_or_create(type="human", human=user)
+
+    # Add the annotator to the image's viewed by list
+    image = Image.objects.get(id=image_id)
+
+    # If the user skipped this, add the user to the image skipped list & move on
+    if skip:
+        image.species_skipped_by.add(annotator)
+        return True
+
+    # Prep the annotations data
+    # Format the annotorious annotations
+    formatted_annotations = flatten_annotorious_annotations(annotations)
+    # Convert initial boxes into the same structure
+    initial_bboxes = {bbox["id"]: bbox for bbox in initial_bboxes}
+    # If any bounding box is missing, return an error
+    for bbox_id in initial_bboxes:
+        if bbox_id not in formatted_annotations:
+            return False
+
+    image.species_checked_by.add(annotator)
+
+    # Finally handle updates. This includes accept/reject depending on the category labels provided
+    for bbox_id in initial_bboxes:
+        # Get the initial bounding box & category object
+        bbox_obj = BoundingBox.objects.get(id=bbox_id)
+        species_name_obj = SpeciesName.objects.get(name=formatted_annotations[bbox_id]["category"])
+        try:
+
+            species_obj = Species.objects.get(bounding_box=bbox_obj, name=species_name_obj)
+            if species_obj.created_by != annotator:
+                species_obj.rejected_by.remove(annotator)
+                species_obj.accepted_by.add(annotator)
+        except ObjectDoesNotExist:
+            species_obj = Species.objects.create(
+                bounding_box=bbox_obj,
+                name=species_name_obj,
+                created_by=annotator,
+                confidence=formatted_annotations[bbox_id]["confidence"],
+            )
+
+        # Save the objects
+        species_obj.save()
+
+    return True

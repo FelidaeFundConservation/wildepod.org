@@ -1,0 +1,14 @@
+{% block content %}
+    Hi {{user.name}}! Welcome to WildePod! You account has just been created and you can navigate to
+    <a href="https://wildepod.org" target="_blank">WildePod.org</a> to get started.
+    {% if password_generated %}
+        You've been assigned a temporary password! Please use these login details to sign in to your account:
+
+        Email: {{user.email}}
+        Temporary password: {{ password_generated }}
+
+        Note: This is a temporary password that is sent over plain text via email.
+        This is not secure.
+        Please change your password after signing in by navigating to <a href="https://wildepod.org/accounts/password/change/" target="_blank">this link</a>
+    {% endif %}
+{% endblock content %}

@@ -9,7 +9,7 @@ from django.http.response import JsonResponse
 from django.urls import reverse
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 from django.views.generic.base import TemplateView, View
-from images.processors import process_md_annotations, process_upload
+from images.processors import process_md_annotations, process_species_annotations, process_upload
 
 from .forms import UploadCompleteForm, UploadForm
 from .models import Annotator, BoundingBox, Image, SpeciesName, Upload
@@ -109,6 +109,7 @@ class ImageDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
+# TODO: Clean up this code
 class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
     login_url = settings.LOGIN_URL
     template_name = "images/annotate/objects.html"
@@ -140,6 +141,7 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
         return context
 
 
+# TODO: Clean up this code
 class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
     login_url = settings.LOGIN_URL
     template_name = "images/annotate/species.html"
@@ -172,6 +174,7 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
         return context
 
 
+# TODO: Clean up this code
 class MDAnnotationProcessorView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         # Get the image id
@@ -198,3 +201,26 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
             process_md_annotations(image_id, annotations, initial_bboxes, request.user)
 
         return JsonResponse({"success": True})
+
+
+# TODO: Clean up this code
+class SpeciesAnnotationProcessorView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        # Get the image id
+        image_id = request.POST.get("image_id")
+
+        skip = True if request.POST.get("skip") == "true" else False
+
+        # Get bounding box ids that were sent to infer deleted annotations
+        initial_bboxes = request.POST.get("initial_bboxes")
+        initial_bboxes = json.loads(initial_bboxes)
+
+        # Get the annotation paylaod from the request and convert it to a dict
+        annotations = request.POST.get("annotations")
+        annotations = json.loads(annotations)
+
+        # Process the annotations
+        success = process_species_annotations(image_id, annotations, initial_bboxes, request.user, skip=skip)
+        print(success)
+        # TODO: Send and render a meaningful response
+        return JsonResponse({"success": success})

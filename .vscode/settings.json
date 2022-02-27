@@ -1,0 +1,53 @@
+{
+    "editor.tabSize":4,
+    "editor.insertSpaces":true,
+    "editor.detectIndentation":false,
+    "python.linting.mypyEnabled": true,
+    "python.linting.enabled": true,
+    "emmet.includeLanguages": {"django-html": "html"},
+    "files.associations": {
+        "**/*.html": "html",
+        "**/templates/**/*.html": "django-html",
+        "**/templates/**/*": "django-txt",
+        "**/requirements{/**,*}.{txt,in}": "pip-requirements",
+    },
+    "[django-html]": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "HookyQR.beautify"
+    },
+    "[css]": {
+        "editor.formatOnSave": true,
+    },
+    "beautify.language": {
+        "js": {
+          "type": ["javascript", "json"],
+          "filename": [".jshintrc", ".jsbeautifyrc"]
+        },
+        "css": ["css", "scss"],
+        "html": ["htm", "html", "django-html"]
+    },
+    "beautify.config": {
+        "indent_size": 4,
+        "indent_char": " ",
+        "html": {
+          "indent_inner_html": true,
+          "unformatted": ["script"],
+          "end_with_newline": true,
+          "wrap_line_length": 200,
+          "indent_scripts": "normal",
+          "wrap_attributes": "force-expand-multiline"
+        },
+    },
+    "files.exclude": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/CVS": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true,
+        "**/*.pyc": {"when": "$(basename).py"},
+        "**/__pycache__": true,
+        "**/.mypy_cache": true,
+        "**/.ipynb_checkpoints": true
+    }
+}

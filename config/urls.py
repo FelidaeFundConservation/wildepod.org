@@ -24,7 +24,7 @@ urlpatterns = [
     path(f"admin{settings.ADMIN_URL_SUFFIX}/", admin.site.urls),
     # User management
     path("accounts/", include("allauth.urls")),
-    path("users", include(("users.urls", "users"), namespace="users")),
+    path("users/", include(("users.urls", "users"), namespace="users")),
     path("explore/", include(("explore.urls", "explore"), namespace="explore")),
     path("images/", include(("images.urls", "images"), namespace="images")),
     path("help/", include(("help.urls", "help"), namespace="help")),

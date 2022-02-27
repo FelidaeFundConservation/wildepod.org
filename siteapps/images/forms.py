@@ -35,7 +35,7 @@ class UploadForm(forms.ModelForm):
             Row(Column("comments", css_class="form-group"), css_class="form-row mb-3"),
             Row(
                 Column(
-                    Submit("submit", "Submit", css_class="btn-secondary"),
+                    Submit("submit", "Submit", css_class="btn-primary"),
                 ),
                 css_class="form-row text-center",
             ),
@@ -81,7 +81,7 @@ class UploadCompleteForm(forms.ModelForm):
                     Submit(
                         "submit",
                         "Submit",
-                        css_class="btn-secondary",
+                        css_class="btn-primary",
                         onclick=(
                             "return confirm('Once you mark this upload as complete, you cannot edit it further. Are you"
                             " sure about submitting?')"
@@ -89,7 +89,7 @@ class UploadCompleteForm(forms.ModelForm):
                     ),
                     StrictButton(
                         "Edit",
-                        css_class="btn-secondary",
+                        css_class="btn-primary",
                         aria_expanded="false",
                         aria_controls="edit-form",
                         data_bs_toggle="collapse",

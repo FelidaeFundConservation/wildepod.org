@@ -3,7 +3,6 @@
 
 ### IDE Stuff
 .idea/
-.vscode/
 
 ### Django ###
 *.log

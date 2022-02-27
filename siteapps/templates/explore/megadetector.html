@@ -1,84 +1,105 @@
-{% extends 'base.html' %}
+{% extends '_base.html' %}
 {% load static %}
 
 <!-- Set corresponding nav pill to active -->
 {% block nav_explore %}active{% endblock nav_explore %}
 
 {% block content %}
-    <div class="container">
-        <div class="row justify-content-evenly">
-            <div class="col-12 my-3 py-3 text-center">
-                <h1>MegaDetector Demo</h1>
-            </div>
-            <hr>
-            <div class="col-12 my-3 py-3">
-                <form action={% url 'explore:megadetector' %} enctype="multipart/form-data" method="post" >
-                    {% csrf_token %}
-                    <p>Enter image URL: {{ form.url }}</p>
-                    <h3>OR</h3>
-                    <p>Upload Image: {{form.image}}</p>
-                    <p><input type="submit" value="Submit"></p>
-                </form>
-            </div>
-            <hr>
-            {% if image %}
-                <div class="col-12 col-md-10 col-lg-8 my-3 py-3 text-center">
-                    {% if image_type == "url" %}
-                        <img id="test-image" class="img-fluid" src="{{image}}">
-                    {% else %}
-                        <img id="test-image" class="img-fluid" src="data:image/jpg;base64,{{image}}">
-                    {% endif %}
-                </div>
-
-            <div class="row mt-3 mt-md-5 text-center">
-                <h2>Annotations Preview</h2>
-                <hr/>
-            </div>
-            <div class="row mt-2 mt-md-4 text-center" id="annotations-preview">
-            </div>
-            <div class="col-12 my-3 py-3">
-                <hr/>
-                <h2 class="mb-3 pb-3">Raw Result</h2>
-                <hr/>
-<pre>{{raw_result}}</pre>
-            </div>
+<div class="container">
+    <div class="row justify-content-evenly">
+        <div class="col-12 my-3 py-3 text-center">
+            <h1>MegaDetector Demo</h1>
+        </div>
+        <hr>
+        <div class="col-12 my-3 py-3">
+            <form
+                action={% url 'explore:megadetector' %}
+                enctype="multipart/form-data"
+                method="post"
+            >
+                {% csrf_token %}
+                <p>Enter image URL: {{ form.url }}</p>
+                <h3>OR</h3>
+                <p>Upload Image: {{form.image}}</p>
+                <p><input
+                        type="submit"
+                        value="Submit"
+                    ></p>
+            </form>
+        </div>
+        <hr>
+        {% if image %}
+        <div class="col-12 col-md-10 col-lg-8 my-3 py-3 text-center">
+            {% if image_type == "url" %}
+            <img
+                id="test-image"
+                class="img-fluid"
+                src="{{image}}"
+            >
+            {% else %}
+            <img
+                id="test-image"
+                class="img-fluid"
+                src="data:image/jpg;base64,{{image}}"
+            >
             {% endif %}
         </div>
+
+        <div class="row mt-3 mt-md-5 text-center">
+            <h2>Annotations Preview</h2>
+            <hr />
+        </div>
+        <div
+            class="row mt-2 mt-md-4 text-center"
+            id="annotations-preview"
+        >
+        </div>
+        <div class="col-12 my-3 py-3">
+            <hr />
+            <h2 class="mb-3 pb-3">Raw Result</h2>
+            <hr />
+            <pre>{{raw_result}}</pre>
+        </div>
+        {% endif %}
     </div>
+</div>
 {% endblock content %}
 
 {% if image %}
-    {% block footer_includes %}
-        <!-- Annotorious generic & custom stylesheets -->
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@recogito/annotorious@2.6.1/dist/annotorious.min.css">
-        <!-- Jquery & Annotorious -->
-        <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
-        <script src="https://cdn.jsdelivr.net/npm/@recogito/annotorious-shape-labels@latest/dist/annotorious-shape-labels.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/@recogito/annotorious@2.6.1/dist/annotorious.min.js"></script>
+{% block footer_includes %}
+<!-- Annotorious generic & custom stylesheets -->
+<link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@recogito/annotorious@2.6.1/dist/annotorious.min.css"
+>
+<!-- Jquery & Annotorious -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@recogito/annotorious-shape-labels@latest/dist/annotorious-shape-labels.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@recogito/annotorious@2.6.1/dist/annotorious.min.js"></script>
 
-        <script>
-            {% comment %} Create a javascript variable holding all the annotations and render annotations{% endcomment %}
-
-            let bboxes = [
-                {% for bbox in bboxes %}
-                    {
-                        "id": "{{bbox.id}}",
-                        "category": "{{bbox.category}}",
-                        "confidence": {{bbox.confidence}},
-                        "x": {{bbox.x}},
-                        "y": {{bbox.y}},
-                        "w": {{bbox.w}},
-                        "h": {{bbox.h}},
-                    },
-                {% endfor %}
-            ];
-            let config = {
-                readOnly: true,
-            }
-            window.addEventListener('load', function() {
-                let anno = renderBoundingBoxes("test-image", annotations, config=config);
-                renderBoundingBoxPreviews("test-image", "annotations-preview", anno)
-            });
-        </script>
-    {% endblock footer_includes %}
+<script>
+    let bboxes = [
+        {% for bbox in bboxes %}
+            {
+                "id": "{{bbox.id}}",
+                "category": "{{bbox.category}}",
+                "confidence": {{bbox.confidence}},
+                "x": {{bbox.x}},
+                "y": {{bbox.y}},
+                "w": {{bbox.w}},
+                "h": {{bbox.h}},
+            },
+        {% endfor %}
+    ];
+    let config = {
+        readOnly: true,
+    }
+    let categories = ['animal','human','vehicle']
+    let MDClassSelectorWidget = createCategoryWidget(categories)
+    window.addEventListener('load', function() {
+        let anno = renderBoundingBoxes("test-image", bboxes=bboxes, widgets=[MDClassSelectorWidget]);
+        renderBoundingBoxPreviews("test-image", "annotations-preview", anno)
+    });
+</script>
+{% endblock footer_includes %}
 {% endif %}

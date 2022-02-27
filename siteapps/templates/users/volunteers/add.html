@@ -1,15 +1,14 @@
 {% extends "_base.html" %}
 
-{% load account %}
 {% load crispy_forms_tags %}
 
-{% block title %}Set Password | {% endblock %}
+{% block title %}Add Volunteer | {% endblock %}
 
 {% block content %}
 <div class="container mt-3 pt-3 mt-md-4 pt-md-4 mt-lg-5 pt-lg-5">
     <div class="row justify-content-center pb-3">
         <div class="col-11 col-md-8 col-lg-6 text-center">
-            <h1>Set Password</h1>
+            <h1>Add Volunteer</h1>
             <hr />
         </div>
     </div>
@@ -17,19 +16,21 @@
         <div class="col-11 col-md-8 col-lg-6">
             <form
                 method="POST"
-                action="{% url 'account_set_password' %}"
-                class="password_set"
+                action="{% url 'users:volunteer_add' %}"
             >
                 {% csrf_token %}
-                {{ form|crispy }}
+                {{ form |crispy }}
                 <p class="text-center pt-4">
                     <button
-                        class="btn btn-primary"
+                        class="btn btn-primary mx-2"
                         type="submit"
-                        name="action"
-                    >Set Password</button>
+                    >Add</button>
+                    <a href="{% url 'users:volunteers_list' %}">
+                        <button
+                            type="button"
+                            class="btn btn-primary"
+                        >Back</button></a>
                 </p>
-
             </form>
         </div>
     </div>

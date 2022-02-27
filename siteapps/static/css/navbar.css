@@ -1,0 +1,49 @@
+/* ------------ Navbar & Footer styling ------------ */
+.navbar {
+    background-color: rgb(255, 255, 255);
+    box-shadow: 0px 3px 10px rgba(117, 117, 117, 0.15);
+}
+
+.navbar-brand {
+    font-family: 'Overlock', cursive;
+    font-size: 1.8em;
+    font-weight: 700;
+    color: rgb(22, 136, 46) !important;
+}
+
+
+.nav-link {
+    font-family: 'Titillium Web', sans-serif;
+    font-size: 1.15em;
+    font-weight: 600;
+    color: rgb(17, 136, 57) !important;
+}
+
+.nav-link:hover {
+    color: rgb(0, 83, 11) !important;
+}
+
+.nav-item.active .nav-link {
+    color: rgb(0, 83, 11) !important;
+    font-weight: 700;
+}
+
+.nav-dropdown {
+    border: 1px solid rgb(197, 219, 197);
+    border: none;
+    box-shadow: 0px 4px 6px rgba(117, 117, 117, 0.2);
+}
+
+.nav-dropdown a {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.1em;
+    font-weight: 600;
+    color: rgb(17, 136, 57) !important;
+}
+
+@media (min-width: 767.98px) {
+    .nav-dropdown {
+        border: none;
+        box-shadow: 0px 5px 10px rgba(117, 117, 117, 0.2);
+    }
+}

@@ -1,15 +1,20 @@
-{% extends 'base.html' %}
+{% extends '_base.html' %}
 {% load static %}
+
+{% block title %} Home | {% endblock %}
 
 <!-- Set corresponding nav pill to active -->
 {% block nav_home %}active{% endblock nav_home %}
 
 {% block content %}
-    <div class="container mt-5 pt-5">
-        <div class="row justify-content-evenly">
-            <div class="col-12 col-md-10 col-lg-8">
-                <img class="img-fluid" src="{% static 'images/felidae_profile.png'%}">
-            </div>
+<div class="container mt-5 pt-5">
+    <div class="row justify-content-evenly">
+        <div class="col-12 col-md-10 col-lg-8">
+            <img
+                class="img-fluid"
+                src="{% static 'images/felidae_profile.png'%}"
+            >
         </div>
     </div>
+</div>
 {% endblock content %}

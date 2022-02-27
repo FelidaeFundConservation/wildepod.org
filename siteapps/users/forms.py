@@ -1,3 +1,5 @@
+from allauth.account.forms import SignupForm
+from django import forms
 from django.contrib.auth import forms as admin_forms
 from django.contrib.auth import get_user_model
 
@@ -22,3 +24,19 @@ class UserAdminChangeForm(admin_forms.UserChangeForm):
             "email",
             "name",
         )
+
+
+class UserSignupForm(SignupForm):
+    """
+    Form that will be rendered on a user sign up section/screen.
+    Default fields will be added automatically.
+    Check UserSocialSignupForm for accounts created from social.
+    """
+
+    pass
+
+
+class RegisterVolunteerForm(forms.Form):
+    email = forms.EmailField(required=True)
+    name = forms.CharField(max_length=100, required=False)
+    phone_number = forms.CharField(max_length=25, required=False)

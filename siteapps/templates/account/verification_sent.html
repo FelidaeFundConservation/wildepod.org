@@ -1,12 +1,21 @@
-{% extends "account/base.html" %}
+{% extends "_base.html" %}
 
-{% load i18n %}
+{% block title %}Verify your E-mail | {% endblock %}
 
-{% block head_title %}{% translate "Verify Your E-mail Address" %}{% endblock %}
-
-{% block inner %}
-    <h1>{% translate "Verify Your E-mail Address" %}</h1>
-    <hr>
-    <p>{% blocktranslate %}We have sent an e-mail to you for verification. Follow the link provided to finalize the signup process. Please contact us if you do not receive it within a few minutes.{% endblocktranslate %}</p>
-
-{% endblock %}
+{% block content %}
+<div class="container mt-3 pt-3 mt-md-4 pt-md-4 mt-lg-5 pt-lg-5">
+    <div class="row justify-content-center pb-3">
+        <div class="col-11 col-md-8 text-center">
+            <h1>Verify your E-mail</h1>
+            <hr />
+        </div>
+    </div>
+    <div class="row justify-content-center">
+        <div class="col-11 col-md-8">
+            <p>
+                A verification link has been sent to your email address. Please click on the link to verify your email address.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock content %}

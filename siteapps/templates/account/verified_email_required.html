@@ -1,21 +1,25 @@
-{% extends "account/base.html" %}
+{% extends "_base.html" %}
 
-{% load i18n %}
+{% block title %}Verify your E-mail | {% endblock %}
 
-{% block head_title %}{% translate "Verify Your E-mail Address" %}{% endblock %}
-
-{% block inner %}
-<h1>{% translate "Verify Your E-mail Address" %}</h1>
-<hr>
-{% url 'account_email' as email_url %}
-
-<p>{% blocktranslate %}This part of the site requires us to verify that
-you are who you claim to be. For this purpose, we require that you
-verify ownership of your e-mail address. {% endblocktranslate %}</p>
-
-<p>{% blocktranslate %}We have sent an e-mail to you for
-verification. Please click on the link inside this e-mail. Please
-contact us if you do not receive it within a few minutes.{% endblocktranslate %}</p>
-
-<p>{% blocktranslate %}<strong>Note:</strong> you can still <a href="{{ email_url }}">change your e-mail address</a>.{% endblocktranslate %}</p>
-{% endblock %}
+{% block content %}
+<div class="container mt-3 pt-3 mt-md-4 pt-md-4 mt-lg-5 pt-lg-5">
+    <div class="row justify-content-center pb-3">
+        <div class="col-11 col-md-8 text-center">
+            <h1 class="account-header">Verify your E-mail</h1>
+            <hr />
+        </div>
+    </div>
+    <div class="row justify-content-center">
+        <div class="col-11 col-md-8">
+            {% url 'account_email' as email_url %}
+            <p>
+                This part of the site requires e-mail verification.
+                A verification link has been sent to your email address.
+                Please click on the link to verify your e-mail address.
+                <a href="{{ email_url }}">Click here</a> to change your e-mail address
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock content %}

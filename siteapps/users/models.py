@@ -1,6 +1,7 @@
+import uuid
+
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-from django.utils.translation import gettext_lazy as _
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
 
@@ -9,12 +10,13 @@ from .managers import UserManager
 
 # Model to extend django user model to have additional profile fields
 class User(AbstractUser, TimeStampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     # User model only needs email and password. No username is needed.
     username = None
-    email = models.EmailField(_("email address"), unique=True)
+    email = models.EmailField("email address", unique=True)
 
     #: Keep only a name field instead of first & last names
-    name = models.CharField(_("Name"), blank=True, max_length=255)
+    name = models.CharField("Name", blank=True, max_length=255)
     first_name = None  # type: ignore
     last_name = None  # type: ignore
 

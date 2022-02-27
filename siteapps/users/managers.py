@@ -49,9 +49,7 @@ class UserManager(BaseUserManager):
         # Create an email address for django all auth and set it to verified & primary
         # This only happens when users are created programmatically since sign up is disabled
         EmailAddress.objects.create(user=user, email=email, primary=True, verified=True)
-
         send_welcome_email(user, password_generated)
-        # send_mail('Welcome to WildePod!','You were signed up for WildePod!')
 
         return user
 

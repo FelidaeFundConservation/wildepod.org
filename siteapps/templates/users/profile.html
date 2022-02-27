@@ -1,39 +1,60 @@
-{% extends "base.html" %}
+{% extends "_base.html" %}
 {% load static %}
 {% load crispy_forms_tags %}
 
-{% block title %}User: {{ object.name }}{% endblock %}
+{% block title %}{{ object.name }}'s profile | {% endblock %}
 
 {% block content %}
-  <div class="container mt-5 pt-5">
-      <div class="row justify-content-center pb-4">
-        <div class="col-12 col-md-10 col-lg-8">
-          <h1>Hi, {{ object.name }}!</h1>
-          <hr/>
-          <p>
-            Update your information if it is out of date.
-          </p>
+<div class="container mt-3 pt-3 mt-md-4 pt-md-4 mt-lg-5 pt-lg-5">
+    <div class="row justify-content-center pb-3">
+        <div class="col-11 col-md-8 col-lg-6 text-center">
+            <h1>Hi, {{ object.name }}!</h1>
+            <hr />
         </div>
-      </div>
-      <div class="row justify-content-center pb-4">
-        <div class="col-12 col-md-10 col-lg-8">
-          <p><b>Primary Email</b>: {{ object.email }}</p>
-          <a class="btn btn-secondary" href="{% url 'account_email' %}" role="button">Manage Email</a>
-          <a class="btn btn-secondary mx-2" href="{% url 'account_change_password' %}" role="button">Change Password</a>
+    </div>
+    <div class="row justify-content-center pb-5">
+        <div class="col-11 col-md-8 col-lg-6">
+            <p>
+                Update your information if it is out of date.
+            </p>
+            <p><b>Primary Email</b>: {{ object.email }}</p>
+            <p class="
+            text-center
+            pt-4">
+                <a
+                    class="btn btn-primary"
+                    href="{% url 'account_email' %}"
+                    role="button"
+                >Manage Email</a>
+                <a
+                    class="btn btn-primary mx-2"
+                    href="{% url 'account_change_password' %}"
+                    role="button"
+                >Change Password</a>
+            </p>
         </div>
-      </div>
-      <div class="row justify-content-center pb-4">
-        <div class="col-12 col-md-10 col-lg-8 pt-5">
-          <form class="form-horizontal" method="post" action="{% url 'users:profile' %}">
-            {% csrf_token %}
-            {{ form|crispy }}
-            <div class="control-group">
-              <div class="controls">
-                <button type="submit" class="btn btn-secondary">Update</button>
-              </div>
-            </div>
-          </form>
+    </div>
+    <div class="row justify-content-center pb-3">
+        <div class="col-11 col-md-8 col-lg-6">
+            <form
+                class="form-horizontal"
+                method="post"
+                action="{% url 'users:profile' %}"
+            >
+                {% csrf_token %}
+                {{ form|crispy }}
+                <div class="control-group">
+                    <div class="controls">
+                        <p class="text-center pt-3">
+                            <button
+                                type="submit"
+                                class="btn btn-primary"
+                            >Update</button>
+                        </p>
+                    </div>
+                </div>
+            </form>
         </div>
-      </div>
-  </div>
+    </div>
+</div>
 {% endblock content %}

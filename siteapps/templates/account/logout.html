@@ -1,20 +1,36 @@
-{% extends "account/base.html" %}
+{% extends "_base.html" %}
 
-{% load i18n %}
+{% block title %}Sign Out | {% endblock %}
 
-{% block head_title %}{% translate "Sign Out" %}{% endblock %}
-
-{% block inner %}
-<h1>{% translate "Sign Out" %}</h1>
-<hr>
-
-<p>{% translate 'Are you sure you want to sign out?' %}</p>
-
-<form method="post" action="{% url 'account_logout' %}">
-  {% csrf_token %}
-  {% if redirect_field_value %}
-  <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}"/>
-  {% endif %}
-  <button class="btn btn-secondary" type="submit">{% translate 'Sign Out' %}</button>
-</form>
-{% endblock %}
+{% block content %}
+<div class="container mt-3 pt-3 mt-md-4 pt-md-4 mt-lg-5 pt-lg-5">
+    <div class="row justify-content-center pb-3">
+        <div class="col-11 col-md-8 col-lg-6 text-center">
+            <h1 class="account-header">Sign Out</h1>
+            <hr />
+        </div>
+    </div>
+    <div class="row justify-content-center">
+        <div class="col-11 col-md-8 col-lg-6 text-center">
+            <p>Are you sure you want to sign out?</p>
+            <form
+                method="post"
+                action="{% url 'account_logout' %}"
+            >
+                {% csrf_token %}
+                {% if redirect_field_value %}
+                <input
+                    type="hidden"
+                    name="{{ redirect_field_name }}"
+                    value="{{ redirect_field_value }}"
+                />
+                {% endif %}
+                <button
+                    class="btn btn-primary"
+                    type="submit"
+                >Sign Out</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock content %}

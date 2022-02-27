@@ -45,6 +45,7 @@ class UploadListView(LoginRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
         if self.request.user.is_staff or self.request.user.is_superuser:
             context["num_pending"] = Upload.objects.filter(upload_complete=False).count()
             context["num_completed"] = Upload.objects.filter(upload_complete=True).count()
@@ -84,6 +85,7 @@ class UploadDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
         # Get valid annotations for this image
         images = self.get_object().image_set.all()
         paginator = Paginator(images, IMAGE_PAGINATION_LIMIT)
@@ -102,6 +104,7 @@ class ImageDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
         # Get valid annotations for this image
         bounding_boxes = BoundingBox.objects.valid().filter(image=self.get_object())
         context["bounding_boxes"] = bounding_boxes
@@ -221,6 +224,6 @@ class SpeciesAnnotationProcessorView(LoginRequiredMixin, View):
 
         # Process the annotations
         success = process_species_annotations(image_id, annotations, initial_bboxes, request.user, skip=skip)
-        print(success)
+
         # TODO: Send and render a meaningful response
         return JsonResponse({"success": success})

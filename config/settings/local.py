@@ -12,13 +12,22 @@ ALLOWED_HOSTS = ["*"]
 # DEBUG MODE
 # ------------------------------------------------------------------------------
 DEBUG = True
+
+# django-debug-toolbar
+# ------------------------------------------------------------------------------
 # Makes page loads extremely slow so use sparingly
-# INSTALLED_APPS += ['debug_toolbar']
-# MIDDLEWARE = ['debug_toolbar.middleware.DebugToolbarMiddleware'] + MIDDLEWARE
-# INTERNAL_IPS = [
-#     '127.0.0.1',
-#     'localhost',
-# ]
+# # https://django-debug-toolbar.readthedocs.io/en/latest/installation.html#prerequisites
+# INSTALLED_APPS += ["debug_toolbar"]  # noqa F405
+# # https://django-debug-toolbar.readthedocs.io/en/latest/installation.html#middleware
+# MIDDLEWARE += ["debug_toolbar.middleware.DebugToolbarMiddleware"]  # noqa F405
+# # https://django-debug-toolbar.readthedocs.io/en/latest/configuration.html#debug-toolbar-config
+# DEBUG_TOOLBAR_CONFIG = {
+#     "DISABLE_PANELS": ["debug_toolbar.panels.redirects.RedirectsPanel"],
+#     "SHOW_TEMPLATE_CONTEXT": True,
+# }
+# # https://django-debug-toolbar.readthedocs.io/en/latest/installation.html#internal-ips
+# INTERNAL_IPS = ["127.0.0.1", "10.0.2.2", "localhost"]
+
 
 # DATABASES
 # ------------------------------------------------------------------------------
@@ -68,7 +77,13 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 EMAIL_TIMEOUT = 5
 
 
+# django-extensions
+# ------------------------------------------------------------------------------
+# https://django-extensions.readthedocs.io/en/latest/installation_instructions.html#configuration
+INSTALLED_APPS += ["django_extensions"]  # noqa F405
+
 # EXTERNAL APPS CONFIG
 # ------------------------------------------------------------------------------
 # Dropbox token for local mode
 DROPBOX_AUTH_TOKEN = env("DROPBOX_AUTH_TOKEN_LOCAL")
+DROPBOX_URL_PREFIX = "https://www.dropbox.com/home/Apps/abhay_test/"

@@ -9,14 +9,14 @@
         "**/*.html": "html",
         "**/templates/**/*.html": "django-html",
         "**/templates/**/*": "django-txt",
-        "**/requirements{/**,*}.{txt,in}": "pip-requirements",
+        "**/requirements{/**,*}.{txt,in}": "pip-requirements"
     },
     "[django-html]": {
         "editor.formatOnSave": true,
         "editor.defaultFormatter": "HookyQR.beautify"
     },
     "[css]": {
-        "editor.formatOnSave": true,
+        "editor.formatOnSave": true
     },
     "beautify.language": {
         "js": {
@@ -33,10 +33,10 @@
           "indent_inner_html": true,
           "unformatted": ["script"],
           "end_with_newline": true,
-          "wrap_line_length": 200,
+          "wrap_line_length": 120,
           "indent_scripts": "normal",
           "wrap_attributes": "force-expand-multiline"
-        },
+        }
     },
     "files.exclude": {
         "**/.git": true,

@@ -8,7 +8,8 @@
 <div class="container py-4 my-4">
     {% if object.volunteer == user or user.is_staff %}
     {% if not object.processed %}
-    <h3 class="py-4 my-4 text-center">Warning: This upload is still being processed and might not have all the images yet</h3>
+    <h3 class="py-4 my-4 text-center">Warning: This upload is still being processed and might not have all the images
+        yet</h3>
     {% endif %}
     <div class="row">
         <div class="col-12 col-md-6 pt-2 mt-2">
@@ -70,7 +71,7 @@
                 <div class="col-8">
                     <p>
                         <a
-                            href="https://www.dropbox.com/home/Apps/abhay_test/{{object.dropbox_folder_path}}"
+                            href="{{dropbox_prefix}}{{object.dropbox_folder_path}}"
                             target="_blank"
                             class="text-decoration-none"
                         >
@@ -113,9 +114,8 @@
                     type="button"
                     class="btn btn-light"
                 >View/Edit</button></a>
-            {% comment %} TODO: Change the url {% endcomment %}
             <a
-                href="https://www.dropbox.com/home/Apps/abhay_test/{{image.dropbox_file_path}}"
+                href="{{dropbox_prefix}}{{object.dropbox_file_path}}"
                 target="_blank"
             ><button
                     type="button"
@@ -149,7 +149,8 @@
 {% endblock content %}
 
 {% comment %} TODO: Move map rendering js to the main.js file {% endcomment %}
-{% comment %} TODO: Separate the key out and move it to secrets. Also, restrict the new key's usage to the new site's URL {% endcomment %}
+{% comment %} TODO: Separate the key out and move it to secrets. Also, restrict the new key's usage to the new site's
+URL {% endcomment %}
 {% block footer_includes %}
 <!-- Async script executes immediately and must be after any DOM elements used in callback. -->
 <script
@@ -195,7 +196,7 @@
         let annotorious_config = {
             readOnly: true,
             disableSelect: true,
-            disableEditor: true,
+            disableEditor: true
         }
         {% for image in paged_images %}
             bbox_srcs['{{image.id}}'] = [
@@ -212,12 +213,14 @@
                 {% endfor %}
             ];
         {% endfor %}
+        let categories = ['animal','human','vehicle']
+        let MDClassSelectorWidget = createCategoryWidget(categories)
         // Render annotations only after the entire window has finished loading
         // This is to prevent errors when trying to access an image that hasn't loaded yet
         // TODO: There is probably a better way to do where rendering happens per image load this but hey, this works for now!
         window.addEventListener('load', function() {
             {% for image in paged_images %}
-                bbox_objs['{{image.id}}'] = renderBoundingBoxes("{{image.id}}", bbox_srcs['{{image.id}}'], config=annotorious_config);
+                bbox_objs['{{image.id}}'] = renderBoundingBoxes("{{image.id}}", bbox_srcs['{{image.id}}'],widgets=[MDClassSelectorWidget], config=annotorious_config);
             {% endfor %}
         });
     </script>

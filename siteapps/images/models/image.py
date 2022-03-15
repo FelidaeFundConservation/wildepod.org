@@ -89,4 +89,7 @@ class Image(TimeStampedModel):
         return self.dropbox_file_name
 
     class Meta:
-        ordering = ("-created",)
+        ordering = (
+            "trigger_timestamp",
+            "-created",
+        )

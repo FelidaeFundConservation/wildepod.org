@@ -18,8 +18,6 @@ dbx = dropbox.Dropbox(settings.DROPBOX_AUTH_TOKEN)
 # This is triggered inside a separate thread to asynchronously process the upload
 # The processing includes getting a directory listing using dropbox API and creating
 # & processing image objects retrieved.
-# TODO: For now, this is all done in a single function. Might need to split upload &
-# image processing later
 # TODO: Handle error or Rollback on failure
 def process_upload(upload_id: int):
     """Function to process a dropbox upload.

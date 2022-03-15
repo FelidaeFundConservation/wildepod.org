@@ -105,6 +105,14 @@ class ImageDetailView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
+        try:
+            context["next_image"] = self.get_object().get_previous_by_created()
+        except Image.DoesNotExist:
+            pass
+        try:
+            context["previous_image"] = self.get_object().get_next_by_created()
+        except Image.DoesNotExist:
+            pass
         # Get valid annotations for this image
         bounding_boxes = BoundingBox.objects.valid().filter(image=self.get_object())
         context["bounding_boxes"] = bounding_boxes

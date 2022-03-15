@@ -137,7 +137,7 @@ class Category(TimeStampedModel):
 
     class Meta:
         ordering = ("-modified",)
-        verbose_name_plural = "Categories"
+        verbose_name_plural = "Category Annotations"
 
 
 # Model to maintain different species types
@@ -187,4 +187,4 @@ class Species(TimeStampedModel):
 
     class Meta:
         ordering = ("-modified",)
-        verbose_name_plural = "Species"
+        verbose_name_plural = "Species Annotations"

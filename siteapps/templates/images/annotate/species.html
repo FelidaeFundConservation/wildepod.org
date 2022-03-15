@@ -45,14 +45,15 @@
                 {% for species in species_list%}
                 <input
                     type="submit"
-                    class="btn btn-primary species-button"
+                    class="btn btn-primary species-button m-1"
                     name="{{species}}"
                     value="{{species}}"
                 >
                 {% endfor%}
                 <hr>
             </div>
-            <p class="fw-bold d-none label-toggle">Click on each box and select the species. Then, click Save when complete!</p>
+            <p class="fw-bold d-none label-toggle">Click on each box and select the species. Then, click Save when
+                complete!</p>
             <span
                 class="btn btn-primary label-toggle"
                 id="multiple-species"
@@ -109,7 +110,8 @@
                 role="alert"
             >
                 {% comment %} TODO: Link to a spreadsheet error form here {% endcomment %}
-                <strong>Error!</strong> Your annotations could not be saved. Please refresh page & try again or report a bug here.
+                <strong>Error!</strong> Your annotations could not be saved. Please refresh page & try again or report a
+                bug here.
             </div>
         </div>
     </div>

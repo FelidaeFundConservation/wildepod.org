@@ -22,7 +22,7 @@
     <div class="row pt-3 mt-3">
         <h2>Pending Uploads</h2>
         {% if user.is_staff %}
-        <p>Hey, {{user.username}}! Since you're a staff member, you can see the list of all pending uploads for all volunteers.
+        <p>Hey, {{user.name}}! Since you're a staff member, you can see the list of all pending uploads for all volunteers.
             You can also find this on the <a
                 href="{% url 'admin:images_upload_changelist'%}"
                 class="text-decoration-none"
@@ -60,7 +60,7 @@
                             target="_blank"
                             class="text-decoration-none"
                         >Open</a></td>
-                    {% if user.is_staff %}<td>{{object.volunteer.username}}</td>{% endif %}
+                    {% if user.is_staff %}<td>{{object.volunteer.name}}</td>{% endif %}
                     <td><a href="{% url 'images:complete_upload' object.id %}"><button
                                 type="button"
                                 class="btn btn-light"
@@ -78,11 +78,11 @@
         <h2>Completed Uploads</h2>
         {% if user.is_staff %}
         <p>
-            Hey, {{user.username}}! Since you're a staff member, this is the list of all uploads from all users.
+            Hey, {{user.name}}! Since you're a staff member, this is the list of all uploads from all users.
             Dropbox urls are not public and will only be available if you are logged into the dropbox org account.
         </p>
         {% else %}
-        <p>Hey, {{user.username}}! Here is a list of all your uploads</p>
+        <p>Hey, {{user.name}}! Here is a list of all your uploads</p>
         {% endif %}
 
         <table class="table mt-2 mt-md-4 align-middle text-center">

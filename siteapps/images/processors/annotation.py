@@ -205,7 +205,6 @@ def process_species_annotations(
         bbox_obj = BoundingBox.objects.get(id=bbox_id)
         species_name_obj = SpeciesName.objects.get(name=formatted_annotations[bbox_id]["category"])
         try:
-
             species_obj = Species.objects.get(bounding_box=bbox_obj, name=species_name_obj)
             if species_obj.created_by != annotator:
                 species_obj.rejected_by.remove(annotator)

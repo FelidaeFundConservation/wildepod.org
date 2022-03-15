@@ -16,19 +16,57 @@
             <em>This image has <b>{{image.boundingbox_set.all | length}}</b> detected objects</em>
         </p>
         <p class="p-1 m-1">
-            <small>
-                <a
-                    href="{% url 'images:view_upload' image.upload.id %}"
-                    class="text-decoration-none"
-                >Back to Upload</a> |
-                <a
-                    href="{{dropbox_prefix}}{{object.dropbox_folder_path}}"
-                    target="_blank"
-                    class="text-decoration-none"
+            {% if previous_image %}
+            <a
+                href="{% url 'images:image' previous_image.id%}"
+                class="text-decoration-none"
+            ><button
+                    type="button"
+                    class="btn btn-primary"
+                >Previous
+                </button>
+            </a>
+            {% else %}
+            <button
+                type="button"
+                class="btn btn-light"
+                disabled
+            ><s>Previous</s>
+            </button>
+            {% endif %}
+            <a
+                href="{% url 'images:view_upload' image.upload.id %}"
+                class="text-decoration-none"
+            ><button
+                    type="button"
+                    class="btn btn-primary"
+                >Back to Upload</button></a>
+            <a
+                href="{{dropbox_prefix}}{{object.dropbox_file_path}}"
+                target="_blank"
+                class="text-decoration-none"
+            ><button
+                    type="button"
+                    class="btn btn-primary"
                 >
-                    View on Dropbox
-                </a>
-            </small>
+                    Dropbox</button>
+            </a>
+            {% if next_image %}
+            <a
+                href="{% url 'images:image' next_image.id%}"
+                class="text-decoration-none"
+            ><button
+                    type="button"
+                    class="btn btn-primary"
+                >Next</button></a>
+            {% else %}
+            <button
+                type="button"
+                class="btn btn-light"
+                disabled
+            ><s>Next</s>
+            </button>
+            {% endif %}
         </p>
     </div>
     <div class="row px-2 justify-content-center">
@@ -45,7 +83,7 @@
             {% csrf_token %}
             <input
                 type="submit"
-                class="btn btn-secondary"
+                class="btn btn-primary"
                 id="submit_annotations"
                 name="save_annotations"
                 value="Save Annotations"
@@ -119,9 +157,11 @@
                 },
             {% endfor %}
         ];
+        let categories = ['animal','human','vehicle']
+        let MDClassSelectorWidget = createCategoryWidget(categories)
         // Set up annotations, rendering and submit hooks after the window has fully loaded
         window.addEventListener('load', function() {
-            let anno = renderBoundingBoxes("{{image.id}}", bboxes);
+            let anno = renderBoundingBoxes("{{image.id}}", bboxes=bboxes, widgets=[MDClassSelectorWidget]);
             renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
             anno.on("createAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
             anno.on("deleteAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})

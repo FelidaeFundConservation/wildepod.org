@@ -17,12 +17,13 @@
             </a>
         </div>
     </div>
-
+    {% csrf_token %}
     {% if num_pending > 0 %}
     <div class="row pt-3 mt-3">
         <h2>Pending Uploads</h2>
         {% if user.is_staff %}
-        <p>Hey, {{user.name}}! Since you're a staff member, you can see the list of all pending uploads for all volunteers.
+        <p>Hey, {{user.name}}! Since you're a staff member, you can see the list of all pending uploads for all
+            volunteers.
             You can also find this on the <a
                 href="{% url 'admin:images_upload_changelist'%}"
                 class="text-decoration-none"
@@ -97,7 +98,7 @@
                     <th scope="col">Volunteer</th>
                     <th scope="col">Dropbox</th>
                     {% endif %}
-                    <th scope="col"></th>
+                    <th scope="col">Images</th>
                 </tr>
             </thead>
             <tbody>
@@ -116,7 +117,6 @@
                     {% if user.is_staff %}
                     <td>{{object.volunteer.name}}</td>
                     <td>
-                        {% comment %} Change this with the correct prefix later {% endcomment %}
                         <a
                             href="{{dropbox_prefix}}{{object.dropbox_folder_path}}"
                             target="_blank"
@@ -133,7 +133,7 @@
                                 class="btn btn-light"
                             >View</button></a>
                         {% else %}
-                    <th scope="col">processing..</th>
+                    <th scope="col"><span id="status-{{object.id}}">?/?</span></th>
                     {% endif %}
                     </td>
                 </tr>
@@ -144,4 +144,65 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+
+
+{% block footer_includes %}
+<!-- Jquery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+
+<script>
+    let uploads_in_process = [
+        {% for object in object_list %}
+            {% if not object.processed %}
+                "{{object.id}}",
+            {% endif %}
+        {% endfor %}
+    ];
+
+    function checkStatus() {
+        let periodic_check = setInterval(function(){
+
+            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            console.log(JSON.stringify(uploads_in_process))
+            // Make an ajax call with all the pending uploads to get their status & process them
+            $.ajax({
+                url: '{% url 'images:upload_status'%}',
+                method: 'POST',
+                data: {
+                    'upload_ids': JSON.stringify(uploads_in_process),
+                    'csrfmiddlewaretoken': csrftoken,
+                },
+                dataType: 'json',
+                success: function (data){
+                    uploads_in_process = []
+                    if (data.success){
+                        for (const [upload_id, upload_status] of Object.entries(data["upload_statuses"])){
+                            if (upload_status["valid"]){
+                                if (upload_status["total_images"] != upload_status["processed_images"]) {
+                                    $("#status-" + upload_id).html(upload_status["processed_images"] + "/" + upload_status["total_images"]);
+                                    uploads_in_process.push(upload_id)
+                                }
+                            }
+                        }
+                        if (uploads_in_process.length == 0) {
+                            clearInterval(periodic_check);
+                            location.reload()
+                            return;
+                        }
+                    }
+                    else {
+                        console.log(data.error);
+                    }
+                },
+            })
+        }, 15000)
+    }
+
+    if (uploads_in_process.length > 0){
+        checkStatus();
+    }
+
+</script>
 {% endblock %}

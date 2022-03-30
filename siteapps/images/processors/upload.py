@@ -27,10 +27,10 @@ def process_upload(upload_id: int):
     # To ensure the latest copy of the object is retrieved here, the function
     # will wait until the "upload_complete" flag is set in the retrieved object
     # TODO: This is a hacky piece of code. Might need a cleaner implementation here
-    total_attempts = 5
+    num_retries = 5
     seconds_between_attempts = 2
 
-    for _ in range(total_attempts):
+    for _ in range(num_retries):
         # Get the upload object
         upload = Upload.objects.get(pk=upload_id)
         # Break out of the loop if upload_complete flag is set
@@ -45,11 +45,18 @@ def process_upload(upload_id: int):
         f" {upload.date_retrieved}"
     )
 
-    # First close the dropbox request
-    dbx.file_requests_update(id=upload.dropbox_request_id, open=False)
-    # Update the object status
-    upload.dropbox_request_open = False
+    # Skip processing if the upload is already processed
+    if upload.processed:
+        logger.info(f"Upload with id - {upload.id} already processed")
+        return
 
+    # If not, first close the dropbox request & update the object status
+    dbx.file_requests_update(id=upload.dropbox_request_id, open=False)
+    upload.dropbox_request_open = False
+    # Save the upload object
+    upload.save()
+
+    # NOTE: retry on error is already built into the dropbox client and is not required here
     # Next, get the list of all files in this directory and create relevant image objects
     response = dbx.files_list_folder(upload.dropbox_folder_path, recursive=True)
     # Recursively gather all the entries
@@ -85,7 +92,7 @@ def process_upload(upload_id: int):
 
                 # Update other fields along with custom data extracted if they exist
                 if media_info.time_taken:
-                    img_obj.time_taken = media_info.time_taken
+                    img_obj.trigger_timestamp = media_info.time_taken
                 if media_info.dimensions:
                     img_obj.height = media_info.dimensions.height
                     img_obj.width = media_info.dimensions.width
@@ -95,15 +102,14 @@ def process_upload(upload_id: int):
                 if img_obj.is_video and media_info.duration:
                     img_obj.duration = media_info.duration
 
-                # Process the image.
-                # This involves getting an image thumbnail and saving it to google cloud storage
-                # followed by running ML to detect and identify objects in the image
-                if not img_obj.is_video:
-                    process_image(img_obj)
-
-                img_obj.processed = True
-
                 img_obj.save()
+
+    # Once all the image objects are created, process them
+    # This involves getting an image thumbnail and saving it to google cloud storage
+    # followed by running ML to detect and identify objects in the image
+    for img_obj in upload.image_set.all():
+        if not img_obj.is_video:
+            process_image(img_obj)
 
     # Mark the upload as processed.
     upload.processed = True

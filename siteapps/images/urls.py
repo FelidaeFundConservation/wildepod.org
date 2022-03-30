@@ -10,10 +10,16 @@ from .views import (
     UploadCreateView,
     UploadDetailView,
     UploadListView,
+    UploadStatusView,
 )
 
 urlpatterns = [
     path("uploads/", UploadListView.as_view(), name="list_uploads"),
+    path(
+        "uploads/status/",
+        UploadStatusView.as_view(),
+        name="upload_status",
+    ),
     path("upload/", UploadCreateView.as_view(), name="create_upload"),
     path("upload/<uuid:pk>/", UploadDetailView.as_view(), name="view_upload"),
     path(

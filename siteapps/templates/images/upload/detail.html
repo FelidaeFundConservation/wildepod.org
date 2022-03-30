@@ -198,9 +198,9 @@ URL {% endcomment %}
             disableSelect: true,
             disableEditor: true
         }
-        {% for image in paged_images %}
+        {% for image, bounding_boxes in paged_images_w_boxes %}
             bbox_srcs['{{image.id}}'] = [
-                {% for bbox in image.boundingbox_set.with_counts %}
+                {% for bbox in bounding_boxes %}
                     {
                         "id": "{{bbox.id}}",
                         "category": "{{bbox.category_set.valid.0.name}}",

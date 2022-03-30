@@ -1,5 +1,7 @@
 """This is the final production setting
 """
+import google.cloud.logging
+
 from .base import *  # noqa
 
 # HOSTS CONFIG

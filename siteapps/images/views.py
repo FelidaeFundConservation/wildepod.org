@@ -3,6 +3,7 @@ import threading
 
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import ObjectDoesNotExist
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http.response import JsonResponse
@@ -91,10 +92,38 @@ class UploadDetailView(LoginRequiredMixin, DetailView):
         paginator = Paginator(images, IMAGE_PAGINATION_LIMIT)
         page_number = self.request.GET.get("page")
         paged_images = paginator.get_page(page_number)
-
+        # TODO: Clean this up
         context["paged_images"] = paged_images
-
+        context["paged_images_w_boxes"] = [
+            [image_obj, BoundingBox.objects.valid().filter(image=image_obj)] for image_obj in paged_images
+        ]
         return context
+
+
+# TODO: Clean up this code
+class UploadStatusView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        # Get the upload id
+        upload_ids = request.POST.get("upload_ids", "[]")
+        upload_ids = json.loads(upload_ids)
+        upload_statuses = {}
+        for upload_id in upload_ids:
+            try:
+                upload = Upload.objects.get(id=upload_id)
+                total_images = upload.image_set.count()
+                processed_images = upload.image_set.filter(processed=True).count()
+                upload_statuses[upload_id] = {
+                    "valid": True,
+                    "total_images": total_images,
+                    "processed_images": processed_images,
+                }
+            except ObjectDoesNotExist:
+                upload_statuses[upload_id] = {
+                    "valid": False,
+                    "total_images": 0,
+                    "processed_images": 0,
+                }
+        return JsonResponse({"success": True, "upload_statuses": upload_statuses})
 
 
 class ImageDetailView(LoginRequiredMixin, DetailView):
@@ -107,11 +136,11 @@ class ImageDetailView(LoginRequiredMixin, DetailView):
         context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
         try:
             context["next_image"] = self.get_object().get_previous_by_created()
-        except Image.DoesNotExist:
+        except ObjectDoesNotExist:
             pass
         try:
             context["previous_image"] = self.get_object().get_next_by_created()
-        except Image.DoesNotExist:
+        except ObjectDoesNotExist:
             pass
         # Get valid annotations for this image
         bounding_boxes = BoundingBox.objects.valid().filter(image=self.get_object())
@@ -220,7 +249,7 @@ class SpeciesAnnotationProcessorView(LoginRequiredMixin, View):
         # Get the image id
         image_id = request.POST.get("image_id")
 
-        skip = True if request.POST.get("skip") == "true" else False
+        skip = bool(request.POST.get("skip") == "true")
 
         # Get bounding box ids that were sent to infer deleted annotations
         initial_bboxes = request.POST.get("initial_bboxes")

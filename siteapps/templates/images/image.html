@@ -12,9 +12,7 @@
             {{image.upload.camera_station.micro_site}} |
             Time Taken: {% if image.trigger_timestamp %}{{image.trigger_timestamp}}{% else %}N/A{% endif %}
         </p>
-        <p class="p-0 m-0">
-            <em>This image has <b>{{image.boundingbox_set.all | length}}</b> detected objects</em>
-        </p>
+
         <p class="p-1 m-1">
             {% if previous_image %}
             <a

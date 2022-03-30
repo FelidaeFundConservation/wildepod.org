@@ -69,13 +69,6 @@
                 name="save_annotations"
                 value="Save!"
             >
-            <input
-                type="submit"
-                class="btn btn-primary"
-                id="skip_annotations"
-                name="skip_annotations"
-                value="Skip >>"
-            >
         </form>
     </div>
     <div
@@ -99,6 +92,17 @@
                 src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}"
             >
         </div>
+    </div>
+    <div class="row text-center">
+        <form method="POST">
+            <input
+                type="submit"
+                class="btn btn-primary"
+                id="skip_annotations"
+                name="skip_annotations"
+                value="Skip Image >>"
+            >
+        </form>
     </div>
     <div
         class="row py-3 justify-content-center d-none"

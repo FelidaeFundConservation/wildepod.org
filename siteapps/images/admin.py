@@ -55,14 +55,10 @@ class ImageAdmin(SimpleHistoryAdmin):
     def dropbox_folder_name(self, obj):
         return obj.upload.dropbox_folder_name
 
-    def date_retrieved(self, obj):
-        return obj.upload.date_retrieved
-
-    list_display = ["dropbox_folder_name", "dropbox_file_name", "date_retrieved"]
+    list_display = ["dropbox_folder_name", "trigger_timestamp"]
     list_display_links = [
         "dropbox_folder_name",
-        "dropbox_file_name",
-        "date_retrieved",
+        "trigger_timestamp",
     ]
     readonly_fields = (
         "upload",
@@ -78,7 +74,7 @@ class ImageAdmin(SimpleHistoryAdmin):
         "duration",
     )
     ordering = ["-created"]
-    search_fields = ["dropbox_folder_name"]
+    search_fields = ["id", "upload__id"]
 
 
 @admin.register(Bot)
@@ -93,7 +89,7 @@ class AnnotatorAdmin(SimpleHistoryAdmin):
 
 @admin.register(BoundingBox)
 class BoundingBoxAdmin(SimpleHistoryAdmin):
-    pass
+    search_fields = ["id", "image__id"]
 
 
 @admin.register(SpeciesName)

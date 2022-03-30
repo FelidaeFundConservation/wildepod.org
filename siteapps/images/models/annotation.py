@@ -8,7 +8,7 @@ from simple_history.models import HistoricalRecords
 from .image import Annotator, Image
 
 NUM_ACCEPTS_OVER_REJECTS = 2
-MIN_MEGADETECTOR_CONFIDENCE = 0.25
+MIN_MEGADETECTOR_CONFIDENCE = 0.5
 
 
 # Bounding Box manager. For now, this simply returns "valid" bounding boxes as determined
@@ -31,7 +31,7 @@ class BoundingBoxManager(models.Manager):
                 num_rejected=models.functions.Coalesce(models.Count("rejected_by"), 0),
             )
             .filter(confidence__gte=MIN_MEGADETECTOR_CONFIDENCE)
-            .filter(num_accepted__lte=models.F("num_rejected") + NUM_ACCEPTS_OVER_REJECTS)
+            .filter(num_accepted__gte=models.F("num_rejected") - NUM_ACCEPTS_OVER_REJECTS)
         )
 
 
@@ -102,7 +102,7 @@ class CategoryManager(models.Manager):
                 num_accepted=models.functions.Coalesce(models.Count("accepted_by"), 0),
                 num_rejected=models.functions.Coalesce(models.Count("rejected_by"), 0),
             )
-            .filter(num_accepted__lte=models.F("num_rejected") + NUM_ACCEPTS_OVER_REJECTS)
+            .filter(num_accepted__gte=models.F("num_rejected") - NUM_ACCEPTS_OVER_REJECTS)
             .order_by("-confidence", "-created", "-modified")
         )
 

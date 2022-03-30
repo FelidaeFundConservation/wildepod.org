@@ -5,19 +5,9 @@ from django.conf import settings
 import dropbox
 from images.models import Annotator, Bot, BoundingBox, Category, Image
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 from utils.storages import MediaRootGoogleCloudStorage
-
-# from config.settings.custom_storages import MediaStorage
-
-# # Setup a logger
-# logger = logging.getLogger(__name__)
-
-# # Create a dropbox client
-# dbx = dropbox.Dropbox(settings.DROPBOX_AUTH_TOKEN)
-
-# # Create a storage object instance
-# storage = MediaStorage()
-
 
 # Setup a logger
 logger = logging.getLogger(__name__)
@@ -27,6 +17,22 @@ dbx = dropbox.Dropbox(settings.DROPBOX_AUTH_TOKEN)
 
 # Create a storage object instance
 storage = MediaRootGoogleCloudStorage()
+
+# Retry strategy for calling megadetector cloud function
+md_retry_strategy = Retry(
+    total=5,
+    # Setting allowed methods to false will retry on all methods
+    # https://urllib3.readthedocs.io/en/stable/reference/urllib3.util.html?highlight=retry#urllib3.util.Retry
+    allowed_methods=False,
+    status_forcelist=[400, 408, 429, 500, 502, 503, 504],
+    # Since the cloud function is slow, backoff is set to a large value
+    # 120 should give values of 1min, 2mins, 4mins, 8mins and 16mins
+    backoff_factor=120,
+)
+adapter = HTTPAdapter(max_retries=md_retry_strategy)
+http = requests.Session()
+http.mount("https://", adapter)
+http.mount("http://", adapter)
 
 
 # Function to save the thumbnails of the image
@@ -72,8 +78,13 @@ def process_image(image: Image):
     )
     annotator, _ = Annotator.objects.get_or_create(type="bot", bot=bot)
     # Call the MegaDetector cloud function
-    result = requests.post(bot.model_api_url, json={"image": image_url, "model": bot.model_file_url}).json()
-    # TODO: Handle errors
+    # There is a really high timeout here since the cloud function takes a while to start on first request
+    response = http.post(bot.model_api_url, json={"image": image_url, "model": bot.model_file_url}, timeout=300)
+    if response.status_code == 200:
+        result = response.json()
+    else:
+        logger.error(f"MegaDetector cloud function failed with status code: {response.status_code}")
+        return
     # TODO: Investigate pros/cons of making these db operations an atomic transaction within django
 
     # For each detected bounding box, create a corresponding annotation object
@@ -97,5 +108,7 @@ def process_image(image: Image):
             confidence=detection["conf"],
         )
 
-    # TODO: Additional Species detection annotations go here.
-    # Add annotation type automatically linked to each annotation perhaps?
+    # Additional Species detection annotations go here.
+
+    image.processed = True
+    image.save()

@@ -45,13 +45,6 @@
                 name="save_annotations"
                 value="Save Annotations"
             >
-            <input
-                type="submit"
-                class="btn btn-primary"
-                id="skip_annotations"
-                name="save_annotations"
-                value="Skip Image >>"
-            >
         </form>
     </div>
     <div class="row mt-2 mt-md-4 px-2 justify-content-center">
@@ -63,6 +56,17 @@
             >
         </div>
     </div>
+    <div class="row text-center">
+        <form method="POST">
+            <input
+                type="submit"
+                class="btn btn-primary"
+                id="skip_annotations"
+                name="skip_annotations"
+                value="Skip Image >>"
+            >
+        </form>
+    </div>
     <div
         class="row py-3 justify-content-center d-none"
         id="status-failure"
@@ -73,7 +77,8 @@
                 role="alert"
             >
                 {% comment %} TODO: Link to a spreadsheet error form here {% endcomment %}
-                <strong>Error!</strong> Your annotations could not be saved. Please refresh page & try again or report a bug here.
+                <strong>Error!</strong> Your annotations could not be saved. Please refresh page & try again or report a
+                bug here.
             </div>
         </div>
     </div>

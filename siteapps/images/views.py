@@ -15,8 +15,6 @@ from images.processors import process_md_annotations, process_species_annotation
 from .forms import UploadCompleteForm, UploadForm
 from .models import Annotator, BoundingBox, Image, SpeciesName, Upload
 
-# Offset by which accept has to be greater than rejection to be shown
-ANNOTATION_REJECTION_OFFSET = 0
 # Pagination size for images displayed for the upload detail page
 IMAGE_PAGINATION_LIMIT = 24
 
@@ -97,6 +95,7 @@ class UploadDetailView(LoginRequiredMixin, DetailView):
         context["paged_images_w_boxes"] = [
             [image_obj, BoundingBox.objects.valid().filter(image=image_obj)] for image_obj in paged_images
         ]
+        print(context["paged_images_w_boxes"])
         return context
 
 
@@ -145,6 +144,7 @@ class ImageDetailView(LoginRequiredMixin, DetailView):
         # Get valid annotations for this image
         bounding_boxes = BoundingBox.objects.valid().filter(image=self.get_object())
         context["bounding_boxes"] = bounding_boxes
+        print(bounding_boxes)
 
         return context
 

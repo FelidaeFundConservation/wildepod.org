@@ -9,9 +9,6 @@ from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 from utils.storages import MediaRootGoogleCloudStorage
 
-# Setup a logger
-logger = logging.getLogger(__name__)
-
 # Create a dropbox client
 dbx = dropbox.Dropbox(settings.DROPBOX_AUTH_TOKEN)
 
@@ -62,12 +59,9 @@ def add_thumbnail(image: Image):
     image.save()
 
 
-# Function to process an image
-def process_image(image: Image):
-    """Function to process an image and create relevant metadata"""
-    # First, add a thumbnail to the image object if it doesn't already exist
-    if not image.thumbnail_gcloud_path:
-        add_thumbnail(image)
+
+def add_bounding_boxes(image: Image):
+    """Function to add bounding boxes to an image using MegaDetector's object detection model"""
     # TODO: Handle error or Rollback on failure
     # Next, run MegaDetector on each image and create the relevant annotation objects
     image_url = f"""gs://{settings.GS_BUCKET_NAME}/media/{image.thumbnail_gcloud_path}"""
@@ -86,7 +80,7 @@ def process_image(image: Image):
     if response.status_code == 200:
         result = response.json()
     else:
-        logger.error(f"MegaDetector cloud function failed with status code: {response.status_code}")
+        logging.error(f"MegaDetector cloud function failed with status code: {response.status_code}")
         return
     # TODO: Investigate pros/cons of making these db operations an atomic transaction within django
 
@@ -111,7 +105,18 @@ def process_image(image: Image):
             confidence=detection["conf"],
         )
 
-    # Additional Species detection annotations go here.
+
+# Function to process an image
+def process_image(image: Image):
+    """Function to process an image and create relevant metadata"""
+    # First, add a thumbnail to the image object if it doesn't already exist
+    if not image.thumbnail_gcloud_path:
+        add_thumbnail(image)
+    # Next, add bounding boxes to the image object
+    add_bounding_boxes(image)
 
     image.processed = True
     image.save()
+
+    # Additional Species detection annotations go here.
+

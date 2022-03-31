@@ -107,9 +107,14 @@ def process_upload(upload_id: int):
     # Once all the image objects are created, process them
     # This involves getting an image thumbnail and saving it to google cloud storage
     # followed by running ML to detect and identify objects in the image
+    # TODO: Images are processed one at a time. The main bottleneck is the Megadetector processing
+    # This can be called async and run in parallel
     for img_obj in upload.image_set.all():
-        if not img_obj.is_video:
-            process_image(img_obj)
+        if img_obj.processed:
+            continue
+        if img_obj.is_video:
+            continue
+        process_image(img_obj)
 
     # Mark the upload as processed.
     upload.processed = True

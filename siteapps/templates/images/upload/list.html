@@ -110,9 +110,9 @@
                     <td>{{object.camera_station.micro_site.macro_site}}</td>
                     <td>{{object.date_retrieved}}</td>
                     {% if object.processed %}
-                    <th scope="col">{{object.image_set.all.count}}</th>
+                    <td>{{object.image_set.all.count}}</td>
                     {% else %}
-                    <th scope="col">-</th>
+                    <td>-</td>
                     {% endif %}
                     {% if user.is_staff %}
                     <td>{{object.volunteer.name}}</td>
@@ -133,11 +133,19 @@
                                 class="btn btn-light"
                             >View</button></a>
                         {% else %}
-                    <th scope="col"><span
+                        <a
+                            href="{% url 'images:view_upload' object.id %}"
+                            id="view-{{object.id}}"
+                            class="d-none"
+                        ><button
+                                type="button"
+                                class="btn btn-light"
+                            >View</button></a>
+                        <span
                             id="status-{{object.id}}"
                             class="text-center"
                         >?/? (..checking)</span></th>
-                    {% endif %}
+                        {% endif %}
                     </td>
                 </tr>
                 {% endif %}
@@ -158,53 +166,58 @@
 <script>
     let uploads_in_process = [
         {% for object in object_list %}
-            {% if not object.processed %}
+            {% if object.upload_complete and not object.processed %}
                 "{{object.id}}",
             {% endif %}
         {% endfor %}
     ];
 
-    function checkStatus() {
-        let periodic_check = setInterval(function(){
+    let periodic_check;
 
-            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-            console.log(JSON.stringify(uploads_in_process))
-            // Make an ajax call with all the pending uploads to get their status & process them
-            $.ajax({
-                url: '{% url 'images:upload_status'%}',
-                method: 'POST',
-                data: {
-                    'upload_ids': JSON.stringify(uploads_in_process),
-                    'csrfmiddlewaretoken': csrftoken,
-                },
-                dataType: 'json',
-                success: function (data){
-                    uploads_in_process = []
-                    if (data.success){
-                        for (const [upload_id, upload_status] of Object.entries(data["upload_statuses"])){
-                            if (upload_status["valid"]){
-                                if (upload_status["total_images"] != upload_status["processed_images"]) {
-                                    $("#status-" + upload_id).html(upload_status["processed_images"] + "/" + upload_status["total_images"]);
-                                    uploads_in_process.push(upload_id)
-                                }
+    function checkStatus() {
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        console.log(JSON.stringify(uploads_in_process))
+        // Make an ajax call with all the pending uploads to get their status & process them
+        $.ajax({
+            url: '{% url 'images:upload_status'%}',
+            method: 'POST',
+            data: {
+                'upload_ids': JSON.stringify(uploads_in_process),
+                'csrfmiddlewaretoken': csrftoken,
+            },
+            dataType: 'json',
+            success: function (data){
+                uploads_in_process = []
+                if (data.success){
+                    for (const [upload_id, upload_status] of Object.entries(data["upload_statuses"])){
+                        if (upload_status["valid"]){
+                            if (upload_status["total_images"] > 0 && upload_status["total_images"] == upload_status["processed_images"]) {
+                                $("#status-" + upload_id).toggleClass("d-none");
+                                $("#view-" + upload_id).toggleClass("d-none");
+                            }
+                            else {
+                                $("#status-" + upload_id).html(upload_status["processed_images"] + "/" + upload_status["total_images"]);
+                                uploads_in_process.push(upload_id)
                             }
                         }
-                        if (uploads_in_process.length == 0) {
-                            clearInterval(periodic_check);
-                            location.reload()
-                            return;
-                        }
                     }
-                    else {
-                        console.log(data.error);
+                    if (uploads_in_process.length == 0) {
+                        clearInterval(periodic_check);
+                        return;
                     }
-                },
-            })
-        }, 15000)
+                }
+                else {
+                    console.log(data.error);
+                }
+            },
+        })
     }
 
     if (uploads_in_process.length > 0){
         checkStatus();
+        let periodic_check = setInterval(function(){
+            checkStatus();
+        }, 15000)
     }
 
 </script>

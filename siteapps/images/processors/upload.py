@@ -7,9 +7,6 @@ from images.models import Image, Upload
 
 from .image import process_image
 
-# Setup a logger
-logger = logging.getLogger(__name__)
-
 # Create a dropbox client
 dbx = dropbox.Dropbox(settings.DROPBOX_AUTH_TOKEN)
 
@@ -40,14 +37,14 @@ def process_upload(upload_id: int):
         else:
             time.sleep(seconds_between_attempts)
 
-    logger.info(
+    logging.info(
         f"Thread initiated to process upload with id - {upload.id} from {upload.camera_station} retrieved on"
         f" {upload.date_retrieved}"
     )
 
     # Skip processing if the upload is already processed
     if upload.processed:
-        logger.info(f"Upload with id - {upload.id} already processed")
+        logging.info(f"Upload with id - {upload.id} already processed")
         return
 
     # If not, first close the dropbox request & update the object status

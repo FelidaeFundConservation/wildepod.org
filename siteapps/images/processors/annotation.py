@@ -4,9 +4,6 @@ from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from images.models import Annotator, BoundingBox, Category, Image, Species, SpeciesName
 
-# Setup a logger
-logger = logging.getLogger(__name__)
-
 # TODO: This entire module is very hacky and needs to be refactored
 
 

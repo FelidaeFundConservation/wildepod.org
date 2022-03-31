@@ -1,5 +1,6 @@
 import json
 import threading
+import logging
 
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -17,7 +18,6 @@ from .models import Annotator, BoundingBox, Image, SpeciesName, Upload
 
 # Pagination size for images displayed for the upload detail page
 IMAGE_PAGINATION_LIMIT = 24
-
 
 class UploadCreateView(LoginRequiredMixin, CreateView):
     model = Upload

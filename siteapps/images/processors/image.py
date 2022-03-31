@@ -58,13 +58,16 @@ def add_thumbnail(image: Image):
     gcloud_path = storage.save(target_path, img_bytes)
 
     image.thumbnail_gcloud_path = gcloud_path
+    # Save the image
+    image.save()
 
 
 # Function to process an image
 def process_image(image: Image):
     """Function to process an image and create relevant metadata"""
-    # First, add a thumbnail to the image object
-    add_thumbnail(image)
+    # First, add a thumbnail to the image object if it doesn't already exist
+    if not image.thumbnail_gcloud_path:
+        add_thumbnail(image)
     # TODO: Handle error or Rollback on failure
     # Next, run MegaDetector on each image and create the relevant annotation objects
     image_url = f"""gs://{settings.GS_BUCKET_NAME}/media/{image.thumbnail_gcloud_path}"""

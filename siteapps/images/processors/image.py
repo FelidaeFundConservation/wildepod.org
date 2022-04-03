@@ -78,9 +78,9 @@ def add_bounding_boxes(image: Image):
         model_file_url=f"gs://{settings.MODEL_STORAGE_BUCKET}/md_v4.1.0.pb",
     )
     if created:
-        logging.info("Megadetector 4.1.0 objectect detection bot successfully created")
+        logging.info("Megadetector 4.1.0 object detection bot successfully created")
     else:
-        logging.info("Megadetector 4.1.0 objectect detection bot already exists. Successfully retrieved.")
+        logging.info("Megadetector 4.1.0 object detection bot already exists. Successfully retrieved.")
 
     annotator, created = Annotator.objects.get_or_create(type="bot", bot=bot)
     if created:
@@ -105,7 +105,7 @@ def add_bounding_boxes(image: Image):
     # Confidence for bounding box & category are the same for MegaDetector
     for i, detection in enumerate(result["detections"]):
         # Create a new annotation object
-        bounding_box = BoundingBox.objects.create(
+        bounding_box, created = BoundingBox.objects.get_or_create(
             image=image,
             confidence=detection["conf"],
             x=detection["bbox"][0],
@@ -114,15 +114,18 @@ def add_bounding_boxes(image: Image):
             h=detection["bbox"][3],
             created_by=annotator,
         )
+        if created:
+            logging.info(
+                f"""Successfully created bounding box for object #{i+1} - {detection["category"]} (confidence - {detection["conf"]})"""
+            )
+        else:
+            logging.info("Bounding box already exists. Successfully retrieved.")
         # Next, create a category annotation for it
-        _ = Category.objects.create(
+        category, _ = Category.objects.get_or_create(
             bounding_box=bounding_box,
             name=detection["category"],
             created_by=annotator,
             confidence=detection["conf"],
-        )
-        logging.info(
-            f"""Successfully created bounding box for object #{i+1} - {detection["category"]} (confidence - {detection["conf"]})"""
         )
 
     logging.info("All bounding boxes created successfully.")

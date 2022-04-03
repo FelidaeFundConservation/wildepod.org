@@ -9,6 +9,7 @@ from images.models import Annotator, BoundingBox, Category, Image, Species, Spec
 
 def flatten_annotorious_annotations(annotations: list) -> dict:
     """Function to take an annotorious formatted list and flatten it with numerical bounding boxes"""
+    logging.info("Flattening annotorious annotations..")
     formatted_annotations = {}
     for annotation in annotations:
         # Annotorious created ids add a # in front of the annotation id. Remove it
@@ -29,7 +30,7 @@ def flatten_annotorious_annotations(annotations: list) -> dict:
             "w": w,
             "h": h,
         }
-
+    logging.info("Successfully flattened annotorious annotations..")
     return formatted_annotations
 
 
@@ -47,13 +48,19 @@ def process_md_annotations(
     Annotations follow the Annotorious format
     """
     # Get the annotator object for the current user
-    annotator, _ = Annotator.objects.get_or_create(type="human", human=user)
+    annotator, created = Annotator.objects.get_or_create(type="human", human=user)
+    if created:
+        logging.info(f"Annotator object for user '{user.name}' successfully created")
+    else:
+        logging.info(f"Annotator object for user '{user.name}' already exists. Successfully retrieved.")
 
     # Add the annotator to the image's viewed by list
     image = Image.objects.get(id=image_id)
+    logging.info("Successfully retrieved image object")
 
     # If the user skipped this, add the user to the image skipped list & move on
     if skip:
+        logging.info("User skipped this image. Adding to skipped list")
         image.bbox_skipped_by.add(annotator)
         return
 
@@ -79,6 +86,7 @@ def process_md_annotations(
                 bbox_obj.accepted_by.remove(annotator)
                 bbox_obj.rejected_by.add(annotator)
                 bbox_obj.save()
+    logging.info("Successfully deleted all deleted bounding boxes")
 
     # Next, handles all additions
     for bbox_id in formatted_annotations:
@@ -101,6 +109,7 @@ def process_md_annotations(
                 confidence=formatted_annotations[bbox_id]["confidence"],
             )
             bbox_obj.save()
+    logging.info("Successfully created all new bounding boxes")
 
     # Finally handle updates. This includes accept/reject depending on the category labels provided
     for bbox_id in initial_bboxes:
@@ -158,6 +167,7 @@ def process_md_annotations(
             # Save the objects
             category_obj.save()
             bbox_obj.save()
+    logging.info("Successfully updated all bounding boxes")
 
 
 # Function to process a list of annotations for MegaDetector's Object Detection model
@@ -174,13 +184,18 @@ def process_species_annotations(
     Annotations follow the Annotorious format
     """
     # Get the annotator object for the current user
-    annotator, _ = Annotator.objects.get_or_create(type="human", human=user)
-
+    annotator, created = Annotator.objects.get_or_create(type="human", human=user)
+    if created:
+        logging.info(f"Annotator object for user '{user.name}' successfully created")
+    else:
+        logging.info(f"Annotator object for user '{user.name}' already exists. Successfully retrieved.")
     # Add the annotator to the image's viewed by list
     image = Image.objects.get(id=image_id)
+    logging.info("Successfully retrieved image object")
 
     # If the user skipped this, add the user to the image skipped list & move on
     if skip:
+        logging.info("User skipped this image. Adding to skipped list")
         image.species_skipped_by.add(annotator)
         return True
 
@@ -192,6 +207,7 @@ def process_species_annotations(
     # If any bounding box is missing, return an error
     for bbox_id in initial_bboxes:
         if bbox_id not in formatted_annotations:
+            logging.error("Error: Bounding boxes were deleted when annotating species.")
             return False
 
     image.species_checked_by.add(annotator)
@@ -216,5 +232,5 @@ def process_species_annotations(
 
         # Save the objects
         species_obj.save()
-
+    logging.info("Successfully updated all bounding boxes")
     return True

@@ -1,6 +1,6 @@
 import json
-import threading
 import logging
+import threading
 
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -18,6 +18,7 @@ from .models import Annotator, BoundingBox, Image, SpeciesName, Upload
 
 # Pagination size for images displayed for the upload detail page
 IMAGE_PAGINATION_LIMIT = 24
+
 
 class UploadCreateView(LoginRequiredMixin, CreateView):
     model = Upload
@@ -64,6 +65,9 @@ class UploadCompleteView(LoginRequiredMixin, UpdateView):
     def post(self, request, *args, **kwargs):
         # Process upload only if "upload_complete" was checked in the form
         if request.POST.get("upload_complete"):
+            logging.info(
+                f"Upload '{self.get_object().id}' marked as complete by the {self.request.user.name}. Starting a thread to process the upload.."
+            )
             # Create a thread to process the upload
             thread = threading.Thread(target=process_upload, args=[self.get_object().id])
             # Move it to the background
@@ -95,7 +99,7 @@ class UploadDetailView(LoginRequiredMixin, DetailView):
         context["paged_images_w_boxes"] = [
             [image_obj, BoundingBox.objects.valid().filter(image=image_obj)] for image_obj in paged_images
         ]
-        print(context["paged_images_w_boxes"])
+
         return context
 
 
@@ -144,7 +148,6 @@ class ImageDetailView(LoginRequiredMixin, DetailView):
         # Get valid annotations for this image
         bounding_boxes = BoundingBox.objects.valid().filter(image=self.get_object())
         context["bounding_boxes"] = bounding_boxes
-        print(bounding_boxes)
 
         return context
 
@@ -225,7 +228,7 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
             skip = True
             initial_bboxes = []
             annotations = []
-
+            logging.info(f"Bounding box annotations for image '{image_id}' was skipped by user - '{request.user.name}'")
             # Process the annotations
             process_md_annotations(image_id, annotations, initial_bboxes, request.user, skip)
         else:
@@ -236,7 +239,7 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
             # Get the annotation paylaod from the request and convert it to a dict
             annotations = request.POST.get("annotations")
             annotations = json.loads(annotations)
-
+            logging.info(f"Processing bounding box annotations for image '{image_id}' by user - '{request.user.name}'")
             # Process the annotations
             process_md_annotations(image_id, annotations, initial_bboxes, request.user)
 
@@ -249,7 +252,7 @@ class SpeciesAnnotationProcessorView(LoginRequiredMixin, View):
         # Get the image id
         image_id = request.POST.get("image_id")
 
-        skip = bool(request.POST.get("skip") == "true")
+        skip = request.POST.get("skip") == "true"
 
         # Get bounding box ids that were sent to infer deleted annotations
         initial_bboxes = request.POST.get("initial_bboxes")
@@ -260,6 +263,7 @@ class SpeciesAnnotationProcessorView(LoginRequiredMixin, View):
         annotations = json.loads(annotations)
 
         # Process the annotations
+        logging.info(f"Processing species for Image '{image_id}' by user - '{request.user.name}'")
         success = process_species_annotations(image_id, annotations, initial_bboxes, request.user, skip=skip)
 
         # TODO: Send and render a meaningful response

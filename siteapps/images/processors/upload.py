@@ -26,7 +26,7 @@ def process_upload(upload_id: int):
     # TODO: This is a hacky piece of code. Might need a cleaner implementation here
     num_retries = 5
     seconds_between_attempts = 2
-    logging.info("Thread initiated. Waiting for upload '{upload_id}' to be committed to database..")
+    logging.info(f"Thread initiated. Waiting for upload '{upload_id}' to be committed to database..")
     for _ in range(num_retries):
         # Get the upload object
         upload = Upload.objects.get(pk=upload_id)
@@ -72,13 +72,13 @@ def process_upload(upload_id: int):
     logging.info(f"Directory listing successful. A total of {len(entries)} entries were retrieved.")
 
     # Process each entry & create relevant image/video objects
-    for entry in entries:
+    for i, entry in enumerate(entries):
         # Skip all folders
         if isinstance(entry, dropbox.files.FileMetadata):
             # Retrieve their metadata along with media info
             # "include_media_info" is deprecated in the files_list_folder API requiring a call for each file again
             # TODO: Maybe this can be offloaded to an on-demand functionality that retrieves data only if needed
-            logging.info(f"Processing entry - '{entry.path_lower}'")
+            logging.info(f"Processing entry - '{entry.path_lower}' ({i+1}/{len(entries)})")
             response = dbx.files_get_metadata(entry.path_lower, include_media_info=True)
             media_info = response.media_info.get_metadata()
             logging.info("Retrieved media info for entry.")
@@ -116,21 +116,19 @@ def process_upload(upload_id: int):
                 else:
                     logging.info(f"Image object for entry '{entry.path_lower}' already exists. Object retrieved!")
 
-    # Once all the image objects are created, process them
-    # This involves getting an image thumbnail and saving it to google cloud storage
-    # followed by running ML to detect and identify objects in the image
-    # TODO: Images are processed one at a time. The main bottleneck is the Megadetector processing
-    # This can be called async and run in parallel
-    logging.info("Processing all image objects..")
-    for img_obj in upload.image_set.all():
-        logging.info(f"Processing image object '{img_obj.id}' ({img_obj.dropbox_file_name})..")
-        if img_obj.processed:
-            logging.info("Image already processed. Skipping..")
-            continue
-        if img_obj.is_video:
-            logging.info("Image is a video. Skipping..")
-            continue
-        process_image(img_obj)
+                # Once all the image objects are created, process them
+                # This involves getting an image thumbnail and saving it to google cloud storage
+                # followed by running ML to detect and identify objects in the image
+                # TODO: Images are processed one at a time. The main bottleneck is the Megadetector processing
+                # This can be called async and run in parallel
+                logging.info(f"Processing image object '{img_obj.id}' ({img_obj.dropbox_file_name})..")
+                if img_obj.processed:
+                    logging.info("Image already processed. Skipping..")
+                    continue
+                if img_obj.is_video:
+                    logging.info("Image is a video. Skipping..")
+                    continue
+                process_image(img_obj)
 
     logging.info("All images processed. Marking upload as processed..")
     # Mark the upload as processed.

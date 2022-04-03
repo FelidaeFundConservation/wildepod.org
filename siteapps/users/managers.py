@@ -1,3 +1,5 @@
+import logging
+from smtplib import SMTPException
 import uuid
 
 from allauth.account.models import EmailAddress
@@ -9,18 +11,23 @@ from django.utils.translation import gettext_lazy as _
 
 
 def send_welcome_email(user, password_generated):
+    """Send welcome email to user"""
+    logging.info("Sending welcome email..")
     subject = "Welcome to WildePod!"
     context = {"user": user, "password_generated": password_generated}
     html_message = render_to_string("account/email/welcome.html", context)
     plain_message = strip_tags(html_message)
-    send_mail(
-        subject,
-        plain_message,
-        "WildePod Admin <noreply@wildepod.org>",
-        [user.email],
-        html_message=html_message,
-        fail_silently=False,
-    )
+    try:
+        send_mail(
+            subject,
+            plain_message,
+            "WildePod Admin <noreply@wildepod.org>",
+            [user.email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+    except SMTPException as e:
+        logging.error(f"Error sending welcome email. Error msg - {e}")
 
 
 # Code copied from https://testdriven.io/blog/django-custom-user-model/
@@ -45,16 +52,19 @@ class UserManager(BaseUserManager):
         password = password if password else password_generated
         user.set_password(password)
         user.save(using=self._db)
+        logging.info("User created successfully!")
         # TODO: This might not be ideal when sign up is opened up to regular users since it bypasses the verification process
         # Create an email address for django all auth and set it to verified & primary
         # This only happens when users are created programmatically since sign up is disabled
         EmailAddress.objects.create(user=user, email=email, primary=True, verified=True)
+        logging.info("Email address created successfully!")
         send_welcome_email(user, password_generated)
 
         return user
 
     def create_user(self, email, password=None, **extra_fields):
         """Create and save a regular User with the given email and password."""
+        logging.info("Creating regular user..")
         extra_fields.setdefault("is_staff", False)
         extra_fields.setdefault("is_superuser", False)
         extra_fields.setdefault("is_active", True)
@@ -65,6 +75,7 @@ class UserManager(BaseUserManager):
         """
         Create and save a SuperUser with the given email and password.
         """
+        logging.info("Creating super user..")
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         extra_fields.setdefault("is_active", True)

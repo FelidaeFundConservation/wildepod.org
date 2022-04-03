@@ -85,6 +85,35 @@
         {% else %}
         <p>Hey, {{user.name}}! Here is a list of all your uploads</p>
         {% endif %}
+        <p class="text-center"><button
+                class="btn btn-light"
+                id="stuck-upload"
+            >Upload Stuck?</button></p>
+        <div
+            id="stuck-toggle"
+            class="d-none text-center"
+            style="background-color: #f5f5f5; padding: 1rem; border-radius: 5px;"
+        >
+            <p>
+                <small>
+                    Large uploads occasionally can get stuck in between and is expected behavior at the
+                    moment.<br />
+                    If your upload is stuck (the numbers have not changed in over 30 minutes), click the button
+                    below to manually retrigger processing.
+                </small>
+            </p>
+            <p>
+                <form method="POST">
+                    {% csrf_token %}
+                    <input
+                        type="submit"
+                        class="btn btn-primary"
+                        id="upload_resume_processing"
+                        name="upload_resume_processing"
+                        value="Resume Processing"
+                    >
+                </form>
+        </div>
 
         <table class="table mt-2 mt-md-4 align-middle text-center">
             <thead>
@@ -162,6 +191,42 @@
 {% block footer_includes %}
 <!-- Jquery -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+
+<script>
+    $("#stuck-upload").click(function(e){
+        $("#stuck-toggle").toggleClass("d-none");
+        let cta_text = $("#stuck-upload").text();
+        $("#stuck-upload").text(
+            cta_text == "Upload Stuck?" ? "Close" : "Upload Stuck?"
+        );
+    });
+    // Submit annotations to the server
+    $("#upload_resume_processing").click(function(e){
+        // First, prevent the default action of the form
+        e.preventDefault();
+        // Get the CSRF token from the DOM
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        // Send back all the bbox ids back to the server to log bbox deletions
+        // Make an AJAX request
+        $.ajax({
+            url: '{% url 'images:upload_resume_processing'%}',
+            method: 'POST',
+            data: {
+                'csrfmiddlewaretoken': csrftoken,
+            },
+            dataType: 'json',
+            success: function (data){
+                if (data.success){
+                    console.log("Upload processing resumed");
+                }
+                else {
+                    console.log(data.error);
+                }
+            },
+        })
+    });
+</script>
 
 <script>
     let uploads_in_process = [

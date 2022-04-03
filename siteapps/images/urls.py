@@ -10,6 +10,7 @@ from .views import (
     UploadCreateView,
     UploadDetailView,
     UploadListView,
+    UploadResumeProcessingView,
     UploadStatusView,
 )
 
@@ -19,6 +20,11 @@ urlpatterns = [
         "uploads/status/",
         UploadStatusView.as_view(),
         name="upload_status",
+    ),
+    path(
+        "uploads/resume-processing/",
+        UploadResumeProcessingView.as_view(),
+        name="upload_resume_processing",
     ),
     path("upload/", UploadCreateView.as_view(), name="create_upload"),
     path("upload/<uuid:pk>/", UploadDetailView.as_view(), name="view_upload"),

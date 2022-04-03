@@ -20,6 +20,35 @@ from .models import Annotator, BoundingBox, Image, SpeciesName, Upload
 IMAGE_PAGINATION_LIMIT = 24
 
 
+# This function goes over all uploads marked as completed but not yet processed and triggers a thread to process them
+# Upload processing threads can get killed when GCP decides to kill an instance when it gets no active http requests
+# TODO: Ideally, move this to a cloud run instead of a thread within app engine
+def process_stuck_upload_threads():
+    """Function to process all uploads marked as completed but not yet processed"""
+    # First get all uploads that are already being processed by threads
+    uploads_currently_being_processed = {
+        thread.name.split("--")[-1] for thread in threading.enumerate() if "process_upload" in thread.name
+    }
+    logging.info(f"{len(uploads_currently_being_processed)} uploads currently being processed")
+    pending_uploads = [
+        upload
+        for upload in Upload.objects.filter(upload_complete=True, processed=False)
+        if str(upload.id) not in uploads_currently_being_processed
+    ]
+    logging.info(f"{len(pending_uploads)} uploads crashed without being fully processed")
+    # For each completed upload that isn't processed
+    for upload in pending_uploads:
+        # Create a thread to process the upload
+        thread = threading.Thread(target=process_upload, args=[upload.id])
+        # Set the name of the thread to the upload id and the function
+        # This will be used to deduplicate process-upload thread runs
+        thread.name = f"process_upload--{upload.id}"
+        # Move it to the background
+        thread.setDaemon(True)
+        # Start running the thread
+        thread.start()
+
+
 class UploadCreateView(LoginRequiredMixin, CreateView):
     model = Upload
     form_class = UploadForm
@@ -70,6 +99,9 @@ class UploadCompleteView(LoginRequiredMixin, UpdateView):
             )
             # Create a thread to process the upload
             thread = threading.Thread(target=process_upload, args=[self.get_object().id])
+            # Set the name of the thread to the upload id and the function
+            # This will be used to deduplicate process-upload thread runs
+            thread.name = f"process_upload--{self.get_object().id}"
             # Move it to the background
             thread.setDaemon(True)
             # Start running the thread
@@ -106,7 +138,6 @@ class UploadDetailView(LoginRequiredMixin, DetailView):
 # TODO: Clean up this code
 class UploadStatusView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
-        # Get the upload id
         upload_ids = request.POST.get("upload_ids", "[]")
         upload_ids = json.loads(upload_ids)
         upload_statuses = {}
@@ -127,6 +158,18 @@ class UploadStatusView(LoginRequiredMixin, View):
                     "processed_images": 0,
                 }
         return JsonResponse({"success": True, "upload_statuses": upload_statuses})
+
+
+# TODO: This view is a hack to manually retrigger the processing of an upload
+# Upload processing threads can get killed when GCP decides to kill and instance when it gets no active http requests
+# Ideally, move this to a cloud run instead of a thread within app engine
+class UploadResumeProcessingView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        logging.info("Manually triggered to process crashed uploads")
+        # Trigger all uploads that are pending
+        process_stuck_upload_threads()
+
+        return JsonResponse({"success": True})
 
 
 class ImageDetailView(LoginRequiredMixin, DetailView):

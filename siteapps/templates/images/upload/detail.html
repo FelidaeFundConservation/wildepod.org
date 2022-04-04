@@ -92,6 +92,22 @@
             <hr />
         </div>
     </div>
+    <div class="row pt-2 mt-2 text-center">
+        <p>
+            {% if paged_images.has_previous %}
+            <a href="?page=1">&laquo; first</a>&nbsp;&nbsp;
+            <a href="?page={{ paged_images.previous_page_number }}">&laquo;previous</a>
+            {% endif %}
+            <span class="current">
+                &nbsp;&nbsp;Page {{ paged_images.number }} of {{ paged_images.paginator.num_pages }}&nbsp;&nbsp;
+            </span>
+
+            {% if paged_images.has_next %}
+            <a href="?page={{ paged_images.next_page_number }}">next&raquo;</a>&nbsp;&nbsp;
+            <a href="?page={{ paged_images.paginator.num_pages }}">last &raquo;</a>
+            {% endif %}
+        </p>
+    </div>
     <div class="row pt-3 mt-3 justify-content-center">
         {% for image in paged_images %}
         <div class="col-12 col-md-6 col-xl-4 text-center py-3">

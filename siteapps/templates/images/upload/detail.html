@@ -5,13 +5,29 @@
 {% block nav_upload %}active{% endblock nav_upload%}
 
 {% block content %}
-<div class="container py-4 my-4">
+<div class="container py-3 my-3">
     {% if object.volunteer == user or user.is_staff %}
     {% if not object.processed %}
-    <h3 class="py-4 my-4 text-center">Warning: This upload is still being processed and might not have all the images
-        yet</h3>
+    <div
+        class="row pt-2 mt-2 text-center alert alert-warning"
+        role="alert"
+    >
+        Warning: This upload is still being processed and might not have all the images
+        yet
+    </div>
     {% endif %}
     <div class="row">
+        <div class="col-12">
+            <p class="text-center"><button
+                    class="btn btn-light"
+                    id="view-upload-details"
+                >View Upload Details</button></p>
+        </div>
+    </div>
+    <div
+        id="upload-details"
+        class="row d-none"
+    >
         <div class="col-12 col-md-6 pt-2 mt-2">
             <h2 class="text-center">{{object.camera_station.micro_site.macro_site}}</h2>
             <hr>
@@ -86,12 +102,7 @@
             <div id="map-widget"></div>
         </div>
     </div>
-    <div class="row pt-5 mt-5">
-        <div class="col-12 pb-2 mb-2">
-            <h2 class="text-center">Images</h2>
-            <hr />
-        </div>
-    </div>
+    <hr />
     <div class="row pt-2 mt-2 text-center">
         <p>
             {% if paged_images.has_previous %}
@@ -108,7 +119,7 @@
             {% endif %}
         </p>
     </div>
-    <div class="row pt-3 mt-3 justify-content-center">
+    <div class="row pt-2 mt-2 justify-content-center">
         {% for image in paged_images %}
         <div class="col-12 col-md-6 col-xl-4 text-center py-3">
             {% if image.trigger_timestamp %}
@@ -206,38 +217,47 @@ URL {% endcomment %}
 <script src="https://cdn.jsdelivr.net/npm/@recogito/annotorious@2.6.1/dist/annotorious.min.js"></script>
 
 <script>
-        {% comment %} Create a javascript variable holding all the annotations and render annotations{% endcomment %}
-        let bbox_srcs = {}
-        let bbox_objs = {}
-        let annotorious_config = {
-            readOnly: true,
-            disableSelect: true,
-            disableEditor: true
-        }
-        {% for image, bounding_boxes in paged_images_w_boxes %}
-            bbox_srcs['{{image.id}}'] = [
-                {% for bbox in bounding_boxes %}
-                    {
-                        "id": "{{bbox.id}}",
-                        "category": "{{bbox.category_set.valid.0.name}}",
-                        "confidence": {{bbox.category_set.valid.0.confidence}},
-                        "x": {{bbox.x}},
-                        "y": {{bbox.y}},
-                        "w": {{bbox.w}},
-                        "h": {{bbox.h}},
-                    },
-                {% endfor %}
-            ];
-        {% endfor %}
-        let categories = ['animal','human','vehicle']
-        let MDClassSelectorWidget = createCategoryWidget(categories)
-        // Render annotations only after the entire window has finished loading
-        // This is to prevent errors when trying to access an image that hasn't loaded yet
-        // TODO: There is probably a better way to do where rendering happens per image load this but hey, this works for now!
-        window.addEventListener('load', function() {
-            {% for image in paged_images %}
-                bbox_objs['{{image.id}}'] = renderBoundingBoxes("{{image.id}}", bbox_srcs['{{image.id}}'],widgets=[MDClassSelectorWidget], config=annotorious_config);
+    {% comment %} Create a javascript variable holding all the annotations and render annotations{% endcomment %}
+    let bbox_srcs = {}
+    let bbox_objs = {}
+    let annotorious_config = {
+        readOnly: true,
+        disableSelect: true,
+        disableEditor: true
+    }
+    {% for image, bounding_boxes in paged_images_w_boxes %}
+        bbox_srcs['{{image.id}}'] = [
+            {% for bbox in bounding_boxes %}
+                {
+                    "id": "{{bbox.id}}",
+                    "category": "{{bbox.category_set.valid.0.name}}",
+                    "confidence": {{bbox.category_set.valid.0.confidence}},
+                    "x": {{bbox.x}},
+                    "y": {{bbox.y}},
+                    "w": {{bbox.w}},
+                    "h": {{bbox.h}},
+                },
             {% endfor %}
-        });
-    </script>
+        ];
+    {% endfor %}
+    let categories = ['animal','human','vehicle']
+    let MDClassSelectorWidget = createCategoryWidget(categories)
+    // Render annotations only after the entire window has finished loading
+    // This is to prevent errors when trying to access an image that hasn't loaded yet
+    // TODO: There is probably a better way to do where rendering happens per image load this but hey, this works for now!
+    window.addEventListener('load', function() {
+        {% for image in paged_images %}
+            bbox_objs['{{image.id}}'] = renderBoundingBoxes("{{image.id}}", bbox_srcs['{{image.id}}'],widgets=[MDClassSelectorWidget], config=annotorious_config);
+        {% endfor %}
+    });
+</script>
+<script>
+    $("#view-upload-details").click(function(e){
+        $("#upload-details").toggleClass("d-none");
+        let cta_text = $("#view-upload-details").text();
+        $("#view-upload-details").text(
+            cta_text == "View Upload Details" ? "Close" : "View Upload Details"
+        );
+    });
+</script>
 {% endblock footer_includes %}

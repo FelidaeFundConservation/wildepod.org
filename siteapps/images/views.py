@@ -243,6 +243,7 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
                 ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
                 processed=True,
                 num_objects__gt=0,
+                num_bbox_checked_by=4,
             )
             .order_by("num_species_checked_by", "num_objects")
         )

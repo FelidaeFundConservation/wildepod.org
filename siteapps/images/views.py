@@ -212,7 +212,7 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
                 processed=True,
                 num_objects__gt=0,
             )
-            .order_by("num_bbox_checked_by", "num_objects")
+            .order_by("num_bbox_checked_by", "trigger_timestamp", "num_objects")
         )
 
         # Serve the first image
@@ -245,7 +245,7 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
                 num_objects__gt=0,
                 num_bbox_checked_by=4,
             )
-            .order_by("num_species_checked_by", "num_objects")
+            .order_by("num_species_checked_by", "trigger_timestamp", "num_objects")
         )
 
         # Serve the first image

@@ -118,12 +118,35 @@ def process_md_annotations(
             bbox_obj = BoundingBox.objects.get(id=bbox_id)
             category_obj = Category.objects.get(bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"])
 
-            # Update accept/reject if not created by the same user
-            if bbox_obj.created_by != annotator:
-                bbox_obj.rejected_by.remove(annotator)
-                bbox_obj.accepted_by.add(annotator)
+            # # If the co-ordinates have changed, create a new bounding box if user is not staff or creator
+            # # Tolerance for changes is 1% of previous ie. if change is less than a 1%, it is counted as unintentional
+            # if all(
+            #     (bbox_obj.x - formatted_annotations[bbox_id]["x"]) < 0.01,
+            #     (bbox_obj.y - formatted_annotations[bbox_id]["y"]) < 0.01,
+            #     (bbox_obj.w - formatted_annotations[bbox_id]["w"]) < 0.01,
+            #     (bbox_obj.h - formatted_annotations[bbox_id]["h"]) < 0.01,
+            # ):
+            #     # Update accept/reject if not created by the same user
+            #     if bbox_obj.created_by != annotator:
+            #         bbox_obj.rejected_by.remove(annotator)
+            #         bbox_obj.accepted_by.add(annotator)
+
+            #     if initial_bboxes[bbox_id]["category"] == formatted_annotations[bbox_id]["category"]:
+            #         pass
+
+            # # This means that the co-ordinates have been modified
+            # else:
+            #     if user.is_staff or bbox_obj.created_by == annotator:
+            #         bbox_obj.x = formatted_annotations[bbox_id]["x"]
+            #         bbox_obj.y = formatted_annotations[bbox_id]["y"]
+            #         bbox_obj.w = formatted_annotations[bbox_id]["w"]
+            #         bbox_obj.h = formatted_annotations[bbox_id]["h"]
 
             # Bounding box co-ordinates can be modified if the annotator is staff or if the annotator is the same as the user
+            # TODO: Current code necessitates that it is not possible for an individual who isn't the creator or staff to update
+            # bounding boxes. This must be fixed! - Ideally, changes in bounding box co-ordinates should create a new object and
+            # count as a negative vote for the previous
+
             if user.is_staff or bbox_obj.created_by == annotator:
                 bbox_obj.x = formatted_annotations[bbox_id]["x"]
                 bbox_obj.y = formatted_annotations[bbox_id]["y"]
@@ -138,7 +161,7 @@ def process_md_annotations(
                     category_obj.rejected_by.remove(annotator)
                     category_obj.accepted_by.add(annotator)
             else:
-                # If staff or creator, directory update. Else, create a new category object
+                # If staff or creator, directly update. Else, create a new category object
                 if user.is_staff or bbox_obj.created_by == annotator:
                     category_obj.name = formatted_annotations[bbox_id]["category"]
                     category_obj.confidence = formatted_annotations[bbox_id]["confidence"]

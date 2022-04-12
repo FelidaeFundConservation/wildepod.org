@@ -8,31 +8,42 @@ from simple_history.models import HistoricalRecords
 from .image import Annotator, Image
 
 NUM_ACCEPTS_OVER_REJECTS = 2
-MIN_MEGADETECTOR_CONFIDENCE = 0.5
+MIN_MEGADETECTOR_CONFIDENCE = 0.25
 
 
 # Bounding Box manager. For now, this simply returns "valid" bounding boxes as determined
 # by the accept/reject ratio
 class BoundingBoxManager(models.Manager):
-    def with_counts(self):
+    def annotated(self):
+        # Combining multiple aggregations with annotate() will yield the wrong results because joins are used instead of subqueries
+        # https://docs.djangoproject.com/en/4.0/topics/db/aggregation/#combining-multiple-aggregations
         return self.annotate(
-            num_accepted=models.functions.Coalesce(models.Count("accepted_by"), 0),
-            num_rejected=models.functions.Coalesce(models.Count("rejected_by"), 0),
+            keep=models.ExpressionWrapper(
+                models.Q(confidence__gte=MIN_MEGADETECTOR_CONFIDENCE), output_field=models.BooleanField()
+            ),
+            num_accepted=models.functions.Coalesce(models.Count("accepted_by", distinct=True), 0),
+            num_rejected=models.functions.Coalesce(models.Count("rejected_by", distinct=True), 0),
+            vote_diff=models.F("num_accepted") - models.F("num_rejected"),
+            voted_valid=models.ExpressionWrapper(
+                models.Q(vote_diff__gte=NUM_ACCEPTS_OVER_REJECTS), output_field=models.BooleanField()
+            ),
+            voted_invalid=models.ExpressionWrapper(
+                models.Q(vote_diff__lte=-NUM_ACCEPTS_OVER_REJECTS), output_field=models.BooleanField()
+            ),
+            vote_uncertain=models.ExpressionWrapper(
+                models.Q(vote_diff__lt=NUM_ACCEPTS_OVER_REJECTS) & models.Q(vote_diff__gt=-NUM_ACCEPTS_OVER_REJECTS),
+                output_field=models.BooleanField(),
+            ),
         )
 
-    # TODO: Compute this as a posterior probability with the confidence as the prior (if it exists
-    def with_effective_confidence(self):
-        pass
+    def uncertain(self):
+        return self.annotated().filter(keep=True).filter(vote_uncertain=True)
 
     def valid(self):
-        return (
-            self.annotate(
-                num_accepted=models.functions.Coalesce(models.Count("accepted_by"), 0),
-                num_rejected=models.functions.Coalesce(models.Count("rejected_by"), 0),
-            )
-            .filter(confidence__gte=MIN_MEGADETECTOR_CONFIDENCE)
-            .filter(num_accepted__gte=models.F("num_rejected") - NUM_ACCEPTS_OVER_REJECTS)
-        )
+        return self.annotated().filter(keep=True).filter(voted_valid=True)
+
+    def valid_or_uncertain(self):
+        return self.annotated().filter(keep=True).filter(models.Q(voted_valid=True) | models.Q(vote_uncertain=True))
 
 
 # Each annotation is a bounding box linked to an image
@@ -84,25 +95,35 @@ class BoundingBox(TimeStampedModel):
 # Generic tag manager. For now, this simply returns "valid" as determined
 # by the accept/reject ratio. It also prioritizes annotations based on confidence
 class CategoryManager(models.Manager):
-    def with_counts(self):
+    def annotated(self):
+        # Combining multiple aggregations with annotate() will yield the wrong results because joins are used instead of subqueries
+        # https://docs.djangoproject.com/en/4.0/topics/db/aggregation/#combining-multiple-aggregations
         return self.annotate(
-            num_accepted=models.functions.Coalesce(models.Count("accepted_by"), 0),
-            num_rejected=models.functions.Coalesce(models.Count("rejected_by"), 0),
+            num_accepted=models.functions.Coalesce(models.Count("accepted_by", distinct=True), 0),
+            num_rejected=models.functions.Coalesce(models.Count("rejected_by", distinct=True), 0),
+            vote_diff=models.F("num_accepted") - models.F("num_rejected"),
+            voted_valid=models.ExpressionWrapper(
+                models.Q(vote_diff__gte=NUM_ACCEPTS_OVER_REJECTS), output_field=models.BooleanField()
+            ),
+            voted_invalid=models.ExpressionWrapper(
+                models.Q(vote_diff__lte=-NUM_ACCEPTS_OVER_REJECTS), output_field=models.BooleanField()
+            ),
+            vote_uncertain=models.ExpressionWrapper(
+                models.Q(vote_diff__lt=NUM_ACCEPTS_OVER_REJECTS) & models.Q(vote_diff__gt=-NUM_ACCEPTS_OVER_REJECTS),
+                output_field=models.BooleanField(),
+            ),
         )
 
-    # TODO: Compute this as a posterior probability with the confidence as the prior (if it exists
-    def with_effective_confidence(self):
-        pass
+    def uncertain(self):
+        return self.annotated().filter(vote_uncertain=True)
 
-    # A valid category is one that passes the accept/reject ratio threshold and
-    # returns the most recently updated category
     def valid(self):
+        return self.annotated().filter(voted_valid=True).order_by("-confidence", "-created", "-modified")
+
+    def valid_or_uncertain(self):
         return (
-            self.annotate(
-                num_accepted=models.functions.Coalesce(models.Count("accepted_by"), 0),
-                num_rejected=models.functions.Coalesce(models.Count("rejected_by"), 0),
-            )
-            .filter(num_accepted__gte=models.F("num_rejected") - NUM_ACCEPTS_OVER_REJECTS)
+            self.annotated()
+            .filter(models.Q(voted_valid=True) | models.Q(vote_uncertain=True))
             .order_by("-confidence", "-created", "-modified")
         )
 

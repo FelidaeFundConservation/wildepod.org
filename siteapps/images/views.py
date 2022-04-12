@@ -129,7 +129,7 @@ class UploadDetailView(LoginRequiredMixin, DetailView):
         # TODO: Clean this up
         context["paged_images"] = paged_images
         context["paged_images_w_boxes"] = [
-            [image_obj, BoundingBox.objects.valid().filter(image=image_obj)] for image_obj in paged_images
+            [image_obj, BoundingBox.objects.valid_or_uncertain().filter(image=image_obj)] for image_obj in paged_images
         ]
 
         return context
@@ -189,7 +189,8 @@ class ImageDetailView(LoginRequiredMixin, DetailView):
         except ObjectDoesNotExist:
             pass
         # Get valid annotations for this image
-        bounding_boxes = BoundingBox.objects.valid().filter(image=self.get_object())
+        bounding_boxes = BoundingBox.objects.valid_or_uncertain().filter(image=self.get_object())
+        print(bounding_boxes)
         context["bounding_boxes"] = bounding_boxes
 
         return context
@@ -221,7 +222,7 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
 
         # If there is a valid image, add bounding box information
         if image:
-            bounding_boxes = BoundingBox.objects.valid().filter(image=image)
+            bounding_boxes = BoundingBox.objects.valid_or_uncertain().filter(image=image)
             context["bounding_boxes"] = bounding_boxes
 
         return context
@@ -243,20 +244,23 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
                 ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
                 processed=True,
                 num_objects__gt=0,
-                num_bbox_checked_by=4,
+                num_bbox_checked_by__gt=2,
             )
             .order_by("num_species_checked_by", "trigger_timestamp", "num_objects")
         )
 
-        # Serve the first image
-        image = images.first()
-        context["image"] = image
+        # TODO: This is a hack and must be fixed! This is a 10-50X slowdown!
+        # Currently I'm not sure how to annotate with counts over a model's custom manager
+        # So I'm iterating over all images until I find the first one that has valid bounding boxes
+        # Ideally, this should be filtered out directly in the queryset
+        for image in images[:25]:
+            valid_bounding_boxes = BoundingBox.objects.valid().filter(image=image)
+            uncertain_bounding_boxes = BoundingBox.objects.uncertain().filter(image=image)
+            if valid_bounding_boxes and not uncertain_bounding_boxes:
+                context["image"] = image
+                context["bounding_boxes"] = valid_bounding_boxes
+                break
         context["species_list"] = SpeciesName.objects.all()
-
-        # If there is a valid image, add bounding box information
-        if image:
-            bounding_boxes = BoundingBox.objects.valid().filter(image=image)
-            context["bounding_boxes"] = bounding_boxes
 
         return context
 

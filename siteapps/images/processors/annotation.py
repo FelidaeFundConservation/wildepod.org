@@ -111,6 +111,7 @@ def process_md_annotations(
             bbox_obj.save()
     logging.info("Successfully created all new bounding boxes")
 
+    # TODO: Extremely gnarly code. Must refactor
     # Finally handle updates. This includes accept/reject depending on the category labels provided
     for bbox_id in initial_bboxes:
         if bbox_id in formatted_annotations:
@@ -118,78 +119,87 @@ def process_md_annotations(
             bbox_obj = BoundingBox.objects.get(id=bbox_id)
             category_obj = Category.objects.get(bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"])
 
-            # # If the co-ordinates have changed, create a new bounding box if user is not staff or creator
-            # # Tolerance for changes is 1% of previous ie. if change is less than a 1%, it is counted as unintentional
-            # if all(
-            #     (bbox_obj.x - formatted_annotations[bbox_id]["x"]) < 0.01,
-            #     (bbox_obj.y - formatted_annotations[bbox_id]["y"]) < 0.01,
-            #     (bbox_obj.w - formatted_annotations[bbox_id]["w"]) < 0.01,
-            #     (bbox_obj.h - formatted_annotations[bbox_id]["h"]) < 0.01,
-            # ):
-            #     # Update accept/reject if not created by the same user
-            #     if bbox_obj.created_by != annotator:
-            #         bbox_obj.rejected_by.remove(annotator)
-            #         bbox_obj.accepted_by.add(annotator)
-
-            #     if initial_bboxes[bbox_id]["category"] == formatted_annotations[bbox_id]["category"]:
-            #         pass
-
-            # # This means that the co-ordinates have been modified
-            # else:
-            #     if user.is_staff or bbox_obj.created_by == annotator:
-            #         bbox_obj.x = formatted_annotations[bbox_id]["x"]
-            #         bbox_obj.y = formatted_annotations[bbox_id]["y"]
-            #         bbox_obj.w = formatted_annotations[bbox_id]["w"]
-            #         bbox_obj.h = formatted_annotations[bbox_id]["h"]
-
-            # Bounding box co-ordinates can be modified if the annotator is staff or if the annotator is the same as the user
-            # TODO: Current code necessitates that it is not possible for an individual who isn't the creator or staff to update
-            # bounding boxes. This must be fixed! - Ideally, changes in bounding box co-ordinates should create a new object and
-            # count as a negative vote for the previous
-
+            # If the user is staff or annotator, directly edit the bounding box & category
             if user.is_staff or bbox_obj.created_by == annotator:
                 bbox_obj.x = formatted_annotations[bbox_id]["x"]
                 bbox_obj.y = formatted_annotations[bbox_id]["y"]
                 bbox_obj.w = formatted_annotations[bbox_id]["w"]
                 bbox_obj.h = formatted_annotations[bbox_id]["h"]
-
-            # Next, labels can be also be modified if the annotator is staff or if the annotator is the same as the user
-            # Else, its either a reject/accept/create
-            if initial_bboxes[bbox_id]["category"] == formatted_annotations[bbox_id]["category"]:
-                # Vote cast only if the user is not the creator
-                if bbox_obj.created_by != annotator:
-                    category_obj.rejected_by.remove(annotator)
-                    category_obj.accepted_by.add(annotator)
+                category_obj.name = formatted_annotations[bbox_id]["category"]
+                category_obj.confidence = formatted_annotations[bbox_id]["confidence"]
+                bbox_obj.save()
+                category_obj.save()
+            # Else, if its a regular annotator
             else:
-                # If staff or creator, directly update. Else, create a new category object
-                if user.is_staff or bbox_obj.created_by == annotator:
-                    category_obj.name = formatted_annotations[bbox_id]["category"]
-                    category_obj.confidence = formatted_annotations[bbox_id]["confidence"]
+                # Check if the co-ordinates have changed. If they haven't, count it as an accept/reject vote
+                if all(
+                    [
+                        abs(bbox_obj.x - formatted_annotations[bbox_id]["x"]) < 0.02,
+                        abs(bbox_obj.y - formatted_annotations[bbox_id]["y"]) < 0.02,
+                        abs(bbox_obj.w - formatted_annotations[bbox_id]["w"]) < 0.02,
+                        abs(bbox_obj.h - formatted_annotations[bbox_id]["h"]) < 0.02,
+                    ]
+                ):
+                    # Update accept/reject if not created by the same user
+                    bbox_obj.rejected_by.remove(annotator)
+                    bbox_obj.accepted_by.add(annotator)
+                    bbox_obj.save()
+                    # Next, labels can be also be modified if the annotator is staff or if the annotator is the same as the user
+                    if initial_bboxes[bbox_id]["category"] == formatted_annotations[bbox_id]["category"]:
+                        # Vote cast only if the user is not the creator
+                        category_obj.rejected_by.remove(annotator)
+                        category_obj.accepted_by.add(annotator)
+                        category_obj.save()
+                    # Else, check if it exists, if not create it.
+                    else:
+                        # If the category exists, add a vote to it
+                        try:
+                            new_category_obj = Category.objects.get(
+                                bounding_box=bbox_obj,
+                                name=formatted_annotations[bbox_id]["category"],
+                            )
+                            new_category_obj.rejected_by.remove(annotator)
+                            new_category_obj.accepted_by.add(annotator)
+                            new_category_obj.save()
+                        # If not, create the label & link it to the bounding box
+                        except ObjectDoesNotExist:
+                            new_category_obj = Category.objects.create(
+                                bounding_box=bbox_obj,
+                                name=formatted_annotations[bbox_id]["category"],
+                                created_by=annotator,
+                                confidence=formatted_annotations[bbox_id]["confidence"],
+                            )
+                            category_obj.rejected_by.add(annotator)
+                            category_obj.accepted_by.remove(annotator)
+                            category_obj.save()
+                # Else if the bounding box was modified by the annotator, treat it as a new bounding box
                 else:
-                    # Cast a reject vote to the existing category & create/vote for the new category
-                    category_obj.rejected_by.add(annotator)
-                    category_obj.accepted_by.remove(annotator)
-                    # Else cast a vote for the set category if it exists, else create.
-                    try:
-                        new_category_obj = Category.objects.get(
-                            bounding_box=bbox_obj,
-                            name=formatted_annotations[bbox_id]["category"],
-                        )
-                        new_category_obj.rejected_by.remove(annotator)
-                        new_category_obj.accepted_by.add(annotator)
-                        new_category_obj.save()
+                    # Cast a reject vote
+                    bbox_obj.rejected_by.add(annotator)
+                    bbox_obj.accepted_by.remove(annotator)
+                    bbox_obj.save()
+                    # No explicit reject vote cast to the category of the previous object
+                    # since the category will be created as a new object linked to the new bbox
 
-                    except ObjectDoesNotExist:
-                        new_category_obj = Category.objects.create(
-                            bounding_box=bbox_obj,
-                            name=formatted_annotations[bbox_id]["category"],
-                            created_by=annotator,
-                            confidence=formatted_annotations[bbox_id]["confidence"],
-                        )
+                    # Create a new bounding box
+                    new_bbox_obj = BoundingBox.objects.create(
+                        image=image,
+                        x=formatted_annotations[bbox_id]["x"],
+                        y=formatted_annotations[bbox_id]["y"],
+                        w=formatted_annotations[bbox_id]["w"],
+                        h=formatted_annotations[bbox_id]["h"],
+                        confidence=formatted_annotations[bbox_id]["confidence"],
+                        created_by=annotator,
+                    )
+                    # Next, create a category annotation for it
+                    category_obj = Category.objects.create(
+                        bounding_box=bbox_obj,
+                        name=formatted_annotations[bbox_id]["category"],
+                        created_by=annotator,
+                        confidence=formatted_annotations[bbox_id]["confidence"],
+                    )
+                    new_bbox_obj.save()
 
-            # Save the objects
-            category_obj.save()
-            bbox_obj.save()
     logging.info("Successfully updated all bounding boxes")
 
 

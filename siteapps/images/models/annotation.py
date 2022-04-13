@@ -1,7 +1,8 @@
 import uuid
 
-from django.conf import settings
 from django.db import models
+from django.db.models import Count, ExpressionWrapper, Q
+from django.db.models.functions import Coalesce
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
 
@@ -11,27 +12,27 @@ NUM_ACCEPTS_OVER_REJECTS = 2
 MIN_MEGADETECTOR_CONFIDENCE = 0.25
 
 
-# Bounding Box manager. For now, this simply returns "valid" bounding boxes as determined
-# by the accept/reject ratio
-class BoundingBoxManager(models.Manager):
+class BaseAnnotationManager(models.Manager):
+    """
+    Base Manager to annotate objects with certainty
+    """
+
     def annotated(self):
         # Combining multiple aggregations with annotate() will yield the wrong results because joins are used instead of subqueries
         # https://docs.djangoproject.com/en/4.0/topics/db/aggregation/#combining-multiple-aggregations
         return self.annotate(
-            keep=models.ExpressionWrapper(
-                models.Q(confidence__gte=MIN_MEGADETECTOR_CONFIDENCE), output_field=models.BooleanField()
-            ),
-            num_accepted=models.functions.Coalesce(models.Count("accepted_by", distinct=True), 0),
-            num_rejected=models.functions.Coalesce(models.Count("rejected_by", distinct=True), 0),
+            keep=ExpressionWrapper(Q(confidence__gte=MIN_MEGADETECTOR_CONFIDENCE), output_field=models.BooleanField()),
+            num_accepted=Coalesce(Count("accepted_by", distinct=True), 0),
+            num_rejected=Coalesce(Count("rejected_by", distinct=True), 0),
             vote_diff=models.F("num_accepted") - models.F("num_rejected"),
-            voted_valid=models.ExpressionWrapper(
-                models.Q(vote_diff__gte=NUM_ACCEPTS_OVER_REJECTS), output_field=models.BooleanField()
+            voted_valid=ExpressionWrapper(
+                Q(vote_diff__gte=NUM_ACCEPTS_OVER_REJECTS), output_field=models.BooleanField()
             ),
-            voted_invalid=models.ExpressionWrapper(
-                models.Q(vote_diff__lte=-NUM_ACCEPTS_OVER_REJECTS), output_field=models.BooleanField()
+            voted_invalid=ExpressionWrapper(
+                Q(vote_diff__lte=-NUM_ACCEPTS_OVER_REJECTS), output_field=models.BooleanField()
             ),
-            vote_uncertain=models.ExpressionWrapper(
-                models.Q(vote_diff__lt=NUM_ACCEPTS_OVER_REJECTS) & models.Q(vote_diff__gt=-NUM_ACCEPTS_OVER_REJECTS),
+            vote_uncertain=ExpressionWrapper(
+                Q(vote_diff__lt=NUM_ACCEPTS_OVER_REJECTS) & Q(vote_diff__gt=-NUM_ACCEPTS_OVER_REJECTS),
                 output_field=models.BooleanField(),
             ),
         )
@@ -43,7 +44,22 @@ class BoundingBoxManager(models.Manager):
         return self.annotated().filter(keep=True).filter(voted_valid=True)
 
     def valid_or_uncertain(self):
-        return self.annotated().filter(keep=True).filter(models.Q(voted_valid=True) | models.Q(vote_uncertain=True))
+        return self.annotated().filter(keep=True).filter(Q(voted_valid=True) | Q(vote_uncertain=True))
+
+
+# Certainty annotations for bounding boxes
+class BoundingBoxManager(BaseAnnotationManager):
+    pass
+
+
+# Certainty annotations for categories
+class CategoryManager(BaseAnnotationManager):
+    # Override the default methods
+    def valid(self):
+        return super().valid().order_by("-confidence", "-created", "-modified")
+
+    def valid_or_uncertain(self):
+        return super().valid_or_uncertain().order_by("-confidence", "-created", "-modified")
 
 
 # Each annotation is a bounding box linked to an image
@@ -92,42 +108,22 @@ class BoundingBox(TimeStampedModel):
         verbose_name_plural = "Bounding Boxes"
 
 
-# Generic tag manager. For now, this simply returns "valid" as determined
-# by the accept/reject ratio. It also prioritizes annotations based on confidence
-class CategoryManager(models.Manager):
-    def annotated(self):
-        # Combining multiple aggregations with annotate() will yield the wrong results because joins are used instead of subqueries
-        # https://docs.djangoproject.com/en/4.0/topics/db/aggregation/#combining-multiple-aggregations
-        return self.annotate(
-            num_accepted=models.functions.Coalesce(models.Count("accepted_by", distinct=True), 0),
-            num_rejected=models.functions.Coalesce(models.Count("rejected_by", distinct=True), 0),
-            vote_diff=models.F("num_accepted") - models.F("num_rejected"),
-            voted_valid=models.ExpressionWrapper(
-                models.Q(vote_diff__gte=NUM_ACCEPTS_OVER_REJECTS), output_field=models.BooleanField()
-            ),
-            voted_invalid=models.ExpressionWrapper(
-                models.Q(vote_diff__lte=-NUM_ACCEPTS_OVER_REJECTS), output_field=models.BooleanField()
-            ),
-            vote_uncertain=models.ExpressionWrapper(
-                models.Q(vote_diff__lt=NUM_ACCEPTS_OVER_REJECTS) & models.Q(vote_diff__gt=-NUM_ACCEPTS_OVER_REJECTS),
-                output_field=models.BooleanField(),
-            ),
-        )
+# Model to maintain different species types
+class SpeciesName(TimeStampedModel):
+    name = models.CharField(max_length=250, unique=True)
 
-    def uncertain(self):
-        return self.annotated().filter(vote_uncertain=True)
+    # History of model instance changes
+    history = HistoricalRecords()
 
-    def valid(self):
-        return self.annotated().filter(voted_valid=True).order_by("-confidence", "-created", "-modified")
+    def __str__(self):
+        return self.name
 
-    def valid_or_uncertain(self):
-        return (
-            self.annotated()
-            .filter(models.Q(voted_valid=True) | models.Q(vote_uncertain=True))
-            .order_by("-confidence", "-created", "-modified")
-        )
+    class Meta:
+        ordering = ("-created",)
+        verbose_name_plural = "Species Names"
 
 
+# TODO: Combine category & species into a single base model & inherit from it
 # Each annotation is futher linked to an Annotation Type if the primary class is an animal
 # This is the Species of the animal identified
 class Category(TimeStampedModel):
@@ -164,21 +160,6 @@ class Category(TimeStampedModel):
     class Meta:
         ordering = ("-modified",)
         verbose_name_plural = "Category Annotations"
-
-
-# Model to maintain different species types
-class SpeciesName(TimeStampedModel):
-    name = models.CharField(max_length=250, unique=True)
-
-    # History of model instance changes
-    history = HistoricalRecords()
-
-    def __str__(self):
-        return self.name
-
-    class Meta:
-        ordering = ("-created",)
-        verbose_name_plural = "Species Names"
 
 
 # Each annotation is futher linked to an Annotation Type if the primary class is an animal

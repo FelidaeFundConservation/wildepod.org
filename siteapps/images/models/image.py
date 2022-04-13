@@ -18,6 +18,7 @@ class ImageManager(models.Manager):
         # https://docs.djangoproject.com/en/4.0/topics/db/aggregation/#combining-multiple-aggregations
         return self.annotate(
             num_objects=models.functions.Coalesce(models.Count("boundingbox", distinct=True), 0),
+            # new=models.functions.Coalesce(models.Max("boundingbox__num_accepted"), 0.0),
             num_bbox_checked_by=models.functions.Coalesce(models.Count("bbox_checked_by", distinct=True), 0),
             num_species_checked_by=models.functions.Coalesce(models.Count("species_checked_by", distinct=True), 0),
         )

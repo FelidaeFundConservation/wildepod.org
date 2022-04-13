@@ -230,8 +230,8 @@ URL {% endcomment %}
             {% for bbox in bounding_boxes %}
                 {
                     "id": "{{bbox.id}}",
-                    "category": "{{bbox.category_set.valid.0.name}}",
-                    "confidence": {{bbox.category_set.valid.0.confidence}},
+                    "category": "{{bbox.category_set.all.0.name}}",
+                    "confidence": {{bbox.category_set.all.0.confidence}},
                     "x": {{bbox.x}},
                     "y": {{bbox.y}},
                     "w": {{bbox.w}},

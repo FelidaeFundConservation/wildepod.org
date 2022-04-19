@@ -181,11 +181,16 @@ class UploadExportView(LoginRequiredMixin, StaffuserRequiredMixin, DetailView):
         for image in self.get_object().image_set.all():
             uncertain_boxes = BoundingBox.objects.uncertain().filter(image=image)
             valid_or_uncertain_boxes = BoundingBox.objects.valid_or_uncertain().filter(image=image)
+            species_uncertain =  [
+                    "uncertain"
+                    for bbox in valid_or_uncertain_boxes
+                    if not bbox.species_set.valid().exists()
+                ]
             species_annotated_boxes = Counter(
                 [
-                    bbox.species_set.valid_or_uncertain().first().name.name
+                    bbox.species_set.valid().first().name.name
                     for bbox in valid_or_uncertain_boxes
-                    if bbox.species_set.valid_or_uncertain().exists()
+                    if bbox.species_set.valid().exists()
                 ]
             )
             species_annotated_boxes_str = "<br/>".join(
@@ -194,7 +199,7 @@ class UploadExportView(LoginRequiredMixin, StaffuserRequiredMixin, DetailView):
             annotated_images.append(
                 {
                     "image": image,
-                    "status": "uncertain" if uncertain_boxes.count() > 0 else "certain",
+                    "status": "uncertain" if uncertain_boxes.count() > 0 or len(species_uncertain) > 0 else "certain",
                     "num_objects": valid_or_uncertain_boxes.count(),
                     "uncertain_boxes": uncertain_boxes,
                     "valid_or_uncertain_boxes": valid_or_uncertain_boxes,

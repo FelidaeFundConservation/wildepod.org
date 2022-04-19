@@ -9,6 +9,7 @@ from .upload import (
     UploadCompleteView,
     UploadCreateView,
     UploadDetailView,
+    UploadExportView,
     UploadListView,
     UploadResumeProcessingView,
     UploadStatusView,

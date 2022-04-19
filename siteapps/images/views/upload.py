@@ -2,6 +2,7 @@ import json
 import logging
 import threading
 
+from braces.views import StaffuserRequiredMixin
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
@@ -161,3 +162,46 @@ class UploadResumeProcessingView(LoginRequiredMixin, View):
             thread.start()
 
         return JsonResponse({"success": True})
+
+
+from collections import Counter
+
+
+# TODO: This view is currently implemented purely to "test" the annotation functionality
+# This should be moved into the explore app with arbitrary contraints to export annotations
+class UploadExportView(LoginRequiredMixin, StaffuserRequiredMixin, DetailView):
+    model = Upload
+    login_url = settings.LOGIN_URL
+    template_name = "images/upload/export.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Get all images
+        annotated_images = []
+        for image in self.get_object().image_set.all():
+            uncertain_boxes = BoundingBox.objects.uncertain().filter(image=image)
+            valid_or_uncertain_boxes = BoundingBox.objects.valid_or_uncertain().filter(image=image)
+            species_annotated_boxes = Counter(
+                [
+                    bbox.species_set.valid_or_uncertain().first().name.name
+                    for bbox in valid_or_uncertain_boxes
+                    if bbox.species_set.valid_or_uncertain().exists()
+                ]
+            )
+            species_annotated_boxes_str = "<br/>".join(
+                [f"{name} - {count}" for name, count in species_annotated_boxes.items()]
+            )
+            annotated_images.append(
+                {
+                    "image": image,
+                    "status": "uncertain" if uncertain_boxes.count() > 0 else "certain",
+                    "num_objects": valid_or_uncertain_boxes.count(),
+                    "uncertain_boxes": uncertain_boxes,
+                    "valid_or_uncertain_boxes": valid_or_uncertain_boxes,
+                    "species_annotated_boxes": dict(species_annotated_boxes),
+                    "species_annotated_boxes_str": species_annotated_boxes_str,
+                }
+            )
+        context["annotated_images"] = annotated_images
+
+        return context

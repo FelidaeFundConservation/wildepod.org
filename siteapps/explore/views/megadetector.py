@@ -1,30 +1,18 @@
 import base64
 import json
 
+from braces.views import StaffuserRequiredMixin
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import render
 from django.urls.base import reverse_lazy
-from django.views.generic import ListView, TemplateView
+from django.views.generic import TemplateView
+from explore.forms import ExploreMegadetectorForm
 from images.models import Bot
-from locations.models import CameraStation
 import requests
 
-from .forms import ExploreMegadetectorForm
 
-
-class ExploreHomeView(LoginRequiredMixin, TemplateView):
-    template_name = "explore/main.html"
-
-
-# TODO: Gate this to only staff members
-class ExploreMapView(LoginRequiredMixin, ListView):
-    login_url = settings.LOGIN_URL
-    model = CameraStation
-    template_name = "explore/map.html"
-
-
-class ExploreMegadetectorView(LoginRequiredMixin, TemplateView):
+class ExploreMegadetectorView(LoginRequiredMixin, StaffuserRequiredMixin, TemplateView):
     login_url = settings.LOGIN_URL
     template_name = "explore/megadetector.html"
     success_url = reverse_lazy("explore:map")

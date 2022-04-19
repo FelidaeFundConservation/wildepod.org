@@ -124,11 +124,12 @@
                     <th scope="col">Macrosite</th>
                     <th scope="col">Date Retrieved </th>
                     <th scope="col"># Images</th>
+                    <th scope="col">Images</th>
                     {% if user.is_staff %}
                     <th scope="col">Volunteer</th>
                     <th scope="col">Dropbox</th>
+                    <th scope="col">Data</th>
                     {% endif %}
-                    <th scope="col">Processed</th>
                 </tr>
             </thead>
             <tbody>
@@ -143,18 +144,6 @@
                     <td>{{object.image_set.all.count}}</td>
                     {% else %}
                     <td>-</td>
-                    {% endif %}
-                    {% if user.is_staff %}
-                    <td>{{object.volunteer.name}}</td>
-                    <td>
-                        <a
-                            href="{{dropbox_prefix}}{{object.dropbox_folder_path}}"
-                            target="_blank"
-                            class="text-decoration-none"
-                        >
-                            Open
-                        </a>
-                    </td>
                     {% endif %}
                     <td>
                         {% if object.processed %}
@@ -177,6 +166,26 @@
                         >?/? (..checking)</span></th>
                         {% endif %}
                     </td>
+                    {% if user.is_staff %}
+                    <td>{{object.volunteer.name}}</td>
+                    <td>
+                        <a
+                            href="{{dropbox_prefix}}{{object.dropbox_folder_path}}"
+                            target="_blank"
+                            class="text-decoration-none"
+                        >
+                            Open
+                        </a>
+                    </td>
+                    <td>
+                        {% if object.processed %}
+                        <a href="{% url 'images:export_upload' object.id %}"><button
+                                type="button"
+                                class="btn btn-light"
+                            >View</button></a>
+                        {% endif %}
+                    </td>
+                    {% endif %}
                 </tr>
                 {% endif %}
                 {% endfor %}

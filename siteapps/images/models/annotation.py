@@ -56,10 +56,10 @@ class BoundingBoxManager(BaseAnnotationManager):
 class CategoryManager(BaseAnnotationManager):
     # Override the default methods
     def valid(self):
-        return super().valid().order_by("-confidence", "-created", "-modified")
+        return super().valid().order_by("-vote_diff", "-confidence", "-created", "-modified")
 
     def valid_or_uncertain(self):
-        return super().valid_or_uncertain().order_by("-confidence", "-created", "-modified")
+        return super().valid_or_uncertain().order_by("-vote_diff", "-confidence", "-created", "-modified")
 
 
 # Each annotation is a bounding box linked to an image

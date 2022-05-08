@@ -100,7 +100,7 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
             annotations = []
             logging.info(f"Bounding box annotations for image '{image_id}' was skipped by user - '{request.user.name}'")
             # Process the annotations
-            process_md_annotations(image_id, annotations, initial_bboxes, request.user, skip)
+            success = process_md_annotations(image_id, annotations, initial_bboxes, request.user, skip)
         else:
             # Get bounding box ids that were sent to infer deleted annotations
             initial_bboxes = request.POST.get("initial_bboxes")
@@ -111,9 +111,9 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
             annotations = json.loads(annotations)
             logging.info(f"Processing bounding box annotations for image '{image_id}' by user - '{request.user.name}'")
             # Process the annotations
-            process_md_annotations(image_id, annotations, initial_bboxes, request.user)
+            success = process_md_annotations(image_id, annotations, initial_bboxes, request.user)
 
-        return JsonResponse({"success": True})
+        return JsonResponse({"success": success})
 
 
 # TODO: Clean up this code

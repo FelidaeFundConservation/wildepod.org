@@ -21,7 +21,7 @@ def send_welcome_email(user, password_generated):
         send_mail(
             subject,
             plain_message,
-            "WildePod Admin <noreply@wildepod.org>",
+            "WildePod Admin <noreply@wildepod-339517.wl.r.appspot.com>",
             [user.email],
             html_message=html_message,
             fail_silently=False,

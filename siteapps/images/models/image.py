@@ -82,9 +82,6 @@ class Image(TimeStampedModel):
     species_checked_by = models.ManyToManyField(Annotator, related_name="checked_bbox_for_species", blank=True)
     species_skipped_by = models.ManyToManyField(Annotator, related_name="skipped_bbox_for_species", blank=True)
 
-    # History of model instance changes
-    history = HistoricalRecords()
-
     # Custom manager
     objects = ImageManager()
 

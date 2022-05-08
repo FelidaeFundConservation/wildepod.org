@@ -14,33 +14,18 @@ ALLOWED_HOSTS = ["*"]
 DEBUG = True
 
 # https://docs.djangoproject.com/en/dev/ref/settings/#wsgi-application
-WSGI_APPLICATION = "config.wsgi.local.application"
-
-# django-debug-toolbar
-# ------------------------------------------------------------------------------
-# Makes page loads extremely slow so use sparingly
-# # https://django-debug-toolbar.readthedocs.io/en/latest/installation.html#prerequisites
-# INSTALLED_APPS += ["debug_toolbar"]  # noqa F405
-# # https://django-debug-toolbar.readthedocs.io/en/latest/installation.html#middleware
-# MIDDLEWARE += ["debug_toolbar.middleware.DebugToolbarMiddleware"]  # noqa F405
-# # https://django-debug-toolbar.readthedocs.io/en/latest/configuration.html#debug-toolbar-config
-# DEBUG_TOOLBAR_CONFIG = {
-#     "DISABLE_PANELS": ["debug_toolbar.panels.redirects.RedirectsPanel"],
-#     "SHOW_TEMPLATE_CONTEXT": True,
-# }
-# # https://django-debug-toolbar.readthedocs.io/en/latest/installation.html#internal-ips
-# INTERNAL_IPS = ["127.0.0.1", "10.0.2.2", "localhost"]
-
+WSGI_APPLICATION = "config.wsgi.dev.application"
 
 # DATABASES
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": str(ROOT_DIR / "db.sqlite3"),
-    }
-}
+DATABASES = {"default": env.db("STAGING_DATABASE_URL")}
+# TODO: Check if this needs to be done
+
+# If the flag has been set, configure to use proxy
+if env.bool("USE_CLOUD_SQL_AUTH_PROXY", None):
+    DATABASES["default"]["HOST"] = "127.0.0.1"
+    DATABASES["default"]["PORT"] = 5434
 # TODO: Check if this needs to be done
 # DATABASES["default"]["ATOMIC_REQUESTS"] = True
 
@@ -66,7 +51,8 @@ STATICFILES_FINDERS = [
 
 # MEDIA
 # ------------------------------------------------------------------------------
-GS_BUCKET_NAME = env("GS_BUCKET_NAME_DEV")
+# GS_BUCKET_NAME = env("GS_BUCKET_NAME_DEV")
+GS_BUCKET_NAME = env("GS_BUCKET_NAME_STAGING")
 GS_DEFAULT_ACL = "publicRead"
 DEFAULT_FILE_STORAGE = "siteapps.utils.storages.MediaRootGoogleCloudStorage"
 MEDIA_URL = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/media/"
@@ -79,11 +65,6 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-timeout
 EMAIL_TIMEOUT = 5
 
-
-# django-extensions
-# ------------------------------------------------------------------------------
-# https://django-extensions.readthedocs.io/en/latest/installation_instructions.html#configuration
-INSTALLED_APPS += ["django_extensions"]  # noqa F405
 
 # EXTERNAL APPS CONFIG
 # ------------------------------------------------------------------------------

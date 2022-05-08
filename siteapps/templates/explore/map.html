@@ -11,7 +11,8 @@
 </div>
 {% endblock content %}
 {% comment %} TODO: Move map rendering js to the main.js file {% endcomment %}
-{% comment %} TODO: Separate the key out and move it to secrets. Also, restrict the new key's usage to the new site's URL {% endcomment %}
+{% comment %} TODO: Separate the key out and move it to secrets. Also, restrict the new key's usage to the new site's
+URL {% endcomment %}
 {% block footer_includes %}
 <!-- Async script executes immediately and must be after any DOM elements used in callback. -->
 <script
@@ -21,9 +22,42 @@
 <script>
     const camera_stations = [
         {% for camera_station in object_list %}
-            {lat: {{ camera_station.latitude }}, lng: {{ camera_station.longitude }}, title: "{{ camera_station.micro_site }}"},
+            {
+                lat: {{ camera_station.latitude }}, 
+                lng: {{ camera_station.longitude }}, 
+                title: "{{ camera_station.micro_site }}",
+                contentString: `
+                <div id="content" class="p-4">
+                    <div id="siteNotice"></div>
+                    <h2 id="firstHeading" class="firstHeading">{{ camera_station.station_id }} - {{ camera_station.micro_site }}</h2>
+                    <hr/>
+                    <div id="bodyContent">
+                        <p>
+                            Latitude: {{ camera_station.latitude }}<br/>
+                            Longitude: {{ camera_station.longitude }}<br/>
+                            {% if camera_station.elevation %}Elevation: {{ camera_station.elevation }} {{camera_station.elevation_unit}}<br/>{% endif %}
+                            {% if camera_station.trail_type %}Trail Type: {{ camera_station.trail_type }}<br/>{% endif %}
+                            {% if camera_station.habitat_type %}Habitat: {{ camera_station.habitat_type }} {% if camera_station.secondary_habitat_type %}{{ camera_station.secondary_habitat_type }}{% endif %}<br/>{% endif %}
+                            {% if camera_station.camera_type %}Camera: {{ camera_station.camera_type }}<br/>{% endif %}
+                        </p>
+                        <hr/>
+                        <p>
+                            
+                            Deployed: {{ camera_station.date_deployed }}<br/>
+                            {% if camera_station.date_last_checked %}Last Checked: {{ camera_station.date_last_checked }}<br/>{% endif %}
+                            {% if camera_station.date_to_be_checked %}To Be Checked: {{ camera_station.date_to_be_checked }}<br/>{% endif %}
+                            {% if camera_station.date_taken_down %}Taken Down: {{ camera_station.date_taken_down }}<br/>{% endif %}          
+                        </p>
+                        <hr/>
+                        {% if camera_station.instructions %}<p><b>Instructions</b>: {{ camera_station.instructions }}</p>{% endif %}
+                        {% if camera_station.notes %}<p><b>Notes</b>: {{ camera_station.notes }}</p>{% endif %}  
+                    </div>
+                </div>
+                `
+        },
         {% endfor %}
     ]
+
     // Initialize and add the map
     function initMap() {
         // The map, centered at the first co-ordinate
@@ -32,11 +66,21 @@
         center: {lat: camera_stations[0]['lat'], lng: camera_stations[0]['lng']},
         });
         for (let i = 0; i < camera_stations.length; i++){
-            new google.maps.Marker({
+            const marker = new google.maps.Marker({
                 position: {lat: camera_stations[i]['lat'], lng: camera_stations[i]['lng']},
                 map: map,
-                title: camera_stations[i]['title']
+                title: camera_stations[i]['title'],
             });
+            const infowindow = new google.maps.InfoWindow({
+                content: camera_stations[i]['contentString'],
+              });
+            marker.addListener("click", () => {
+                infowindow.open({
+                  anchor: marker,
+                  map,
+                  shouldFocus: true,
+                });
+              });
         }
     }
     </script>

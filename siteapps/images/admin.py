@@ -1,3 +1,4 @@
+from tabnanny import verbose
 from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 
@@ -84,7 +85,7 @@ class BotAdmin(SimpleHistoryAdmin):
 
 @admin.register(Annotator)
 class AnnotatorAdmin(SimpleHistoryAdmin):
-    pass
+    search_fields = ["human__name", "bot__name"]
 
 
 @admin.register(BoundingBox)
@@ -94,14 +95,14 @@ class BoundingBoxAdmin(SimpleHistoryAdmin):
 
 @admin.register(SpeciesName)
 class SpeciesNameAdmin(SimpleHistoryAdmin):
-    pass
+    search_fields = ["name"]
 
 
 @admin.register(Species)
 class SpeciesAdmin(SimpleHistoryAdmin):
-    pass
+    search_fields = ["id", "bounding_box__id"]
 
 
 @admin.register(Category)
 class CategoryAdmin(SimpleHistoryAdmin):
-    pass
+    search_fields = ["id", "bounding_box__id"]

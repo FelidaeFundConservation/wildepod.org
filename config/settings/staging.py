@@ -1,8 +1,7 @@
 """This is the staging settings that links to a staging database and will be deployed as its own service in within app engine
 """
-import google.cloud.logging
-
 from .base import *  # noqa
+import google.cloud.logging
 
 # HOSTS CONFIG
 # ------------------------------------------------------------------------------
@@ -16,16 +15,15 @@ ALLOWED_HOSTS = ["*"]
 DEBUG = True
 
 
+# https://docs.djangoproject.com/en/dev/ref/settings/#wsgi-application
+WSGI_APPLICATION = "config.wsgi.staging.application"
+
 # DATABASES
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases
 DATABASES = {"default": env.db("STAGING_DATABASE_URL")}
-# TODO: Check if this needs to be done
 
-# If the flag has been set, configure to use proxy
-if env.bool("USE_CLOUD_SQL_AUTH_PROXY", None):
-    DATABASES["default"]["HOST"] = "127.0.0.1"
-    DATABASES["default"]["PORT"] = 5434
+
 # TODO: Check if this needs to be done
 # DATABASES["default"]["ATOMIC_REQUESTS"] = True
 
@@ -76,7 +74,7 @@ MEDIA_URL = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/media/"
 # https://docs.djangoproject.com/en/dev/ref/settings/#default-from-email
 DEFAULT_FROM_EMAIL = env(
     "DJANGO_DEFAULT_FROM_EMAIL",
-    default="admin <noreply@wildepod.org>",
+    default="admin <noreply@wildepod-339517.wl.r.appspot.com>",
 )
 # https://docs.djangoproject.com/en/dev/ref/settings/#server-email
 SERVER_EMAIL = env("DJANGO_SERVER_EMAIL", default=DEFAULT_FROM_EMAIL)

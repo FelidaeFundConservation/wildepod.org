@@ -27,9 +27,6 @@ class Bot(TimeStampedModel):
     # Cloud functions might have default models loaded
     model_file_url = models.URLField(max_length=1000, blank=True, null=True)
 
-    # History of model instance changes
-    history = HistoricalRecords()
-
     def __str__(self):
         return f"{self.name}: {self.version}"
 
@@ -44,9 +41,6 @@ class Annotator(TimeStampedModel):
     # Fields to save an ML model or a user
     bot = models.ForeignKey(Bot, on_delete=models.PROTECT, blank=True, null=True)
     human = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, blank=True, null=True)
-
-    # History of model instance changes
-    history = HistoricalRecords()
 
     def __str__(self):
         if self.type == "human":

@@ -4,6 +4,13 @@
 <!-- Set corresponding nav pill to active -->
 {% block nav_tag %}active{% endblock nav_tag %}
 
+{% block header_includes %}
+<link
+    href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+    rel="stylesheet"
+/>
+{% endblock header_includes %}
+
 {% block content %}
 <div class="container mt-2 mt-md-4">
     {% if image %}
@@ -38,19 +45,18 @@
     <div class="row text-center">
         <form method="POST">
             {% csrf_token %}
-            <div
-                id="species-list"
-                class="label-toggle"
-            >
-                {% for species in species_list%}
-                <input
-                    type="submit"
-                    class="btn btn-primary species-button m-1"
-                    name="{{species}}"
-                    value="{{species}}"
-                >
-                {% endfor%}
-                <hr>
+            <div class="pb-3 label-toggle">
+                <select id="species-list">
+                    <option
+                        value=""
+                        disabled
+                        selected
+                    ></option>
+                    {% for species in species_list%}
+                    <option value="{{species}}">{{species}}</option>
+                    {% endfor%}
+                    <hr>
+                </select>
             </div>
             <p class="fw-bold d-none label-toggle">Click on each box and select the species. Then, click Save when
                 complete!</p>
@@ -64,7 +70,7 @@
             >Single species?</span>
             <input
                 type="submit"
-                class="btn btn-primary label-toggle d-none"
+                class="btn btn-primary"
                 id="save_annotations"
                 name="save_annotations"
                 value="Save!"
@@ -153,124 +159,121 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@recogito/annotorious-shape-labels@latest/dist/annotorious-shape-labels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@recogito/annotorious@2.6.1/dist/annotorious.min.js"></script>
-
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
-        // TODO: Move all this code to separate functions housed in separate files
-        {% comment %} Create a javascript variable holding all the annotations and render annotations{% endcomment %}
-        let bboxes = [
-            {% for bbox in bounding_boxes %}
-                {
-                    "id": "{{bbox.id}}",
-                    {% comment %} "category": "{{bbox.category_set.all.0.name}}",
-                    "confidence": {{bbox.category_set.all.0.confidence}}, {% endcomment %}
-                    "x": {{bbox.x}},
-                    "y": {{bbox.y}},
-                    "w": {{bbox.w}},
-                    "h": {{bbox.h}},
-                },
-            {% endfor %}
-        ];
-        let categories = [
-            {% for species in species_list %}"{{species}}",{% endfor%}
-        ]
-        let SpeciesClassSelectorWidget = createCategoryWidget(categories)
+    // TODO: Move all this code to separate functions housed in separate files
+    {% comment %} Create a javascript variable holding all the annotations and render annotations{% endcomment %}
+    let bboxes = [
+        {% for bbox in bounding_boxes %}
+            {
+                "id": "{{bbox.id}}",
+                {% comment %} "category": "{{bbox.category_set.all.0.name}}",
+                "confidence": {{bbox.category_set.all.0.confidence}}, {% endcomment %}
+                "x": {{bbox.x}},
+                "y": {{bbox.y}},
+                "w": {{bbox.w}},
+                "h": {{bbox.h}},
+            },
+        {% endfor %}
+    ];
+    let categories = [
+        {% for species in species_list %}"{{species}}",{% endfor%}
+    ]
+    let SpeciesClassSelectorWidget = createCategoryWidget(categories)
 
-        // Set up annotations, rendering and submit hooks after the window has fully loaded
-        window.addEventListener('load', function() {
-            let anno = renderBoundingBoxes("{{image.id}}", bboxes=bboxes, widgets=[SpeciesClassSelectorWidget]);
-            renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
-            anno.on("createAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
-            anno.on("deleteAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
-            anno.on("updateAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
-
-            // Function to save annotations
-            function submitAnnotations(skip=false, species=false) {
-
-                // If it is not a single species, make sure every entry has a species
-                if (!species & !skip) {
-                    for (const annotation of anno.getAnnotations()) {
-                        if (annotation.body[0].value === undefined) {
-                            $("#status-missing-species").removeClass("d-none");
-                            setTimeout(function(){
-                                $("#status-missing-species").addClass("d-none");
-                            }, 5000);
-                            return false;
-                        }
+    // Set up annotations, rendering and submit hooks after the window has fully loaded
+    window.addEventListener('load', function() {
+        let anno = renderBoundingBoxes("{{image.id}}", bboxes=bboxes, widgets=[SpeciesClassSelectorWidget]);
+        renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
+    
+        // Function to save annotations
+        function submitAnnotations(skip=false, species=false) {
+            // If it is not a single species, make sure every entry has a species
+            if (!species & !skip) {
+                for (const annotation of anno.getAnnotations()) {
+                    if (annotation.body[0].value === undefined) {
+                        $("#status-missing-species").removeClass("d-none");
+                        setTimeout(function(){
+                            $("#status-missing-species").addClass("d-none");
+                        }, 5000);
+                        return false;
                     }
                 }
-
-                if (species) {
-                    for (const annotation of anno.getAnnotations()) {
-                        annotation.body[0].value = species
-                        annotation.body[0].confidence = 1.0
-                    }
-                }
-
-                // Get the csrf token
-                const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-                // Build the payload
-                let data = {
-                    'image_id': '{{image.id}}',
-                    'csrfmiddlewaretoken': csrftoken,
-                    'skip': skip,
-                    'species': species,
-                    'initial_bboxes': JSON.stringify(bboxes),
-                    'annotations': JSON.stringify(anno.getAnnotations())
-                }
-
-                console.log(data)
-
-                // Send back all the bbox ids back to the server to log bbox deletions
-                // Make an AJAX request
-                $.ajax({
-                    url: '{% url 'images:species_annotation_processor'%}',
-                    method: 'POST',
-                    data: data,
-                    dataType: 'json',
-                    success: function (data){
-                        if (data.success){
-                            window.location.reload();
-                        }
-                        else {
-                            $("#status-failure").removeClass("d-none");
-                            setTimeout(function(){
-                                $("#status-failure").addClass("d-none");
-                            }, 10000);
-                        }
-                    },
-                });
             }
 
-            // Toggle between single & multiple species annotations
-            $("#single-species").click(function(e){
-                $(".label-toggle").toggleClass("d-none");
-            });
-            $("#multiple-species").click(function(e){
-                $(".label-toggle").toggleClass("d-none");
-            });
+            if (species) {
+                for (const annotation of anno.getAnnotations()) {
+                    annotation.body[0].value = species
+                    annotation.body[0].confidence = 1.0
+                }
+            }
 
-            $('.species-button').each(function(index) {
-                $(this).click(function(e){
-                    e.preventDefault();
-                    submitAnnotations(skip=false, species=e.target.value)
-                });
-            });
+            // Get the csrf token
+            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            // Build the payload
+            let data = {
+                'image_id': '{{image.id}}',
+                'csrfmiddlewaretoken': csrftoken,
+                'skip': skip,
+                'species': species,
+                'initial_bboxes': JSON.stringify(bboxes),
+                'annotations': JSON.stringify(anno.getAnnotations())
+            }
 
-            // Submit annotations to the server
-            $("#save_annotations").click(function(e){
-                // First, prevent the default action of the form
-                e.preventDefault();
-                // Then, save the annotations
-                submitAnnotations(skip=false);
+            // Send back all the bbox ids back to the server to log bbox deletions
+            // Make an AJAX request
+            $.ajax({
+                url: '{% url 'images:species_annotation_processor'%}',
+                method: 'POST',
+                data: data,
+                dataType: 'json',
+                success: function (data){
+                    if (data.success){
+                        window.location.reload();
+                    }
+                    else {
+                        $("#status-failure").removeClass("d-none");
+                        setTimeout(function(){
+                            $("#status-failure").addClass("d-none");
+                        }, 10000);
+                    }
+                },
             });
+        }
 
-            // Skip annotations to the server
-            $("#skip_annotations").click(function(e){
-                // First, prevent the default action of the form
-                e.preventDefault();
-                // Then, save the annotations
-                submitAnnotations(skip=true);
-            });
+        // Toggle between single & multiple species annotations
+        $("#single-species").click(function(e){
+            $(".label-toggle").toggleClass("d-none");
         });
-    </script>
+        $("#multiple-species").click(function(e){
+            $(".label-toggle").toggleClass("d-none");
+            $('#species-list').val(null).trigger("change");
+        });
+
+        // Submit annotations to the server
+        $("#save_annotations").click(function(e){
+            // First, prevent the default action of the form
+            e.preventDefault();
+            if ($('#species-list').val() === null) {
+                submitAnnotations(skip=false, species=false);
+            }
+            else {
+                submitAnnotations(skip=false, species=$('#species-list').val());
+            }
+        });
+
+        // Skip annotations to the server
+        $("#skip_annotations").click(function(e){
+            // First, prevent the default action of the form
+            e.preventDefault();
+            // Then, save the annotations
+            submitAnnotations(skip=true);
+        });
+
+        $('#species-list').select2({
+            placeholder: 'Select a species',
+        });
+    });
+
+</script>
 {% endblock footer_includes %}

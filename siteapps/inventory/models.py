@@ -114,3 +114,5 @@ class Camera(TimeStampedModel):
 
     class Meta:
         ordering = ("serial_number",)
+        verbose_name = "Camera"
+        verbose_name_plural = "Camera Inventory"

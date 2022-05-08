@@ -18,11 +18,11 @@ class PythonLockAdmin(SimpleHistoryAdmin):
     search_fields = ["number"]
 
 
-@admin.register(Box)
-class BoxAdmin(SimpleHistoryAdmin):
-    list_display = ["name", "created"]
-    list_display_links = ["name"]
-    search_fields = ["name"]
+# @admin.register(Box)
+# class BoxAdmin(SimpleHistoryAdmin):
+#     list_display = ["name", "created"]
+#     list_display_links = ["name"]
+#     search_fields = ["name"]
 
 
 @admin.register(CameraBrand)

@@ -1,0 +1,3 @@
+runtime: python39
+instance_class: F2
+entrypoint: gunicorn -b :$PORT prod:app

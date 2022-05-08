@@ -47,3 +47,19 @@ This should be fine for those spreadsheets. If there is any error, add that row 
 6. Use cloud sql proxy and run db migrations & collectstatic for the specific staging/prod setting
 7. Deploy app using `gcloud app deploy`
 8. Add relevant secrets from .env to Secret manager (Important: Give your appengine app "Secret Manager Secret Accessor" permission)
+
+
+## With SQL proxy
+Setenv
+```
+export USE_CLOUD_SQL_AUTH_PROXY=true
+export GOOGLE_CLOUD_PROJECT=<project-name>
+```
+
+Emulating google app.yaml locally. Make sure proxy is running using
+
+```./cloud_sql_proxy -instances="<project-name>:<region>:<dbname>"=tcp:<port>```
+
+Then run this so app.yaml uses the proxy. Note there can be many .yaml configs that can be specified
+
+```dev_appserver.py app.yaml --env_var=USE_CLOUD_SQL_AUTH_PROXY=true```

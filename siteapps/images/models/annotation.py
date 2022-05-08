@@ -94,9 +94,6 @@ class BoundingBox(TimeStampedModel):
 
     objects = BoundingBoxManager()
 
-    # History of model instance changes
-    history = HistoricalRecords()
-
     def __str__(self):
         return (
             f"{self.image.upload.camera_station.micro_site.macro_site.name} |"
@@ -111,9 +108,6 @@ class BoundingBox(TimeStampedModel):
 # Model to maintain different species types
 class SpeciesName(TimeStampedModel):
     name = models.CharField(max_length=250, unique=True)
-
-    # History of model instance changes
-    history = HistoricalRecords()
 
     def __str__(self):
         return self.name
@@ -151,9 +145,6 @@ class Category(TimeStampedModel):
 
     objects = CategoryManager()
 
-    # History of model instance changes
-    history = HistoricalRecords()
-
     def __str__(self):
         return f"{self.id} | {self.name} | BBox: {self.bounding_box.id}"
 
@@ -185,9 +176,6 @@ class Species(TimeStampedModel):
     rejected_by = models.ManyToManyField(Annotator, related_name="rejected_species_annotation", blank=True)
 
     objects = CategoryManager()
-
-    # History of model instance changes
-    history = HistoricalRecords()
 
     def __str__(self):
         return self.name.name

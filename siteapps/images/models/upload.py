@@ -22,6 +22,8 @@ class UploadError(TimeStampedModel):
 
     class Meta:
         ordering = ("-created",)
+        # verbose_name = "Data upload error"
+        # verbose_name_plural = "Data upload errors"
 
 
 class UploadErrorEffect(TimeStampedModel):
@@ -35,6 +37,8 @@ class UploadErrorEffect(TimeStampedModel):
 
     class Meta:
         ordering = ("-created",)
+        # verbose_name = "Camera error"
+        # verbose_name_plural = "Camera errors"
 
 
 class CameraStationAction(TimeStampedModel):

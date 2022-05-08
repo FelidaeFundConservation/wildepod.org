@@ -1,8 +1,7 @@
 """This is the final production setting
 """
-import google.cloud.logging
-
 from .base import *  # noqa
+import google.cloud.logging
 
 # HOSTS CONFIG
 # ------------------------------------------------------------------------------
@@ -15,6 +14,8 @@ ALLOWED_HOSTS = ["*"]
 # ------------------------------------------------------------------------------
 DEBUG = False
 
+# https://docs.djangoproject.com/en/dev/ref/settings/#wsgi-application
+WSGI_APPLICATION = "config.wsgi.prod.application"
 
 # DATABASES
 # ------------------------------------------------------------------------------
@@ -76,14 +77,14 @@ MEDIA_URL = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/media/"
 # https://docs.djangoproject.com/en/dev/ref/settings/#default-from-email
 DEFAULT_FROM_EMAIL = env(
     "DJANGO_DEFAULT_FROM_EMAIL",
-    default="Admin <noreply@wildepod.org>",
+    default="Admin <noreply@wildepod-339517.wl.r.appspot.com>",
 )
 # https://docs.djangoproject.com/en/dev/ref/settings/#server-email
 SERVER_EMAIL = env("DJANGO_SERVER_EMAIL", default=DEFAULT_FROM_EMAIL)
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-subject-prefix
 EMAIL_SUBJECT_PREFIX = env(
     "DJANGO_EMAIL_SUBJECT_PREFIX",
-    default="[WildePod.org]",
+    default="[WildePod]",
 )
 # Sendgrid email settings
 SENDGRID_API_KEY = env("SENDGRID_API_KEY")

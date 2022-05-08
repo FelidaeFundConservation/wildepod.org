@@ -6,7 +6,7 @@ from django.core.wsgi import get_wsgi_application
 
 # This allows easy placement of apps within the interior
 # siteapps directory.
-ROOT_DIR = Path(__file__).resolve(strict=True).parent.parent
+ROOT_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 sys.path.append(str(ROOT_DIR / "siteapps"))
 
 # We defer to a DJANGO_SETTINGS_MODULE already in the environment. This breaks

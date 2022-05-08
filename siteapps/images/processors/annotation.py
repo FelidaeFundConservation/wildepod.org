@@ -229,6 +229,7 @@ def process_species_annotations(
     if skip:
         logging.info("User skipped this image. Adding to skipped list")
         image.species_skipped_by.add(annotator)
+        image.save()
         return True
 
     # Prep the annotations data

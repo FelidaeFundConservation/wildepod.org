@@ -132,9 +132,9 @@ class SpeciesAnnotationProcessorView(LoginRequiredMixin, View):
         annotations = request.POST.get("annotations")
         annotations = json.loads(annotations)
 
-        # Process the annotations
-        logging.info(f"Processing species for Image '{image_id}' by user - '{request.user.name}'")
+        # # Process the annotations
+        # logging.info(f"Processing species for Image '{image_id}' by user - '{request.user.name}'")
         success = process_species_annotations(image_id, annotations, initial_bboxes, request.user, skip=skip)
 
-        # TODO: Send and render a meaningful response
+        # # TODO: Send and render a meaningful response
         return JsonResponse({"success": success})

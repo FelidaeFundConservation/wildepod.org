@@ -1,4 +1,4 @@
 runtime: python39
 instance_class: F2
-service: staging
+#service: staging
 entrypoint: gunicorn -b :$PORT staging:app

@@ -87,7 +87,7 @@ class TrailType(TimeStampedModel):
 
 class HabitatType(TimeStampedModel):
     name = models.CharField("Habitat type", max_length=100, unique=True)
-    notes = models.TextField("Additional notes", blank=True)
+    # notes = models.TextField("Additional notes", blank=True)
     # History of model instance changes
     history = HistoricalRecords()
 

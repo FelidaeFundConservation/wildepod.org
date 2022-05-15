@@ -1,8 +1,9 @@
 import logging
-from typing import Dict, Any
+from typing import Any, Dict
+
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
-from images.models import Annotator, BoundingBox, Category, Image, Species, SpeciesName
+from images.models import Activity, ActivityType, Annotator, BoundingBox, Category, Image, Species, SpeciesName
 
 # TODO: This entire module is very hacky and needs to be refactored
 
@@ -49,13 +50,14 @@ def vote(obj, annotator: Annotator, accept: bool):
 def create_category(annotation_dict: Dict[str, Any], bbox_obj: BoundingBox, annotator: Annotator):
     """Function to create a category object from an annotation dictionary"""
     # Create the category object
-    category_obj = Category.objects.create(
+    _ = Category.objects.create(
         bounding_box=bbox_obj,
         name=annotation_dict["category"],
         created_by=annotator,
         confidence=annotation_dict["confidence"],
     )
     return
+
 
 def create_bbox(annotation_dict: Dict[str, Any], image_obj: Image, annotator: Annotator):
     """Function to create a bounding box object from an annotation dictionary"""
@@ -70,6 +72,7 @@ def create_bbox(annotation_dict: Dict[str, Any], image_obj: Image, annotator: An
     )
     create_category(annotation_dict, bbox_obj, annotator)
     return
+
 
 # Image id: 5850e22c-a358-42a6-81c9-6b5281811030
 # BBox: 21058dc0-283b-4ac0-bf34-7a18e547bee8
@@ -263,6 +266,73 @@ def process_species_annotations(
 
     # Set image to "checked" by the annotator
     image.species_checked_by.add(annotator)
+    image.save()
+
+    logging.info("Successfully updated all bounding boxes")
+    return True
+
+
+# Function to process a list of annotations for MegaDetector's Object Detection model
+# Annotations follow the Annotorious format
+def process_activity_annotations(
+    image_id: str,
+    annotations: list,
+    initial_bboxes: list,
+    user: settings.AUTH_USER_MODEL,
+    skip: bool = False,
+) -> bool:
+    """Function to process a list of annotations for MegaDetector's Object Detection model
+
+    Annotations follow the Annotorious format
+    """
+    # Get the annotator object for the current user
+    annotator, created = Annotator.objects.get_or_create(type="human", human=user)
+    if created:
+        logging.info(f"Annotator object for user '{user.name}' successfully created")
+    else:
+        logging.info(f"Annotator object for user '{user.name}' already exists. Successfully retrieved.")
+    # Add the annotator to the image's viewed by list
+    image = Image.objects.get(id=image_id)
+    logging.info("Successfully retrieved image object")
+
+    # If the user skipped this, add the user to the image skipped list & move on
+    if skip:
+        logging.info("User skipped this image. Adding to skipped list")
+        image.activity_skipped_by.add(annotator)
+        image.save()
+        return True
+
+    # Prep the annotations data
+    # Format the annotorious annotations
+    formatted_annotations = flatten_annotorious_annotations(annotations)
+    # Convert initial boxes into the same structure
+    initial_bboxes = {bbox["id"]: bbox for bbox in initial_bboxes}
+    # If any bounding box is missing, return an error
+    for bbox_id in initial_bboxes:
+        if bbox_id not in formatted_annotations:
+            logging.error("Error: Bounding boxes were deleted when annotating activity.")
+            return False
+
+    # Finally handle updates. This includes accept/reject depending on the category labels provided
+    for bbox_id in initial_bboxes:
+        # Get the initial bounding box & category object
+        bbox_obj = BoundingBox.objects.get(id=bbox_id)
+        activity_type_obj = ActivityType.objects.get(name=formatted_annotations[bbox_id]["category"])
+        try:
+            activity_obj = Activity.objects.get(bounding_box=bbox_obj, name=activity_type_obj)
+            if activity_obj.created_by != annotator:
+                vote(activity_obj, annotator, accept=True)
+
+        except ObjectDoesNotExist:
+            activity_obj = Activity.objects.create(
+                bounding_box=bbox_obj,
+                name=activity_type_obj,
+                created_by=annotator,
+                confidence=formatted_annotations[bbox_id]["confidence"],
+            )
+
+    # Set image to "checked" by the annotator
+    image.activity_checked_by.add(annotator)
     image.save()
 
     logging.info("Successfully updated all bounding boxes")

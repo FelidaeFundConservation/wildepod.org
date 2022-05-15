@@ -1,3 +1,4 @@
+from collections import Counter
 import json
 import logging
 import threading
@@ -164,9 +165,6 @@ class UploadResumeProcessingView(LoginRequiredMixin, View):
         return JsonResponse({"success": True})
 
 
-from collections import Counter
-
-
 # TODO: This view is currently implemented purely to "test" the annotation functionality
 # This should be moved into the explore app with arbitrary contraints to export annotations
 class UploadExportView(LoginRequiredMixin, StaffuserRequiredMixin, DetailView):
@@ -181,11 +179,9 @@ class UploadExportView(LoginRequiredMixin, StaffuserRequiredMixin, DetailView):
         for image in self.get_object().image_set.all():
             uncertain_boxes = BoundingBox.objects.uncertain().filter(image=image)
             valid_or_uncertain_boxes = BoundingBox.objects.valid_or_uncertain().filter(image=image)
-            species_uncertain =  [
-                    "uncertain"
-                    for bbox in valid_or_uncertain_boxes
-                    if not bbox.species_set.valid().exists()
-                ]
+            species_uncertain = [
+                "uncertain" for bbox in valid_or_uncertain_boxes if not bbox.species_set.valid().exists()
+            ]
             species_annotated_boxes = Counter(
                 [
                     bbox.species_set.valid().first().name.name

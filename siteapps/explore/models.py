@@ -1,10 +1,7 @@
-import uuid
-
 from django.conf import settings
 from django.db import models
 from inventory.models import Camera, Padlock, PythonLock
 from model_utils.models import TimeStampedModel
-
 
 # # Model to track exports, creators & its link
 # class Export(TimeStampedModel):

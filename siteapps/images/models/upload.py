@@ -10,37 +10,6 @@ from simple_history.models import HistoricalRecords
 dbx = dropbox.Dropbox(settings.DROPBOX_AUTH_TOKEN)
 
 
-# Models for error types & its effects
-class UploadError(TimeStampedModel):
-    error = models.CharField("Error type", max_length=100, unique=True)
-
-    # History of model instance changes
-    history = HistoricalRecords()
-
-    def __str__(self):
-        return self.error
-
-    class Meta:
-        ordering = ("-created",)
-        # verbose_name = "Data upload error"
-        # verbose_name_plural = "Data upload errors"
-
-
-class UploadErrorEffect(TimeStampedModel):
-    error_effect = models.TextField("Error's effect", unique=True)
-
-    # History of model instance changes
-    history = HistoricalRecords()
-
-    def __str__(self):
-        return self.error_effect
-
-    class Meta:
-        ordering = ("-created",)
-        # verbose_name = "Camera error"
-        # verbose_name_plural = "Camera errors"
-
-
 class CameraStationAction(TimeStampedModel):
     action = models.TextField("Last action taken", unique=True)
 
@@ -70,10 +39,6 @@ class Upload(TimeStampedModel):
 
     # Uploader
     volunteer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
-
-    # Errors & effects
-    error = models.ForeignKey(UploadError, blank=True, null=True, on_delete=models.PROTECT)
-    error_effect = models.ForeignKey(UploadErrorEffect, blank=True, null=True, on_delete=models.PROTECT)
 
     # Any uploader comments associated with the SD card
     comments = models.TextField(blank=True, null=True)

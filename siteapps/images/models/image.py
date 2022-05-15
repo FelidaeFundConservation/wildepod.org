@@ -21,6 +21,7 @@ class ImageManager(models.Manager):
             # new=models.functions.Coalesce(models.Max("boundingbox__num_accepted"), 0.0),
             num_bbox_checked_by=models.functions.Coalesce(models.Count("bbox_checked_by", distinct=True), 0),
             num_species_checked_by=models.functions.Coalesce(models.Count("species_checked_by", distinct=True), 0),
+            num_activity_checked_by=models.functions.Coalesce(models.Count("activity_checked_by", distinct=True), 0),
         )
 
 
@@ -81,6 +82,8 @@ class Image(TimeStampedModel):
     bbox_skipped_by = models.ManyToManyField(Annotator, related_name="skipped_bbox_for_images", blank=True)
     species_checked_by = models.ManyToManyField(Annotator, related_name="checked_bbox_for_species", blank=True)
     species_skipped_by = models.ManyToManyField(Annotator, related_name="skipped_bbox_for_species", blank=True)
+    activity_checked_by = models.ManyToManyField(Annotator, related_name="checked_bbox_for_activity", blank=True)
+    activity_skipped_by = models.ManyToManyField(Annotator, related_name="skipped_bbox_for_activity", blank=True)
 
     # Custom manager
     objects = ImageManager()

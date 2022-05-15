@@ -6,13 +6,14 @@ crispy-bootstrap5==0.6  # https://github.com/django-crispy-forms/crispy-bootstra
 django==4.0.2  # pyup: < 4.0  # https://www.djangoproject.com/
 django-allauth==0.48.0  # https://github.com/pennersr/django-allauth
 django-braces==1.15.0 # https://github.com/brack3t/django-braces
+django-ckeditor==6.4.0 # https://github.com/django-ckeditor/django-ckeditor
 django-crispy-forms==1.14.0  # https://github.com/django-crispy-forms/django-crispy-forms
 django-environ==0.8.1  # https://github.com/joke2k/django-environ
 django-jazzmin==2.4.9  # https://github.com/farridav/django-jazzmin
 django-model-utils==4.2.0  # https://github.com/jazzband/django-model-utils
 django-simple-history==3.0.0  # https://github.com/jazzband/django-simple-history
 django-storages[google]==1.12.3  # https://github.com/jschneier/django-storages
-dropbox==11.27.0 # https://github.com/dropbox/dropbox-sdk-python
+dropbox==11.30.0 # https://github.com/dropbox/dropbox-sdk-python
 google-cloud-secret-manager==2.8.0
 gunicorn==20.1.0  # https://github.com/benoitc/gunicorn
 # Pandas is used only for loading data initially. This should be removed when things move to prod

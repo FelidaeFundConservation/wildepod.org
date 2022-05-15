@@ -1,20 +1,7 @@
-from tabnanny import verbose
 from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 
-from .models import (
-    Annotator,
-    Bot,
-    BoundingBox,
-    CameraStationAction,
-    Category,
-    Image,
-    Species,
-    SpeciesName,
-    Upload,
-    UploadError,
-    UploadErrorEffect,
-)
+from .models import Annotator, Bot, BoundingBox, CameraStationAction, Category, Image, Species, SpeciesName, Upload
 
 
 @admin.register(Upload)
@@ -34,16 +21,6 @@ class UploadAdmin(SimpleHistoryAdmin):
     )
     ordering = ["-created"]
     search_fields = ["dropbox_folder_name", "volunteer"]
-
-
-@admin.register(UploadError)
-class UploadErrorAdmin(SimpleHistoryAdmin):
-    pass
-
-
-@admin.register(UploadErrorEffect)
-class UploadErrorEffectAdmin(SimpleHistoryAdmin):
-    pass
 
 
 @admin.register(CameraStationAction)
@@ -95,7 +72,9 @@ class BoundingBoxAdmin(SimpleHistoryAdmin):
 
 @admin.register(SpeciesName)
 class SpeciesNameAdmin(SimpleHistoryAdmin):
-    search_fields = ["name"]
+    list_display = ["name", "scientific_name"]
+    list_display_links = ["name", "scientific_name"]
+    search_fields = ["name", "scientific_name"]
 
 
 @admin.register(Species)

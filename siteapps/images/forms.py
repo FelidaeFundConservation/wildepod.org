@@ -27,11 +27,6 @@ class UploadForm(forms.ModelForm):
                 Column("last_action", css_class="form-group col-md-4"),
                 css_class="form-row mb-3",
             ),
-            Row(
-                Column("error", css_class="form-group col-md-6"),
-                Column("error_effect", css_class="form-group col-md-6"),
-                css_class="form-row mb-3",
-            ),
             Row(Column("comments", css_class="form-group"), css_class="form-row mb-3"),
             Row(
                 Column(
@@ -50,8 +45,6 @@ class UploadForm(forms.ModelForm):
             "date_retrieved",
             "volunteer",
             "last_action",
-            "error",
-            "error_effect",
             "comments",
         ]
 
@@ -110,11 +103,6 @@ class UploadCompleteForm(forms.ModelForm):
                     css_class="form-row mb-3",
                 ),
                 Row(
-                    Column("error", css_class="form-group col-md-6"),
-                    Column("error_effect", css_class="form-group col-md-6"),
-                    css_class="form-row mb-3",
-                ),
-                Row(
                     Column("comments", css_class="form-group"),
                     css_class="form-row mb-3",
                 ),
@@ -131,8 +119,6 @@ class UploadCompleteForm(forms.ModelForm):
             "date_retrieved",
             "volunteer",
             "last_action",
-            "error",
-            "error_effect",
             "comments",
             "upload_complete",
         ]

@@ -23,8 +23,8 @@ URL {% endcomment %}
     const camera_stations = [
         {% for camera_station in object_list %}
             {
-                lat: {{ camera_station.latitude }}, 
-                lng: {{ camera_station.longitude }}, 
+                lat: {{ camera_station.latitude }},
+                lng: {{ camera_station.longitude }},
                 title: "{{ camera_station.micro_site }}",
                 contentString: `
                 <div id="content" class="p-4">
@@ -42,15 +42,15 @@ URL {% endcomment %}
                         </p>
                         <hr/>
                         <p>
-                            
+
                             Deployed: {{ camera_station.date_deployed }}<br/>
                             {% if camera_station.date_last_checked %}Last Checked: {{ camera_station.date_last_checked }}<br/>{% endif %}
                             {% if camera_station.date_to_be_checked %}To Be Checked: {{ camera_station.date_to_be_checked }}<br/>{% endif %}
-                            {% if camera_station.date_taken_down %}Taken Down: {{ camera_station.date_taken_down }}<br/>{% endif %}          
+                            {% if camera_station.date_taken_down %}Taken Down: {{ camera_station.date_taken_down }}<br/>{% endif %}
                         </p>
                         <hr/>
                         {% if camera_station.instructions %}<p><b>Instructions</b>: {{ camera_station.instructions }}</p>{% endif %}
-                        {% if camera_station.notes %}<p><b>Notes</b>: {{ camera_station.notes }}</p>{% endif %}  
+                        {% if camera_station.comments %}<p><b>Notes</b>: {{ camera_station.comments }}</p>{% endif %}
                     </div>
                 </div>
                 `

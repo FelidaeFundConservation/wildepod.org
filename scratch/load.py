@@ -2,7 +2,7 @@
 from datetime import datetime
 
 from django.conf import settings
-from images.models import Bot, CameraStationAction, SpeciesName, UploadError, UploadErrorEffect
+from images.models import Bot, CameraStationAction, SpeciesName
 from inventory.models import Camera, CameraBrand, CameraModel, Padlock, PythonLock
 from locations.models import Area, CameraStation, County, Grid, HabitatType, MacroSite, MicroSite, TrailType
 import pandas as pd
@@ -123,10 +123,10 @@ for i, rec in active_cameras_df.iterrows():
         latitude=rec["Latitude"],
         longitude=rec["Longitude"],
         micro_site=micro_site,
-        trail_type=trail_type,
         habitat_type=habitat_type,
         date_deployed=datetime.strptime(rec["Date Deployed"], "%m/%d/%Y").date(),
     )
+    camera_station_obj.trail_type.add(trail_type)
     camera_station_obj.secondary_habitat_type = secondary_habitat_type
 
     elevation = None
@@ -191,39 +191,6 @@ for i, rec in active_cameras_df.iterrows():
 
     print(f"Successfully created record for camera station with id- {camera_station_id}")
 
-# Create upload errors, error effects & action taken etc
-errors = [
-    "misfire",
-    "batteries_died",
-    "full_SD_card",
-    "public_tampering",
-    "environment",
-    "user_error",
-    "electronic_error",
-    "no_night_flash",
-    "fire_damage",
-    "time_is_more_than_>4h_off",
-    "unknown",
-]
-
-for error in errors:
-    model, _ = UploadError.objects.get_or_create(error=error)
-
-error_effects = [
-    "missing_data",
-    "misfire_data",
-    "obstructed_view/camera_misplacement",
-    "unknown",
-    "none",
-    "didnt_take_photos",
-    "time corrected in EXIF date changer",
-    "time not (yet) corrected",
-    "day_time_only_pictures",
-]
-
-for error_effect in error_effects:
-    model, _ = UploadErrorEffect.objects.get_or_create(error_effect=error_effect)
-
 actions = [
     "checked",
     "taken_down",
@@ -235,19 +202,80 @@ for action in actions:
     model, _ = CameraStationAction.objects.get_or_create(action=action)
 
 
-species_list = [
-    "horse",
-    "deer",
-    "puma",
-    "turkey",
-    "rabbit",
-    "fox",
-    "squirrel",
-    "raccoon",
+species_scientific_names = [
+    "Sciurus carolinensis",
+    "Sciurus griseus",
+    "Sciurus spp",
+    "Muridae spp",
+    "Lontra canadensis",
+    "Capra aegagrus hircus",
+    "Lepus californicus",
+    "Sylvilagus bachmani:",
+    "Felis domesticus",
+    "Lynx rufus",
+    "Canis latrans",
+    "Ursus americanus",
+    "Odocoileus hemionus",
+    "Homo sapiens",
+    "Procyon lotor",
+    "Vulpes vulpes",
+    "Urocyon cinereoargenteus",
+    "Puma concolor",
+    "Odocoileus virginianus",
+    "Equus caballus",
+    "unknown fox spp",
+    "unknown rabbit spp",
+    "Colaptes auratus auratus",
+    "Meleagris gallopavo",
+    "bird spp",
+    "Anas platyrhynchos",
+    "Bubo virginianus",
+    "Haemorhous mexicanus",
+    "Zenaida macroura",
+    "Aphelocoma californica",
+    "Corvus brachyrhynchos",
+    "Corvus corax",
+    "Buteo jamaicensis",
 ]
 
-for species in species_list:
-    model, _ = SpeciesName.objects.get_or_create(name=species)
+species_common_names = [
+    "eastern grey squirrel",
+    "western grey squirrel",
+    "unknown squirrel spp",
+    "unknown mouse or rat spp",
+    "river otter",
+    "goat",
+    "black-tailed jackrabbit",
+    "brush rabbit",
+    "domestic cat",
+    "bobcat",
+    "coyote",
+    "black bear",
+    "mule deer",
+    "human",
+    "raccoon",
+    "red fox",
+    "gray fox",
+    "puma",
+    "white-tailed deer",
+    "horse",
+    "unknown fox spp",
+    "unknown rabbit spp",
+    "yellow-shafted flicker",
+    "turkey",
+    "bird spp",
+    "mallard",
+    "great horned owl",
+    "house finch",
+    "morning dove",
+    "western scrub-jay",
+    "American crow",
+    "common raven",
+    "red-tailed hawk",
+]
+
+for scientific_name, common_name in zip(species_scientific_names, species_common_names):
+    model, _ = SpeciesName.objects.get_or_create(name=common_name, scientific_name=scientific_name)
 
 # TODO: Change this as needed
 bot, _ = Bot.objects.get_or_create(

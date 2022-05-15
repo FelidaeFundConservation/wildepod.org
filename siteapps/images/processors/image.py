@@ -55,7 +55,7 @@ def add_thumbnail(image: Image):
     img_bytes = BytesIO(response.content)
     logging.info("Successfully converted thumbnail binary to bytestream.")
 
-    target_path = f"compressed/1024/{image.dropbox_content_hash}.jpg"
+    target_path = f"thumbnails/1024/{image.dropbox_content_hash}.jpg"
     gcloud_path = storage.save(target_path, img_bytes)
     logging.info("Successfully saved thumbnail to google cloud storage.")
 

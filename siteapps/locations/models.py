@@ -72,9 +72,35 @@ class MicroSite(TimeStampedModel):
         ordering = ("name",)
 
 
-# Models for terrain information
 class TrailType(TimeStampedModel):
-    name = models.CharField("Trail type", max_length=100, unique=True)
+    name = models.CharField("Trail Type", max_length=100, unique=True)
+    comments = models.TextField("Additional notes", blank=True)
+    # History of model instance changes
+    history = HistoricalRecords()
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ("name",)
+
+
+class TrailSurfaceType(TimeStampedModel):
+    name = models.CharField("Trail Surface Type", max_length=100, unique=True)
+    comments = models.TextField("Additional notes", blank=True)
+    # History of model instance changes
+    history = HistoricalRecords()
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ("name",)
+
+
+class LandUseType(TimeStampedModel):
+    name = models.CharField("Land Use Type", max_length=100, unique=True)
+    comments = models.TextField("Additional notes", blank=True)
     # History of model instance changes
     history = HistoricalRecords()
 
@@ -87,7 +113,7 @@ class TrailType(TimeStampedModel):
 
 class HabitatType(TimeStampedModel):
     name = models.CharField("Habitat type", max_length=100, unique=True)
-    # notes = models.TextField("Additional notes", blank=True)
+    # comments = models.TextField("Additional notes", blank=True)
     # History of model instance changes
     history = HistoricalRecords()
 
@@ -118,7 +144,17 @@ class CameraStation(TimeStampedModel):
     # Meta information about the the camera station site
     micro_site = models.ForeignKey(MicroSite, on_delete=models.PROTECT)
 
-    trail_type = models.ForeignKey(TrailType, on_delete=models.PROTECT, null=True, blank=True)
+    trail_type = models.ManyToManyField(TrailType, blank=True)
+
+    trail_surface = models.ForeignKey(
+        TrailSurfaceType,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+    )
+
+    land_use_type = models.ManyToManyField(LandUseType, blank=True)
+
     habitat_type = models.ForeignKey(
         HabitatType,
         on_delete=models.PROTECT,
@@ -133,6 +169,7 @@ class CameraStation(TimeStampedModel):
         null=True,
         blank=True,
     )
+    habitat_notes = models.TextField("Additional habitat notes", blank=True)
 
     # Optionally linked camera from the existing inventory
     camera = models.OneToOneField(
@@ -178,7 +215,7 @@ class CameraStation(TimeStampedModel):
     # Additional free text comments about the specific camera station
     instructions = models.TextField("Instructions to follow before checking the camera station", blank=True)
     picture_instructions = models.TextField("Who should the pictures be sent to?", blank=True)
-    notes = models.TextField("Additional notes", blank=True)
+    comments = models.TextField("Additional notes", blank=True)
 
     def __str__(self):
         return (

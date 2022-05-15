@@ -7,8 +7,6 @@
 
 {% block content %}
 <div class="container mt-4 pt-4 help">
-    <h2>Help Text here</h2>
-    <hr>
-    <p>Some how-to use instructions</p>
+    {{ instructions.content | safe }}
 </div>
 {% endblock content %}

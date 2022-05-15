@@ -1,4 +1,6 @@
 from .annotation import (
+    ActivityAnnotationProcessorView,
+    AnnotateActivityView,
     AnnotateObjectsView,
     AnnotateSpeciesView,
     MDAnnotationProcessorView,

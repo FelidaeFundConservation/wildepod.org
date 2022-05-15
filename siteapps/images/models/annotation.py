@@ -62,6 +62,16 @@ class CategoryManager(BaseAnnotationManager):
         return super().valid_or_uncertain().order_by("-vote_diff", "-confidence", "-created", "-modified")
 
 
+# Certainty annotations for activites
+class ActivityManager(BaseAnnotationManager):
+    # Override the default methods
+    def valid(self):
+        return super().valid().order_by("-vote_diff", "-confidence", "-created", "-modified")
+
+    def valid_or_uncertain(self):
+        return super().valid_or_uncertain().order_by("-vote_diff", "-confidence", "-created", "-modified")
+
+
 # Each annotation is a bounding box linked to an image
 # Bounding boxes are identified by x,y,w,h where w,h are normalized width & height
 # Each annotation has a creator that is either an ML model or a human
@@ -107,14 +117,15 @@ class BoundingBox(TimeStampedModel):
 
 # Model to maintain different species types
 class SpeciesName(TimeStampedModel):
-    name = models.CharField(max_length=250, unique=True)
+    name = models.CharField("Common Name", max_length=250, unique=True)
+    scientific_name = models.CharField(max_length=250, unique=True)
 
     def __str__(self):
         return self.name
 
     class Meta:
         ordering = ("-created",)
-        verbose_name_plural = "Species Names"
+        verbose_name_plural = "Species List"
 
 
 # TODO: Combine category & species into a single base model & inherit from it
@@ -183,3 +194,48 @@ class Species(TimeStampedModel):
     class Meta:
         ordering = ("-modified",)
         verbose_name_plural = "Species Annotations"
+
+
+# Names of different types of activity
+class ActivityType(TimeStampedModel):
+    name = models.CharField(max_length=250, unique=True)
+    comments = models.TextField("Additional notes", null=True, blank=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ("-created",)
+        verbose_name_plural = "Activity Types"
+
+
+# Each annotation also has an "activity" attached to it.
+# This indicates the activity of the object in that specific image like eating, walking, resting etc
+class Activity(TimeStampedModel):
+    # UUID identifier
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    # The bounding box this category annotation is linked to
+    bounding_box = models.ForeignKey(BoundingBox, on_delete=models.CASCADE)
+
+    # The species of the animal
+    name = models.ForeignKey(ActivityType, on_delete=models.PROTECT)
+
+    # The creator of the annotation
+    created_by = models.ForeignKey(Annotator, on_delete=models.PROTECT, related_name="created_activity_annotation")
+
+    # Confidence from the species detection model
+    confidence = models.FloatField(default=1.0)
+
+    # List of accept/rejects for this annotation
+    accepted_by = models.ManyToManyField(Annotator, related_name="accepted_activity_annotation", blank=True)
+    rejected_by = models.ManyToManyField(Annotator, related_name="rejected_activity_annotation", blank=True)
+
+    objects = ActivityManager()
+
+    def __str__(self):
+        return self.name.name
+
+    class Meta:
+        ordering = ("-modified",)
+        verbose_name_plural = "Activity Annotations"

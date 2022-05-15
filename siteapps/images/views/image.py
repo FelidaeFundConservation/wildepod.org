@@ -15,11 +15,15 @@ class ImageDetailView(LoginRequiredMixin, DetailView):
         img_obj = self.get_object()
         context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
         try:
-            context["next_image"] = Image.objects.filter(upload=img_obj.upload, trigger_timestamp__gt=img_obj.trigger_timestamp).first()
+            context["next_image"] = Image.objects.filter(
+                upload=img_obj.upload, trigger_timestamp__gt=img_obj.trigger_timestamp
+            ).first()
         except ObjectDoesNotExist:
             pass
         try:
-            context["previous_image"] = Image.objects.filter(upload=img_obj.upload, trigger_timestamp__lt=img_obj.trigger_timestamp).last()
+            context["previous_image"] = Image.objects.filter(
+                upload=img_obj.upload, trigger_timestamp__lt=img_obj.trigger_timestamp
+            ).last()
         except ObjectDoesNotExist:
             pass
         # Get valid annotations for this image

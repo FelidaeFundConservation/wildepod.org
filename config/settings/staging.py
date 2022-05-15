@@ -1,7 +1,8 @@
 """This is the staging settings that links to a staging database and will be deployed as its own service in within app engine
 """
-from .base import *  # noqa
 import google.cloud.logging
+
+from .base import *  # noqa
 
 # HOSTS CONFIG
 # ------------------------------------------------------------------------------
@@ -68,6 +69,7 @@ STATIC_URL = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/static/"
 DEFAULT_FILE_STORAGE = "siteapps.utils.storages.MediaRootGoogleCloudStorage"
 MEDIA_URL = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/media/"
 
+CKEDITOR_UPLOAD_PATH = "ckeditor_uploads/"
 
 # EMAIL
 # ------------------------------------------------------------------------------

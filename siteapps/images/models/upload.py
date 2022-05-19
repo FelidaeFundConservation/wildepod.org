@@ -7,6 +7,7 @@ from locations.models import CameraStation
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
 
+# Create a dropbox client
 dbx = dropbox.Dropbox(
     app_key=settings.DROPBOX_API_KEY,
     app_secret=settings.DROPBOX_API_SECRET,

@@ -115,6 +115,7 @@ google_logging_client.setup_logging()
 
 # EXTERNAL APPS CONFIG
 # ------------------------------------------------------------------------------
-# Dropbox token for local mode
-DROPBOX_AUTH_TOKEN = env("DROPBOX_AUTH_TOKEN_PROD")
-DROPBOX_URL_PREFIX = "https://www.dropbox.com/personal/Apps/site_prod/"
+DROPBOX_API_KEY = env("DROPBOX_API_KEY_PROD")
+DROPBOX_API_SECRET = env("DROPBOX_API_SECRET_PROD")
+DROPBOX_REFRESH_TOKEN = env("DROPBOX_REFRESH_TOKEN_PROD")
+DROPBOX_URL_PREFIX = "https://www.dropbox.com/home/Felidae%20Fund/Apps/WildePod_prod"

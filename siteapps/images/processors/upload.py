@@ -11,7 +11,11 @@ from images.models import Image, Upload
 from .image import process_image
 
 # Create a dropbox client
-dbx = dropbox.Dropbox(settings.DROPBOX_AUTH_TOKEN)
+dbx = dropbox.Dropbox(
+    app_key=settings.DROPBOX_API_KEY,
+    app_secret=settings.DROPBOX_API_SECRET,
+    oauth2_refresh_token=settings.DROPBOX_REFRESH_TOKEN,
+)
 
 MAX_THREADS_FOR_IMAGE_PROCESSING = 10
 

@@ -7,7 +7,11 @@ from locations.models import CameraStation
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
 
-dbx = dropbox.Dropbox(settings.DROPBOX_AUTH_TOKEN)
+dbx = dropbox.Dropbox(
+    app_key=settings.DROPBOX_API_KEY,
+    app_secret=settings.DROPBOX_API_SECRET,
+    oauth2_refresh_token=settings.DROPBOX_REFRESH_TOKEN,
+)
 
 
 class CameraStationAction(TimeStampedModel):

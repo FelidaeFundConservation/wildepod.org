@@ -88,9 +88,10 @@ INSTALLED_APPS += ["django_extensions"]  # noqa F405
 
 # EXTERNAL APPS CONFIG
 # ------------------------------------------------------------------------------
-# Dropbox token for local mode
-DROPBOX_AUTH_TOKEN = env("DROPBOX_AUTH_TOKEN_LOCAL")
-DROPBOX_URL_PREFIX = "https://www.dropbox.com/home/Apps/abhay_test/"
+DROPBOX_API_KEY = env("DROPBOX_API_KEY_STAGING")
+DROPBOX_API_SECRET = env("DROPBOX_API_SECRET_STAGING")
+DROPBOX_REFRESH_TOKEN = env("DROPBOX_REFRESH_TOKEN_STAGING")
+DROPBOX_URL_PREFIX = "https://www.dropbox.com/personal/Apps/WildePod_staging/"
 
 
 # LOGGING

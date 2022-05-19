@@ -10,7 +10,11 @@ from urllib3.util import Retry
 from utils.storages import MediaRootGoogleCloudStorage
 
 # Create a dropbox client
-dbx = dropbox.Dropbox(settings.DROPBOX_AUTH_TOKEN)
+dbx = dropbox.Dropbox(
+    app_key=settings.DROPBOX_API_KEY,
+    app_secret=settings.DROPBOX_API_SECRET,
+    oauth2_refresh_token=settings.DROPBOX_REFRESH_TOKEN,
+)
 
 # Create a storage object instance
 storage = MediaRootGoogleCloudStorage()

@@ -78,6 +78,7 @@ class Image(TimeStampedModel):
 
     # TODO: Might need to remove/refactor these
     # Bookkeeping fields. These are used as convenience fields to track users and images they've seen/skipped
+    social_media_worthy = models.IntegerField(default=0)
     bbox_checked_by = models.ManyToManyField(Annotator, related_name="checked_bbox_for_images", blank=True)
     bbox_skipped_by = models.ManyToManyField(Annotator, related_name="skipped_bbox_for_images", blank=True)
     species_checked_by = models.ManyToManyField(Annotator, related_name="checked_bbox_for_species", blank=True)

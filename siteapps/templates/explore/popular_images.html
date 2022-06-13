@@ -1,0 +1,73 @@
+{% extends '_base.html' %}
+{% load static %}
+
+<!-- Set corresponding nav pill to active -->
+{% block nav_explore %}active{% endblock nav_explore%}
+
+{% block content %}
+<div class="container py-3 my-3">
+    <div class="row pt-2 mt-2 text-center">
+        <p>
+            {% if paged_images.has_previous %}
+            <a href="?page=1">&laquo; first</a>&nbsp;&nbsp;
+            <a href="?page={{ paged_images.previous_page_number }}">&laquo;previous</a>
+            {% endif %}
+            <span class="current">
+                &nbsp;&nbsp;Page {{ paged_images.number }} of {{ paged_images.paginator.num_pages }}&nbsp;&nbsp;
+            </span>
+
+            {% if paged_images.has_next %}
+            <a href="?page={{ paged_images.next_page_number }}">next&raquo;</a>&nbsp;&nbsp;
+            <a href="?page={{ paged_images.paginator.num_pages }}">last &raquo;</a>
+            {% endif %}
+        </p>
+    </div>
+    <div class="row pt-2 mt-2 justify-content-center">
+        {% for image in paged_images %}
+        <div class="col-12 col-md-6 col-xl-4 text-center py-3">
+            <div>Vote count: {{ image.social_media_worthy }}</div>
+            <a
+                href="{% url 'images:image' image.id %}"
+                class="text-decoration-none"
+            >
+                <img
+                    id="{{image.id}}"
+                    class="img-fluid my-2"
+                    src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}"
+                >
+            </a>
+            <div class="mb-2">Timestamp:
+                {% if image.trigger_timestamp %}{{image.trigger_timestamp}}{% else %}N/A{% endif %}
+            </div>
+            <a href="{% url 'images:image' image.id %}"><button
+                    type="button"
+                    class="btn btn-light"
+                >View/Edit</button></a>
+            <a
+                href="{{dropbox_prefix}}{{image.dropbox_file_path}}"
+                target="_blank"
+            ><button
+                    type="button"
+                    class="btn btn-light"
+                >View Original</button></a>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="row pt-2 mt-2 text-center">
+        <p>
+            {% if paged_images.has_previous %}
+            <a href="?page=1">&laquo; first</a>&nbsp;&nbsp;
+            <a href="?page={{ paged_images.previous_page_number }}">&laquo;previous</a>
+            {% endif %}
+            <span class="current">
+                &nbsp;&nbsp;Page {{ paged_images.number }} of {{ paged_images.paginator.num_pages }}&nbsp;&nbsp;
+            </span>
+
+            {% if paged_images.has_next %}
+            <a href="?page={{ paged_images.next_page_number }}">next&raquo;</a>&nbsp;&nbsp;
+            <a href="?page={{ paged_images.paginator.num_pages }}">last &raquo;</a>
+            {% endif %}
+        </p>
+    </div>
+</div>
+{% endblock content %}

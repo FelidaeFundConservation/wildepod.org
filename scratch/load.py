@@ -105,7 +105,7 @@ for i, rec in active_cameras_df.iterrows():
     microsite_name = rec["Micro-Site"] if rec["Micro-Site"] else "N/A"
     micro_site, _ = MicroSite.objects.get_or_create(name=rec["Micro-Site"].strip(), macro_site=macro_site, grid=grid)
 
-    trail_type, _ = (
+    trail_type, trail_type_created = (
         TrailType.objects.get_or_create(name=rec["Trail-type (dropdown)"].strip())
         if rec["Trail-type (dropdown)"]
         else (None, None)
@@ -126,8 +126,10 @@ for i, rec in active_cameras_df.iterrows():
         habitat_type=habitat_type,
         date_deployed=datetime.strptime(rec["Date Deployed"], "%m/%d/%Y").date(),
     )
-    camera_station_obj.trail_type.add(trail_type)
-    camera_station_obj.secondary_habitat_type = secondary_habitat_type
+    if trail_type_created:
+        camera_station_obj.trail_type.add(trail_type)
+    if secondary_habitat_type:
+        camera_station_obj.secondary_habitat_type = secondary_habitat_type
 
     elevation = None
     elevation_unit = None

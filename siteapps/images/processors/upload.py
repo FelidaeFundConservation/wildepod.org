@@ -12,8 +12,8 @@ from .image import process_image
 
 # Create a dropbox client
 dbx = dropbox.Dropbox(
-    app_key=settings.DROPBOX_API_KEY,
-    app_secret=settings.DROPBOX_API_SECRET,
+    app_key=settings.DROPBOX_APP_KEY,
+    app_secret=settings.DROPBOX_APP_SECRET,
     oauth2_refresh_token=settings.DROPBOX_REFRESH_TOKEN,
 )
 

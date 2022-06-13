@@ -25,6 +25,20 @@
                 name="save_annotations"
                 value="Save Annotations"
             >
+            <div class="mt-3">
+                <input
+                    class="form-check-input"
+                    type="checkbox"
+                    value=""
+                    id="social-media-worthy"
+                >
+                <label
+                    class="form-check-label"
+                    for="social-media-worthy"
+                >
+                    &nbsp; Social Media Worthy?
+                </label>
+            </div>
         </form>
     </div>
     <div class="row mt-2 mt-md-4 px-2 justify-content-center">
@@ -45,6 +59,7 @@
                 name="skip_annotations"
                 value="Skip Image >>"
             >
+
         </form>
     </div>
     <div
@@ -139,8 +154,8 @@
                 else {
                     data['initial_bboxes'] = JSON.stringify(bboxes);
                     data['annotations'] = JSON.stringify(anno.getAnnotations());
+                    data['social_media_worthy'] = document.getElementById('social-media-worthy').checked;
                 }
-
 
                 // Send back all the bbox ids back to the server to log bbox deletions
                 // Make an AJAX request

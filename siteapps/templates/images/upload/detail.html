@@ -122,11 +122,9 @@
     <div class="row pt-2 mt-2 justify-content-center">
         {% for image in paged_images %}
         <div class="col-12 col-md-6 col-xl-4 text-center py-3">
-            {% if image.trigger_timestamp %}
-            <div>Timestamp: {{image.trigger_timestamp}}</div>
-            {% else %}
-            <div>Timestamp: N/A</div>
-            {% endif %}
+            <div>Timestamp:
+                {% if image.trigger_timestamp %}{{image.trigger_timestamp}}{% else %}N/A{% endif %}
+            </div>
             <a
                 href="{% url 'images:image' image.id %}"
                 class="text-decoration-none"

@@ -28,7 +28,8 @@ urlpatterns = [
     path("users/", include(("users.urls", "users"), namespace="users")),
     path("explore/", include(("explore.urls", "explore"), namespace="explore")),
     path("images/", include(("images.urls", "images"), namespace="images")),
-    path("instructions/", include(("instructions.urls", "instructions"), namespace="instructions")),
+    # TODO: Remove this line if user guide lives on google docs
+    # path("instructions/", include(("instructions.urls", "instructions"), namespace="instructions")),
     path("", include(("home.urls", "home"), namespace="home")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

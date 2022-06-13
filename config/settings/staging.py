@@ -25,9 +25,9 @@ WSGI_APPLICATION = "config.wsgi.staging.application"
 DATABASES = {"default": env.db("STAGING_DATABASE_URL")}
 
 # # If the flag has been set, configure to use proxy
-# if env.bool("USE_CLOUD_SQL_AUTH_PROXY", False):
-#     DATABASES["default"]["HOST"] = "127.0.0.1"
-#     DATABASES["default"]["PORT"] = 5434
+if env.bool("USE_CLOUD_SQL_AUTH_PROXY", False):
+    DATABASES["default"]["HOST"] = "127.0.0.1"
+    DATABASES["default"]["PORT"] = 5434
 # TODO: Check if this needs to be done
 # DATABASES["default"]["ATOMIC_REQUESTS"] = True
 

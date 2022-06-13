@@ -3,6 +3,7 @@ from smtplib import SMTPException
 import uuid
 
 from allauth.account.models import EmailAddress
+from django.conf import settings
 from django.contrib.auth.base_user import BaseUserManager
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
@@ -13,8 +14,9 @@ from django.utils.translation import gettext_lazy as _
 def send_welcome_email(user, password_generated):
     """Send welcome email to user"""
     logging.info("Sending welcome email..")
-    subject = "Welcome to WildePod!"
-    context = {"user": user, "password_generated": password_generated}
+    is_staging = "staging" in settings.WSGI_APPLICATION
+    subject = "Welcome to WildePod staging!" if is_staging else "Welcome to WildePod!"
+    context = {"user": user, "password_generated": password_generated, "is_staging": is_staging}
     html_message = render_to_string("account/email/welcome.html", context)
     plain_message = strip_tags(html_message)
     try:

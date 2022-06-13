@@ -88,8 +88,8 @@ INSTALLED_APPS += ["django_extensions"]  # noqa F405
 
 # EXTERNAL APPS CONFIG
 # ------------------------------------------------------------------------------
-DROPBOX_API_KEY = env("DROPBOX_API_KEY_STAGING")
-DROPBOX_API_SECRET = env("DROPBOX_API_SECRET_STAGING")
+DROPBOX_APP_KEY = env("DROPBOX_APP_KEY_STAGING")
+DROPBOX_APP_SECRET = env("DROPBOX_APP_SECRET_STAGING")
 DROPBOX_REFRESH_TOKEN = env("DROPBOX_REFRESH_TOKEN_STAGING")
 DROPBOX_URL_PREFIX = "https://www.dropbox.com/personal/Apps/WildePod_staging/"
 
@@ -112,3 +112,8 @@ LOGGING = {
     },
     "root": {"level": "INFO", "handlers": ["console"]},
 }
+
+# CUSTOM VARIABLES
+# ------------------------------------------------------------------------------
+# GCF cloud url where MegaDetector currently serves requests
+MEGADETECTOR_URL = env("MEGADETECTOR_URL_LOCAL")

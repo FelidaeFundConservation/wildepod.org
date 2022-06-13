@@ -151,9 +151,14 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
             # Get the annotation paylaod from the request and convert it to a dict
             annotations = request.POST.get("annotations")
             annotations = json.loads(annotations)
+
+            # Check if the image was tagged as social media worthy
+            social_media_worthy = request.POST.get("social_media_worthy")
+            social_media_worthy = True if social_media_worthy and social_media_worthy == "true" else False
+
             logging.info(f"Processing bounding box annotations for image '{image_id}' by user - '{request.user.name}'")
             # Process the annotations
-            success = process_md_annotations(image_id, annotations, initial_bboxes, request.user)
+            success = process_md_annotations(image_id, annotations, initial_bboxes, request.user, social_media_worthy)
 
         return JsonResponse({"success": success})
 

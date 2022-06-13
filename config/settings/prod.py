@@ -25,7 +25,7 @@ DATABASES = {"default": env.db("PROD_DATABASE_URL")}
 # TODO: Check if this needs to be done
 
 # If the flag has been set, configure to use proxy
-if env.bool("USE_CLOUD_SQL_AUTH_PROXY", None):
+if env.bool("USE_CLOUD_SQL_AUTH_PROXY", False):
     DATABASES["default"]["HOST"] = "127.0.0.1"
     DATABASES["default"]["PORT"] = 5434
 # TODO: Check if this needs to be done
@@ -79,7 +79,7 @@ CKEDITOR_UPLOAD_PATH = "ckeditor_uploads/"
 # https://docs.djangoproject.com/en/dev/ref/settings/#default-from-email
 DEFAULT_FROM_EMAIL = env(
     "DJANGO_DEFAULT_FROM_EMAIL",
-    default="Admin <noreply@wildepod-339517.wl.r.appspot.com>",
+    default="Admin <noreply@wildepod.org>",
 )
 # https://docs.djangoproject.com/en/dev/ref/settings/#server-email
 SERVER_EMAIL = env("DJANGO_SERVER_EMAIL", default=DEFAULT_FROM_EMAIL)
@@ -115,7 +115,7 @@ google_logging_client.setup_logging()
 
 # EXTERNAL APPS CONFIG
 # ------------------------------------------------------------------------------
-DROPBOX_API_KEY = env("DROPBOX_API_KEY_PROD")
-DROPBOX_API_SECRET = env("DROPBOX_API_SECRET_PROD")
+DROPBOX_APP_KEY = env("DROPBOX_APP_KEY_PROD")
+DROPBOX_APP_SECRET = env("DROPBOX_APP_SECRET_PROD")
 DROPBOX_REFRESH_TOKEN = env("DROPBOX_REFRESH_TOKEN_PROD")
 DROPBOX_URL_PREFIX = "https://www.dropbox.com/home/Felidae%20Fund/Apps/WildePod_prod"

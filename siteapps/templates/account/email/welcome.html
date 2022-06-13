@@ -1,7 +1,13 @@
 {% block content %}
-<p>Hi {{user.name}}! Welcome to WildePod! You account has just been created and you can navigate to
+<p>
+    Hi {{user.name}}! Welcome to WildePod{% if is_staging %} staging{% endif %}!
+    Your account has just been created and you can navigate to
     <a
+        {% if is_staging %}
+        href="https://staging-dot-wildepod-339517.wl.r.appspot.com"
+        {% else %}
         href="https://wildepod.org"
+        {% endif %}
         target="_blank"
     >WildePod</a> to get started.</p>
 {% if password_generated %}
@@ -11,10 +17,15 @@
     Temporary password: {{ password_generated }}
 </p>
 <p>
-    Please not that his is a temporary password that is sent over plain text via email.
+    Please note that his is a temporary password that is sent over plain text via email.
     This is not secure.
-    Please change your password after signing in by navigating to <a
+    Please change your password after signing in by navigating to
+    <a
+        {% if is_staging %}
+        href="https://staging-dot-wildepod-339517.wl.r.appspot.com/accounts/password/change/"
+        {% else %}
         href="https://wildepod.org/accounts/password/change/"
+        {% endif %}
         target="_blank"
     >this link</a>
 </p>

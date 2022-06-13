@@ -99,7 +99,8 @@ INSTALLED_APPS = [
     "siteapps.inventory",
     "siteapps.locations",
     "siteapps.images",
-    "siteapps.instructions",
+    # TODO: Remove this line if user guide lives on google docs
+    # "siteapps.instructions",
     "simple_history",
 ]
 
@@ -276,40 +277,40 @@ JAZZMIN_SETTINGS = {
     ],
 }
 
-# CKEDITOR SETTINGS
-# ------------------------------------------------------------------------------
-CKEDITOR_CONFIGS = {
-    "default": {
-        "toolbar": "Custom",
-        "toolbar_Custom": [
-            ["Bold", "Italic", "Underline", "Strike", "Subscript", "Superscript", "-", "RemoveFormat"],
-            [
-                "NumberedList",
-                "BulletedList",
-                "-",
-                "Outdent",
-                "Indent",
-                "-",
-                "Blockquote",
-                "CreateDiv",
-                "-",
-                "JustifyLeft",
-                "JustifyCenter",
-                "JustifyRight",
-                "JustifyBlock",
-                "-",
-                "BidiLtr",
-                "BidiRtl",
-            ],
-            ["Link", "Unlink"],
-            ["Image", "Table", "HorizontalRule", "SpecialChar"],
-            ["Styles", "Format", "Font", "FontSize"],
-            ["TextColor", "BGColor"],
-            ["Maximize", "ShowBlocks", "-", "About"],
-        ],
-        "height": 750,
-    },
-}
+# # CKEDITOR SETTINGS
+# # ------------------------------------------------------------------------------
+# CKEDITOR_CONFIGS = {
+#     "default": {
+#         "toolbar": "Custom",
+#         "toolbar_Custom": [
+#             ["Bold", "Italic", "Underline", "Strike", "Subscript", "Superscript", "-", "RemoveFormat"],
+#             [
+#                 "NumberedList",
+#                 "BulletedList",
+#                 "-",
+#                 "Outdent",
+#                 "Indent",
+#                 "-",
+#                 "Blockquote",
+#                 "CreateDiv",
+#                 "-",
+#                 "JustifyLeft",
+#                 "JustifyCenter",
+#                 "JustifyRight",
+#                 "JustifyBlock",
+#                 "-",
+#                 "BidiLtr",
+#                 "BidiRtl",
+#             ],
+#             ["Link", "Unlink"],
+#             ["Image", "Table", "HorizontalRule", "SpecialChar"],
+#             ["Styles", "Format", "Font", "FontSize"],
+#             ["TextColor", "BGColor"],
+#             ["Maximize", "ShowBlocks", "-", "About"],
+#         ],
+#         "height": 750,
+#     },
+# }
 
 # CUSTOM VARIABLES
 # ------------------------------------------------------------------------------

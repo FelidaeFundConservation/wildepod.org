@@ -88,6 +88,7 @@ def process_md_annotations(
     annotations: list,
     initial_bboxes: list,
     user: settings.AUTH_USER_MODEL,
+    social_media_worthy: bool = False,
     skip: bool = False,
 ):
     """Function to process a list of annotations for MegaDetector's Object Detection model
@@ -111,6 +112,10 @@ def process_md_annotations(
         image.bbox_skipped_by.add(annotator)
         image.save()
         return True
+
+    # Update the image's social media worthy status
+    if social_media_worthy:
+        image.social_media_worthy += 1
 
     # Prep the annotations data
     # Format the annotorious annotations

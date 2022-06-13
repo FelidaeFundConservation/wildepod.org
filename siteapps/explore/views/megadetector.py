@@ -31,7 +31,7 @@ class ExploreMegadetectorView(LoginRequiredMixin, StaffuserRequiredMixin, Templa
             image = form.cleaned_data["image"]
 
             if not url and not image:
-                image_src = "https://storage.googleapis.com/felidae_media_dev/compressed/1024/024e9187cf365dcd147642ab585ddacef0c6a074d1c77f49d4a341da4e950582.jpg"
+                image_src = "https://scx1.b-cdn.net/csz/news/800a/2021/camera-trap-images-rev-1.jpg"
                 context["image_type"] = "url"
             else:
                 image_src = url if url else image

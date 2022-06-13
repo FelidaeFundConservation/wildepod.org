@@ -7,7 +7,7 @@ from django.views.generic import TemplateView
 
 class ExploreDataView(LoginRequiredMixin, StaffuserRequiredMixin, TemplateView):
     login_url = settings.LOGIN_URL
-    template_name = "explore/main.html"
+    template_name = "explore/index.html"
 
 
 class ExportDataView(LoginRequiredMixin, StaffuserRequiredMixin, TemplateView):

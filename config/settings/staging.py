@@ -120,3 +120,9 @@ DROPBOX_APP_KEY = env("DROPBOX_APP_KEY_STAGING")
 DROPBOX_APP_SECRET = env("DROPBOX_APP_SECRET_STAGING")
 DROPBOX_REFRESH_TOKEN = env("DROPBOX_REFRESH_TOKEN_STAGING")
 DROPBOX_URL_PREFIX = "https://www.dropbox.com/home/Felidae%20Fund/Apps/WildePod_staging"
+
+# CUSTOM VARIABLES
+# ------------------------------------------------------------------------------
+# Annotation configuration
+NUM_ACCEPTS_OVER_REJECTS = 0
+MIN_MEGADETECTOR_CONFIDENCE = 0.25

@@ -1,5 +1,4 @@
 # Run using python manage.py shell --settings=config.settings.local < scratch/load.py
-from datetime import datetime
 
 from django.conf import settings
 from images.models import Bot, CameraStationAction, SpeciesName
@@ -7,283 +6,164 @@ from inventory.models import Camera, CameraBrand, CameraModel, Padlock, PythonLo
 from locations.models import Area, CameraStation, County, Grid, HabitatType, MacroSite, MicroSite, TrailType
 import pandas as pd
 
-# Download active camera data sheet as tsv into the local_data folder and rename as necessary
-active_cameras_df = pd.read_csv("local_data/active_cameras.tsv", delimiter="\t")
-# Download camera inventory data sheet as tsv into the local_data folder and rename as necessary
-camera_inventory_df = pd.read_csv("local_data/camera_inventory.tsv", delimiter="\t")
 
-camera_inventory_df = camera_inventory_df.fillna("")
-active_cameras_df = active_cameras_df.fillna("")
+def load_camera_inventory():
+    # Download camera inventory data sheet as tsv into the local_data folder and rename as necessary
+    camera_inventory_df = pd.read_csv("local_data/camera_inventory.tsv", delimiter="\t").fillna("")
+    # Load camera inventory
+    for i, rec in camera_inventory_df.iterrows():
+        if not rec["Serial #"].strip():
+            # print(f'---- SKIPPED - (Row - {i+2}) MISSING Serial number ---')
+            continue
 
-# Load camera inventory
-for i, rec in camera_inventory_df.iterrows():
-    if not rec["Serial #"].strip():
-        continue
+        if len(rec["Serial #"]) >= 24:
+            # print(f'---- SKIPPED -  (Row - {i+2}) SERIAL NUMBER TOO LONG ---')
+            continue
 
-    if len(rec["Serial #"]) >= 24:
-        continue
+        # print(f'(Row - {i}) Loading Camera with Serial number - {rec["Serial #"]}')
+        brand, _ = CameraBrand.objects.get_or_create(name=rec["Brand"].strip())
+        power_source = "solar" if rec["# of batteries"].lower() == "solar" else "battery"
+        num_batteries = rec["# of batteries"].lower() if rec["# of batteries"].lower() != "solar" else 0
+        num_batteries = None if num_batteries == "" else num_batteries
 
-    print(f'(Row - {i}) Loading Camera with Serial number - {rec["Serial #"]}')
-    brand, _ = CameraBrand.objects.get_or_create(name=rec["Brand"].strip())
-    power_source = "solar" if rec["# of batteries"].lower() == "solar" else "battery"
-    num_batteries = rec["# of batteries"].lower() if rec["# of batteries"].lower() != "solar" else 0
-    num_batteries = None if num_batteries == "" else num_batteries
+        if not CameraModel.objects.filter(number=rec["Model #"]).exists():
+            model, _ = CameraModel.objects.get_or_create(
+                number=rec["Model #"],
+                name=rec["Camera model"],
+                power_source=power_source,
+                num_batteries=num_batteries,
+                brand=brand,
+            )
+        else:
+            model = CameraModel.objects.get(number=rec["Model #"])
 
-    if not CameraModel.objects.filter(number=rec["Model #"]).exists():
-        model, _ = CameraModel.objects.get_or_create(
-            number=rec["Model #"],
-            name=rec["Camera model"],
-            power_source=power_source,
-            num_batteries=num_batteries,
-            brand=brand,
-        )
-    else:
-        model = CameraModel.objects.get(number=rec["Model #"])
+        status = None
+        if rec["Comments"] == "Ready to deploy":
+            status = "ready_to_deploy"
+        elif rec["Comments"] == "Deployed":
+            status = "deployed"
+        elif rec["Comments"] == "Stolen":
+            status = "stolen"
+        elif rec["Comments"] == "To be refurbished":
+            status = "needs_refurbishment"
+        # One entry has a missing status & must be fixed in the spreadsheet
+        if not status:
+            # print(f'---- SKIPPED -  (Row - {i+2}) MISSING STATUS ---')
+            continue
+        if not Camera.objects.filter(serial_number=rec["Serial #"]).exists():
+            camera, _ = Camera.objects.get_or_create(
+                serial_number=rec["Serial #"].strip(),
+                model=model,
+                status=status,
+                comments=rec["Reason camera needs to be refurbished"],
+            )
+            # print(f'Successfully created record for camera with serial number - {rec["Serial #"]}')
 
-    status = None
-    if rec["Comments"] == "Ready to deploy":
-        status = "ready_to_deploy"
-    elif rec["Comments"] == "Deployed":
-        status = "deployed"
-    elif rec["Comments"] == "Stolen":
-        status = "stolen"
-    elif rec["Comments"] == "To be refurbished":
-        status = "needs_refurbishment"
-    # One entry has a missing status & must be fixed in the spreadsheet
-    if not status:
-        continue
-    if not Camera.objects.filter(serial_number=rec["Serial #"]).exists():
-        camera, _ = Camera.objects.get_or_create(
-            serial_number=rec["Serial #"].strip(),
-            model=model,
-            status=status,
-            comments=rec["Reason camera needs to be refurbished"],
-        )
-        print(f'Successfully created record for camera with serial number - {rec["Serial #"]}')
 
-# Load active camera stations
-for i, rec in active_cameras_df.iterrows():
-    camera_station_id = rec["Unnamed: 0"]
-    print(f"(Row - {i}) Loading Camera station with id - {camera_station_id}")
-    if not camera_station_id or not rec["Latitude"] or not rec["Longitude"]:
-        print("Missing camera station id or lat/long. Skipping...")
-        continue
-    # These are offending camera IDs that don't quite fit the existing schema.
-    if camera_station_id in [
-        "LAH13Bsnare2",
-        "DIA01A",
-        "DIA02A",
-        "DIA03A",
-        "DIA04A",
-        "DIA05A",
-        "DIA06A",
-        "DIA07A",
-        "DIA08A",
-        "DIA09A",
-        "DIA10A",
-        "OLM03A",
-        "PLT01A",
-        "PUC05A",
-        "PUC05A3",
-        "PUC09B",
-        "PUC09B2",
-        "RPP01B",
-        "RPP03A",
-        "RPP04A",
-        "RPP05A",
-        "SLN01C",
-        "SPVexp",
-        "PUC09C",
-    ]:
-        print("This camera station doesn't quite fit the schema. Skipping...")
-        continue
-    area, _ = Area.objects.get_or_create(name=rec["Unnamed: 1"].strip())
-    county, _ = County.objects.get_or_create(name=rec["County"].strip(), area=area)
-    grid, _ = Grid.objects.get_or_create(name=rec["Grid"].strip()) if rec["Grid"] else (None, None)
-    macrosite_name = rec["Macro-Site"] if rec["Macro-Site"] else "N/A"
-    macro_site, _ = MacroSite.objects.get_or_create(name=rec["Macro-Site"].strip(), county=county)
-    microsite_name = rec["Micro-Site"] if rec["Micro-Site"] else "N/A"
-    micro_site, _ = MicroSite.objects.get_or_create(name=rec["Micro-Site"].strip(), macro_site=macro_site, grid=grid)
+# load_camera_inventory()
 
-    trail_type, trail_type_created = (
-        TrailType.objects.get_or_create(name=rec["Trail-type (dropdown)"].strip())
-        if rec["Trail-type (dropdown)"]
-        else (None, None)
-    )
-    habitat_type, _ = (
-        HabitatType.objects.get_or_create(name=rec["Habitat type"].strip()) if rec["Habitat type"] else (None, None)
-    )
-    secondary_habitat_type, _ = (
-        HabitatType.objects.get_or_create(name=rec["Secondary Habitat Type"].strip())
-        if rec["Secondary Habitat Type"]
-        else (None, None)
-    )
-    camera_station_obj, _ = CameraStation.objects.get_or_create(
-        station_id=camera_station_id,
-        latitude=rec["Latitude"],
-        longitude=rec["Longitude"],
-        micro_site=micro_site,
-        habitat_type=habitat_type,
-        date_deployed=datetime.strptime(rec["Date Deployed"], "%m/%d/%Y").date(),
-    )
-    if trail_type_created:
-        camera_station_obj.trail_type.add(trail_type)
-    if secondary_habitat_type:
-        camera_station_obj.secondary_habitat_type = secondary_habitat_type
 
-    elevation = None
-    elevation_unit = None
-    if "ft" in rec["Elevation (ft)"]:
-        elevation = int(rec["Elevation (ft)"].replace("ft", "").strip())
-        elevation_unit = "ft"
-    elif "m" in rec["Elevation (ft)"]:
-        elevation = int(rec["Elevation (ft)"].replace("m", "").strip())
+def load_species_names():
+    species_df = pd.read_csv("local_data/species.tsv", delimiter="\t").fillna("")
+    for i, rec in species_df.iterrows():
+        print(f'(Row - {i}) Loading Species Name - {rec["Scientific Name"]}')
+        model, _ = SpeciesName.objects.get_or_create(name=rec["Common Name"], scientific_name=rec["Scientific Name"])
+
+
+# load_species_names()
+
+
+def load_active_cameras():
+    active_cameras_df = pd.read_csv("local_data/active_cameras.tsv", delimiter="\t").fillna("")
+    active_cameras_df["deployment_date"] = pd.to_datetime(active_cameras_df["Camera.Deployment.Begin.Date"])
+    # print(f"(Row - {i+2}) Loading Camera station with id - {camera_station_id}")
+    # inactive_cameras_df = pd.read_csv("local_data/inactive_cameras.tsv", delimiter="\t").fillna("")
+    # Load active camera stations
+    for i, rec in active_cameras_df.iterrows():
+        camera_station_id = rec["CameraStationID"].strip()
+        latitude = float(rec["Latitude Y"])
+        longitude = float(rec["Longitude X"])
+        if not camera_station_id:
+            print(f"(Row - {i+2}) Missing camera station id")
+        if not latitude or not longitude:
+            print(f"(Row - {i+2}) Missing lat or long")
+        if not rec["Area"].strip():
+            print(f"(Row - {i+2}) Missing Area")
+        if not rec["County"].strip():
+            print(f"(Row - {i+2}) Missing County")
+        if not rec["Macro-Site"].strip():
+            print(f"(Row - {i+2}) Missing Macro-Site")
+        if not rec["Micro-Site"].strip():
+            print(f"(Row - {i+2}) Missing Micro-Site")
+        if not rec["Elevation (m)"]:
+            print(f"(Row - {i+2}) Missing Elevation")
+        if not rec["Habitat type"]:
+            print(f"(Row - {i+2}) Missing Habitat type")
+        if not rec["deployment_date"]:
+            print(f"(Row - {i+2}) Missing Deployment date")
+        date_deployed = rec["deployment_date"].date()
+
+        elevation = int(rec["Elevation (m)"])
         elevation_unit = "m"
 
-    camera_station_obj.elevation = elevation
-    camera_station_obj.elevation_unit = elevation_unit
+        habitat_type, _ = (
+            HabitatType.objects.get_or_create(name=rec["Habitat type"].strip()) if rec["Habitat type"] else (None, None)
+        )
 
-    if rec["Date Last Checked"].strip():
-        try:
-            camera_station_obj.date_last_checked = datetime.strptime(rec["Date Last Checked"], "%m/%d/%Y").date()
-        except:
-            print(f"Format issue with 'Date Last Checked' field")
-    if rec["Date to Be Checked"].strip():
-        try:
-            camera_station_obj.date_to_be_checked = datetime.strptime(rec["Date to Be Checked"], "%m/%d/%Y").date()
-        except:
-            print(f"Format issue with 'Date to Be Checked' field")
-            pass
-    python_lock = None
-    if rec["Python Lock #"].strip().isnumeric():
-        if not PythonLock.objects.filter(number=rec["Python Lock #"]).exists():
-            duplicate_key_exists = (
-                True if rec["Duplicate Python Key?"] and rec["Duplicate Python Key?"] == "Y" else False
-            )
-            python_lock, _ = PythonLock.objects.get_or_create(
-                number=rec["Python Lock #"].strip(),
-                duplicate_key_exists=duplicate_key_exists,
-            )
+        area, created = Area.objects.get_or_create(name=rec["Area"].strip())
+        if created:
+            print(f"Created area - {area.name}")
+        county, created = County.objects.get_or_create(name=rec["County"].strip(), area=area)
+        if created:
+            print(f"Created county - {county.name}")
+        macro_site, created = MacroSite.objects.get_or_create(name=rec["Macro-Site"].strip(), county=county)
+        if created:
+            print(f"Created macro site - {macro_site.name}")
+        micro_site, created = MicroSite.objects.get_or_create(name=rec["Micro-Site"].strip(), macro_site=macro_site)
+        if created:
+            print(f"Created micro site - {micro_site.name}")
 
-    camera_station_obj.python_lock = python_lock
-    padlock = rec["Padlock Type"] if rec["Padlock Type"] else ""
-    if padlock:
-        padlock, created = Padlock.objects.get_or_create(name=padlock)
-        if not created:
-            padlock.count += 1
-            padlock.save()
+        # Create the core object
+        camera_station_obj, created = CameraStation.objects.get_or_create(
+            station_id=camera_station_id,
+            latitude=latitude,
+            longitude=longitude,
+            micro_site=micro_site,
+            date_deployed=date_deployed,
+        )
+        if created:
+            print(f"Created camera station - {camera_station_id}")
 
-    camera_station_obj.instructions = rec["Contact before check?"]
-    camera_station_obj.picture_instructions = rec["Send pictures?"]
-    camera_station_obj.notes = rec["Comments"]
+        # Add elevation
+        camera_station_obj.elevation = elevation
+        camera_station_obj.elevation_unit = elevation_unit
 
-    camera_obj = None
-    boxed = False
-    camera_row = camera_inventory_df.loc[camera_inventory_df["Camera ID"] == camera_station_id]
-    if not camera_row.empty:
-        camera_row = camera_row.to_dict(orient="records")[0]
-        if Camera.objects.filter(serial_number=camera_row["Serial #"]).exists():
-            camera_obj = Camera.objects.get(serial_number=camera_row["Serial #"])
-        boxed = True if camera_row["Box?"] == "Yes" else False
+        # Add habitat type
+        camera_station_obj.habitat_types.add(habitat_type)
 
-    camera_station_obj.camera = camera_obj
-    camera_station_obj.boxed = boxed
+        # Add comments
+        camera_station_obj.comments = rec["Comments"].strip()
 
-    camera_station_obj.save()
+        # Add padlock
+        padlock = rec["Padlock Type"].strip() if rec["Padlock Type"].strip() else None
+        if padlock:
+            padlock, created = Padlock.objects.get_or_create(name=padlock)
+            if not created:
+                padlock.count += 1
+                padlock.save()
+            camera_station_obj.padlock = padlock
 
-    print(f"Successfully created record for camera station with id- {camera_station_id}")
+        camera_station_obj.save()
 
-actions = [
-    "checked",
-    "taken_down",
-    "moved",
-    "replaced_camera",
-]
+    actions = [
+        "checked",
+        "taken_down",
+        "moved",
+        "replaced_camera",
+    ]
 
-for action in actions:
-    model, _ = CameraStationAction.objects.get_or_create(action=action)
+    for action in actions:
+        model, _ = CameraStationAction.objects.get_or_create(action=action)
 
 
-species_scientific_names = [
-    "Sciurus carolinensis",
-    "Sciurus griseus",
-    "Sciurus spp",
-    "Muridae spp",
-    "Lontra canadensis",
-    "Capra aegagrus hircus",
-    "Lepus californicus",
-    "Sylvilagus bachmani:",
-    "Felis domesticus",
-    "Lynx rufus",
-    "Canis latrans",
-    "Ursus americanus",
-    "Odocoileus hemionus",
-    "Homo sapiens",
-    "Procyon lotor",
-    "Vulpes vulpes",
-    "Urocyon cinereoargenteus",
-    "Puma concolor",
-    "Odocoileus virginianus",
-    "Equus caballus",
-    "unknown fox spp",
-    "unknown rabbit spp",
-    "Colaptes auratus auratus",
-    "Meleagris gallopavo",
-    "bird spp",
-    "Anas platyrhynchos",
-    "Bubo virginianus",
-    "Haemorhous mexicanus",
-    "Zenaida macroura",
-    "Aphelocoma californica",
-    "Corvus brachyrhynchos",
-    "Corvus corax",
-    "Buteo jamaicensis",
-]
-
-species_common_names = [
-    "eastern grey squirrel",
-    "western grey squirrel",
-    "unknown squirrel spp",
-    "unknown mouse or rat spp",
-    "river otter",
-    "goat",
-    "black-tailed jackrabbit",
-    "brush rabbit",
-    "domestic cat",
-    "bobcat",
-    "coyote",
-    "black bear",
-    "mule deer",
-    "human",
-    "raccoon",
-    "red fox",
-    "gray fox",
-    "puma",
-    "white-tailed deer",
-    "horse",
-    "unknown fox spp",
-    "unknown rabbit spp",
-    "yellow-shafted flicker",
-    "turkey",
-    "bird spp",
-    "mallard",
-    "great horned owl",
-    "house finch",
-    "morning dove",
-    "western scrub-jay",
-    "American crow",
-    "common raven",
-    "red-tailed hawk",
-]
-
-for scientific_name, common_name in zip(species_scientific_names, species_common_names):
-    model, _ = SpeciesName.objects.get_or_create(name=common_name, scientific_name=scientific_name)
-
-# TODO: Change this as needed
-bot, _ = Bot.objects.get_or_create(
-    name="MegaDetector",
-    version="4.1.0",
-    task_type="Object Detection",
-    model_api_url=settings.MEGADETECTOR_URL,
-    model_file_url=f"gs://{settings.MODEL_STORAGE_BUCKET}/md_v4.1.0.pb",
-)
+load_active_cameras()

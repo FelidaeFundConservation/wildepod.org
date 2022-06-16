@@ -61,7 +61,7 @@ class Grid(TimeStampedModel):
 class MicroSite(TimeStampedModel):
     name = models.CharField("Micro-site name", max_length=250, unique=True)
     macro_site = models.ForeignKey(MacroSite, on_delete=models.PROTECT)
-    grid = models.ForeignKey(Grid, on_delete=models.PROTECT, verbose_name="Grid name", null=True, blank=True)
+    grid = models.ForeignKey(Grid, on_delete=models.SET_NULL, verbose_name="Grid name", null=True, blank=True)
     # History of model instance changes
     history = HistoricalRecords()
 
@@ -113,7 +113,7 @@ class LandUseType(TimeStampedModel):
 
 class HabitatType(TimeStampedModel):
     name = models.CharField("Habitat type", max_length=100, unique=True)
-    # comments = models.TextField("Additional notes", blank=True)
+    comments = models.TextField("Additional notes", blank=True)
     # History of model instance changes
     history = HistoricalRecords()
 
@@ -144,7 +144,7 @@ class CameraStation(TimeStampedModel):
     # Meta information about the the camera station site
     micro_site = models.ForeignKey(MicroSite, on_delete=models.PROTECT)
 
-    trail_type = models.ManyToManyField(TrailType, blank=True)
+    trail_type = models.ForeignKey(TrailType, on_delete=models.PROTECT, null=True, blank=True)
 
     trail_surface = models.ForeignKey(
         TrailSurfaceType,
@@ -155,20 +155,11 @@ class CameraStation(TimeStampedModel):
 
     land_use_type = models.ManyToManyField(LandUseType, blank=True)
 
-    habitat_type = models.ForeignKey(
+    habitat_types = models.ManyToManyField(
         HabitatType,
-        on_delete=models.PROTECT,
-        related_name="primary_habitat_type",
-        null=True,
         blank=True,
     )
-    secondary_habitat_type = models.ForeignKey(
-        HabitatType,
-        on_delete=models.PROTECT,
-        related_name="secondary_habitat_type",
-        null=True,
-        blank=True,
-    )
+
     habitat_notes = models.TextField("Additional habitat notes", blank=True)
 
     # Optionally linked camera from the existing inventory
@@ -210,12 +201,10 @@ class CameraStation(TimeStampedModel):
     )
 
     # Volunteer assigned to the camera station
-    volunteer = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    volunteer = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True)
 
     # Additional free text comments about the specific camera station
-    instructions = models.TextField("Instructions to follow before checking the camera station", blank=True)
-    picture_instructions = models.TextField("Who should the pictures be sent to?", blank=True)
-    comments = models.TextField("Additional notes", blank=True)
+    comments = models.TextField("Instructions/Comments", blank=True)
 
     def __str__(self):
         return (

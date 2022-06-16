@@ -93,3 +93,9 @@ LOGGING = {
     },
     "root": {"level": "INFO", "handlers": ["console"]},
 }
+
+# CUSTOM VARIABLES
+# ------------------------------------------------------------------------------
+# Annotation configuration
+NUM_ACCEPTS_OVER_REJECTS = 0
+MIN_MEGADETECTOR_CONFIDENCE = 0.25

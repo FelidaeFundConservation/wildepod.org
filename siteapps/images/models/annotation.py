@@ -1,5 +1,6 @@
 import uuid
 
+from django.conf import settings
 from django.db import models
 from django.db.models import Count, ExpressionWrapper, Q
 from django.db.models.functions import Coalesce
@@ -7,9 +8,6 @@ from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
 
 from .image import Annotator, Image
-
-NUM_ACCEPTS_OVER_REJECTS = 2
-MIN_MEGADETECTOR_CONFIDENCE = 0.25
 
 
 class BaseAnnotationManager(models.Manager):
@@ -21,18 +19,21 @@ class BaseAnnotationManager(models.Manager):
         # Combining multiple aggregations with annotate() will yield the wrong results because joins are used instead of subqueries
         # https://docs.djangoproject.com/en/4.0/topics/db/aggregation/#combining-multiple-aggregations
         return self.annotate(
-            keep=ExpressionWrapper(Q(confidence__gte=MIN_MEGADETECTOR_CONFIDENCE), output_field=models.BooleanField()),
+            keep=ExpressionWrapper(
+                Q(confidence__gte=settings.MIN_MEGADETECTOR_CONFIDENCE), output_field=models.BooleanField()
+            ),
             num_accepted=Coalesce(Count("accepted_by", distinct=True), 0),
             num_rejected=Coalesce(Count("rejected_by", distinct=True), 0),
             vote_diff=models.F("num_accepted") - models.F("num_rejected"),
             voted_valid=ExpressionWrapper(
-                Q(vote_diff__gte=NUM_ACCEPTS_OVER_REJECTS), output_field=models.BooleanField()
+                Q(vote_diff__gte=settings.NUM_ACCEPTS_OVER_REJECTS), output_field=models.BooleanField()
             ),
             voted_invalid=ExpressionWrapper(
-                Q(vote_diff__lte=-NUM_ACCEPTS_OVER_REJECTS), output_field=models.BooleanField()
+                Q(vote_diff__lte=-settings.NUM_ACCEPTS_OVER_REJECTS), output_field=models.BooleanField()
             ),
             vote_uncertain=ExpressionWrapper(
-                Q(vote_diff__lt=NUM_ACCEPTS_OVER_REJECTS) & Q(vote_diff__gt=-NUM_ACCEPTS_OVER_REJECTS),
+                Q(vote_diff__lt=settings.NUM_ACCEPTS_OVER_REJECTS)
+                & Q(vote_diff__gt=-settings.NUM_ACCEPTS_OVER_REJECTS),
                 output_field=models.BooleanField(),
             ),
         )

@@ -117,3 +117,9 @@ LOGGING = {
 # ------------------------------------------------------------------------------
 # GCF cloud url where MegaDetector currently serves requests
 MEGADETECTOR_URL = env("MEGADETECTOR_URL_LOCAL")
+
+# CUSTOM VARIABLES
+# ------------------------------------------------------------------------------
+# Annotation configuration
+NUM_ACCEPTS_OVER_REJECTS = 0
+MIN_MEGADETECTOR_CONFIDENCE = 0.25

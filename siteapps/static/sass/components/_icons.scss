@@ -1,0 +1,27 @@
+/* ---- Social ----- */
+/* Brand based social icon coloring */
+.bi-instagram {
+    background: -moz-linear-gradient(top right, #4f5bd5 0%, #d62976 50%, #feda75 100%);
+    background: -webkit-linear-gradient(top right, #4f5bd5 0%, #d62976 50%, #feda75 100%);
+    background: linear-gradient(to left bottom, #4f5bd5 0%, #d62976 50%, #feda75 100%);
+    -webkit-background-clip: text;
+    -moz-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.bi-twitter {
+    color: #1DA1F2;
+}
+
+.bi-facebook {
+    color: #3B5998;
+}
+
+.bi-github {
+    color: #333;
+}
+
+.bi-google {
+    color: #D32F2F;
+}

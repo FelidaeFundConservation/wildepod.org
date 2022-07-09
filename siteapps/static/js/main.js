@@ -41,7 +41,7 @@ function createCategoryWidget(categories){
           let button = document.createElement('button');
           button.className = 'btn btn-light m-1';
           if (value == currentClassValue)
-            button.className = 'btn btn-dark m-1 selected';
+            button.className = 'btn btn-primary m-1 selected';
           // Set the tag value & the text content
           button.dataset.tag = value;
           button.textContent = value;

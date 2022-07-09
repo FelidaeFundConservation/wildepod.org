@@ -1,0 +1,8 @@
+@use '../core';
+
+.footer {
+    p {
+        @include core.responsive-font(core.$font-size-footer-base, 0.05em);
+        color: core.$color-footer;
+    }
+}

@@ -1,0 +1,30 @@
+@use '../core';
+
+.home-banner {
+    height: 95vh;
+    background-image: url('https://felidaefund.org/media/cache/autosized/images/igallery/original/801-900/jlm-9184-20--20denoise-832-1920.webp');
+    background-size: cover;
+    background-position: center;
+
+    .cta {
+        background-color: rgba(black, 0.25);
+        border-radius:2em;
+        overflow: hidden;
+    }
+
+    h1 {
+        @include core.responsive-font(2.5em, .5em);
+        color: #fff !important;
+    }
+
+    p {
+        @include core.responsive-font(1.25em, 0.1em);
+        line-height: 1.5;
+        color: #fff !important;
+        font-weight: 500;
+    }
+
+    button {
+        font-weight: 500;
+    }
+}

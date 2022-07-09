@@ -60,7 +60,7 @@ def load_camera_inventory():
             # print(f'Successfully created record for camera with serial number - {rec["Serial #"]}')
 
 
-# load_camera_inventory()
+load_camera_inventory()
 
 
 def load_species_names():
@@ -70,7 +70,7 @@ def load_species_names():
         model, _ = SpeciesName.objects.get_or_create(name=rec["Common Name"], scientific_name=rec["Scientific Name"])
 
 
-# load_species_names()
+load_species_names()
 
 
 def load_active_cameras():
@@ -107,7 +107,9 @@ def load_active_cameras():
         elevation_unit = "m"
 
         habitat_type, _ = (
-            HabitatType.objects.get_or_create(name=rec["Habitat type"].strip()) if rec["Habitat type"] else (None, None)
+            HabitatType.objects.get_or_create(name=rec["Habitat type"].strip())
+            if rec["Habitat type"].strip()
+            else (None, None)
         )
 
         area, created = Area.objects.get_or_create(name=rec["Area"].strip())
@@ -139,7 +141,8 @@ def load_active_cameras():
         camera_station_obj.elevation_unit = elevation_unit
 
         # Add habitat type
-        camera_station_obj.habitat_types.add(habitat_type)
+        if habitat_type:
+            camera_station_obj.habitat_types.add(habitat_type)
 
         # Add comments
         camera_station_obj.comments = rec["Comments"].strip()

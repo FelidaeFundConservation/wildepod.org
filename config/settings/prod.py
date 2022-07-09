@@ -22,6 +22,7 @@ WSGI_APPLICATION = "config.wsgi.prod.application"
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases
 DATABASES = {"default": env.db("PROD_DATABASE_URL")}
+DATABASES["default"]["CONN_MAX_AGE"] = 600
 # TODO: Check if this needs to be done
 
 # If the flag has been set, configure to use proxy
@@ -111,6 +112,16 @@ google_logging_client = google.cloud.logging.Client()
 # Python logging module. By default this captures all logs
 # at INFO level and higher
 google_logging_client.setup_logging()
+
+
+# COMPRESSOR
+# ------------------------------------------------------------------------------
+COMPRESS_ENABLED = True
+
+COMPRESS_PRECOMPILERS = (
+    ("text/x-sass", "sass --style compressed {infile} {outfile}"),
+    ("text/x-scss", "sass --style compressed {infile} {outfile}"),
+)
 
 
 # EXTERNAL APPS CONFIG

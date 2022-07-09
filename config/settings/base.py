@@ -86,6 +86,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.sites",
+    "compressor",
     "django.forms",
     "crispy_forms",
     "crispy_bootstrap5",
@@ -99,8 +100,6 @@ INSTALLED_APPS = [
     "siteapps.inventory",
     "siteapps.locations",
     "siteapps.images",
-    # TODO: Remove this line if user guide lives on google docs
-    # "siteapps.instructions",
     "simple_history",
 ]
 
@@ -208,13 +207,19 @@ CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
 
 # STATIC
 # ------------------------------------------------------------------------------
+# https://docs.djangoproject.com/en/dev/ref/settings/#static-url
+STATIC_URL = "/static/"
+# https://docs.djangoproject.com/en/dev/ref/settings/#static-root
+STATIC_ROOT = str(ROOT_DIR / "collected_static")
 # https://docs.djangoproject.com/en/dev/ref/contrib/staticfiles/#std:setting-STATICFILES_DIRS
 STATICFILES_DIRS = [str(APPS_DIR / "static")]
 # https://docs.djangoproject.com/en/dev/ref/contrib/staticfiles/#staticfiles-finders
 STATICFILES_FINDERS = [
     "django.contrib.staticfiles.finders.FileSystemFinder",
     "django.contrib.staticfiles.finders.AppDirectoriesFinder",
+    "compressor.finders.CompressorFinder",
 ]
+
 
 # FIXTURES
 # ------------------------------------------------------------------------------

@@ -1,4 +1,3 @@
-from braces.views import StaffuserRequiredMixin
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
@@ -8,7 +7,7 @@ from images.models import Image
 IMAGE_PAGINATION_LIMIT = 24
 
 
-class ExplorePopularImagesView(LoginRequiredMixin, StaffuserRequiredMixin, ListView):
+class ExplorePopularImagesView(LoginRequiredMixin, ListView):
     login_url = settings.LOGIN_URL
     model = Image
     template_name = "explore/popular_images.html"

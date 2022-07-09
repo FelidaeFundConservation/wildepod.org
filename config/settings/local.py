@@ -50,19 +50,6 @@ DATABASES = {
 # Admin url obfuscation
 ADMIN_URL_SUFFIX = ""
 
-# STATIC
-# ------------------------------------------------------------------------------
-# https://docs.djangoproject.com/en/dev/ref/settings/#static-root
-STATIC_ROOT = str(ROOT_DIR / "staticfiles")
-# https://docs.djangoproject.com/en/dev/ref/settings/#static-url
-STATIC_URL = "/static/"
-# https://docs.djangoproject.com/en/dev/ref/contrib/staticfiles/#std:setting-STATICFILES_DIRS
-STATICFILES_DIRS = [str(APPS_DIR / "static")]
-# https://docs.djangoproject.com/en/dev/ref/contrib/staticfiles/#staticfiles-finders
-STATICFILES_FINDERS = [
-    "django.contrib.staticfiles.finders.FileSystemFinder",
-    "django.contrib.staticfiles.finders.AppDirectoriesFinder",
-]
 
 # MEDIA
 # ------------------------------------------------------------------------------
@@ -113,13 +100,23 @@ LOGGING = {
     "root": {"level": "INFO", "handlers": ["console"]},
 }
 
+
+# COMPRESSOR
+# ------------------------------------------------------------------------------
+COMPRESS_ENABLED = False
+
+COMPRESS_PRECOMPILERS = (
+    ("text/x-sass", "sass --style compressed {infile} {outfile}"),
+    ("text/x-scss", "sass --style compressed {infile} {outfile}"),
+)
+
+
 # CUSTOM VARIABLES
 # ------------------------------------------------------------------------------
 # GCF cloud url where MegaDetector currently serves requests
 MEGADETECTOR_URL = env("MEGADETECTOR_URL_LOCAL")
+MEGADETECTOR_URL = env("MEGADETECTOR_URL")
 
-# CUSTOM VARIABLES
-# ------------------------------------------------------------------------------
 # Annotation configuration
 NUM_ACCEPTS_OVER_REJECTS = 0
 MIN_MEGADETECTOR_CONFIDENCE = 0.25

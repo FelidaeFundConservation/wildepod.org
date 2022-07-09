@@ -113,6 +113,15 @@ google_logging_client = google.cloud.logging.Client(project=env("GOOGLE_CLOUD_PR
 google_logging_client.setup_logging()
 
 
+# COMPRESSOR
+# ------------------------------------------------------------------------------
+COMPRESS_ENABLED = True
+
+COMPRESS_PRECOMPILERS = (
+    ("text/x-sass", "sass --style compressed {infile} {outfile}"),
+    ("text/x-scss", "sass --style compressed {infile} {outfile}"),
+)
+
 # EXTERNAL APPS CONFIG
 # ------------------------------------------------------------------------------
 # Dropbox token for local mode

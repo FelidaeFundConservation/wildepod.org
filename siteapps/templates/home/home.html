@@ -7,13 +7,68 @@
 {% block nav_home %}active{% endblock nav_home %}
 
 {% block content %}
-<div class="container mt-5 pt-5">
-    <div class="row justify-content-evenly">
-        <div class="col-12 col-md-10 col-lg-8">
+<div class="container-fluid p-0 home-banner d-flex justify-content-center align-items-center">
+    <div class="row justify-content-center m-3 p-3 p-md-4 text-center cta">
+        <div class="col-12 col-md-10">
+            <h1>Welcome to WildePod</h1>
+            <p>Let's make our community a better place! Help us record trail camera data.</p>
+            <a href="{% url 'account_login' %}"><button class="btn btn-light">Get Involved</button></a>
+        </div>
+    </div>
+</div>
+<div class="container py-2 my-2 py-md-3 my-md-3 py-lg-4 my-lg-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-4 p-3 p-md-4 text-center">
             <img
-                class="img-fluid"
-                src="{% static 'images/felidae_profile.png'%}"
+                src="{% static 'images/bobcat.jpg' %}"
+                alt="Bobcat"
+                class="img-fluid w-100 rounded-circle p-4"
             >
+            <h2>WildePod Database</h2>
+            <p>
+                We have built a database repository for wildlife imagery collected on public, state, county, city and
+                private lands.
+                Our work is focused on conservation of wild fields but we collect images of all wildlife for use in
+                research and land planning. Clean Data.
+            </p>
+            <a
+                href="{% url 'explore:map' %}"
+                target="_blank"
+            ><button class="btn btn-primary">ENTER DATABASE</button></a>
+        </div>
+        <div class="col-12 col-lg-4 p-3 p-md-4 text-center">
+            <img
+                src="{% static 'images/puma_backyard.jpg' %}"
+                alt="Puma in the backyard"
+                class="img-fluid w-100 rounded-circle p-4"
+            >
+            <h2>WildePod Backyard</h2>
+            <p>
+                We are building a community backyard program that partners with residential communities to collect
+                wildlife images on private properties.
+                If you think you have wildlife moving through your property or have seen it, we want to work with you!
+            </p>
+            <a
+                href="https://felidaefund.org/projects/community/wilde-backyard"
+                target="_blank"
+            ><button class="btn btn-primary">FIND OUT MORE</button></a>
+        </div>
+        <div class="col-12 col-lg-4 p-3 p-md-4 text-center">
+            <img
+                src="{% static 'images/puma_scat.jpg' %}"
+                alt="Bobcat"
+                class="img-fluid w-100 rounded-circle p-4"
+            >
+            <h2>DNA Research</h2>
+            <p>
+                We collect scat, hair and eDNA for our research on mountain lions and bobcats in the SF Bay Area in
+                order to determine impacts of human activities on the health of felid species at the urban edge. Contact
+                us for more information or to get involved.
+            </p>
+            <a
+                href="https://felidaefund.org/careers"
+                target="_blank"
+            ><button class="btn btn-primary">BECOME A MEMBER</button></a>
         </div>
     </div>
 </div>

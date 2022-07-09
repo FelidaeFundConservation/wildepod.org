@@ -1,0 +1,15 @@
+@use '../core';
+
+.account-header {
+    color: rgb(128, 74, 74);
+}
+
+.login {
+    .asteriskField {
+        display: none;
+    }
+}
+
+.forgot-password {
+    @include core.responsive-font(core.$font-size-small-base, 0.05em);
+}

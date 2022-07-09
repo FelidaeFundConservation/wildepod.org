@@ -1,0 +1,14 @@
+@use '_variables' as variables;
+
+@mixin responsive-font($base, $offset) {
+    font-size: $base;
+    @media (min-width: variables.$md) {
+        font-size: $base + (1 * $offset);
+    }
+    @media (min-width: variables.$lg) {
+        font-size: $base + (1.5 * $offset);
+    }
+    @media (min-width: variables.$xl) {
+        font-size: $base + (2 * $offset);
+    }
+}

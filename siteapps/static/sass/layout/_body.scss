@@ -1,0 +1,72 @@
+@use '../core';
+
+html {
+    height: 100%;
+}
+
+body {
+    font-family: core.$font-family-base;
+    color: core.$color-base;
+}
+
+// Base headers
+h1 {
+    font-family: core.$font-family-heading;
+    font-weight: 500;
+    color: core.$color-heading;
+}
+
+// Responsive styling
+h1 {
+    @include core.responsive-font(core.$font-size-h1-base, 0.1em);
+}
+
+h2 {
+    @extend h1;
+    @include core.responsive-font(core.$font-size-h2-base, 0.1em);
+}
+
+h3 {
+    @extend h1;
+    @include core.responsive-font(core.$font-size-h3-base, 0.1em);
+}
+
+h4 {
+    @extend h1;
+    @include core.responsive-font(core.$font-size-h4-base, 0.1em);
+}
+
+h5 {
+    @extend h1;
+    @include core.responsive-font(core.$font-size-h5-base, 0.1em);
+}
+
+p {
+    line-height: 1.75;
+    @include core.responsive-font(core.$font-size-p-base, 0.05em);
+}
+
+small {
+    @include core.responsive-font(core.$font-size-small-base, 0.05em);
+}
+
+// Base link styling
+a {
+    text-decoration: none;
+    color: core.$color-link;
+
+    &:hover {
+        color: core.$color-link-hover;
+    }
+}
+
+
+li {
+    line-height: 1.75;
+}
+
+
+.form-control:focus {
+    border-color: rgb(221, 200, 200);
+    box-shadow: inset 0 1px 1px rgb(255, 255, 255), 0 0 8px rgb(240, 227, 227);
+}

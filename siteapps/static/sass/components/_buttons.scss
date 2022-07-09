@@ -1,0 +1,34 @@
+@use '../core';
+
+/* Overriding bootstrap styling */
+.btn-primary {
+    border-color: core.$color-btn-dark;
+    background-color: core.$color-btn-dark;
+
+    &:hover {
+        border-color: core.$color-btn-dark-hover;
+        background-color: core.$color-btn-dark-hover;
+    }
+
+    &:focus {
+        border-color: core.$color-btn-dark-hover;
+        background-color: core.$color-btn-dark-hover;
+        box-shadow: 0px 0px 0px 0.05em rgba(core.$color-nav, 0.1);
+    }
+}
+
+.btn-light {
+    border-color: core.$color-btn-light;
+    background-color: core.$color-btn-light;
+
+    &:hover {
+        border-color: core.$color-btn-light-hover;
+        background-color: core.$color-btn-light-hover;
+    }
+
+    &:focus {
+        border-color: core.$color-btn-light-hover;
+        background-color: core.$color-btn-light-hover;
+        box-shadow: 0px 0px 0px 0.05em rgba(core.$color-nav, 0.1);
+    }
+}

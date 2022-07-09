@@ -1,4 +1,5 @@
 {% load static %}
+{% load compress %}
 <!DOCTYPE html>
 <html lang="en">
 
@@ -73,22 +74,28 @@
         {% endblock header_includes %}
 
         <!-- Custom Style Sheets -->
+        {% compress css %}
         <link
             rel="stylesheet"
-            type="text/css"
-            href="{% static 'css/main.css' %}"
+            type="text/x-scss"
+            href="{% static 'sass/main.scss' %}"
         >
+        {% endcompress %}
     </head>
 
     <body class="d-flex flex-column h-100">
         <header>
-            <nav class="navbar navbar-light navbar-expand-md justify-content-center py-1">
+            <nav class="navbar navbar-light navbar-expand-lg justify-content-center p-0 pt-1">
                 <div class="container">
                     <a
                         class="navbar-brand d-flex w-50 me-auto"
                         href="{% url 'home:index' %}"
                     >
-                        WildePod
+                        <img
+                            class="img-fluid ms-3 ms-lg-4 pb-1"
+                            src="{% static 'images/wildepod_nav_logo.png'%}"
+                            style="max-height: 40px;"
+                        >
                     </a>
                     <button
                         class="navbar-toggler"
@@ -99,7 +106,7 @@
                         aria-expanded="false"
                         aria-label="Toggle navigation"
                     >
-                        <span class="material-icons">menu</span>
+                        <i class="bi bi-list"></i>
                     </button>
                     <div
                         class="navbar-collapse collapse w-100"
@@ -116,7 +123,6 @@
                                     Home
                                 </a>
                             </li>
-                            {% if user.is_staff %}
                             <li class="nav-item dropdown mx-1 {% block nav_explore %}{% endblock nav_explore %}">
                                 <a
                                     class="nav-link"
@@ -140,21 +146,14 @@
                                             class="dropdown-item"
                                             href="{% url 'explore:popular_images' %}"
                                         >Popular Images</a></li>
+                                    {% if user.is_staff %}
                                     <li><a
                                             class="dropdown-item"
                                             href="{% url 'explore:megadetector' %}"
                                         >Megadetector</a></li>
+                                    {% endif %}
                                 </ul>
                             </li>
-                            <li class="nav-item mx-1 {% block nav_volunteer %}{% endblock nav_volunteer %}">
-                                <a
-                                    class="nav-link"
-                                    href="{% url 'users:volunteers_list' %}"
-                                >
-                                    Volunteers
-                                </a>
-                            </li>
-                            {% endif %}
                             <li class="nav-item dropdown mx-1 {% block nav_tag %}{% endblock nav_tag %}">
                                 <a
                                     class="nav-link"
@@ -224,6 +223,10 @@
                                             href="{% url 'admin:index' %}"
                                             target="_blank"
                                         >Admin</a></li>
+                                    <li><a
+                                            class="dropdown-item"
+                                            href="{% url 'users:volunteers_list' %}"
+                                        >Volunteers</a></li>
                                     {% endif %}
                                     <li><a
                                             class="dropdown-item"
@@ -254,14 +257,25 @@
             {% endblock content %}
         </main>
 
+
         {% block footer %}
-        <footer class="footer mt-auto pt-5">
+        <footer class="footer mt-auto py-2">
             <div class="container text-center">
-                <p>
+                <p class="mb-0">
+                    Powered by <a
+                        href="https://www.djangoproject.com/"
+                        target="_blank"
+                    >Django</a> |
+                    © 2022
+                    <a
+                        href="https://felidaefund.org/"
+                        target="_blank"
+                    >Felidae Conservation Fund.
+                    </a>
                 </p>
             </div>
         </footer>
-        {% endblock footer %}
+        {% endblock footer%}
 
         <!-- Jquery -->
         <script
@@ -276,7 +290,9 @@
             crossorigin="anonymous"
         ></script>
         <!-- Custom JS -->
-        <script src="{% static 'js/main.js' %}"></script>
+        {% compress js %}
+        <script src="{% static 'js/main.js' %}" type="text/javascript" charset="utf-8"></script>
+        {% endcompress %}
         <!-- Additional page specific JS -->
         {% block footer_includes %}
         {% endblock footer_includes %}

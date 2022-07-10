@@ -12,7 +12,16 @@
         <div class="col-12 col-md-10">
             <h1>Welcome to WildePod</h1>
             <p>Let's make our community a better place! Help us record trail camera data.</p>
-            <a href="{% url 'account_login' %}"><button class="btn btn-light">Get Involved</button></a>
+            {% if user.is_authenticated and user.is_active %}
+            <a href="{% url 'images:annotate_objects' %}">
+                <button class="btn btn-light">Start Tagging</button>
+            </a>
+            {% else %}
+            <a
+                href="https://felidaefund.org/take-action"
+                target="_blank"
+            ><button class="btn btn-light">Get Involved</button></a>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -31,10 +40,15 @@
                 Our work is focused on conservation of wild fields but we collect images of all wildlife for use in
                 research and land planning. Clean Data.
             </p>
-            <a
-                href="{% url 'explore:map' %}"
-                target="_blank"
-            ><button class="btn btn-primary">ENTER DATABASE</button></a>
+            {% if user.is_authenticated and user.is_active %}
+            <a href="{% url 'explore:map' %}">
+                <button class="btn btn-primary">ENTER DATABASE</button>
+            </a>
+            {% else %}
+            <a href="{% url 'account_login' %}">
+                <button class="btn btn-primary">ENTER DATABASE</button>
+            </a>
+            {% endif %}
         </div>
         <div class="col-12 col-lg-4 p-3 p-md-4 text-center">
             <img
@@ -42,7 +56,7 @@
                 alt="Puma in the backyard"
                 class="img-fluid w-100 rounded-circle p-4"
             >
-            <h2>WildePod Backyard</h2>
+            <h2>Wilde Backyard</h2>
             <p>
                 We are building a community backyard program that partners with residential communities to collect
                 wildlife images on private properties.
@@ -66,9 +80,9 @@
                 us for more information or to get involved.
             </p>
             <a
-                href="https://felidaefund.org/careers"
+                href="https://felidaefund.org/take-action"
                 target="_blank"
-            ><button class="btn btn-primary">BECOME A MEMBER</button></a>
+            ><button class="btn btn-primary">LEARN MORE</button></a>
         </div>
     </div>
 </div>

@@ -68,6 +68,10 @@ GS_DEFAULT_ACL = "publicRead"
 STATICFILES_STORAGE = "siteapps.utils.storages.StaticRootGoogleCloudStorage"
 COLLECTFAST_STRATEGY = "collectfast.strategies.gcloud.GoogleCloudStrategy"
 STATIC_URL = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/static/"
+COMPRESS_STORAGE = STATICFILES_STORAGE
+COMPRESS_ROOT = STATIC_ROOT
+COMPRESS_URL = STATIC_URL
+
 # Media files
 DEFAULT_FILE_STORAGE = "siteapps.utils.storages.MediaRootGoogleCloudStorage"
 MEDIA_URL = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/media/"
@@ -116,11 +120,13 @@ google_logging_client.setup_logging()
 # COMPRESSOR
 # ------------------------------------------------------------------------------
 COMPRESS_ENABLED = True
+COMPRESS_OFFLINE = True
 
 COMPRESS_PRECOMPILERS = (
     ("text/x-sass", "sass --style compressed {infile} {outfile}"),
     ("text/x-scss", "sass --style compressed {infile} {outfile}"),
 )
+
 
 # EXTERNAL APPS CONFIG
 # ------------------------------------------------------------------------------

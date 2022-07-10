@@ -115,7 +115,6 @@ COMPRESS_PRECOMPILERS = (
 # ------------------------------------------------------------------------------
 # GCF cloud url where MegaDetector currently serves requests
 MEGADETECTOR_URL = env("MEGADETECTOR_URL_LOCAL")
-MEGADETECTOR_URL = env("MEGADETECTOR_URL")
 
 # Annotation configuration
 NUM_ACCEPTS_OVER_REJECTS = 0

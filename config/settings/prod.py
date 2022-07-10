@@ -117,6 +117,7 @@ google_logging_client.setup_logging()
 # COMPRESSOR
 # ------------------------------------------------------------------------------
 COMPRESS_ENABLED = True
+COMPRESS_OFFLINE = True
 
 COMPRESS_PRECOMPILERS = (
     ("text/x-sass", "sass --style compressed {infile} {outfile}"),

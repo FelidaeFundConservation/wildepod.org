@@ -66,6 +66,12 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
                 Exists(BoundingBox.objects.valid().filter(image=OuterRef("pk"))),
                 # There must be no uncertain bounding boxes for the image
                 ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
+                # TODO: Fix the line below
+                # This is a quick and dirty hack to only ever show an image if there is at least
+                # one bounding box that has at least one category tagged as an animal linked to it
+                # It should work for most of the time but is not always accurate and will generate false positives
+                # Must be fixed
+                Exists(BoundingBox.objects.is_animal().filter(image=OuterRef("pk"))),
                 # Image must be marked as processed
                 processed=True,
                 num_species_checked_by__lt=MAX_VOTES_PER_IMAGE,

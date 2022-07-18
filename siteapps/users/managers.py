@@ -1,6 +1,5 @@
 import logging
 from smtplib import SMTPException
-import uuid
 
 from allauth.account.models import EmailAddress
 from django.conf import settings
@@ -50,7 +49,7 @@ class UserManager(BaseUserManager):
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
         # If the password field is None, generate a password and send it in the email
-        password_generated = None if password else uuid.uuid4().hex[:12]
+        password_generated = None if password else self.make_random_password(length=12)
         password = password if password else password_generated
         user.set_password(password)
         user.save(using=self._db)

@@ -1,0 +1,17 @@
+@use '../core';
+
+/* ------------ Annotations ------------ */
+svg.a9s-annotationlayer .a9s-inner {
+    stroke-width: 2px;
+}
+
+.species-annotation {
+    .r6o-editor {
+        width: 767px !important;
+
+        .btn-tag {
+            width: 100%;
+            font-size: 0.85em;
+        }
+    }
+}

@@ -36,6 +36,11 @@ class BaseAnnotationManager(models.Manager):
                 & Q(vote_diff__gt=-settings.NUM_ACCEPTS_OVER_REJECTS),
                 output_field=models.BooleanField(),
             ),
+            # TODO: This is an untested hack to quickly flag if there is an animal tag associated with this box
+            # This doesn't consider vote differences nor overall consensus for the animal tag and must be fixed.
+            is_animal=ExpressionWrapper(
+                Q(category__isnull=False) & Q(category__name="animal"), output_field=models.BooleanField()
+            ),
         )
 
     def uncertain(self):
@@ -50,7 +55,14 @@ class BaseAnnotationManager(models.Manager):
 
 # Certainty annotations for bounding boxes
 class BoundingBoxManager(BaseAnnotationManager):
-    pass
+
+    # TODO: Fix this
+    # This quickly filters only boxes that have at least one animal category tag associated with it
+    # This ideally should only return boxes that has a consensus that the category is animal
+    # This requires overall vote consensus to be implemented
+
+    def is_animal(self):
+        return self.annotated().filter(keep=True).filter(is_animal=True)
 
 
 # Certainty annotations for categories
@@ -125,7 +137,10 @@ class SpeciesName(TimeStampedModel):
         return self.name
 
     class Meta:
-        ordering = ("-created",)
+        ordering = (
+            "name",
+            "-created",
+        )
         verbose_name_plural = "Species List"
 
 

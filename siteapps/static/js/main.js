@@ -39,15 +39,24 @@ function createCategoryWidget(categories){
         // Render the classes as clickable buttons
         let createButton = function(value) {
           let button = document.createElement('button');
-          button.className = 'btn btn-light m-1';
+          button.className = 'btn btn-light align-items-center m-1 btn-tag';
           if (value == currentClassValue)
-            button.className = 'btn btn-primary m-1 selected';
+            button.className = 'btn btn-primary align-items-center m-1 btn-tag selected';
           // Set the tag value & the text content
           button.dataset.tag = value;
           button.textContent = value;
           // Add an event listener to update the class on click
           button.addEventListener('click', addTag);
-          return button;
+
+          if(categories.length > 5){
+            let col = document.createElement("div")
+            col.className = 'col-3 p-0 m-0 d-flex';
+            col.appendChild(button);
+            return col;
+          }
+          else {
+            return button;
+          }
         }
 
         let createStatusElement = function() {
@@ -71,7 +80,12 @@ function createCategoryWidget(categories){
 
         // Render the entire widget
         let container = document.createElement('div');
-        container.className = 'category-widget py-2';
+        if(categories.length > 5) {
+            container.className = 'category-widget m-2 p-2 row';
+        }
+        else {
+            container.className = 'category-widget m-2 p-2';
+        }
 
         for(const category of categories){
             let categoryButton = createButton(category);

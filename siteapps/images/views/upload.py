@@ -136,31 +136,39 @@ class UploadStatusView(LoginRequiredMixin, View):
 # TODO: This view is a hack to manually retrigger the processing of an upload
 # Upload processing threads can get killed when GCP decides to kill and instance when it gets no active http requests
 # Ideally, move this to a cloud run instead of a thread within app engine
-class UploadResumeProcessingView(LoginRequiredMixin, View):
+class UploadResumeProcessingView(StaffuserRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         logging.info("Manually triggered to process crashed uploads")
         # First get all uploads that are already being processed by threads
         uploads_currently_being_processed = {
             thread.name.split("--")[-1] for thread in threading.enumerate() if "process_upload" in thread.name
         }
-        logging.info(f"{len(uploads_currently_being_processed)} uploads currently being processed")
-        pending_uploads = [
-            upload
-            for upload in Upload.objects.filter(upload_complete=True, processed=False)
-            if str(upload.id) not in uploads_currently_being_processed
-        ]
-        logging.info(f"{len(pending_uploads)} uploads crashed without being fully processed")
-        # For each completed upload that isn't processed
-        for upload in pending_uploads:
-            # Create a thread to process the upload
-            thread = threading.Thread(target=process_upload, args=[upload.id])
-            # Set the name of the thread to the upload id and the function
-            # This will be used to deduplicate process-upload thread runs
-            thread.name = f"process_upload--{upload.id}"
-            # Move it to the background
-            thread.setDaemon(True)
-            # Start running the thread
-            thread.start()
+        # TODO: Rewrite this
+        # Only trigger this IF there are no uploads currently being processed
+        if not uploads_currently_being_processed:
+            logging.info(f"{len(uploads_currently_being_processed)} uploads currently being processed")
+            pending_uploads = [
+                upload
+                for upload in Upload.objects.filter(upload_complete=True, processed=False)
+                if str(upload.id) not in uploads_currently_being_processed
+            ]
+            logging.info(f"{len(pending_uploads)} uploads crashed without being fully processed")
+            # For each completed upload that isn't processed
+            for upload in pending_uploads:
+                # Create a thread to process the upload
+                thread = threading.Thread(target=process_upload, args=[upload.id])
+                # Set the name of the thread to the upload id and the function
+                # This will be used to deduplicate process-upload thread runs
+                thread.name = f"process_upload--{upload.id}"
+                # Move it to the background
+                thread.setDaemon(True)
+                # Start running the thread
+                thread.start()
+                # TODO: Fix this hack
+                # Break out after the first one to reduce load temporarily
+                break
+        else:
+            logging.info(f"{len(uploads_currently_being_processed)} uploads currently being processed")
 
         return JsonResponse({"success": True})
 

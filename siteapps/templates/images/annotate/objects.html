@@ -5,10 +5,10 @@
 {% block nav_tag %}active{% endblock nav_tag %}
 
 {% block content %}
-<div class="container mt-2 mt-md-4">
+<div class="container mt-2 mt-md-3">
     {% if image %}
     <div class="row">
-        <div class="col-12 pt-4 text-center">
+        <div class="col-12 text-center">
             <p>
                 Select all objects in the image if it isn't already!
             </p>
@@ -18,6 +18,20 @@
     <div class="row text-center">
         <form method="POST">
             {% csrf_token %}
+            <input
+                type="submit"
+                class="btn btn-primary me-2"
+                id="skip_annotations"
+                name="skip_annotations"
+                value="Skip Image"
+            >
+            <input
+                type="submit"
+                class="btn btn-primary me-2"
+                id="clear_annotations"
+                name="clear_annotations"
+                value="Delete all boxes"
+            >
             <input
                 type="submit"
                 class="btn btn-primary"
@@ -49,18 +63,6 @@
                 src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}"
             >
         </div>
-    </div>
-    <div class="row text-center">
-        <form method="POST">
-            <input
-                type="submit"
-                class="btn btn-primary"
-                id="skip_annotations"
-                name="skip_annotations"
-                value="Skip Image >>"
-            >
-
-        </form>
     </div>
     <div
         class="row py-3 justify-content-center d-none"
@@ -192,6 +194,13 @@
                 e.preventDefault();
                 // Then, save the annotations
                 submitAnnotations(skip=true);
+            });
+            // Skip annotations to the server
+            $("#clear_annotations").click(function(e){
+                // First, prevent the default action of the form
+                e.preventDefault();
+                // Then, save the annotations
+                anno.clearAnnotations()
             });
         });
     </script>

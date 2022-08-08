@@ -82,9 +82,6 @@
             Hey, {{user.name}}! Since you're a staff member, this is the list of all uploads from all users.
             Dropbox urls are not public and will only be available if you are logged into the dropbox org account.
         </p>
-        {% else %}
-        <p>Hey, {{user.name}}! Here is a list of all your uploads</p>
-        {% endif %}
         <p class="text-center"><button
                 class="btn btn-light"
                 id="stuck-upload"
@@ -115,7 +112,9 @@
                     >
                 </form>
         </div>
-
+        {% else %}
+        <p>Hey, {{user.name}}! Here is a list of all your uploads</p>
+        {% endif %}
         <table class="table mt-2 mt-md-4 align-middle text-center">
             <thead>
                 <tr>

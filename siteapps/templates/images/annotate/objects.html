@@ -57,6 +57,13 @@
     </div>
     <div class="row mt-2 mt-md-4 px-2 justify-content-center">
         <div class="col-12 col-md-11 col-lg-9 col-xl-8 text-center">
+            <h6>
+                <b>
+                    {{ image.upload.camera_station.micro_site }} |
+                    {{ image.upload.camera_station.micro_site.macro_site }} |
+                    {{ image.upload.camera_station.micro_site.macro_site.county }}
+                </b>
+            </h6>
             <img
                 id="{{image.id}}"
                 class="img-fluid m-0 p-0"

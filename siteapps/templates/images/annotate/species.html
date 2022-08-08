@@ -12,10 +12,10 @@
 {% endblock header_includes %}
 
 {% block content %}
-<div class="container mt-2 mt-md-4 species-annotation">
+<div class="container mt-2 mt-md-3 species-annotation">
     {% if image %}
     <div class="row">
-        <div class="col-12 pt-4 text-center">
+        <div class="col-12 text-center">
             <p>
                 What species does the image have?
             </p>
@@ -41,19 +41,26 @@
             <p class="fw-bold d-none label-toggle">Click on each box and select the species. Then, click Save when
                 complete!</p>
             <span
-                class="btn btn-primary label-toggle"
+                class="btn btn-primary label-toggle me-2"
                 id="multiple-species"
             >Multiple species?</span>
             <span
-                class="btn btn-primary label-toggle d-none"
+                class="btn btn-primary label-toggle d-none me-2"
                 id="single-species"
             >Single species?</span>
+            <input
+                type="submit"
+                class="btn btn-primary me-2"
+                id="skip_annotations"
+                name="skip_annotations"
+                value="Skip Image"
+            >
             <input
                 type="submit"
                 class="btn btn-primary"
                 id="save_annotations"
                 name="save_annotations"
-                value="Save!"
+                value="Save Annotations"
             >
         </form>
     </div>
@@ -78,17 +85,6 @@
                 src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}"
             >
         </div>
-    </div>
-    <div class="row text-center">
-        <form method="POST">
-            <input
-                type="submit"
-                class="btn btn-primary"
-                id="skip_annotations"
-                name="skip_annotations"
-                value="Skip Image >>"
-            >
-        </form>
     </div>
     <div
         class="row py-3 justify-content-center d-none"

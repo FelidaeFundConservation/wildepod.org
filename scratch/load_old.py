@@ -1,11 +1,11 @@
 # Run using python manage.py shell --settings=config.settings.local < scratch/load.py
 from datetime import datetime
 
+import pandas as pd
 from django.conf import settings
 from images.models import Bot, CameraStationAction, SpeciesName
 from inventory.models import Camera, CameraBrand, CameraModel, Padlock, PythonLock
 from locations.models import Area, CameraStation, County, Grid, HabitatType, MacroSite, MicroSite, TrailType
-import pandas as pd
 
 # Download active camera data sheet as tsv into the local_data folder and rename as necessary
 active_cameras_df = pd.read_csv("local_data/active_cameras.tsv", delimiter="\t")

@@ -78,7 +78,7 @@ INSTALLED_APPS += ["django_extensions"]  # noqa F405
 DROPBOX_APP_KEY = env("DROPBOX_APP_KEY_STAGING")
 DROPBOX_APP_SECRET = env("DROPBOX_APP_SECRET_STAGING")
 DROPBOX_REFRESH_TOKEN = env("DROPBOX_REFRESH_TOKEN_STAGING")
-DROPBOX_URL_PREFIX = "https://www.dropbox.com/personal/Apps/WildePod_staging/"
+DROPBOX_URL_PREFIX = "https://www.dropbox.com/personal/Apps/WildePod_staging"
 
 
 # LOGGING
@@ -113,9 +113,5 @@ COMPRESS_PRECOMPILERS = (
 
 # CUSTOM VARIABLES
 # ------------------------------------------------------------------------------
-# GCF cloud url where MegaDetector currently serves requests
-MEGADETECTOR_URL = env("MEGADETECTOR_URL_LOCAL")
-
 # Annotation configuration
 NUM_ACCEPTS_OVER_REJECTS = 0
-MIN_MEGADETECTOR_CONFIDENCE = 0.25

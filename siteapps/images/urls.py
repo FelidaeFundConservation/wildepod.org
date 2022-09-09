@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import (
+from .views import (  # UploadExportView,
     ActivityAnnotationProcessorView,
     AnnotateActivityView,
     AnnotateObjectsView,
@@ -11,7 +11,6 @@ from .views import (
     UploadCompleteView,
     UploadCreateView,
     UploadDetailView,
-    UploadExportView,
     UploadListView,
     UploadResumeProcessingView,
     UploadStatusView,
@@ -36,7 +35,7 @@ urlpatterns = [
         UploadCompleteView.as_view(),
         name="complete_upload",
     ),
-    path("upload/<uuid:pk>/export/", UploadExportView.as_view(), name="export_upload"),
+    # path("upload/<uuid:pk>/export/", UploadExportView.as_view(), name="export_upload"),
     path("image/<uuid:pk>", ImageDetailView.as_view(), name="image"),
     path("annotate/objects", AnnotateObjectsView.as_view(), name="annotate_objects"),
     path("annotate/species", AnnotateSpeciesView.as_view(), name="annotate_species"),

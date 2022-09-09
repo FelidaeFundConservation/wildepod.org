@@ -1,6 +1,9 @@
+# NOTE: THIS IS DEPRECATED
+
 import base64
 import json
 
+import requests
 from braces.views import StaffuserRequiredMixin
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -9,7 +12,6 @@ from django.urls.base import reverse_lazy
 from django.views.generic import TemplateView
 from explore.forms import ExploreMegadetectorForm
 from images.models import Bot
-import requests
 
 
 class ExploreMegadetectorView(LoginRequiredMixin, StaffuserRequiredMixin, TemplateView):

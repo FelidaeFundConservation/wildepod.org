@@ -63,3 +63,25 @@ Emulating google app.yaml locally. Make sure proxy is running using
 Then run this so app.yaml uses the proxy. Note there can be many .yaml configs that can be specified
 
 ```dev_appserver.py app.yaml --env_var=USE_CLOUD_SQL_AUTH_PROXY=true```
+
+## Gotchas
+
+- If uploading to buckets when running locally fails, this is likely due to missing credentials. This can be fixed by running
+```
+gcloud auth application-default login
+```
+in addition to regular auth
+```
+gcloud auth login
+```
+Be sure to set the project id as well
+```
+gcloud config set project <project-id>
+```
+
+- Currently there are issues with getting the `id_token` directly from the metadata server and it is unclear why.
+So for local developement, a workaround is to set the identity token as an env and then use that as the
+authorization header. Specifically, run this (after setting the application default login).
+```
+export ID_TOKEN="$(gcloud auth print-identity-token -q)"
+```

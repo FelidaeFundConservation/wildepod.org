@@ -36,21 +36,16 @@ class BaseAnnotationManager(models.Manager):
                 & Q(vote_diff__gt=-settings.NUM_ACCEPTS_OVER_REJECTS),
                 output_field=models.BooleanField(),
             ),
-            # TODO: This is an untested hack to quickly flag if there is an animal tag associated with this box
-            # This doesn't consider vote differences nor overall consensus for the animal tag and must be fixed.
-            is_animal=ExpressionWrapper(
-                Q(category__isnull=False) & Q(category__name="animal"), output_field=models.BooleanField()
-            ),
         )
 
     def uncertain(self):
-        return self.annotated().filter(keep=True).filter(vote_uncertain=True)
+        return self.annotated().filter(keep=True, vote_uncertain=True)
 
     def valid(self):
-        return self.annotated().filter(keep=True).filter(voted_valid=True)
+        return self.annotated().filter(keep=True, voted_valid=True)
 
     def valid_or_uncertain(self):
-        return self.annotated().filter(keep=True).filter(Q(voted_valid=True) | Q(vote_uncertain=True))
+        return self.annotated().filter(Q(voted_valid=True) | Q(vote_uncertain=True), keep=True)
 
 
 # Certainty annotations for bounding boxes
@@ -61,8 +56,21 @@ class BoundingBoxManager(BaseAnnotationManager):
     # This ideally should only return boxes that has a consensus that the category is animal
     # This requires overall vote consensus to be implemented
 
+    # TODO: This is an untested hack to quickly flag if there is an animal tag associated with this box
+    # This doesn't consider vote differences nor overall consensus for the animal tag and must be fixed.
+    def annotated(self):
+        return (
+            super()
+            .annotated()
+            .annotate(
+                is_animal=ExpressionWrapper(
+                    Q(category__isnull=False) & Q(category__name="animal"), output_field=models.BooleanField()
+                )
+            )
+        )
+
     def is_animal(self):
-        return self.annotated().filter(keep=True).filter(is_animal=True)
+        return self.annotated().filter(keep=True, is_animal=True)
 
 
 # Certainty annotations for categories

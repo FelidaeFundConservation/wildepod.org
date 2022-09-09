@@ -4,8 +4,8 @@ import threading
 import time
 import uuid
 
-from django.conf import settings
 import dropbox
+from django.conf import settings
 from images.models import Image, Upload
 
 from .image import process_image
@@ -17,7 +17,7 @@ dbx = dropbox.Dropbox(
     oauth2_refresh_token=settings.DROPBOX_REFRESH_TOKEN,
 )
 
-MAX_THREADS_FOR_IMAGE_PROCESSING = 10
+MAX_THREADS_FOR_IMAGE_PROCESSING = 25
 
 
 def get_dropbox_file_listing(dropbox_folder_path: str) -> list:
@@ -45,64 +45,69 @@ def get_dropbox_file_listing(dropbox_folder_path: str) -> list:
 
 def process_dropbox_file(upload: Upload, entry: dropbox.files.FileMetadata):
     """Process each file in the dropbox directory."""
-    # Retrieve their metadata along with media info
-    # "include_media_info" is deprecated in the files_list_folder API requiring a call for each file again
-    # TODO: Maybe this can be offloaded to an on-demand functionality that retrieves data only if needed
     logging.info(
-        f"Processing file metadata for entry - '{entry.path_lower}' inside thread with id - '{threading.get_ident()}' & name - '{threading.current_thread().name}'"
+        f"Processing metadata for entry - '{entry.path_lower}' inside thread with id - '{threading.get_ident()}' & name - '{threading.current_thread().name}'"
     )
-    response = dbx.files_get_metadata(entry.path_lower, include_media_info=True)
-    media_info = response.media_info.get_metadata()
-    logging.info(f"Retrieved media info for entry - '{entry.path_lower}'")
-    # Only process image or video content
-    if isinstance(media_info, (dropbox.files.PhotoMetadata, dropbox.files.VideoMetadata)):
-        logging.info("Entry is an image or video. Processing..")
-        img_obj, created = Image.objects.get_or_create(
-            upload=upload,
-            dropbox_file_name=response.name,
-            dropbox_file_path=response.path_lower,
-            dropbox_file_path_display=response.path_display,
-            dropbox_content_hash=response.content_hash,
-            dropbox_file_id=response.id,
-            file_size=response.size,
-            is_video=isinstance(media_info, dropbox.files.VideoMetadata),
-        )
-        if created:
-            logging.info(f"Image object for entry '{entry.path_lower}' created. Adding metadata..")
 
-            # Update other fields along with custom data extracted if they exist
-            if media_info.time_taken:
-                img_obj.trigger_timestamp = media_info.time_taken
-            if media_info.dimensions:
-                img_obj.height = media_info.dimensions.height
-                img_obj.width = media_info.dimensions.width
-            if media_info.location:
-                img_obj.latitude = media_info.location.latitude
-                img_obj.longitude = media_info.location.longitude
-            if img_obj.is_video and media_info.duration:
-                img_obj.duration = media_info.duration
+    # By default, processed return True. This is to ensure that non-image files don't affect upload status
+    processed = True
 
-            logging.info("Image object's metadata added. Saving..")
-            img_obj.save()
-            logging.info("Image object saved successfully.")
-        else:
-            logging.info(f"Image object for entry '{entry.path_lower}' already exists. Object retrieved!")
+    # Process only files
+    if isinstance(entry, dropbox.files.FileMetadata):
+        # Retrieve their metadata along with media info
+        # "include_media_info" is deprecated in the files_list_folder API requiring a call for each file again
+        # TODO: Maybe this can be offloaded to an on-demand functionality that retrieves data only if needed
+        response = dbx.files_get_metadata(entry.path_lower, include_media_info=True)
+        media_info = response.media_info.get_metadata()
+        logging.info(f"Retrieved media info for entry - '{entry.path_lower}'")
 
-        # Once all the image objects are created, process them
-        # This involves getting an image thumbnail and saving it to google cloud storage
-        # followed by running ML to detect and identify objects in the image
-        # TODO: Images are processed one at a time. The main bottleneck is the Megadetector processing
-        # This can be called async and run in parallel
-        logging.info(f"Processing image object '{img_obj.id}' ({img_obj.dropbox_file_name})..")
-        if img_obj.processed:
-            logging.info("Image already processed. Skipping..")
-            return
-        if img_obj.is_video:
-            logging.info("Image is a video. Skipping..")
-            return
+        # Next, only process image or video content
+        if isinstance(media_info, (dropbox.files.PhotoMetadata, dropbox.files.VideoMetadata)):
+            logging.info("Entry is an image or video. Processing..")
+            img_obj, created = Image.objects.get_or_create(
+                upload=upload,
+                dropbox_file_name=response.name,
+                dropbox_file_path=response.path_lower,
+                dropbox_file_path_display=response.path_display,
+                dropbox_content_hash=response.content_hash,
+                dropbox_file_id=response.id,
+                file_size=response.size,
+                is_video=isinstance(media_info, dropbox.files.VideoMetadata),
+            )
+            if created:
+                logging.info(f"Image object for entry '{entry.path_lower}' created. Adding metadata..")
 
-        # NOTE: Without waiting for a return value, the thread will continue to run and skip the coroutine object
-        _ = process_image(img_obj)
+                # Update other fields along with custom data extracted if they exist
+                if media_info.time_taken:
+                    img_obj.trigger_timestamp = media_info.time_taken
+                if media_info.dimensions:
+                    img_obj.height = media_info.dimensions.height
+                    img_obj.width = media_info.dimensions.width
+                if media_info.location:
+                    img_obj.latitude = media_info.location.latitude
+                    img_obj.longitude = media_info.location.longitude
+                if img_obj.is_video and media_info.duration:
+                    img_obj.duration = media_info.duration
+
+                logging.info("Image object's metadata added. Saving..")
+                img_obj.save()
+                logging.info("Image object saved successfully.")
+            else:
+                logging.info(f"Image object for entry '{entry.path_lower}' already exists. Object retrieved!")
+
+            # Once all the image objects are created, process them
+            # This involves getting an image thumbnail and saving it to google cloud storage
+            # followed by running ML to detect and identify objects in the image
+            logging.info(f"Processing image object '{img_obj.id}' ({img_obj.dropbox_file_name})..")
+            if not img_obj.processed and not img_obj.is_video:
+                # NOTE: Without waiting for a return value, the thread will continue to run and skip the coroutine object
+                # Also, processed state is updated only after the image has been processed
+                processed = process_image(img_obj)
+            else:
+                logging.info("Image already processed or is a video. Skipping..")
+
+    # Processed is set to False if the file is a valid image & the processing failed
+    return processed
 
 
 # Function to process an upload
@@ -157,15 +162,27 @@ def process_upload(upload_id: uuid.UUID):
     # in the output of MegaDetector (which is likely)
 
     # This multithreaded operation is run inside a thread pool instead of manual thread creation
+    processed_status = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS_FOR_IMAGE_PROCESSING) as executor:
         # Process each entry in the dropbox directory
         futures = [executor.submit(process_dropbox_file, upload, entry) for entry in entries]
-        for i, _ in enumerate(concurrent.futures.as_completed(futures)):
-            logging.info(f"Processed {i+1}/{len(entries)} entries.")
+        for i, processed in enumerate(concurrent.futures.as_completed(futures)):
+            try:
+                processed = processed.result()
+                logging.info(f"Processed {i+1}/{len(entries)} entries.")
+                processed_status.append(processed)
+            except Exception as e:
+                logging.error(f"Error processing entry {i+1}/{len(entries)} - {e}")
+                continue
 
-    logging.info("All images processed. Marking upload as processed..")
-    # Mark the upload as processed.
-    upload.processed = True
-    # Save the upload object
-    upload.save()
-    logging.info("Upload saved successfully.")
+    # Only if all files are successfully processed, mark the upload as processed
+    if all(processed_status):
+        # NOTE: Processed is set to True for non-image files by default since they don't require any processing
+        logging.info("All images processed. Marking upload as processed..")
+        # Mark the upload as processed.
+        upload.processed = True
+        # Save the upload object
+        upload.save()
+        logging.info("Upload saved successfully.")
+    else:
+        logging.error("Processing failed for one or more images. Upload not marked as processed.")

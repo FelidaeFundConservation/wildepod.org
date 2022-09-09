@@ -127,7 +127,7 @@
                     {% if user.is_staff %}
                     <th scope="col">Volunteer</th>
                     <th scope="col">Dropbox</th>
-                    <th scope="col">Data</th>
+                    {% comment %} <th scope="col">Data</th> {% endcomment %}
                     {% endif %}
                 </tr>
             </thead>
@@ -176,14 +176,14 @@
                             Open
                         </a>
                     </td>
-                    <td>
+                    {% comment %} <td>
                         {% if object.processed %}
                         <a href="{% url 'images:export_upload' object.id %}"><button
                                 type="button"
                                 class="btn btn-light"
                             >View</button></a>
                         {% endif %}
-                    </td>
+                    </td> {% endcomment %}
                     {% endif %}
                 </tr>
                 {% endif %}

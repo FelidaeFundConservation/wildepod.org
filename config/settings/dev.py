@@ -25,7 +25,7 @@ DATABASES = {"default": env.db("STAGING_DATABASE_URL")}
 # If the flag has been set, configure to use proxy
 if env.bool("USE_CLOUD_SQL_AUTH_PROXY", False):
     DATABASES["default"]["HOST"] = "127.0.0.1"
-    DATABASES["default"]["PORT"] = 5434
+    DATABASES["default"]["PORT"] = 5440
 # TODO: Check if this needs to be done
 # DATABASES["default"]["ATOMIC_REQUESTS"] = True
 
@@ -94,4 +94,3 @@ COMPRESS_PRECOMPILERS = (
 # ------------------------------------------------------------------------------
 # Annotation configuration
 NUM_ACCEPTS_OVER_REJECTS = 0
-MIN_MEGADETECTOR_CONFIDENCE = 0.25

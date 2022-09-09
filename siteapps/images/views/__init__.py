@@ -7,11 +7,10 @@ from .annotation import (
     SpeciesAnnotationProcessorView,
 )
 from .image import ImageDetailView
-from .upload import (
+from .upload import (  # UploadExportView,
     UploadCompleteView,
     UploadCreateView,
     UploadDetailView,
-    UploadExportView,
     UploadListView,
     UploadResumeProcessingView,
     UploadStatusView,

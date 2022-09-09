@@ -90,8 +90,8 @@ INSTALLED_APPS = [
     "django.forms",
     "crispy_forms",
     "crispy_bootstrap5",
-    "ckeditor",
-    "ckeditor_uploader",
+    # "ckeditor",
+    # "ckeditor_uploader",
     "allauth",
     "allauth.account",
     "siteapps.home",
@@ -323,3 +323,4 @@ JAZZMIN_SETTINGS = {
 MEGADETECTOR_URL = env("MEGADETECTOR_URL")
 # Model storage bucket name & relevant model URLs
 MODEL_STORAGE_BUCKET = env("GS_MODELS_BUCKET_NAME")
+MIN_MEGADETECTOR_CONFIDENCE = 0.1

@@ -18,8 +18,9 @@ def flatten_annotorious_annotations(annotations: list) -> dict:
 
         # Get the x,y,w,h values from the annotation
         # Annotorious values are in percent so divide by 100 to conform with Mega Detectors values
-        [x, y, w, h] = annotation["target"]["selector"]["value"].split(":")[1].split(",")
-        [x, y, w, h] = list(map(lambda x: round(float(x), 6) / 100, [x, y, w, h]))
+        [x, y, w, h] = [
+            round(float(point), 6) / 100 for point in annotation["target"]["selector"]["value"].split(":")[1].split(",")
+        ]
 
         # Append the annotation to the list
         formatted_annotations[clean_uuid] = {
@@ -73,13 +74,6 @@ def create_bbox(annotation_dict: Dict[str, Any], image_obj: Image, annotator: An
     create_category(annotation_dict, bbox_obj, annotator)
     return
 
-
-# Image id: 5850e22c-a358-42a6-81c9-6b5281811030
-# BBox: 21058dc0-283b-4ac0-bf34-7a18e547bee8
-# BBox?
-# image id 2fd9df7c-994e-4ca9-8a0a-f7e993fd7b22
-# eaff8375-c363-499d-92fa-bf39307aabf2
-# 43281a5d-bc83-4c5f-9791-e597b71d8ea0
 
 # Function to process a list of annotations for MegaDetector's Object Detection model
 # Annotations follow the Annotorious format

@@ -1,20 +1,18 @@
 from django.urls import path
 
-from .views import (
-    ExploreDataView,
+from .views import (  # ExploreMegadetectorView,
     ExploreIndexView,
     ExploreMapView,
-    ExploreMegadetectorView,
     ExplorePopularImagesView,
-    ExportDataView,
+    SnapshotCreateView,
+    SnapshotListView,
 )
 
 urlpatterns = [
     path("", ExploreMapView.as_view(), name="index"),
-    # TODO: Enable/modify these urls when the corresponding views are ready
-    # path("data/", ExploreDataView.as_view(), name="data"),
-    # path("data/export/", ExportDataView.as_view(), name="data_export"),
+    path("data/snapshot/", SnapshotCreateView.as_view(), name="data_snapshot_create"),
+    path("data/snapshots/", SnapshotListView.as_view(), name="data_snapshots"),
     path("map/", ExploreMapView.as_view(), name="map"),
-    path("megadetector/", ExploreMegadetectorView.as_view(), name="megadetector"),
+    # path("megadetector/", ExploreMegadetectorView.as_view(), name="megadetector"),
     path("popular-images/", ExplorePopularImagesView.as_view(), name="popular_images"),
 ]

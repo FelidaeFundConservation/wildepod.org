@@ -64,4 +64,4 @@ class CameraStationAdmin(SimpleHistoryAdmin):
     ]
     list_display_links = ["station_id", "micro_site"]
     ordering = ["-date_deployed"]
-    search_fields = ["station_id", "micro_site__name", "macro_site__macro_site__name"]
+    search_fields = ["station_id", "micro_site__name"]

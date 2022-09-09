@@ -21,8 +21,13 @@ class Bot(TimeStampedModel):
         null=True,
     )
 
-    # Model API - This is the cloud function that might be called to make the prediction
+    # Model API - This is the url where the model is hosted
+    # In the first version, this was a cloud function. Moving forward, they will be cloud run urls
+    # The cloud run urls are not public which means a token needs to be obtained before calling this
     model_api_url = models.URLField(max_length=1000, blank=True, null=True)
+
+    # NOTE: This field will be deprecated since models will be stored directly in the cloud run container
+    # to prevent model download at every container start
     # Model location - This is the actual model file that the API loads
     # Cloud functions might have default models loaded
     # Since the location can be a gs:// url, we need to store it as a string

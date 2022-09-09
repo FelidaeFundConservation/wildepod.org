@@ -1,15 +1,15 @@
 # Run using python manage.py shell --settings=config.settings.local < scratch/load.py
 
+import pandas as pd
 from django.conf import settings
 from images.models import Bot, CameraStationAction, SpeciesName
 from inventory.models import Camera, CameraBrand, CameraModel, Padlock, PythonLock
 from locations.models import Area, CameraStation, County, Grid, HabitatType, MacroSite, MicroSite, TrailType
-import pandas as pd
 
 
 def load_camera_inventory():
-    # Download camera inventory data sheet as tsv into the local_data folder and rename as necessary
-    camera_inventory_df = pd.read_csv("local_data/camera_inventory.tsv", delimiter="\t").fillna("")
+    # Download camera inventory data sheet as tsv into the local folder and rename as necessary
+    camera_inventory_df = pd.read_csv("local/camera_inventory.tsv", delimiter="\t").fillna("")
     # Load camera inventory
     for i, rec in camera_inventory_df.iterrows():
         if not rec["Serial #"].strip():
@@ -64,7 +64,7 @@ load_camera_inventory()
 
 
 def load_species_names():
-    species_df = pd.read_csv("local_data/species.tsv", delimiter="\t").fillna("")
+    species_df = pd.read_csv("local/species.tsv", delimiter="\t").fillna("")
     for i, rec in species_df.iterrows():
         print(f'(Row - {i}) Loading Species Name - {rec["Scientific Name"]}')
         model, _ = SpeciesName.objects.get_or_create(name=rec["Common Name"], scientific_name=rec["Scientific Name"])
@@ -74,10 +74,10 @@ load_species_names()
 
 
 def load_active_cameras():
-    active_cameras_df = pd.read_csv("local_data/active_cameras.tsv", delimiter="\t").fillna("")
+    active_cameras_df = pd.read_csv("local/active_cameras.tsv", delimiter="\t").fillna("")
     active_cameras_df["deployment_date"] = pd.to_datetime(active_cameras_df["Camera.Deployment.Begin.Date"])
     # print(f"(Row - {i+2}) Loading Camera station with id - {camera_station_id}")
-    # inactive_cameras_df = pd.read_csv("local_data/inactive_cameras.tsv", delimiter="\t").fillna("")
+    # inactive_cameras_df = pd.read_csv("local/inactive_cameras.tsv", delimiter="\t").fillna("")
     # Load active camera stations
     for i, rec in active_cameras_df.iterrows():
         camera_station_id = rec["CameraStationID"].strip()

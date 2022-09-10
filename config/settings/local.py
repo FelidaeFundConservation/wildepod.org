@@ -78,7 +78,7 @@ INSTALLED_APPS += ["django_extensions"]  # noqa F405
 DROPBOX_APP_KEY = env("DROPBOX_APP_KEY_STAGING")
 DROPBOX_APP_SECRET = env("DROPBOX_APP_SECRET_STAGING")
 DROPBOX_REFRESH_TOKEN = env("DROPBOX_REFRESH_TOKEN_STAGING")
-DROPBOX_URL_PREFIX = "https://www.dropbox.com/personal/Apps/WildePod_staging"
+DROPBOX_URL_PREFIX = "https://www.dropbox.com/work/WildePod%20Cloud%20DB/Apps/wildepod_staging"
 
 
 # LOGGING

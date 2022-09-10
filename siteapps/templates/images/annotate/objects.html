@@ -1,0 +1,214 @@
+{% extends '_base.html' %}
+{% load static %}
+
+<!-- Set corresponding nav pill to active -->
+{% block nav_tag %}active{% endblock nav_tag %}
+
+{% block content %}
+<div class="container mt-2 mt-md-3">
+    {% if image %}
+    <div class="row">
+        <div class="col-12 text-center">
+            <p>
+                Select all objects in the image if it isn't already!
+            </p>
+        </div>
+    </div>
+
+    <div class="row text-center">
+        <form method="POST">
+            {% csrf_token %}
+            <input
+                type="submit"
+                class="btn btn-primary me-2"
+                id="skip_annotations"
+                name="skip_annotations"
+                value="Skip Image"
+            >
+            <input
+                type="submit"
+                class="btn btn-primary me-2"
+                id="clear_annotations"
+                name="clear_annotations"
+                value="Delete all boxes"
+            >
+            <input
+                type="submit"
+                class="btn btn-primary"
+                id="save_annotations"
+                name="save_annotations"
+                value="Save Annotations"
+            >
+            <div class="mt-3">
+                <input
+                    class="form-check-input"
+                    type="checkbox"
+                    value=""
+                    id="social-media-worthy"
+                >
+                <label
+                    class="form-check-label"
+                    for="social-media-worthy"
+                >
+                    &nbsp; Social Media Worthy?
+                </label>
+            </div>
+        </form>
+    </div>
+    <div class="row mt-2 mt-md-4 px-2 justify-content-center">
+        <div class="col-12 col-md-11 col-lg-9 col-xl-8 text-center">
+            <h6>
+                <b>
+                    {{ image.upload.camera_station.micro_site }} |
+                    {{ image.upload.camera_station.micro_site.macro_site }} |
+                    {{ image.upload.camera_station.micro_site.macro_site.county }}
+                </b>
+            </h6>
+            <img
+                id="{{image.id}}"
+                class="img-fluid m-0 p-0"
+                src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}"
+            >
+        </div>
+    </div>
+    <div
+        class="row py-3 justify-content-center d-none"
+        id="status-failure"
+    >
+        <div class="col-12">
+            <div
+                class="alert alert-danger text-center"
+                role="alert"
+            >
+                {% comment %} TODO: Link to a spreadsheet error form here {% endcomment %}
+                <strong>Error!</strong> Your annotations could not be saved. Please refresh page & try again or report a
+                bug here.
+            </div>
+        </div>
+    </div>
+    <div class="row mt-3 mt-md-5 text-center">
+        <h2>Annotations Preview</h2>
+        <hr />
+    </div>
+    <div
+        class="row mt-2 mt-md-4 justify-content-center text-center"
+        id="annotations-preview"
+    >
+    </div>
+    {% else %}
+    <div class="row text-center mt-3 mt-md-5 pt-2 pt-md-5">
+        <h3>There are no more images to annotate! Come back later!</h3>
+        <div class="col-12 col-md-10 offset-md-1 col-lg-8 offset-lg-2 mt-2 mt-md-5 pt-2">
+            <img
+                class="img-fluid rounded"
+                src="{% static 'images/puma_sleeping.jpg' %}"
+            >
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock content %}
+
+
+{% block footer_includes %}
+<!-- Annotorious generic & custom stylesheets -->
+<link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@recogito/annotorious@2.6.1/dist/annotorious.min.css"
+>
+<!-- Jquery & Annotorious -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@recogito/annotorious-shape-labels@latest/dist/annotorious-shape-labels.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@recogito/annotorious@2.6.1/dist/annotorious.min.js"></script>
+
+<script>
+        // TODO: Move all this code to separate functions housed in separate files
+        {% comment %} Create a javascript variable holding all the annotations and render annotations{% endcomment %}
+        let bboxes = [
+            {% for bbox in bounding_boxes %}
+                {
+                    "id": "{{bbox.id}}",
+                    "category": "{{bbox.category_set.all.0.name}}",
+                    "confidence": {{bbox.category_set.all.0.confidence}},
+                    "x": {{bbox.x}},
+                    "y": {{bbox.y}},
+                    "w": {{bbox.w}},
+                    "h": {{bbox.h}},
+                },
+            {% endfor %}
+        ];
+        let categories = ['animal','person','vehicle']
+        let MDClassSelectorWidget = createCategoryWidget(categories)
+        // Set up annotations, rendering and submit hooks after the window has fully loaded
+        window.addEventListener('load', function() {
+            let anno = renderBoundingBoxes("{{image.id}}", bboxes=bboxes, widgets=[MDClassSelectorWidget]);
+            renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
+            anno.on("createAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
+            anno.on("deleteAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
+            anno.on("updateAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
+
+            // Function to save annotations
+            function submitAnnotations(skip=false) {
+
+                const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+                let data = {
+                    'image_id': '{{image.id}}',
+                    'csrfmiddlewaretoken': csrftoken,
+                }
+
+                if (skip) {
+                    data['skip'] = true;
+                }
+                else {
+                    data['initial_bboxes'] = JSON.stringify(bboxes);
+                    data['annotations'] = JSON.stringify(anno.getAnnotations());
+                    data['social_media_worthy'] = document.getElementById('social-media-worthy').checked;
+                }
+
+                // Send back all the bbox ids back to the server to log bbox deletions
+                // Make an AJAX request
+                $.ajax({
+                    url: '{% url 'images:md_annotation_processor'%}',
+                    method: 'POST',
+                    data: data,
+                    dataType: 'json',
+                    success: function (data){
+                        if (data.success){
+                            window.location.reload();
+                        }
+                        else {
+                            $("#status-failure").removeClass("d-none");
+                            setTimeout(function(){
+                                $("#status-failure").addClass("d-none");
+                            }, 10000);
+                        }
+                    },
+                })
+            }
+
+            // Submit annotations to the server
+            $("#save_annotations").click(function(e){
+                // First, prevent the default action of the form
+                e.preventDefault();
+                // Then, save the annotations
+                submitAnnotations(skip=false);
+            });
+
+            // Skip annotations to the server
+            $("#skip_annotations").click(function(e){
+                // First, prevent the default action of the form
+                e.preventDefault();
+                // Then, save the annotations
+                submitAnnotations(skip=true);
+            });
+            // Skip annotations to the server
+            $("#clear_annotations").click(function(e){
+                // First, prevent the default action of the form
+                e.preventDefault();
+                // Then, save the annotations
+                anno.clearAnnotations()
+            });
+        });
+    </script>
+{% endblock footer_includes %}

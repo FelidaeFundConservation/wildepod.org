@@ -1,0 +1,298 @@
+{% extends '_base.html' %}
+
+{% block title %} Upload List | {% endblock %}
+<!-- Set corresponding nav pill to active -->
+{% block nav_upload %}active{% endblock %}
+
+{% block content %}
+<div class="container uploads">
+    <div class="row pt-3 mt-3 text-center">
+        <div class="col-12 col-sm-6 offset-sm-3">
+            <a
+                class="btn btn-primary cta"
+                role="button"
+                href="{% url 'images:create_upload' %}"
+            >
+                Upload Images
+            </a>
+        </div>
+    </div>
+    {% csrf_token %}
+    {% if num_pending > 0 %}
+    <div class="row pt-3 mt-3">
+        <h2>Pending Uploads</h2>
+        {% if user.is_staff %}
+        <p>Hey, {{user.name}}! Since you're a staff member, you can see the list of all pending uploads for all
+            volunteers.
+            You can also find this on the <a
+                href="{% url 'admin:images_upload_changelist'%}"
+                class="text-decoration-none"
+            >admin</a>
+            page.
+        </p>
+        {% else %}
+        <p>If all pictures have been uploaded to Dropbox, please click on the "Complete" button.</p>
+        {% endif %}
+
+        <table class="table mt-2 mt-md-4 align-middle text-center">
+            <thead>
+                <tr>
+                    <th scope="col">Camera Station ID</th>
+                    <th scope="col">Microsite</th>
+                    <th scope="col">MacroSite</th>
+                    <th scope="col">Date Retrieved</th>
+                    <th scope="col">Action</th>
+                    <th scope="col">Dropbox</th>
+                    {% if user.is_staff %}<th scope="col">Volunteer</th>{% endif %}
+                    <th scope="col"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for object in object_list%}
+                {% if not object.upload_complete %}
+                <tr>
+                    <td>{{object.camera_station.station_id}}</td>
+                    <td>{{object.camera_station.micro_site}}</td>
+                    <td>{{object.camera_station.micro_site.macro_site}}</td>
+                    <td>{{object.date_retrieved}}</td>
+                    <td>{{object.last_action}}</td>
+                    <td><a
+                            href="{{object.dropbox_request_url}}"
+                            target="_blank"
+                            class="text-decoration-none"
+                        >Open</a></td>
+                    {% if user.is_staff %}<td>{{object.volunteer.name}}</td>{% endif %}
+                    <td><a href="{% url 'images:complete_upload' object.id %}"><button
+                                type="button"
+                                class="btn btn-light"
+                            >Complete</button></a></td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <div class="row mt-2 mt-md-5">
+        {% if num_completed > 0 %}
+        <h2>Completed Uploads</h2>
+        {% if user.is_staff %}
+        <p>
+            Hey, {{user.name}}! Since you're a staff member, this is the list of all uploads from all users.
+            Dropbox urls are not public and will only be available if you are logged into the dropbox org account.
+        </p>
+        <p class="text-center"><button
+                class="btn btn-light"
+                id="stuck-upload"
+            >Upload Stuck?</button></p>
+        <div
+            id="stuck-toggle"
+            class="d-none text-center"
+            style="background-color: #f5f5f5; padding: 1rem; border-radius: 5px;"
+        >
+            <p>
+                <small>
+                    Large uploads occasionally can get stuck in between and is expected behavior at the
+                    moment.<br />
+                    If your upload is stuck i.e. the numbers have not changed in over 30 minutes even after refreshing
+                    the page, click the button
+                    below to manually retrigger processing.
+                </small>
+            </p>
+            <p>
+                <form method="POST">
+                    {% csrf_token %}
+                    <input
+                        type="submit"
+                        class="btn btn-primary"
+                        id="upload_resume_processing"
+                        name="upload_resume_processing"
+                        value="Resume Processing"
+                    >
+                </form>
+        </div>
+        {% else %}
+        <p>Hey, {{user.name}}! Here is a list of all your uploads</p>
+        {% endif %}
+        <table class="table mt-2 mt-md-4 align-middle text-center">
+            <thead>
+                <tr>
+                    <th scope="col">Station ID</th>
+                    <th scope="col">Microsite</th>
+                    <th scope="col">Macrosite</th>
+                    <th scope="col">Date Retrieved </th>
+                    <th scope="col"># Images</th>
+                    <th scope="col">Processed</th>
+                    {% if user.is_staff %}
+                    <th scope="col">Volunteer</th>
+                    <th scope="col">Dropbox</th>
+                    {% comment %} <th scope="col">Data</th> {% endcomment %}
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for object in object_list%}
+                {% if object.upload_complete %}
+                <tr>
+                    <td>{{object.camera_station.station_id}}</td>
+                    <td>{{object.camera_station.micro_site}}</td>
+                    <td>{{object.camera_station.micro_site.macro_site}}</td>
+                    <td>{{object.date_retrieved}}</td>
+                    {% if object.processed %}
+                    <td>{{object.image_set.all.count}}</td>
+                    {% else %}
+                    <td>-</td>
+                    {% endif %}
+                    <td>
+                        {% if object.processed %}
+                        <a href="{% url 'images:view_upload' object.id %}"><button
+                                type="button"
+                                class="btn btn-light"
+                            >View</button></a>
+                        {% else %}
+                        <a
+                            href="{% url 'images:view_upload' object.id %}"
+                            id="view-{{object.id}}"
+                            class="d-none"
+                        ><button
+                                type="button"
+                                class="btn btn-light"
+                            >View</button></a>
+                        <span
+                            id="status-{{object.id}}"
+                            class="text-center"
+                        >?/? (..checking)</span></th>
+                        {% endif %}
+                    </td>
+                    {% if user.is_staff %}
+                    <td>{{object.volunteer.name}}</td>
+                    <td>
+                        <a
+                            href="{{dropbox_prefix}}{{object.dropbox_folder_path}}"
+                            target="_blank"
+                            class="text-decoration-none"
+                        >
+                            Open
+                        </a>
+                    </td>
+                    {% comment %} <td>
+                        {% if object.processed %}
+                        <a href="{% url 'images:export_upload' object.id %}"><button
+                                type="button"
+                                class="btn btn-light"
+                            >View</button></a>
+                        {% endif %}
+                    </td> {% endcomment %}
+                    {% endif %}
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+
+
+{% block footer_includes %}
+<!-- Jquery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+
+<script>
+    $("#stuck-upload").click(function(e){
+        $("#stuck-toggle").toggleClass("d-none");
+        let cta_text = $("#stuck-upload").text();
+        $("#stuck-upload").text(
+            cta_text == "Upload Stuck?" ? "Close" : "Upload Stuck?"
+        );
+    });
+    // Submit annotations to the server
+    $("#upload_resume_processing").click(function(e){
+        // First, prevent the default action of the form
+        e.preventDefault();
+        // Get the CSRF token from the DOM
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        // Send back all the bbox ids back to the server to log bbox deletions
+        // Make an AJAX request
+        $.ajax({
+            url: '{% url 'images:upload_resume_processing'%}',
+            method: 'POST',
+            data: {
+                'csrfmiddlewaretoken': csrftoken,
+            },
+            dataType: 'json',
+            success: function (data){
+                if (data.success){
+                    console.log("Upload processing resumed");
+                }
+                else {
+                    console.log(data.error);
+                }
+            },
+        })
+    });
+</script>
+
+<script>
+    let uploads_in_process = [
+        {% for object in object_list %}
+            {% if object.upload_complete and not object.processed %}
+                "{{object.id}}",
+            {% endif %}
+        {% endfor %}
+    ];
+
+    let periodic_check;
+
+    function checkStatus() {
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        console.log(JSON.stringify(uploads_in_process))
+        // Make an ajax call with all the pending uploads to get their status & process them
+        $.ajax({
+            url: '{% url 'images:upload_status'%}',
+            method: 'POST',
+            data: {
+                'upload_ids': JSON.stringify(uploads_in_process),
+                'csrfmiddlewaretoken': csrftoken,
+            },
+            dataType: 'json',
+            success: function (data){
+                uploads_in_process = []
+                if (data.success){
+                    for (const [upload_id, upload_status] of Object.entries(data["upload_statuses"])){
+                        if (upload_status["valid"]){
+                            if (upload_status["total_images"] > 0 && upload_status["total_images"] == upload_status["processed_images"]) {
+                                $("#status-" + upload_id).toggleClass("d-none");
+                                $("#view-" + upload_id).toggleClass("d-none");
+                            }
+                            else {
+                                $("#status-" + upload_id).html(upload_status["processed_images"] + "/" + upload_status["total_images"]);
+                                uploads_in_process.push(upload_id)
+                            }
+                        }
+                    }
+                    if (uploads_in_process.length == 0) {
+                        clearInterval(periodic_check);
+                        return;
+                    }
+                }
+                else {
+                    console.log(data.error);
+                }
+            },
+        })
+    }
+
+    if (uploads_in_process.length > 0){
+        checkStatus();
+        let periodic_check = setInterval(function(){
+            checkStatus();
+        }, 15000)
+    }
+
+</script>
+{% endblock %}

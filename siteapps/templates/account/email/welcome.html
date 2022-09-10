@@ -1,0 +1,33 @@
+{% block content %}
+<p>
+    Hi {{user.name}}! Welcome to WildePod{% if is_staging %} staging{% endif %}!
+    Your account has just been created and you can navigate to
+    <a
+        {% if is_staging %}
+        href="https://staging-dot-wildepod-339517.wl.r.appspot.com"
+        {% else %}
+        href="https://wildepod.org"
+        {% endif %}
+        target="_blank"
+    >WildePod</a> to get started.</p>
+{% if password_generated %}
+<p>You've been assigned a temporary password! Please use these login details to sign in to your account:</p>
+<p>
+    Email: {{user.email}} <br />
+    Temporary password: {{ password_generated }}
+</p>
+<p>
+    Please note that his is a temporary password that is sent over plain text via email.
+    This is not secure.
+    Please change your password after signing in by navigating to
+    <a
+        {% if is_staging %}
+        href="https://staging-dot-wildepod-339517.wl.r.appspot.com/accounts/password/change/"
+        {% else %}
+        href="https://wildepod.org/accounts/password/change/"
+        {% endif %}
+        target="_blank"
+    >this link</a>
+</p>
+{% endif %}
+{% endblock content %}

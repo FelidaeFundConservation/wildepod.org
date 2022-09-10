@@ -1,0 +1,22 @@
+{% extends "_base.html" %}
+
+{% load account %}
+{% load crispy_forms_tags %}
+
+{% block title %}Sign Up Closed | {% endblock %}
+
+{% block content %}
+<div class="container mt-3 pt-3 mt-md-4 pt-md-4 mt-lg-5 pt-lg-5">
+    <div class="row justify-content-center pb-3">
+        <div class="col-11 col-md-8 col-lg-6 text-center">
+            <h1 class="account-header">Sign Up Closed</h1>
+            <hr />
+        </div>
+    </div>
+    <div class="row justify-content-center">
+        <div class="col-11 col-md-8 col-lg-6">
+            <p>Sorry, the sign up is closed to non-volunteers. Please contact the Felidae Staff to sign up as a Volunteer.</p>
+        </div>
+    </div>
+</div>
+{% endblock content %}

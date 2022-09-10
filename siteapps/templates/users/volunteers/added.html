@@ -1,0 +1,23 @@
+{% extends "_base.html" %}
+
+{% block title %}Volunteer Added | {% endblock %}
+
+{% block content %}
+<div class="container mt-3 pt-3 mt-md-4 pt-md-4 mt-lg-5 pt-lg-5">
+    <div class="row justify-content-center pb-3">
+        <div class="col-11 col-md-8 text-center">
+            <h1>Volunteer added!</h1>
+            <hr />
+        </div>
+    </div>
+    <div class="row justify-content-center pb-3">
+        <div class="col-11 col-md-8 text-center">
+            <a href="{% url 'users:volunteers_list' %}">
+                <button
+                    type="button"
+                    class="btn btn-primary"
+                >Back</button></a>
+        </div>
+    </div>
+</div>
+{% endblock content %}

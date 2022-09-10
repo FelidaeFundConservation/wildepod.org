@@ -17,7 +17,11 @@ dbx = dropbox.Dropbox(
     oauth2_refresh_token=settings.DROPBOX_REFRESH_TOKEN,
 )
 
-MAX_THREADS_FOR_IMAGE_PROCESSING = 25
+# NOTE: Dropbox doesn't like this going too high.
+# A workaround might be to get all file metadata separately with fewer threads
+# and then hit cloud run with more threads.
+# For now, this isn't critical since the processing is largely async
+MAX_THREADS_FOR_IMAGE_PROCESSING = 5
 
 
 def get_dropbox_file_listing(dropbox_folder_path: str) -> list:

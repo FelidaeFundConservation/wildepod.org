@@ -134,7 +134,7 @@ COMPRESS_PRECOMPILERS = (
 DROPBOX_APP_KEY = env("DROPBOX_APP_KEY_PROD")
 DROPBOX_APP_SECRET = env("DROPBOX_APP_SECRET_PROD")
 DROPBOX_REFRESH_TOKEN = env("DROPBOX_REFRESH_TOKEN_PROD")
-DROPBOX_URL_PREFIX = "https://www.dropbox.com/home/Felidae%20Fund/Apps/WildePod_prod"
+DROPBOX_URL_PREFIX = "https://www.dropbox.com/work/WildePod%20Cloud%20DB/Apps/wildepod_prod"
 
 # CUSTOM VARIABLES
 # ------------------------------------------------------------------------------

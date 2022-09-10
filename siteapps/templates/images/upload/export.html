@@ -1,0 +1,55 @@
+{% extends '_base.html' %}
+{% load static %}
+
+<!-- Set corresponding nav pill to active -->
+{% block nav_upload %}active{% endblock nav_upload%}
+
+{% block content %}
+<div class="container py-3 my-3">
+    <div class="row pt-2 mt-2 justify-content-center">
+        <table class="table mt-2 mt-md-4 align-middle text-center">
+            <thead>
+                <tr>
+                    <th scope="col">Image</th>
+                    <th scope="col">Preview</th>
+                    <th scope="col">Timestamp</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Objects</th>
+                    <th scope="col">Species</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for annotated_image in annotated_images%}
+                <tr>
+                    <td>
+                        <a
+                            href="{% url 'images:image' annotated_image.image.id %}"
+                            class="text-decoration-none"
+                        >
+                            {{annotated_image.image.dropbox_file_name}}
+                        </a>
+                    </td>
+                    <td>
+                        <a
+                            href="{% url 'images:image' annotated_image.image.id %}"
+                            class="text-decoration-none"
+                        >
+                            <img
+                                id="{{image.id}}"
+                                class="img-fluid"
+                                style="max-width: 250px; height: auto;"
+                                src="{% get_media_prefix %}{{annotated_image.image.thumbnail_gcloud_path}}"
+                            >
+                        </a>
+                    </td>
+                    <td>{{annotated_image.image.trigger_timestamp}}</td>
+                    <td>{{annotated_image.status}}</td>
+                    <td>{{annotated_image.num_objects}}</td>
+                    <td>{{annotated_image.species_annotated_boxes_str}}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock content %}

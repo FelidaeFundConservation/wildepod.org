@@ -1,0 +1,25 @@
+{% extends "_base.html" %}
+
+{% block title %}Verify your E-mail | {% endblock %}
+
+{% block content %}
+<div class="container mt-3 pt-3 mt-md-4 pt-md-4 mt-lg-5 pt-lg-5">
+    <div class="row justify-content-center pb-3">
+        <div class="col-11 col-md-8 text-center">
+            <h1 class="account-header">Verify your E-mail</h1>
+            <hr />
+        </div>
+    </div>
+    <div class="row justify-content-center">
+        <div class="col-11 col-md-8">
+            {% url 'account_email' as email_url %}
+            <p>
+                This part of the site requires e-mail verification.
+                A verification link has been sent to your email address.
+                Please click on the link to verify your e-mail address.
+                <a href="{{ email_url }}">Click here</a> to change your e-mail address
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock content %}

@@ -1,0 +1,9 @@
+# PRECAUTION: avoid production dependencies that aren't in development
+
+-r requirements-base.txt
+Collectfast==2.2.0  # https://github.com/antonagestam/collectfast
+
+# Django
+# ------------------------------------------------------------------------------
+google-cloud-logging==3.2.2 # https://googleapis.dev/python/logging/latest/index.html
+gunicorn==20.1.0  # https://github.com/benoitc/gunicorn

@@ -1,0 +1,37 @@
+# Development packages only
+
+-r requirements-base.txt
+
+black==22.1.0  # https://github.com/psf/black
+coverage==6.3.1  # https://github.com/nedbat/coveragepy
+django-coverage-plugin==2.0.2  # https://github.com/nedbat/django_coverage_plugin
+
+django-debug-toolbar==3.2.4  # https://github.com/jazzband/django-debug-toolbar
+django-extensions==3.1.5  # https://github.com/django-extensions/django-extensions
+django-stubs==1.9.0  # https://github.com/typeddjango/django-stubs
+
+# Django
+# ------------------------------------------------------------------------------
+factory-boy==3.2.1  # https://github.com/FactoryBoy/factory_boy
+
+# Code quality
+# ------------------------------------------------------------------------------
+flake8==4.0.1  # https://github.com/PyCQA/flake8
+flake8-isort==4.1.1  # https://github.com/gforcada/flake8-isort
+
+jupyter # https://github.com/jupyter/
+
+# Testing
+# ------------------------------------------------------------------------------
+mypy==0.931  # https://github.com/python/mypy
+
+# Pandas is used only for loading data initially. This should be removed when things move to prod
+pandas
+
+pip-upgrader
+pre-commit==2.17.0  # https://github.com/pre-commit/pre-commit
+pylint-django==2.5.0  # https://github.com/PyCQA/pylint-django
+pytest==7.0.1  # https://github.com/pytest-dev/pytest
+pytest-django==4.5.2  # https://github.com/pytest-dev/pytest-django
+pytest-sugar==0.9.4  # https://github.com/Frozenball/pytest-sugar
+types-requests==2.27.15 # https://github.com/python/typeshed/stargazers

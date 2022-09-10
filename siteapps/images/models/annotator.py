@@ -26,6 +26,9 @@ class Bot(TimeStampedModel):
     # The cloud run urls are not public which means a token needs to be obtained before calling this
     model_api_url = models.URLField(max_length=1000, blank=True, null=True)
 
+    # This calls the model set with this detection threshold
+    threshold = models.FloatField(default=0.05)
+
     # NOTE: This field will be deprecated since models will be stored directly in the cloud run container
     # to prevent model download at every container start
     # Model location - This is the actual model file that the API loads

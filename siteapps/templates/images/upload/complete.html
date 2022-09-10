@@ -1,0 +1,95 @@
+{% extends '_base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %} Complete Upload | {% endblock %}
+<!-- Set corresponding nav pill to active -->
+{% block nav_upload %}active{% endblock nav_upload %}
+
+{% block content %}
+<div class="container mt-2 mt-md-5">
+    {% if form.errors %}
+    <div
+        class="alert alert-danger"
+        role="alert"
+    >
+        Server error! Please try again or contact admin.
+    </div>
+    {% endif %}
+    {% if object.upload_complete %}
+    <div
+        class="alert alert-info"
+        role="alert"
+    >
+        This upload has already been finalized. If you think there is an error, update it from the admin console or contact an admin.
+    </div>
+    {% else %}
+    {% if object.volunteer == user or user.is_staff %}
+    <div class="row pt-2 pt-md-4">
+        <div class='col-3 col-md-2 offset-1 offset-md-3'>
+            <hr />
+        </div>
+        <div class='col-4 col-md-2 '>
+            <h2 class="text-center">Finalize</h2>
+        </div>
+        <div class='col-3 col-md-2'>
+            <hr />
+        </div>
+    </div>
+
+    <div class="row pb-2 pb-md-5 text-center">
+        <small><a
+                href="{% url 'images:list_uploads' %}"
+                class="text-decoration-none"
+            >⬅ back</a></small>
+    </div>
+    <div class="row mt-3 mt-md-5">
+        <h4>
+            <b>Step 1 :</b>
+            Click the link below and upload all the camera station images. <br />
+        </h4>
+        <p>
+            <a
+                href="{{object.dropbox_request_url}}"
+                target="_blank"
+                class="text-decoration-none"
+            >{{object.dropbox_request_url}}</a>
+        </p>
+    </div>
+    <div class="row mt-3">
+        <h4>
+            <b>Step 2 :</b>
+            Once all the images are uploaded, check the box and click submit!
+        </h4>
+    </div>
+    <div class="row mt-2">
+        <div
+            class="alert alert-light"
+            role="alert"
+        >
+            You can come back to this page anytime by clicking the corresponding "Complete" button on the
+            <a
+                href="{% url 'images:list_uploads' %}"
+                target="_blank"
+                class="text-decoration-none"
+            >Uploads</a> page.
+        </div>
+    </div>
+    <div class="row mt-4 mb-5">
+        <form method="post">
+            {% csrf_token %}
+            {% crispy form %}
+        </form>
+    </div>
+    {% else %}
+    <div
+        class="alert alert-info"
+        role="alert"
+    >
+        You don't have access to this upload since you are not the uploader.
+        Login with the account associated with the volunteer or as staff.
+        If you think this is an error, please contact the admin staff.
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock content %}

@@ -118,7 +118,7 @@ def add_bounding_boxes(image: Image):
 
     response = http.post(
         bot.model_api_url,
-        json={"image": image_url, "megadetector_version": bot.version},
+        json={"image": image_url, "megadetector_version": bot.version, "detection_threshold": bot.threshold},
         headers={"Authorization": f"Bearer {id_token}"},
         timeout=300,
     )

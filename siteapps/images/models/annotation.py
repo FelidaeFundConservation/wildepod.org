@@ -2,7 +2,7 @@ import uuid
 
 from django.conf import settings
 from django.db import models
-from django.db.models import Count, ExpressionWrapper, Q
+from django.db.models import Case, Count, ExpressionWrapper, F, Q, Value, When
 from django.db.models.functions import Coalesce
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
@@ -19,12 +19,14 @@ class BaseAnnotationManager(models.Manager):
         # Combining multiple aggregations with annotate() will yield the wrong results because joins are used instead of subqueries
         # https://docs.djangoproject.com/en/4.0/topics/db/aggregation/#combining-multiple-aggregations
         return self.annotate(
-            keep=ExpressionWrapper(
-                Q(confidence__gte=settings.MIN_MEGADETECTOR_CONFIDENCE), output_field=models.BooleanField()
+            confidence_threshold=Case(
+                When(created_by__type="bot", then="created_by__bot__threshold"),
+                default=0.0,
             ),
+            keep=ExpressionWrapper(Q(confidence__gte=F("confidence_threshold")), output_field=models.BooleanField()),
             num_accepted=Coalesce(Count("accepted_by", distinct=True), 0),
             num_rejected=Coalesce(Count("rejected_by", distinct=True), 0),
-            vote_diff=models.F("num_accepted") - models.F("num_rejected"),
+            vote_diff=F("num_accepted") - F("num_rejected"),
             voted_valid=ExpressionWrapper(
                 Q(vote_diff__gte=settings.NUM_ACCEPTS_OVER_REJECTS), output_field=models.BooleanField()
             ),

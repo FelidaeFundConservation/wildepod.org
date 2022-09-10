@@ -1,0 +1,68 @@
+{% extends '_base.html' %}
+{% load static %}
+
+{% block title %} Explore Snapshots {% endblock %}
+<!-- Set corresponding nav pill to active -->
+{% block nav_explore %}active{% endblock nav_explore %}
+
+{% block content %}
+<div class="container uploads">
+    <div class="row pt-3 mt-3">
+        <div class="col-3 text-center">
+        </div>
+        <div class="col-6 text-center">
+            <h2>Snapshots</h2>
+        </div>
+        <div class="col-3 text-end">
+            <a
+                class="btn btn-primary cta"
+                role="button"
+                href="{% url 'explore:data_snapshot_create' %}"
+            >
+                Create +
+            </a>
+        </div>
+    </div>
+    <div class="row pt-3 mt-3">
+        <div class="text-center">Please refresh the page to see the updated status</div>
+        <table class="table mt-2 mt-md-4 align-middle text-center">
+            <thead>
+                <tr>
+                    <th scope="col">Snapshot Date</th>
+                    <th scope="col">Volunteer</th>
+                    <th scope="col">Start Date</th>
+                    <th scope="col">End Date</th>
+                    <th scope="col">Macrosites</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Download</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for object in object_list%}
+                <tr>
+                    <td>{{object.created}}</td>
+                    <td>{{object.volunteer}}</td>
+                    <td>{{object.start_date}}</td>
+                    <td>{{object.end_date}}</td>
+                    <td>
+                        {% for macrosite in object.macrosites.all %}
+                        {{macrosite.name}},
+                        {% endfor %}
+                    </td>
+                    <td>{{object.status}}</td>
+                    {% if object.status == 'done'%}
+                    <td><a
+                            href="{{object.data.url}}"
+                            target="_blank"
+                            class="text-decoration-none"
+                        >Download</a></td>
+                    {% else %}
+                    <td>-</td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

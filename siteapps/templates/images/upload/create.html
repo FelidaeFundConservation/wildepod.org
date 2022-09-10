@@ -1,0 +1,65 @@
+{% extends '_base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %} Upload | {% endblock %}
+<!-- Set corresponding nav pill to active -->
+{% block nav_upload %}active{% endblock nav_upload %}
+
+{% block header_includes %}
+<link
+    href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+    rel="stylesheet"
+/>
+{% endblock header_includes %}
+
+{% block content %}
+<div class="container pt-2 mt-2 mt-md-4">
+    {% if form.errors %}
+    <div
+        class="alert alert-danger"
+        role="alert"
+    >
+        Server error! Please try again or contact admin.
+    </div>
+    {% endif %}
+
+    <div class="row pt-2 pt-md-4">
+        <div class='col-3 col-md-2 offset-1 offset-md-3'>
+            <hr />
+        </div>
+        <div class='col-4 col-md-2 '>
+            <h2 class="text-center">Upload</h2>
+        </div>
+        <div class='col-3 col-md-2'>
+            <hr />
+        </div>
+    </div>
+
+    <div class="row text-center">
+        <small><a
+                href="{% url 'images:list_uploads' %}"
+                class="text-decoration-none"
+            >⬅ back</a></small>
+    </div>
+
+    <div class="row mt-4 mb-5">
+        <form method="post">
+            {% crispy form %}
+        </form>
+    </div>
+</div>
+{% endblock content %}
+
+
+{% block footer_includes %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    $('#id_camera_station').select2({
+        placeholder: 'Which camera station is this from? Ex: "KNG05", "Willow Ridge Road", "La Honda" etc..',
+    });
+    $('#id_volunteer').select2({
+        placeholder: 'Who retrieved the memory card?',
+    });
+
+</script>
+{% endblock footer_includes %}

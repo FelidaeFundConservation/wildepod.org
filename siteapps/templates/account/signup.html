@@ -1,0 +1,45 @@
+{% extends "_base.html" %}
+
+{% load account %}
+{% load crispy_forms_tags %}
+
+{% block title %}Sign Up | {% endblock %}
+
+{% block content %}
+<div class="container mt-3 pt-3 mt-md-4 pt-md-4 mt-lg-5 pt-lg-5">
+    <div class="row justify-content-center pb-3">
+        <div class="col-11 col-md-8 col-lg-6 text-center">
+            <h1>Sign Up</h1>
+            <hr />
+        </div>
+    </div>
+    <div class="row justify-content-center">
+        <div class="col-11 col-md-8 col-lg-6">
+            <p class="text-center pb-3"><small>Already have an account? Please <a href="{{ login_url }}">sign in</a>.</small></p>
+            <form
+                class="signup"
+                id="signup_form"
+                method="post"
+                action="{% url 'account_signup' %}"
+            >
+                {% csrf_token %}
+                {{ form|crispy }}
+                {% if redirect_field_value %}
+                <input
+                    type="hidden"
+                    name="{{ redirect_field_name }}"
+                    value="{{ redirect_field_value }}"
+                />
+                {% endif %}
+                <p class="text-center pt-4">
+                    <button
+                        class="btn btn-primary"
+                        type="submit"
+                    >Sign Up</button>
+                </p>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock content %}

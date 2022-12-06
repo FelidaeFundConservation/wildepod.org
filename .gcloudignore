@@ -17,6 +17,7 @@
 # Custom ignore
 local/
 media/
+scratch/
 collected_static/
 .ipynb_checkpoints/
 db.sqlite3

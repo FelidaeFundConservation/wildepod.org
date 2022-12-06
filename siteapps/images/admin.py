@@ -6,7 +6,7 @@ from .models import Annotator, Bot, BoundingBox, CameraStationAction, Category, 
 
 @admin.register(Upload)
 class UploadAdmin(SimpleHistoryAdmin):
-    list_display = ["dropbox_folder_name", "date_retrieved", "last_action", "volunteer"]
+    list_display = ["dropbox_folder_name", "date_retrieved", "last_action", "volunteer", "priority"]
     list_display_links = [
         "dropbox_folder_name",
     ]

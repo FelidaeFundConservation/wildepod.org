@@ -43,8 +43,10 @@
                     <th scope="col">Date Retrieved</th>
                     <th scope="col">Action</th>
                     <th scope="col">Dropbox</th>
-                    {% if user.is_staff %}<th scope="col">Volunteer</th>{% endif %}
-                    <th scope="col">Priority</th>
+                    {% if user.is_staff %}
+                        <th scope="col">Volunteer</th>
+                        <th scope="col">Priority</th>
+                    {% endif %}
                     <th scope="col"></th>
                 </tr>
             </thead>
@@ -62,8 +64,14 @@
                             target="_blank"
                             class="text-decoration-none"
                         >Open</a></td>
-                    {% if user.is_staff %}<td>{{object.volunteer.name}}</td>{% endif %}
-                    <td>{{object.priority}}</td>
+                    {% if user.is_staff %}
+                        <td>{{object.volunteer.name}}</td>
+                        <td>
+                            <a href="{% url 'admin:images_upload_change' object.id %}" target="_blank">
+                                {{object.priority}}
+                            </a>
+                        </td>
+                    {% endif %}
                     <td><a href="{% url 'images:complete_upload' object.id %}"><button
                                 type="button"
                                 class="btn btn-light"
@@ -128,6 +136,7 @@
                     <th scope="col">Processed</th>
                     {% if user.is_staff %}
                     <th scope="col">Volunteer</th>
+                    <th scope="col">Priority</th>
                     <th scope="col">Dropbox</th>
                     {% comment %} <th scope="col">Data</th> {% endcomment %}
                     {% endif %}
@@ -169,6 +178,11 @@
                     </td>
                     {% if user.is_staff %}
                     <td>{{object.volunteer.name}}</td>
+                    <td>
+                        <a href="{% url 'admin:images_upload_change' object.id %}" target="_blank">
+                            {{object.priority}}
+                        </a>
+                    </td>
                     <td>
                         <a
                             href="{{dropbox_prefix}}{{object.dropbox_folder_path}}"

@@ -135,15 +135,13 @@ def export_image_data(archive_file, images):
             # If there are multiple catrgories/species, we will generate multiple rows in the output per each group.
             if valid_bounding_boxes:
                 # Use groupby and a lambda function to split the bounding boxes into subgroups based on the category name
-                category_groups = [list(group) for _, group in groupby(valid_bounding_boxes, lambda x: x.category_set.first().name)]
-                for bbox_categories in category_groups:
-                    category_name = bbox_categories[0].category_set.first().name
+                category_groups = groupby(valid_bounding_boxes, lambda x: x.category_set.first().name)
+                for category_name, bbox_categories in category_groups:
                     # Use groupby and a lambda function to split the bounding boxes into subgroups based on the species name
-                    species_groups = [list(group) for _, group in groupby(bbox_categories,
-                                      lambda x: x.species_set.first().name.name if x.species_set.first() else '')]
-                    for bbox_species in species_groups:
-                        species_name = bbox_species[0].species_set.first().name.name if bbox_species[0].species_set.first() else ''
-                        write_row(csv_writer, image, category_name, species_name, bbox_species, uncertain_bounding_boxes, valid_or_uncertain_bounding_boxes)
+                    species_groups = groupby(bbox_categories,
+                                    lambda x: x.species_set.first().name.name if x.species_set.first() else '')
+                    for species_name, bbox_species in species_groups:
+                        write_row(csv_writer, image, category_name, species_name, list(bbox_species), uncertain_bounding_boxes, valid_or_uncertain_bounding_boxes)
             else:
                 write_row(csv_writer, image, '', '', valid_bounding_boxes, uncertain_bounding_boxes, valid_or_uncertain_bounding_boxes)
 

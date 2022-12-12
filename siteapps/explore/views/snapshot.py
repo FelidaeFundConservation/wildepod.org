@@ -1,4 +1,5 @@
 import csv
+from itertools import groupby
 import logging
 import threading
 import zipfile
@@ -130,8 +131,31 @@ def export_image_data(archive_file, images):
             uncertain_bounding_boxes = image.boundingbox_set.uncertain()
             valid_or_uncertain_bounding_boxes = image.boundingbox_set.valid_or_uncertain()
 
-            csv_writer.writerow(
-                [
+            # We need to separate out the categories and the species when there are multiple annotations for the same image
+            # If there are multiple catrgories/species, we will generate multiple rows in the output per each group.
+            if valid_bounding_boxes:
+                # Use groupby and a lambda function to split the bounding boxes into subgroups based on the category name
+                category_groups = [list(group) for _, group in groupby(valid_bounding_boxes, lambda x: x.category_set.first().name)]
+                for bbox_categories in category_groups:
+                    category_name = bbox_categories[0].category_set.first().name
+                    # Use groupby and a lambda function to split the bounding boxes into subgroups based on the species name
+                    species_groups = [list(group) for _, group in groupby(bbox_categories,
+                                      lambda x: x.species_set.first().name.name if x.species_set.first() else '')]
+                    for bbox_species in species_groups:
+                        species_name = bbox_species[0].species_set.first().name.name if bbox_species[0].species_set.first() else ''
+                        write_row(csv_writer, image, category_name, species_name, bbox_species, uncertain_bounding_boxes, valid_or_uncertain_bounding_boxes)
+            else:
+                write_row(csv_writer, image, '', '', valid_bounding_boxes, uncertain_bounding_boxes, valid_or_uncertain_bounding_boxes)
+
+            if i % 100 == 0:
+                logging.info(f"Finished {i}/{len(images)} images")
+
+        logging.info("Finished creating a csv file for images")
+        archive_file.writestr("images.tsv", csv_file.getvalue())
+        logging.info("Finished writing image csv to archive")
+
+def write_row(csv_writer, image, category_name, species_name, valid_bounding_boxes, uncertain_bounding_boxes, valid_or_uncertain_bounding_boxes):
+    output_list = [
                     image.id,
                     image.dropbox_content_hash,
                     image.dropbox_file_name,
@@ -152,26 +176,13 @@ def export_image_data(archive_file, images):
                     len(valid_or_uncertain_bounding_boxes),
                     len(valid_bounding_boxes),
                     len(uncertain_bounding_boxes),
-                    " | ".join([bbox.category_set.first().name for bbox in valid_bounding_boxes]),
+                    category_name,
                     len(image.species_checked_by.all()),
                     len([True for bbox in valid_bounding_boxes if bbox.species_set.valid().exists()]),
                     len([True for bbox in valid_bounding_boxes if bbox.species_set.uncertain().exists()]),
-                    " | ".join(
-                        [
-                            bbox.species_set.first().name.name
-                            for bbox in valid_bounding_boxes
-                            if bbox.species_set.first()
-                        ]
-                    ),
+                    species_name,
                 ]
-            )
-
-            if i % 100 == 0:
-                logging.info(f"Finished {i}/{len(images)} images")
-
-        logging.info("Finished creating a csv file for images")
-        archive_file.writestr("images.tsv", csv_file.getvalue())
-        logging.info("Finished writing image csv to archive")
+    csv_writer.writerow(output_list)
 
 
 def create_snapshot(cleaned_form_data, user):

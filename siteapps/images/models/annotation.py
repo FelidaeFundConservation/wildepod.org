@@ -67,12 +67,19 @@ class BoundingBoxManager(BaseAnnotationManager):
             .annotate(
                 is_animal=ExpressionWrapper(
                     Q(category__isnull=False) & Q(category__name="animal"), output_field=models.BooleanField()
+                ),
+                is_species_tagged=ExpressionWrapper(
+                    Q(category__isnull=False) & Q(category__name="animal") & Q(species__isnull=False),
+                    output_field=models.BooleanField()
                 )
             )
         )
 
     def is_animal(self):
         return self.annotated().filter(keep=True, is_animal=True)
+
+    def is_species_tagged(self):
+        return self.annotated().filter(keep=True, is_species_tagged=True)
 
 
 # Certainty annotations for categories
@@ -244,7 +251,7 @@ class Activity(TimeStampedModel):
     # The bounding box this category annotation is linked to
     bounding_box = models.ForeignKey(BoundingBox, on_delete=models.CASCADE)
 
-    # The species of the animal
+    # The activity type of the animal
     name = models.ForeignKey(ActivityType, on_delete=models.PROTECT)
 
     # The creator of the annotation

@@ -109,16 +109,18 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
             Image.objects.annotated()
             .filter(
                 # It must not be checked or skipped by the current annotator
-                ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
+                ~Q(activity_checked_by__in=[annotator]) & ~Q(activity_skipped_by__in=[annotator]),
                 # There must be at least one or more "valid" bounding boxes
                 Exists(BoundingBox.objects.valid().filter(image=OuterRef("pk"))),
                 # There must be no uncertain bounding boxes for the image
                 ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
+                # TODO: The same issues with the species annotation filter might come up here too
+                Exists(BoundingBox.objects.is_species_tagged().filter(image=OuterRef("pk"))),
                 # Image must be marked as processed
                 processed=True,
                 num_activity_checked_by__lt=MAX_VOTES_PER_IMAGE,
             )
-            .order_by("num_activity_checked_by", "trigger_timestamp", "num_objects")
+            .order_by("-upload__priority", "num_activity_checked_by", "trigger_timestamp", "num_objects")
         )
 
         # Serve the first image

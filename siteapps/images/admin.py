@@ -89,6 +89,6 @@ class CategoryAdmin(SimpleHistoryAdmin):
 
 @admin.register(ActivityType)
 class ActivityTypeAdmin(SimpleHistoryAdmin):
-    list_display = ["name", "comments"]
+    list_display = ["name", "category", "comments"]
     list_display_links = ["name"]
     search_fields = ["name"]

@@ -234,6 +234,13 @@ class ActivityType(TimeStampedModel):
     name = models.CharField(max_length=250, unique=True)
     comments = models.TextField("Additional notes", null=True, blank=True)
 
+    # The cateogory of the activity. Differenciates between activities that applies to humans or animals
+    category = models.CharField(
+        max_length=10,
+        choices=[("animal", "animal"), ("human", "human")],
+        default="animal",
+    )
+
     def __str__(self):
         return self.name
 

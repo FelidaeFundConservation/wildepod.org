@@ -1,7 +1,7 @@
 from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 
-from .models import Annotator, Bot, BoundingBox, CameraStationAction, Category, Image, Species, SpeciesName, Upload
+from .models import Annotator, Bot, BoundingBox, CameraStationAction, Category, Image, Species, SpeciesName, Upload, ActivityType
 
 
 @admin.register(Upload)
@@ -85,3 +85,10 @@ class SpeciesAdmin(SimpleHistoryAdmin):
 @admin.register(Category)
 class CategoryAdmin(SimpleHistoryAdmin):
     search_fields = ["id", "bounding_box__id"]
+
+
+@admin.register(ActivityType)
+class ActivityTypeAdmin(SimpleHistoryAdmin):
+    list_display = ["name", "comments"]
+    list_display_links = ["name"]
+    search_fields = ["name"]

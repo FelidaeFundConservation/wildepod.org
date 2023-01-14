@@ -30,7 +30,7 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
                 num_objects__gt=0,
                 num_bbox_checked_by__lt=MAX_VOTES_PER_IMAGE,
             )
-            .order_by("-upload__priority", "num_objects", "num_bbox_checked_by", "trigger_timestamp", "num_objects")
+            .order_by("-upload__priority", "num_objects", "num_bbox_checked_by", "trigger_timestamp", "num_objects")[:1]
         )
 
         # Serve the first image
@@ -76,7 +76,7 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
                 processed=True,
                 num_species_checked_by__lt=MAX_VOTES_PER_IMAGE,
             )
-            .order_by("-upload__priority", "num_species_checked_by", "trigger_timestamp", "num_objects")
+            .order_by("-upload__priority", "num_species_checked_by", "trigger_timestamp", "num_objects")[:1]
         )
 
         # Serve the first image

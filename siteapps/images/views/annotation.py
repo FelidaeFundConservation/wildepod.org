@@ -245,16 +245,16 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
             # Process the annotations
             success = process_md_annotations(image_id, annotations, initial_bboxes, request.user, social_media_worthy)
 
-            # If success, update image index in the datastore
-            if success:
-                # Get the queue entity
-                queue = settings.DATASTORE_CLIENT.get(
-                    settings.DATASTORE_CLIENT.key("AnnotateObjectsQueue", str(request.user.id))
-                )
-                # Update the index
-                queue["index"] += 1
-                # Update the datastore
-                settings.DATASTORE_CLIENT.put(queue)
+        # If success, update image index in the datastore
+        if success:
+            # Get the queue entity
+            queue = settings.DATASTORE_CLIENT.get(
+                settings.DATASTORE_CLIENT.key("AnnotateObjectsQueue", str(request.user.id))
+            )
+            # Update the index
+            queue["index"] += 1
+            # Update the datastore
+            settings.DATASTORE_CLIENT.put(queue)
 
         return JsonResponse({"success": success})
 

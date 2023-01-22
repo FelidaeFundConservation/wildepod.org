@@ -70,8 +70,8 @@ class BoundingBoxManager(BaseAnnotationManager):
                 ),
                 is_species_tagged=ExpressionWrapper(
                     Q(category__isnull=False) & Q(category__name="animal") & Q(species__isnull=False),
-                    output_field=models.BooleanField()
-                )
+                    output_field=models.BooleanField(),
+                ),
             )
         )
 

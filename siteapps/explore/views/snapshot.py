@@ -1,9 +1,9 @@
 import csv
-from itertools import groupby
 import logging
 import threading
 import zipfile
 from io import BytesIO, StringIO
+from itertools import groupby
 
 from braces.views import StaffuserRequiredMixin
 from django.conf import settings
@@ -138,12 +138,29 @@ def export_image_data(archive_file, images):
                 category_groups = groupby(valid_bounding_boxes, lambda x: x.category_set.first().name)
                 for category_name, bbox_categories in category_groups:
                     # Use groupby and a lambda function to split the bounding boxes into subgroups based on the species name
-                    species_groups = groupby(bbox_categories,
-                                    lambda x: x.species_set.first().name.name if x.species_set.first() else '')
+                    species_groups = groupby(
+                        bbox_categories, lambda x: x.species_set.first().name.name if x.species_set.first() else ""
+                    )
                     for species_name, bbox_species in species_groups:
-                        write_row(csv_writer, image, category_name, species_name, list(bbox_species), uncertain_bounding_boxes, valid_or_uncertain_bounding_boxes)
+                        write_row(
+                            csv_writer,
+                            image,
+                            category_name,
+                            species_name,
+                            list(bbox_species),
+                            uncertain_bounding_boxes,
+                            valid_or_uncertain_bounding_boxes,
+                        )
             else:
-                write_row(csv_writer, image, '', '', valid_bounding_boxes, uncertain_bounding_boxes, valid_or_uncertain_bounding_boxes)
+                write_row(
+                    csv_writer,
+                    image,
+                    "",
+                    "",
+                    valid_bounding_boxes,
+                    uncertain_bounding_boxes,
+                    valid_or_uncertain_bounding_boxes,
+                )
 
             if i % 100 == 0:
                 logging.info(f"Finished {i}/{len(images)} images")
@@ -152,34 +169,43 @@ def export_image_data(archive_file, images):
         archive_file.writestr("images.tsv", csv_file.getvalue())
         logging.info("Finished writing image csv to archive")
 
-def write_row(csv_writer, image, category_name, species_name, valid_bounding_boxes, uncertain_bounding_boxes, valid_or_uncertain_bounding_boxes):
+
+def write_row(
+    csv_writer,
+    image,
+    category_name,
+    species_name,
+    valid_bounding_boxes,
+    uncertain_bounding_boxes,
+    valid_or_uncertain_bounding_boxes,
+):
     output_list = [
-                    image.id,
-                    image.dropbox_content_hash,
-                    image.dropbox_file_name,
-                    f"""https://storage.googleapis.com/{settings.GS_BUCKET_NAME}/media/{image.thumbnail_gcloud_path}""",
-                    f"""{settings.DROPBOX_URL_PREFIX}/{image.dropbox_file_path}""",
-                    image.trigger_timestamp,
-                    image.latitude,
-                    image.longitude,
-                    image.is_video,
-                    image.upload.camera_station.station_id,
-                    image.upload.camera_station.micro_site,
-                    image.upload.camera_station.micro_site.macro_site,
-                    image.upload.date_retrieved,
-                    image.upload.volunteer,
-                    f"""{settings.DROPBOX_URL_PREFIX}/{image.upload.dropbox_folder_path}""",
-                    image.social_media_worthy,
-                    len(image.bbox_checked_by.all()),
-                    len(valid_or_uncertain_bounding_boxes),
-                    len(valid_bounding_boxes),
-                    len(uncertain_bounding_boxes),
-                    category_name,
-                    len(image.species_checked_by.all()),
-                    len([True for bbox in valid_bounding_boxes if bbox.species_set.valid().exists()]),
-                    len([True for bbox in valid_bounding_boxes if bbox.species_set.uncertain().exists()]),
-                    species_name,
-                ]
+        image.id,
+        image.dropbox_content_hash,
+        image.dropbox_file_name,
+        f"""https://storage.googleapis.com/{settings.GS_BUCKET_NAME}/media/{image.thumbnail_gcloud_path}""",
+        f"""{settings.DROPBOX_URL_PREFIX}/{image.dropbox_file_path}""",
+        image.trigger_timestamp,
+        image.latitude,
+        image.longitude,
+        image.is_video,
+        image.upload.camera_station.station_id,
+        image.upload.camera_station.micro_site,
+        image.upload.camera_station.micro_site.macro_site,
+        image.upload.date_retrieved,
+        image.upload.volunteer,
+        f"""{settings.DROPBOX_URL_PREFIX}/{image.upload.dropbox_folder_path}""",
+        image.social_media_worthy,
+        len(image.bbox_checked_by.all()),
+        len(valid_or_uncertain_bounding_boxes),
+        len(valid_bounding_boxes),
+        len(uncertain_bounding_boxes),
+        category_name,
+        len(image.species_checked_by.all()),
+        len([True for bbox in valid_bounding_boxes if bbox.species_set.valid().exists()]),
+        len([True for bbox in valid_bounding_boxes if bbox.species_set.uncertain().exists()]),
+        species_name,
+    ]
     csv_writer.writerow(output_list)
 
 

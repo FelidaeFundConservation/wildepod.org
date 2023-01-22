@@ -7,7 +7,7 @@ import io
 from pathlib import Path
 
 import environ
-from google.cloud import secretmanager
+from google.cloud import datastore, secretmanager
 
 # Repo root
 ROOT_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
@@ -324,3 +324,8 @@ MEGADETECTOR_URL = env("MEGADETECTOR_URL")
 # Model storage bucket name & relevant model URLs
 MODEL_STORAGE_BUCKET = env("GS_MODELS_BUCKET_NAME")
 MIN_MEGADETECTOR_CONFIDENCE = 0.25
+
+# Initialize a Datastore client
+DATASTORE_CLIENT = datastore.Client(env("GOOGLE_CLOUD_PROJECT"))
+ANNOTATION_QUEUE_SIZE = 100
+ANNOTATION_EXPIRATION_MINS = 60  # minutes

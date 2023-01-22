@@ -1,7 +1,18 @@
 from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 
-from .models import Annotator, Bot, BoundingBox, CameraStationAction, Category, Image, Species, SpeciesName, Upload, ActivityType
+from .models import (
+    ActivityType,
+    Annotator,
+    Bot,
+    BoundingBox,
+    CameraStationAction,
+    Category,
+    Image,
+    Species,
+    SpeciesName,
+    Upload,
+)
 
 
 @admin.register(Upload)

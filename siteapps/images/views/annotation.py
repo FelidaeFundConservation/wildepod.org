@@ -129,7 +129,7 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
                     processed=True,
                     num_species_checked_by__lt=MAX_VOTES_PER_IMAGE,
                 )
-                .order_by("-upload__priority", "num_species_checked_by", "trigger_timestamp", "num_objects")[:1]
+                .order_by("-upload__priority", "num_species_checked_by", "trigger_timestamp", "num_objects")
             )
             # Get the image stack based on stack size
             images = images[: settings.ANNOTATION_QUEUE_SIZE]

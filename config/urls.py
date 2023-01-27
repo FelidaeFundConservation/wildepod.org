@@ -33,7 +33,7 @@ urlpatterns = [
     path("", include(("home.urls", "home"), namespace="home")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
-if getattr(settings, 'EXPORT_SERVICE', False):
+if getattr(settings, "EXPORT_SERVICE", False):
     urlpatterns += [
         path("exports/", include(("exports.urls", "exports"), namespace="exports")),
     ]

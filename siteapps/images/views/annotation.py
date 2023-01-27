@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 
@@ -13,6 +14,7 @@ MAX_VOTES_PER_IMAGE = 4
 
 
 # TODO: Clean up this code
+# TODO: There are several common bits of code across the three annotation views and should be refactored
 class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
     login_url = settings.LOGIN_URL
     template_name = "images/annotate/objects.html"
@@ -22,19 +24,57 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
         # First get the annotator object for the user
         annotator, _ = Annotator.objects.get_or_create(type="human", human=self.request.user)
 
-        images = (
-            Image.objects.annotated()
-            .filter(
-                ~Q(bbox_checked_by__in=[annotator]) & ~Q(bbox_skipped_by__in=[annotator]),
-                processed=True,
-                num_objects__gt=0,
-                num_bbox_checked_by__lt=MAX_VOTES_PER_IMAGE,
-            )
-            .order_by("-upload__priority", "num_objects", "num_bbox_checked_by", "trigger_timestamp", "num_objects")[:1]
-        )
+        # Get the annotation queue cached in the datastore
+        queue_key = settings.DATASTORE_CLIENT.key("AnnotateObjectsQueue", str(self.request.user.id))
+        queue = settings.DATASTORE_CLIENT.get(queue_key)
 
-        # Serve the first image
-        image = images.first()
+        # If a valid object exists and if it is not expired and if the index points to a valid image, serve it
+        if (
+            queue
+            and datetime.datetime.fromisoformat(queue["expires_at"]) > datetime.datetime.now()
+            and queue["index"] < len(queue["images"])
+        ):
+            # Get the image id
+            image_id = queue["images"][queue["index"]]
+        else:
+            # First get an image stack
+            images = (
+                Image.objects.annotated()
+                .filter(
+                    ~Q(bbox_checked_by__in=[annotator]) & ~Q(bbox_skipped_by__in=[annotator]),
+                    processed=True,
+                    num_objects__gt=0,
+                    num_bbox_checked_by__lt=MAX_VOTES_PER_IMAGE,
+                )
+                .order_by("-upload__priority", "num_objects", "num_bbox_checked_by", "trigger_timestamp", "num_objects")
+            )
+            # Get the image stack based on stack size
+            images = images[: settings.ANNOTATION_QUEUE_SIZE]
+
+            # Get the image ids & convert to string
+            image_ids = [str(image.id) for image in images]
+            # Create a queue entity with image ids, user id, timestamp and index
+            payload = {
+                "user": str(self.request.user.id),
+                "images": image_ids,
+                "expires_at": (
+                    datetime.datetime.now() + datetime.timedelta(minutes=settings.ANNOTATION_EXPIRATION_MINS)
+                ).isoformat(),
+                "index": 0,
+            }
+            # Upload to datastore
+            # If queue is a new entity, create a new key
+            if not queue:
+                queue = settings.DATASTORE_CLIENT.entity(key=queue_key)
+            # Save the queue to the datastore
+            queue.update(payload)
+            settings.DATASTORE_CLIENT.put(queue)
+
+            # Serve the first image
+            image_id = image_ids[0]
+
+        # Get the image object for the image id
+        image = Image.objects.get(id=image_id)
         context["image"] = image
 
         # If there is a valid image, add bounding box information
@@ -56,31 +96,68 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
         # First get the annotator object for the user
         annotator, _ = Annotator.objects.get_or_create(type="human", human=self.request.user)
 
-        # Get images based on the following set of filters
-        images = (
-            Image.objects.annotated()
-            .filter(
-                # It must not be checked or skipped by the current annotator
-                ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
-                # There must be at least one or more "valid" bounding boxes
-                Exists(BoundingBox.objects.valid().filter(image=OuterRef("pk"))),
-                # There must be no uncertain bounding boxes for the image
-                ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
-                # TODO: Fix the line below
-                # This is a quick and dirty hack to only ever show an image if there is at least
-                # one bounding box that has at least one category tagged as an animal linked to it
-                # It should work for most of the time but is not always accurate and will generate false positives
-                # Must be fixed
-                Exists(BoundingBox.objects.is_animal().filter(image=OuterRef("pk"))),
-                # Image must be marked as processed
-                processed=True,
-                num_species_checked_by__lt=MAX_VOTES_PER_IMAGE,
-            )
-            .order_by("-upload__priority", "num_species_checked_by", "trigger_timestamp", "num_objects")[:1]
-        )
+        # Get the annotation queue cached in the datastore
+        queue_key = settings.DATASTORE_CLIENT.key("AnnotateSpeciesQueue", str(self.request.user.id))
+        queue = settings.DATASTORE_CLIENT.get(queue_key)
 
-        # Serve the first image
-        image = images.first()
+        # If a valid object exists and if it is not expired and if the index points to a valid image, serve it
+        if (
+            queue
+            and datetime.datetime.fromisoformat(queue["expires_at"]) > datetime.datetime.now()
+            and queue["index"] < len(queue["images"])
+        ):
+            # Get the image id
+            image_id = queue["images"][queue["index"]]
+        else:
+            # Get images based on the following set of filters
+            images = (
+                Image.objects.annotated()
+                .filter(
+                    # It must not be checked or skipped by the current annotator
+                    ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
+                    # There must be at least one or more "valid" bounding boxes
+                    Exists(BoundingBox.objects.valid().filter(image=OuterRef("pk"))),
+                    # There must be no uncertain bounding boxes for the image
+                    ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
+                    # TODO: Fix the line below
+                    # This is a quick and dirty hack to only ever show an image if there is at least
+                    # one bounding box that has at least one category tagged as an animal linked to it
+                    # It should work for most of the time but is not always accurate and will generate false positives
+                    # Must be fixed
+                    Exists(BoundingBox.objects.is_animal().filter(image=OuterRef("pk"))),
+                    # Image must be marked as processed
+                    processed=True,
+                    num_species_checked_by__lt=MAX_VOTES_PER_IMAGE,
+                )
+                .order_by("-upload__priority", "num_species_checked_by", "trigger_timestamp", "num_objects")
+            )
+            # Get the image stack based on stack size
+            images = images[: settings.ANNOTATION_QUEUE_SIZE]
+
+            # Get the image ids & convert to string
+            image_ids = [str(image.id) for image in images]
+            # Create a queue entity with image ids, user id, timestamp and index
+            payload = {
+                "user": str(self.request.user.id),
+                "images": image_ids,
+                "expires_at": (
+                    datetime.datetime.now() + datetime.timedelta(minutes=settings.ANNOTATION_EXPIRATION_MINS)
+                ).isoformat(),
+                "index": 0,
+            }
+            # Upload to datastore
+            # If queue is a new entity, create a new key
+            if not queue:
+                queue = settings.DATASTORE_CLIENT.entity(key=queue_key)
+            # Save the queue to the datastore
+            queue.update(payload)
+            settings.DATASTORE_CLIENT.put(queue)
+
+            # Serve the first image
+            image_id = image_ids[0]
+
+        # Get the image object for the image id
+        image = Image.objects.get(id=image_id)
         context["image"] = image
 
         # If there is a valid image, add bounding box information
@@ -168,6 +245,17 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
             # Process the annotations
             success = process_md_annotations(image_id, annotations, initial_bboxes, request.user, social_media_worthy)
 
+        # If success, update image index in the datastore
+        if success:
+            # Get the queue entity
+            queue = settings.DATASTORE_CLIENT.get(
+                settings.DATASTORE_CLIENT.key("AnnotateObjectsQueue", str(request.user.id))
+            )
+            # Update the index
+            queue["index"] += 1
+            # Update the datastore
+            settings.DATASTORE_CLIENT.put(queue)
+
         return JsonResponse({"success": success})
 
 
@@ -190,6 +278,17 @@ class SpeciesAnnotationProcessorView(LoginRequiredMixin, View):
         # # Process the annotations
         # logging.info(f"Processing species for Image '{image_id}' by user - '{request.user.name}'")
         success = process_species_annotations(image_id, annotations, initial_bboxes, request.user, skip=skip)
+
+        # If success, update image index in the datastore
+        if success:
+            # Get the queue entity
+            queue = settings.DATASTORE_CLIENT.get(
+                settings.DATASTORE_CLIENT.key("AnnotateSpeciesQueue", str(request.user.id))
+            )
+            # Update the index
+            queue["index"] += 1
+            # Update the datastore
+            settings.DATASTORE_CLIENT.put(queue)
 
         # # TODO: Send and render a meaningful response
         return JsonResponse({"success": success})

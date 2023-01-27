@@ -33,6 +33,11 @@ urlpatterns = [
     path("", include(("home.urls", "home"), namespace="home")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
+if getattr(settings, 'EXPORT_SERVICE', False):
+    urlpatterns += [
+        path("exports/", include(("exports.urls", "exports"), namespace="exports")),
+    ]
+
 if settings.DEBUG:
     # This allows the error pages to be debugged during development, just visit
     # these url in browser to see how these error pages look like.

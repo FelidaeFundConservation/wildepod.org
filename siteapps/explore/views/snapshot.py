@@ -38,11 +38,9 @@ class SnapshotCreateView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             # Construct the fully qualified queue name.
             parent = client.queue_path(project, location, queue)
 
-            payload = {}
-            payload["user"] = self.request.user.pk
+            payload = {"user": self.request.user.pk}
             start_date = form.cleaned_data["start_date"]
             if start_date:
-                print(f"Start date {start_date.isoformat()}")
                 payload["start_date"] = start_date.strftime(settings.EXPORT_DATE_FORMAT)
             end_date = form.cleaned_data["end_date"]
             if end_date:
@@ -51,7 +49,6 @@ class SnapshotCreateView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             if macrosites:
                 payload["macrosites"] = []
                 for site in macrosites:
-                    print(site.pk)
                     payload["macrosites"].append(site.pk)
 
             payload_json = json.dumps(payload, cls=DjangoJSONEncoder)
@@ -68,7 +65,6 @@ class SnapshotCreateView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                         "service": settings.EXPORT_SERVICE_NAME,
                     },
                     "headers": {
-                        #'X-CSRFToken': csrf_token, # This doesn't stop the CSRF error.
                         "Content-Type": "application/json",
                     },
                     "body": converted_payload,

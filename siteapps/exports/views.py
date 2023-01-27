@@ -1,8 +1,6 @@
 import csv
 import json
 import logging
-import threading
-import time
 import zipfile
 from datetime import datetime
 from io import BytesIO, StringIO

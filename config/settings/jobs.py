@@ -38,13 +38,12 @@ if env.bool("USE_CLOUD_SQL_AUTH_PROXY", False):
 ADMIN_URL_SUFFIX = env.str("ADMIN_URL_SUFFIX", default="")
 
 
- 
 # SECURITY
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#secure-proxy-ssl-header
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # https://docs.djangoproject.com/en/dev/ref/settings/#secure-ssl-redirect
-#SECURE_SSL_REDIRECT = env.bool("DJANGO_SECURE_SSL_REDIRECT", default=True)
+# SECURE_SSL_REDIRECT = env.bool("DJANGO_SECURE_SSL_REDIRECT", default=True)
 # https://docs.djangoproject.com/en/dev/ref/settings/#session-cookie-secure
 SESSION_COOKIE_SECURE = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#csrf-cookie-secure
@@ -59,7 +58,6 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool("DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS
 SECURE_HSTS_PRELOAD = env.bool("DJANGO_SECURE_HSTS_PRELOAD", default=True)
 # https://docs.djangoproject.com/en/dev/ref/middleware/#x-content-type-options-nosniff
 SECURE_CONTENT_TYPE_NOSNIFF = env.bool("DJANGO_SECURE_CONTENT_TYPE_NOSNIFF", default=True)
-
 
 
 # GCP settings
@@ -143,7 +141,7 @@ DROPBOX_URL_PREFIX = "https://www.dropbox.com/work/WildePod%20Cloud%20DB/Apps/wi
 # Annotation configuration
 NUM_ACCEPTS_OVER_REJECTS = 0
 
-# FLAGS DEFINED ONLY FOR EXPORT SERVICE 
+# FLAGS DEFINED ONLY FOR EXPORT SERVICE
 INSTALLED_APPS.append("siteapps.exports")
 EXPORT_SERVICE = True
 DEBUG = True

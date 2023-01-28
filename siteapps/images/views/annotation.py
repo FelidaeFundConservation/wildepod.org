@@ -72,16 +72,17 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
             settings.DATASTORE_CLIENT.put(queue)
 
             # Serve the first image
-            image_id = image_ids[0]
-
-        # Get the image object for the image id
-        image = Image.objects.get(id=image_id)
-        context["image"] = image
+            image_id = image_ids[0] if image_ids else None
 
         # If there is a valid image, add bounding box information
-        if image:
+        if image_id:
+            image = Image.objects.get(id=image_id)
+            context["image"] = image
             bounding_boxes = BoundingBox.objects.valid_or_uncertain().filter(image=image)
             context["bounding_boxes"] = bounding_boxes
+        else:
+            context["image"] = None
+            context["bounding_boxes"] = []
 
         return context
 
@@ -156,16 +157,17 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
             settings.DATASTORE_CLIENT.put(queue)
 
             # Serve the first image
-            image_id = image_ids[0]
-
-        # Get the image object for the image id
-        image = Image.objects.get(id=image_id)
-        context["image"] = image
+            image_id = image_ids[0] if image_ids else None
 
         # If there is a valid image, add bounding box information
-        if image:
+        if image_id:
+            image = Image.objects.get(id=image_id)
+            context["image"] = image
             bounding_boxes = BoundingBox.objects.valid().filter(image=image)
             context["bounding_boxes"] = bounding_boxes
+        else:
+            context["image"] = None
+            context["bounding_boxes"] = []
 
         context["species_list"] = SpeciesName.objects.all()
 

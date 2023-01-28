@@ -56,6 +56,7 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
             # Create a queue entity with image ids, user id, timestamp and index
             payload = {
                 "user": str(self.request.user.id),
+                "name": self.request.user.name,
                 "images": image_ids,
                 "expires_at": (
                     datetime.datetime.now() + datetime.timedelta(minutes=settings.ANNOTATION_EXPIRATION_MINS)
@@ -139,6 +140,7 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
             # Create a queue entity with image ids, user id, timestamp and index
             payload = {
                 "user": str(self.request.user.id),
+                "name": self.request.user.name,
                 "images": image_ids,
                 "expires_at": (
                     datetime.datetime.now() + datetime.timedelta(minutes=settings.ANNOTATION_EXPIRATION_MINS)

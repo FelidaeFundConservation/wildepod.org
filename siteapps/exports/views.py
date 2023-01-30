@@ -1,4 +1,5 @@
 import csv
+import gc
 import json
 import logging
 import threading
@@ -8,6 +9,7 @@ from io import BytesIO, StringIO
 from itertools import groupby
 
 from django.conf import settings
+from django.core.cache import cache
 from django.core.files.base import File as DjangoFile
 from django.http import HttpResponse, JsonResponse
 from django.utils.decorators import method_decorator
@@ -162,8 +164,12 @@ def export_image_data(archive_file, images):
                     valid_or_uncertain_bounding_boxes,
                 )
 
-            if i % 100 == 0:
-                logging.info(f"Finished {i}/{len(images)} images")
+            if i % 1000 == 0:
+                logging.info(f"Finished {i} images")
+                if i % 10000 == 0:
+                    # Clear django cache and garbage collect to avoid memory issues
+                    cache.clear()
+                    gc.collect()
 
         logging.info("Finished creating a csv file for images")
         archive_file.writestr("images.tsv", csv_file.getvalue())
@@ -237,7 +243,7 @@ def create_snapshot(data):
         filterset["upload__camera_station__micro_site__macro_site__in"] = macrosites
     # annotated_only = cleaned_form_data["annotated_only"]
 
-    images = Image.objects.annotated().filter(**filterset)
+    images = Image.objects.annotated().filter(**filterset).iterator(chunk_size=10000)
 
     # Next, create a snapshot object
     snapshot = Snapshot.objects.create(

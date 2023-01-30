@@ -212,7 +212,12 @@ def create_snapshot(data):
     """This is a hacky function to create a snapshot inside a thread and update the object when done"""
     # Fetch the volunteer from the request data using the primary key
     user_pk = data.get("user")
-    volunteer = User.objects.get(pk=user_pk)
+    volunteer = None
+    try:
+        volunteer = User.objects.get(pk=user_pk)
+    except User.DoesNotExist:
+        logging.error(f"User with pk {user_pk} does not exist!")
+        return
 
     # First, use the form data to retrieve a filtered set of images
     filterset = {}

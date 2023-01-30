@@ -1,4 +1,5 @@
 runtime: python310
+instance_class: B2
 service: jobs
 entrypoint: gunicorn -b :$PORT jobs:app
 

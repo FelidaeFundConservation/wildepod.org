@@ -1,6 +1,7 @@
 import csv
 import json
 import logging
+import threading
 import zipfile
 from datetime import datetime
 from io import BytesIO, StringIO
@@ -280,7 +281,11 @@ class ExportStartView(View):
         logging.info(f"Received request to start export : {request.body}")
         undecoded_data = request.body.decode()
         data = json.loads(undecoded_data)
-        logging.info(f"JSON data - {data}")
 
-        create_snapshot(data)
+        logging.info(f"Starting a thread to create a snapshot with filters - {data}")
+        # Create a thread to process the upload
+        thread = threading.Thread(target=create_snapshot, args=[data])
+        # Start running the thread
+        thread.start()
+
         return JsonResponse({"message": "Success"})

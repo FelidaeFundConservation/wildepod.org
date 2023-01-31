@@ -329,3 +329,12 @@ MIN_MEGADETECTOR_CONFIDENCE = 0.25
 DATASTORE_CLIENT = datastore.Client(env("GOOGLE_CLOUD_PROJECT"))
 ANNOTATION_QUEUE_SIZE = 100
 ANNOTATION_EXPIRATION_MINS = 60  # minutes
+
+# EXPORT SERVICE AND TASK QUEUE DETAILS
+# ------------------------------------------------------------------------------
+GCP_PROJECT_ID = env("GOOGLE_CLOUD_PROJECT")
+GCP_REGION = "us-west2"  # TODO: This can be fetched via the cloud tasks API
+EXPORT_SERVICE_NAME = "jobs"
+EXPORT_QUEUE_NAME = "wildepod-jobs-queue"
+EXPORT_DATE_FORMAT = "%Y-%m-%d"
+EXPORT_URL_SUFFIX = "8jk6fh9m7w2xz5r3t1n0b8v6c"  # TODO: Move this to secret manager

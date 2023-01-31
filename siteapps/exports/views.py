@@ -11,6 +11,7 @@ from itertools import groupby
 from django.conf import settings
 from django.core.cache import cache
 from django.core.files.base import File as DjangoFile
+from django.core.paginator import Paginator
 from django.http import HttpResponse, JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -127,49 +128,57 @@ def export_image_data(archive_file, images):
             ]
         )
 
-        for i, image in enumerate(images):
-            valid_bounding_boxes = image.boundingbox_set.valid()
-            uncertain_bounding_boxes = image.boundingbox_set.uncertain()
-            valid_or_uncertain_bounding_boxes = image.boundingbox_set.valid_or_uncertain()
+        index = 0
+        page_size = 1000
+        paginator = Paginator(images, page_size)
+        for page_number in paginator.page_range:
+            logging.info(f"Processing page {page_number} of {paginator.num_pages}. Image index : {index}")
+            page = paginator.get_page(page_number)
 
-            # We need to separate out the categories and the species when there are multiple annotations for the same image
-            # If there are multiple catrgories/species, we will generate multiple rows in the output per each group.
-            if valid_bounding_boxes:
-                # Use groupby and a lambda function to split the bounding boxes into subgroups based on the category name
-                category_groups = groupby(valid_bounding_boxes, lambda x: x.category_set.first().name)
-                for category_name, bbox_categories in category_groups:
-                    # Use groupby and a lambda function to split the bounding boxes into subgroups based on the species name
-                    species_groups = groupby(
-                        bbox_categories,
-                        lambda x: x.species_set.first().name.name if x.species_set.first() else "",
-                    )
-                    for species_name, bbox_species in species_groups:
-                        write_row(
-                            csv_writer,
-                            image,
-                            category_name,
-                            species_name,
-                            list(bbox_species),
-                            uncertain_bounding_boxes,
-                            valid_or_uncertain_bounding_boxes,
+            for image in page:
+                valid_bounding_boxes = image.boundingbox_set.valid()
+                uncertain_bounding_boxes = image.boundingbox_set.uncertain()
+                valid_or_uncertain_bounding_boxes = image.boundingbox_set.valid_or_uncertain()
+
+                # We need to separate out the categories and the species when there are multiple annotations for the same image
+                # If there are multiple catrgories/species, we will generate multiple rows in the output per each group.
+                if valid_bounding_boxes:
+                    # Use groupby and a lambda function to split the bounding boxes into subgroups based on the category name
+                    category_groups = groupby(valid_bounding_boxes, lambda x: x.category_set.first().name)
+                    for category_name, bbox_categories in category_groups:
+                        # Use groupby and a lambda function to split the bounding boxes into subgroups based on the species name
+                        species_groups = groupby(
+                            bbox_categories,
+                            lambda x: x.species_set.first().name.name if x.species_set.first() else "",
                         )
-            else:
-                write_row(
-                    csv_writer,
-                    image,
-                    "",
-                    "",
-                    valid_bounding_boxes,
-                    uncertain_bounding_boxes,
-                    valid_or_uncertain_bounding_boxes,
-                )
+                        for species_name, bbox_species in species_groups:
+                            write_row(
+                                csv_writer,
+                                image,
+                                category_name,
+                                species_name,
+                                list(bbox_species),
+                                uncertain_bounding_boxes,
+                                valid_or_uncertain_bounding_boxes,
+                            )
+                else:
+                    write_row(
+                        csv_writer,
+                        image,
+                        "",
+                        "",
+                        valid_bounding_boxes,
+                        uncertain_bounding_boxes,
+                        valid_or_uncertain_bounding_boxes,
+                    )
 
-            if i % 1000 == 0:
-                logging.info(f"Finished {i} images")
-                if i % 10000 == 0:
-                    # Clear django cache and garbage collect to avoid memory issues
-                    cache.clear()
-                    gc.collect()
+                if index % 1000 == 0:
+                    logging.info(f"Finished {index} images")
+
+                index += 1
+            # Clear django cache and garbage collect to avoid memory issues
+            cache.clear()
+            gc.collect()
 
         logging.info("Finished creating a csv file for images")
         archive_file.writestr("images.tsv", csv_file.getvalue())
@@ -243,7 +252,7 @@ def create_snapshot(data):
         filterset["upload__camera_station__micro_site__macro_site__in"] = macrosites
     # annotated_only = cleaned_form_data["annotated_only"]
 
-    images = Image.objects.annotated().filter(**filterset).iterator(chunk_size=10000)
+    images = Image.objects.annotated().filter(**filterset).order_by("trigger_timestamp")
 
     # Next, create a snapshot object
     snapshot = Snapshot.objects.create(

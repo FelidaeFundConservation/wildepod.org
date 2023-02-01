@@ -6,6 +6,6 @@ from .models import Snapshot
 
 @admin.register(Snapshot)
 class SnapshotAdmin(SimpleHistoryAdmin):
-    list_display = ["created", "volunteer"]
+    list_display = ["created", "volunteer", "status", "start_date", "end_date"]
     ordering = ["-created"]
     search_fields = ["created", "volunteer"]

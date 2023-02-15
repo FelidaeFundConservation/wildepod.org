@@ -1,9 +1,10 @@
 from django.urls import path
 
-from .views import (  # ExploreMegadetectorView,
+from .views import (
     ExploreIndexView,
     ExploreMapView,
     ExplorePopularImagesView,
+    SearchDataView,
     SnapshotCreateView,
     SnapshotListView,
 )
@@ -15,4 +16,5 @@ urlpatterns = [
     path("map/", ExploreMapView.as_view(), name="map"),
     # path("megadetector/", ExploreMegadetectorView.as_view(), name="megadetector"),
     path("popular-images/", ExplorePopularImagesView.as_view(), name="popular_images"),
+    path("query_data/", SearchDataView.as_view(), name="query_data"),
 ]

@@ -16,6 +16,7 @@ class ImageManager(models.Manager):
     def annotated(self):
         # Combining multiple aggregations with annotate() will yield the wrong results because joins are used instead of subqueries
         # https://docs.djangoproject.com/en/4.0/topics/db/aggregation/#combining-multiple-aggregations
+
         return self.annotate(
             num_objects=models.functions.Coalesce(models.Count("boundingbox", distinct=True), 0),
             # new=models.functions.Coalesce(models.Max("boundingbox__num_accepted"), 0.0),
@@ -23,6 +24,22 @@ class ImageManager(models.Manager):
             num_species_checked_by=models.functions.Coalesce(models.Count("species_checked_by", distinct=True), 0),
             num_activity_checked_by=models.functions.Coalesce(models.Count("activity_checked_by", distinct=True), 0),
         )
+
+    # Calculates the proportion of images per macro site.
+    def proportion_per_macrosite(self):
+        total_count = self.count()
+        proportion = self.values("macro_site__name").annotate(count=models.Count("id")).order_by()
+        for item in proportion:
+            item["proportion"] = item["count"] / total_count
+        return proportion
+
+    # Calculates the proportion of images per camera station.
+    def proportion_per_camera_station(self):
+        total_count = self.count()
+        proportion = self.values("camera_station__name").annotate(count=models.Count("id")).order_by()
+        for item in proportion:
+            item["proportion"] = item["count"] / total_count
+        return proportion
 
 
 # Each processed Image from an upload

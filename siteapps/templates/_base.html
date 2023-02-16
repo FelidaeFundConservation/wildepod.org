@@ -142,7 +142,11 @@
                                     <li><a
                                             class="dropdown-item"
                                             href="{% url 'explore:data_snapshots' %}"
-                                        >Annotated Data</a></li>
+                                        >Export Data</a></li>
+                                    <li><a
+                                            class="dropdown-item"
+                                            href="{% url 'explore:query_data' %}"
+                                        >Query Data</a></li>
                                     {% endif %}
                                     <li><a
                                             class="dropdown-item"
@@ -177,10 +181,12 @@
                                             class="dropdown-item"
                                             href="{% url 'images:annotate_species' %}"
                                         >Species</a></li>
+                                    {% comment %}
                                     <li><a
                                             class="dropdown-item"
                                             href="{% url 'images:annotate_activity' %}"
                                         >Activity (Alpha)</a></li>
+                                    {% endcomment %}
                                 </ul>
                             </li>
                             <li class="nav-item mx-1 {% block nav_upload %}{% endblock nav_upload %}">

@@ -1,7 +1,7 @@
 from django.urls import path
 
-from .views import (  # UploadExportView,
-    ActivityAnnotationProcessorView,
+from .views import (
+    ActivityAnnotationProcessorView,  # UploadExportView,
     AnnotateActivityView,
     AnnotateObjectsView,
     AnnotateSpeciesView,
@@ -39,7 +39,7 @@ urlpatterns = [
     path("image/<uuid:pk>", ImageDetailView.as_view(), name="image"),
     path("annotate/objects", AnnotateObjectsView.as_view(), name="annotate_objects"),
     path("annotate/species", AnnotateSpeciesView.as_view(), name="annotate_species"),
-    path("annotate/activity", AnnotateActivityView.as_view(), name="annotate_activity"),
+    path("annotate/activity/<str:category>", AnnotateActivityView.as_view(), name="annotate_activity"),
     path(
         "md-annotation-processor/",
         MDAnnotationProcessorView.as_view(),

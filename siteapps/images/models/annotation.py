@@ -68,6 +68,9 @@ class BoundingBoxManager(BaseAnnotationManager):
                 is_animal=ExpressionWrapper(
                     Q(category__isnull=False) & Q(category__name="animal"), output_field=models.BooleanField()
                 ),
+                is_person=ExpressionWrapper(
+                    Q(category__isnull=False) & Q(category__name="person"), output_field=models.BooleanField()
+                ),
                 is_species_tagged=ExpressionWrapper(
                     Q(category__isnull=False) & Q(category__name="animal") & Q(species__isnull=False),
                     output_field=models.BooleanField(),
@@ -77,6 +80,9 @@ class BoundingBoxManager(BaseAnnotationManager):
 
     def is_animal(self):
         return self.annotated().filter(keep=True, is_animal=True)
+
+    def is_person(self):
+        return self.annotated().filter(keep=True, is_person=True)
 
     def is_species_tagged(self):
         return self.annotated().filter(keep=True, is_species_tagged=True)

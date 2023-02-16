@@ -11,7 +11,8 @@ from images.models import ActivityType, Annotator, BoundingBox, Image, SpeciesNa
 from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
 
 MAX_VOTES_PER_IMAGE = 4
-
+CATEGORY_ANIMAL = "animal"
+CATEGORY_HUMAN = "human"
 
 # TODO: Clean up this code
 # TODO: There are several common bits of code across the three annotation views and should be refactored
@@ -181,28 +182,33 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        context["category"] = self.kwargs["category"]
 
         # First get the annotator object for the user
         annotator, _ = Annotator.objects.get_or_create(type="human", human=self.request.user)
 
         # Get images based on the following set of filters
-        images = (
-            Image.objects.annotated()
-            .filter(
-                # It must not be checked or skipped by the current annotator
-                ~Q(activity_checked_by__in=[annotator]) & ~Q(activity_skipped_by__in=[annotator]),
-                # There must be at least one or more "valid" bounding boxes
-                Exists(BoundingBox.objects.valid().filter(image=OuterRef("pk"))),
-                # There must be no uncertain bounding boxes for the image
-                ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
-                # TODO: The same issues with the species annotation filter might come up here too
-                Exists(BoundingBox.objects.is_species_tagged().filter(image=OuterRef("pk"))),
-                # Image must be marked as processed
-                processed=True,
-                num_activity_checked_by__lt=MAX_VOTES_PER_IMAGE,
-            )
-            .order_by("-upload__priority", "num_activity_checked_by", "trigger_timestamp", "num_objects")
+        images = Image.objects.annotated().filter(
+            # It must not be checked or skipped by the current annotator
+            ~Q(activity_checked_by__in=[annotator]) & ~Q(activity_skipped_by__in=[annotator]),
+            # There must be at least one or more "valid" bounding boxes
+            Exists(BoundingBox.objects.valid().filter(image=OuterRef("pk"))),
+            # There must be no uncertain bounding boxes for the image
+            ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
+            # Image must be marked as processed
+            processed=True,
+            num_activity_checked_by__lt=MAX_VOTES_PER_IMAGE,
         )
+
+        # Filter for animals or humans based on the category passed into the view
+        # TODO: The same issues with the species annotation filter exists here too
+        # We only use one bounding box to determine if an image is tagged as an animal or human
+        if context["category"] == CATEGORY_HUMAN:
+            images = images.filter(Exists(BoundingBox.objects.is_person().filter(image=OuterRef("pk"))))
+        else:
+            images = images.filter(Exists(BoundingBox.objects.is_species_tagged().filter(image=OuterRef("pk"))))
+
+        images = images.order_by("-upload__priority", "num_activity_checked_by", "trigger_timestamp", "num_objects")
 
         # Serve the first image
         image = images.first()
@@ -213,7 +219,7 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
             bounding_boxes = BoundingBox.objects.valid().filter(image=image)
             context["bounding_boxes"] = bounding_boxes
 
-        context["activity_list"] = ActivityType.objects.all()
+        context["activity_list"] = ActivityType.objects.filter(category=context["category"])
 
         return context
 

@@ -1,7 +1,7 @@
 from django.urls import path
 
 from .views import (
-    ActivityAnnotationProcessorView,  # UploadExportView,
+    ActivityAnnotationProcessorView,
     AnnotateActivityView,
     AnnotateObjectsView,
     AnnotateSpeciesView,

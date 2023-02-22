@@ -8,8 +8,6 @@ Setup
 1. Git clone this repo
 2. Create a virtualenv
 3. `pip install -r requirements.txt`
-4. Create a local file called `.env` at the root of this repo.
-5. Go to GCloud secrets manager, copy the latest secrets & paste it into this `.env` file
 
 Initialize django project
 1. Make migrations - `python manage.py makemigrations --settings=config.settings.local`
@@ -23,7 +21,7 @@ This has to be a package so the `migrations` folder must have a `__init__.py` fi
 This should have things running on `localhost:8000` and use a local sqlite db
 
 ### Initalize some data - hacky version
-1. Download the "active camera data" & "Camera inventory" sheets from the metadata collection spreadsheet
+1. Download the "active camera data" & "Camera inventory" sheets from the Slack channel
 2. Alter lines 7-10 of `scratch/load.py` file accordingly depending on where the downloaded files are saved
 3. Run `python manage.py shell --settings=config.settings.local < scratch/load.py`
 

@@ -1,7 +1,14 @@
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.shortcuts import get_object_or_404
+from django.http import HttpResponseRedirect
 from django.core.paginator import Paginator
 from django.views.generic import ListView
+from django.views import View
+
+
+
+
 from images.models import Image
 
 IMAGE_PAGINATION_LIMIT = 24
@@ -23,3 +30,16 @@ class ExplorePopularImagesView(LoginRequiredMixin, ListView):
         context["paged_images"] = paged_images
         context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
         return context
+
+
+
+class RemovePopularImage(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        image = get_object_or_404(Image, id=kwargs["pk"])
+        image.social_media_worthy = 0
+        image.save()
+
+        page = '?page={}'.format(self.request.POST['page']) if self.request.POST['page'] else ''
+
+        # After image removal, send HTTP Redirect to the referer page
+        return HttpResponseRedirect('/explore/popular-images/' + page)

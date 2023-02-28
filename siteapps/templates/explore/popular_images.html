@@ -1,11 +1,14 @@
 {% extends '_base.html' %}
 {% load static %}
+{% load compress %}
+
 
 <!-- Set corresponding nav pill to active -->
 {% block title %} Popular Images {% endblock %}
 {% block nav_explore %}active{% endblock nav_explore %}
 
 {% block content %}
+
 <div class="container py-3 my-3">
     <div class="row pt-2 mt-2 text-center">
         <p>
@@ -23,6 +26,7 @@
             {% endif %}
         </p>
     </div>
+
     <div class="row pt-2 mt-2 justify-content-center">
         {% for image in paged_images %}
         <div class="col-12 col-md-6 col-xl-4 text-center py-3">
@@ -51,6 +55,12 @@
                     type="button"
                     class="btn btn-light"
                 >View Original</button></a>
+
+            {% if user.is_staff %}
+                <button type="button" value="{{image.id}}" id="" class="btn btn-warning removePopularImageBtn" data-bs-toggle="modal" data-bs-target="#removePopularImageModal">
+                    Remove Image
+                  </button>
+            {% endif %}
         </div>
         {% endfor %}
     </div>
@@ -70,5 +80,44 @@
             {% endif %}
         </p>
     </div>
-</div>
+
+
+
+    <!-- Modal - Remove from popular images -->
+    <div class="modal fade" id="removePopularImageModal" tabindex="-1"
+        aria-labelledby="removePopularImageModalLabel" aria-hidden="true"
+        data-image_id="">
+        <div class="modal-dialog">
+            <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="removePopularImageModalLabel">Remove Image</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form id="removePopularImageForm" action="" method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="social_media_worthy" value="1">
+                <input type="hidden" value="" name="page" />
+                <div class="modal-body">
+                    Remove image from "Popular Images"
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-success" data-bs-dismiss="modal">No</button>
+                    <button type="submit" class="btn btn-danger">Yes</button>
+                </div>
+            </form>
+
+            </div>
+        </div>
+    </div>
+
+
+    {% compress js %}
+    <script src="{% static 'js/explore/popular_images.js' %}" type="text/javascript" charset="utf-8"></script>
+    {% endcompress %}
+
 {% endblock content %}
+
+
+
+

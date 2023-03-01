@@ -96,7 +96,7 @@
 
             <form id="removePopularImageForm" action="" method="POST">
                 {% csrf_token %}
-                <input type="hidden" name="social_media_worthy" value="1">
+                <input type="hidden" name="social_media_worthy" value="0">
                 <input type="hidden" value="" name="page" />
                 <div class="modal-body">
                     Remove image from "Popular Images"
@@ -117,7 +117,3 @@
     {% endcompress %}
 
 {% endblock content %}
-
-
-
-

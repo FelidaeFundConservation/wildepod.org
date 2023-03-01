@@ -34,5 +34,3 @@ function defer(method) {
 }
 // To wait for JQuery to load.
 defer(function () {});
-
-

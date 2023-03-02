@@ -256,7 +256,7 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
 
             # Check if the image was tagged as social media worthy
             social_media_worthy = request.POST.get("social_media_worthy")
-            social_media_worthy = True if social_media_worthy and social_media_worthy == "true" else False
+            social_media_worthy = bool(social_media_worthy and social_media_worthy == "true")
 
             logging.info(f"Processing bounding box annotations for image '{image_id}' by user - '{request.user.name}'")
             # Process the annotations

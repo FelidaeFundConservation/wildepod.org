@@ -19,7 +19,6 @@ google-auth-httplib2==0.1.0 # https://github.com/googleapis/google-auth-library-
 google-auth-oauthlib==0.5.2 # https://github.com/googleapis/google-auth-library-python-oauthlib
 google-cloud-datastore==2.13.0 # https://github.com/googleapis/python-datastore
 google-cloud-secret-manager==2.11.1 # https://github.com/googleapis/python-secret-manager
-whitenoise==6.4.0 # https://github.com/evansd/whitenoise
 
 Pillow==9.0.1  # https://github.com/python-pillow/Pillow
 psycopg2-binary==2.9.3  # https://github.com/psycopg/psycopg2
@@ -30,3 +29,4 @@ rcssmin==1.1.0  # https://github.com/ndparker/rcssmin
 # Third party libs
 # ------------------------------------------------------------------------------
 requests==2.27.1  # https://github.com/psf/requests
+whitenoise==6.4.0 # https://github.com/evansd/whitenoise

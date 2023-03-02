@@ -10,8 +10,9 @@ Setup
 2. Create a virtualenv `python -m venv <your_virtualenv_name>`
 3. Activate the local virtualenv.
 4. `pip install -r requirements.txt`
-5. Rename `.example_env` to `.env`
-6. Run `./clean_local_db.sd`
+5. `pip install -r requirements-dev.txt`
+6. Rename `.example_env` to `.env`
+7. Run `./clean_local_db.sd`
 
 This should have things running on `localhost:8000` and use a local sqlite db
 

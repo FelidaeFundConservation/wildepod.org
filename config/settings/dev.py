@@ -81,14 +81,6 @@ LOGGING = {
     "root": {"level": "INFO", "handlers": ["console"]},
 }
 
-# COMPRESSOR
-# ------------------------------------------------------------------------------
-COMPRESS_ENABLED = False
-
-COMPRESS_PRECOMPILERS = (
-    ("text/x-sass", "sass --style compressed {infile} {outfile}"),
-    ("text/x-scss", "sass --style compressed {infile} {outfile}"),
-)
 
 # CUSTOM VARIABLES
 # ------------------------------------------------------------------------------

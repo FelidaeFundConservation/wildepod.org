@@ -84,6 +84,7 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    "whitenoise.runserver_nostatic",
     "django.contrib.staticfiles",
     "django.contrib.sites",
     "django.forms",
@@ -208,7 +209,7 @@ CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
 # https://docs.djangoproject.com/en/dev/ref/settings/#static-url
 STATIC_URL = "/static/"
 # https://docs.djangoproject.com/en/dev/ref/settings/#static-root
-STATIC_ROOT = str(ROOT_DIR / "collected_static")
+STATIC_ROOT = str(ROOT_DIR / "staticfiles")
 # https://docs.djangoproject.com/en/dev/ref/contrib/staticfiles/#std:setting-STATICFILES_DIRS
 STATICFILES_DIRS = [str(APPS_DIR / "static")]
 # https://docs.djangoproject.com/en/dev/ref/contrib/staticfiles/#staticfiles-finders
@@ -279,41 +280,6 @@ JAZZMIN_SETTINGS = {
         "images.Annotation",
     ],
 }
-
-# # CKEDITOR SETTINGS
-# # ------------------------------------------------------------------------------
-# CKEDITOR_CONFIGS = {
-#     "default": {
-#         "toolbar": "Custom",
-#         "toolbar_Custom": [
-#             ["Bold", "Italic", "Underline", "Strike", "Subscript", "Superscript", "-", "RemoveFormat"],
-#             [
-#                 "NumberedList",
-#                 "BulletedList",
-#                 "-",
-#                 "Outdent",
-#                 "Indent",
-#                 "-",
-#                 "Blockquote",
-#                 "CreateDiv",
-#                 "-",
-#                 "JustifyLeft",
-#                 "JustifyCenter",
-#                 "JustifyRight",
-#                 "JustifyBlock",
-#                 "-",
-#                 "BidiLtr",
-#                 "BidiRtl",
-#             ],
-#             ["Link", "Unlink"],
-#             ["Image", "Table", "HorizontalRule", "SpecialChar"],
-#             ["Styles", "Format", "Font", "FontSize"],
-#             ["TextColor", "BGColor"],
-#             ["Maximize", "ShowBlocks", "-", "About"],
-#         ],
-#         "height": 750,
-#     },
-# }
 
 # CUSTOM VARIABLES
 # ------------------------------------------------------------------------------

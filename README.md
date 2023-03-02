@@ -48,8 +48,9 @@ This should be fine for those spreadsheets. If there is any error, add that row 
 6. Use cloud sql proxy and run db migrations
 7. Install sass compiler (if needed) and run from project root. This should continuously watch for changes in scss files and compile them to css (static files are served using whitenoise)
    `sass --watch --style compressed ./siteapps/static/scss/main.scss:./siteapps/static/css/main.css`
-8. Deploy app using `gcloud app deploy`
-9. Add relevant secrets from .env to Secret manager (Important: Give your appengine app "Secret Manager Secret Accessor" permission)
+8. Collect static files using `python manage.py collectstatic --settings=config.settings.prod`
+9. Deploy app using `gcloud app deploy`
+10. Add relevant secrets from .env to Secret manager (Important: Give your appengine app "Secret Manager Secret Accessor" permission)
 
 ## With SQL proxy
 

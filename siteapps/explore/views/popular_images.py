@@ -34,7 +34,7 @@ class RemovePopularImage(LoginRequiredMixin, View):
         image.social_media_worthy = 0
         image.save()
 
-        page = "?page={}".format(request.POST.get('page', '1'))
+        page = "?page={}".format(request.POST.get("page", "1"))
 
         # After image removal, send HTTP Redirect to the referer page
         return HttpResponseRedirect("/explore/popular-images/" + page)

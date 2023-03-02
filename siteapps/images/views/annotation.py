@@ -1,6 +1,7 @@
 import datetime
 import json
 import logging
+from random import sample
 
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -41,15 +42,27 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
             images = (
                 Image.objects.annotated()
                 .filter(
+                    # It must not be checked or skipped by the current annotator
                     ~Q(bbox_checked_by__in=[annotator]) & ~Q(bbox_skipped_by__in=[annotator]),
+                    # There must be at least one or more "uncertain" bounding boxes.
+                    # This will make sure that the images that need more votes are served first
+                    Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
+                    # Image must be marked as processed by MegaDetector
                     processed=True,
+                    # Image must have at least one bounding box
                     num_objects__gt=0,
-                    num_bbox_checked_by__lt=MAX_VOTES_PER_IMAGE,
                 )
-                .order_by("-upload__priority", "num_objects", "num_bbox_checked_by", "trigger_timestamp", "num_objects")
+                .order_by("-upload__priority", "trigger_timestamp")
             )
-            # Get the image stack based on stack size
-            images = images[: settings.ANNOTATION_QUEUE_SIZE]
+            # Get the image stack based on stack size. We fetch several times the queue size to make sure
+            # that we can get a random sampling of images across multiple users.
+            # Note that we also convert the images queryset to a list to ease the random sampling.
+            TOTAL_FETCH_SIZE = settings.ANNOTATION_QUEUE_SIZE * 5
+            images = list(images[:TOTAL_FETCH_SIZE])
+
+            # If we have enough images, we can randomly sample the images to get the queue size
+            if len(images) > settings.ANNOTATION_QUEUE_SIZE:
+                images = sample(images, settings.ANNOTATION_QUEUE_SIZE)
 
             # Get the image ids & convert to string
             image_ids = [str(image.id) for image in images]

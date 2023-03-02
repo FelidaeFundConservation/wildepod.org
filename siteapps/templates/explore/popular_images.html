@@ -1,6 +1,5 @@
 {% extends '_base.html' %}
 {% load static %}
-{% load compress %}
 
 
 <!-- Set corresponding nav pill to active -->
@@ -112,8 +111,6 @@
     </div>
 </div>
 
-{% compress js %}
 <script src="{% static 'js/explore/popular_images.js' %}" type="text/javascript" charset="utf-8"></script>
-{% endcompress %}
 
 {% endblock content %}

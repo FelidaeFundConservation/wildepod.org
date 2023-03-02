@@ -7,18 +7,11 @@
 Setup
 
 1. Git clone this repo
-2. Create a virtualenv
-3. `pip install -r requirements.txt`
-
-Initialize django project
-
-1. Make migrations - `python manage.py makemigrations --settings=config.settings.local`
-   (Note: This may not work since `migrations` folder is gitignored for now and Django requires the folder's existence.
-   To fix that for now, simply create python packages named `migrations` in each of the app packages.
-   This has to be a package so the `migrations` folder must have a `__init__.py` file or django can't see it.
-2. Apply migrations - `python manage.py migrate --settings=config.settings.local`
-3. Create superuser - `python manage.py createsuperuser --settings=config.settings.local`
-4. Run server - `python manage.py runserver --settings=config.settings.local`
+2. Create a virtualenv `python -m venv <your_virtualenv_name>`
+3. Activate the local virtualenv.
+4. `pip install -r requirements.txt`
+5. Rename `.example_env` to `.env`
+6. Run `./clean_local_db.sd`
 
 This should have things running on `localhost:8000` and use a local sqlite db
 

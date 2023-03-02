@@ -65,19 +65,10 @@ SECURE_CONTENT_TYPE_NOSNIFF = env.bool("DJANGO_SECURE_CONTENT_TYPE_NOSNIFF", def
 # ------------------------------------------------------------------------------
 GS_BUCKET_NAME = env("GS_BUCKET_NAME_PROD")
 GS_DEFAULT_ACL = "publicRead"
-# Static files
-STATICFILES_STORAGE = "siteapps.utils.storages.StaticRootGoogleCloudStorage"
-COLLECTFAST_STRATEGY = "collectfast.strategies.gcloud.GoogleCloudStrategy"
-STATIC_URL = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/static/"
-COMPRESS_STORAGE = STATICFILES_STORAGE
-COMPRESS_ROOT = STATIC_ROOT
-COMPRESS_URL = STATIC_URL
 
 # Media files
 DEFAULT_FILE_STORAGE = "siteapps.utils.storages.MediaRootGoogleCloudStorage"
 MEDIA_URL = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/media/"
-
-CKEDITOR_UPLOAD_PATH = "ckeditor_uploads/"
 
 # EMAIL
 # ------------------------------------------------------------------------------
@@ -116,17 +107,6 @@ google_logging_client = google.cloud.logging.Client()
 # Python logging module. By default this captures all logs
 # at INFO level and higher
 google_logging_client.setup_logging()
-
-
-# COMPRESSOR
-# ------------------------------------------------------------------------------
-COMPRESS_ENABLED = True
-COMPRESS_OFFLINE = True
-
-COMPRESS_PRECOMPILERS = (
-    ("text/x-sass", "sass --style compressed {infile} {outfile}"),
-    ("text/x-scss", "sass --style compressed {infile} {outfile}"),
-)
 
 
 # EXTERNAL APPS CONFIG

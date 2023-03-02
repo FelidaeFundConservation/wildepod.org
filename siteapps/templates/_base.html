@@ -1,5 +1,5 @@
 {% load static %}
-{% load compress %}
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -74,13 +74,11 @@
         {% endblock header_includes %}
 
         <!-- Custom Style Sheets -->
-        {% compress css %}
         <link
             rel="stylesheet"
-            type="text/x-scss"
-            href="{% static 'sass/main.scss' %}"
+            type="text/css"
+            href="{% static 'css/main.css' %}"
         >
-        {% endcompress %}
     </head>
 
     <body class="d-flex flex-column h-100">
@@ -303,9 +301,7 @@
             crossorigin="anonymous"
         ></script>
         <!-- Custom JS -->
-        {% compress js %}
         <script src="{% static 'js/main.js' %}" type="text/javascript" charset="utf-8"></script>
-        {% endcompress %}
         <!-- Additional page specific JS -->
         {% block footer_includes %}
         {% endblock footer_includes %}

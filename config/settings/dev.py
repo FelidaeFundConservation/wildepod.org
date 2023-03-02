@@ -44,8 +44,6 @@ GS_DEFAULT_ACL = "publicRead"
 DEFAULT_FILE_STORAGE = "siteapps.utils.storages.MediaRootGoogleCloudStorage"
 MEDIA_URL = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/media/"
 
-CKEDITOR_UPLOAD_PATH = "ckeditor_uploads/"
-
 # EMAIL
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-backend

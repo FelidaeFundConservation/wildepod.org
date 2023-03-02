@@ -1,7 +1,7 @@
 # Custom ignore
 local/
 media/
-collected_static/
+staticfiles/
 .ipynb_checkpoints/
 db.sqlite3
 db.sqlite3-journal

@@ -1,0 +1,79 @@
+<div id="image-manipulator-sliders" class="mt-3" style="border: 1px solid black; border-radius: 5px; padding: 20px;">
+    <h5>Image Manipulators</h5>
+    <text>Adjust the sliders as needed to make details easier to see.</text>
+    <hr>
+    <script>
+                    let imageManipulatorSliders = document.getElementById("image-manipulator-sliders");
+
+                    // Contains information for each filter type.
+                    class ImageManipulator {
+                        constructor(name, sliderId, filterFunction) {
+                            this.name = name;
+                            this.sliderId = sliderId;
+                            this.filterFunction = filterFunction;
+                        }
+                    }
+
+                    // Can add or remove filters as needed.
+                    let imageManipulators = [
+                        new ImageManipulator("Brightness", "image-brightness-slider", "brightness"),
+                        new ImageManipulator("Contrast", "image-contrast-slider", "contrast"),
+                        new ImageManipulator("Saturation", "image-saturation-slider", "saturate")
+                    ];
+
+                    // Creates the sliders based on the defined manipulators.
+                    for (let manipulator of imageManipulators) {
+                        let slider = document.createElement("input");
+                        slider.setAttribute("class", "col-6");
+                        slider.setAttribute("type", "range");
+                        slider.setAttribute("min", "10");
+                        slider.setAttribute("max", "250");
+                        slider.setAttribute("value", "100");
+                        slider.setAttribute("id", manipulator.sliderId);
+                        slider.style.width = "100%";
+
+                        slider.addEventListener('input', adjustImage)
+
+                        let text = document.createElement("text");
+                        text.innerHTML = manipulator.name;
+
+                        imageManipulatorSliders.appendChild(text);
+                        imageManipulatorSliders.appendChild(document.createElement("br"));
+                        imageManipulatorSliders.appendChild(slider);
+                        imageManipulatorSliders.appendChild(document.createElement("br"));
+                    }
+
+                    // Applies the filters to the image.
+                    function adjustImage() {
+                        const image = document.getElementById('{{image.id}}');
+
+                        let filterString = "";
+
+                        for (let manipulator of imageManipulators) {
+                            const slider = document.getElementById(manipulator.sliderId);
+                            const value = slider.value;
+                            filterString += manipulator.filterFunction + "(" + value + "%) ";
+                        }
+                        image.style.filter = filterString;
+
+                    }
+
+                    // Resets all filters to the default value when clicked.
+                    const defaultSliderValue = 100;
+
+                    let resetFiltersButton = document.createElement("button");
+                    resetFiltersButton.textContent = "Reset Filters";
+
+                    resetFiltersButton.addEventListener('click', function () {
+                        for (manipulator of imageManipulators) {
+                            filterSlider = document.getElementById(manipulator.sliderId);
+
+                            filterSlider.value = defaultSliderValue;
+                        }
+                        adjustImage();
+                    });
+
+                    imageManipulatorSliders.appendChild(resetFiltersButton);
+
+    </script>
+</div>

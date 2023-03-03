@@ -11,7 +11,7 @@ ALLOWED_HOSTS = ["*"]
 
 # DEBUG MODE
 # ------------------------------------------------------------------------------
-DEBUG = False
+DEBUG = True
 
 # https://docs.djangoproject.com/en/dev/ref/settings/#wsgi-application
 WSGI_APPLICATION = "config.wsgi.local.application"

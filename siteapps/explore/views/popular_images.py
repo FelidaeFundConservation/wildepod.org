@@ -28,7 +28,7 @@ class ExplorePopularImagesView(LoginRequiredMixin, ListView):
         return context
 
 
-class RemovePopularImage(LoginRequiredMixin, View):
+class RemovePopularImageView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         image = get_object_or_404(Image, id=kwargs["pk"])
         image.social_media_worthy = 0

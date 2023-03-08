@@ -224,3 +224,7 @@ tags
 .idea/
 
 .pytest_cache/
+
+
+nohup.out
+.sass-cache/

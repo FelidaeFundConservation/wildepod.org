@@ -107,8 +107,6 @@ for image in images:
     
     if (image_count % 1000) == 0:
        print(f"Image count {image_count}, Current checked_by counts (staff/all): {staff_count} / {checked_by_count}")
-       if image_count > 1999:
-              break
 
 print(f"Total images: {image_count}")
 print(f"Total checked_by (staff/all): {staff_count} / {checked_by_count}")

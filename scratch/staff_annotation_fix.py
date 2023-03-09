@@ -66,13 +66,11 @@ for image in images:
                 else:
                     for box in boxes:
                         annotator = checked_by_annotator
-                        bbox_obj = BoundingBox.objects.get(id=box.id)
                         categories = box.category_set.all()
                         if len(categories) >= 1:
-                            category_obj = Category.objects.get(bounding_box=bbox_obj, name=categories[0].name)
                             if make_changes:
                                 vote(box, annotator, accept=True)
-                                vote(category_obj, annotator, accept=True)
+                                vote(categories[0], annotator, accept=True)
                                 pass
                             fixed_count += 1
             else:

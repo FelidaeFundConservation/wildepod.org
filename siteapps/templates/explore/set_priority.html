@@ -2,7 +2,7 @@
 {% load static %}
 {% load crispy_forms_tags %}
 
-{% block title %} Query Data {% endblock %}
+{% block title %} Set Priority {% endblock %}
 <!-- Set corresponding nav pill to active -->
 {% block nav_explore %}active{% endblock nav_explore %}
 
@@ -34,8 +34,27 @@
     <div class="row justify-content-evenly mt-3 pt-3">
 
         {% if form.is_valid %}
-            
-                
+        <table class="table mt-2 mt-md-4 align-middle">
+            <thead>
+                <tr>
+                    <th scope="col">Camera Station</th>
+                    <th scope="col" class="text-end">Macrosite</th>
+                    <th scope="col" class="text-end">Date Retrieved</th>
+                    <th scope="col" class="text-end">New Priority Set</th>                    
+                </tr>
+            </thead>
+            <tbody>
+                {% for object in results %}
+                <tr>
+                    <td class="text-start">{{object.camera_station.station_id}}</td>
+                    <td class="text-end">{{object.camera_station.micro_site.macro_site}}</td>
+                    <td class="text-end">{{object.date_retrieved}}</td>
+                    <td class="text-end">{{object.priority}}</td>                                    
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+       
         {% endif %}
     </div>
 </div>
@@ -46,9 +65,6 @@
 <script>
     $('#id_macrosites').select2({
         placeholder: '(optional) Only these macrosites will be included',
-    });
-    $('#id_microsites').select2({
-        placeholder: '(optional) Only these microsites will be included',
     });
     $('#id_camera_stations').select2({
         placeholder: '(optional) Only these camera stations will be included',

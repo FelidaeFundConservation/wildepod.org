@@ -31,30 +31,10 @@
         </div>
     </div>
 
-    <div class="row justify-content-evenly mt-3 pt-3">
+    <div class="justify-content-center mt-3 pt-3">
 
         {% if form.is_valid %}
-        <table class="table mt-2 mt-md-4 align-middle">
-            <thead>
-                <tr>
-                    <th scope="col">Camera Station</th>
-                    <th scope="col" class="text-end">Macrosite</th>
-                    <th scope="col" class="text-end">Date Retrieved</th>
-                    <th scope="col" class="text-end">New Priority Set</th>                    
-                </tr>
-            </thead>
-            <tbody>
-                {% for object in results %}
-                <tr>
-                    <td class="text-start">{{object.camera_station.station_id}}</td>
-                    <td class="text-end">{{object.camera_station.micro_site.macro_site}}</td>
-                    <td class="text-end">{{object.date_retrieved}}</td>
-                    <td class="text-end">{{object.priority}}</td>                                    
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-       
+            <p>Number of effected records :  {{results}} </p>         
         {% endif %}
     </div>
 </div>

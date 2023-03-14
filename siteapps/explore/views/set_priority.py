@@ -16,16 +16,12 @@ MAX_VOTES_PER_IMAGE = 2
 
 
 class SetPriorityForm(forms.Form):
-    start_date = forms.SplitDateTimeField(
-        widget=forms.widgets.SplitDateTimeWidget(
-            date_attrs={"type": "date"}, time_attrs={"type": "time"}
-        ),
+    start_date = forms.DateField(
+        widget=forms.widgets.DateInput(attrs={"type": "date"}), required=True
     )
 
-    end_date = forms.SplitDateTimeField(
-        widget=forms.widgets.SplitDateTimeWidget(
-            date_attrs={"type": "date"}, time_attrs={"type": "time"}
-        ),
+    end_date = forms.DateField(
+        widget=forms.widgets.DateInput(attrs={"type": "date"}), required=True
     )
 
     macrosites = forms.ModelMultipleChoiceField(
@@ -36,11 +32,7 @@ class SetPriorityForm(forms.Form):
         queryset=CameraStation.objects.all(), required=True
     )
 
-    priority_choices = [
-        ("1", "Low"),
-        ("2", "Medium"),
-        ("3", "High"),
-    ]
+    priority_choices = Upload._meta.get_field("priority").choices
     priority_by = forms.ChoiceField(
         choices=priority_choices, widget=forms.Select, initial="1"
     )
@@ -82,7 +74,6 @@ class PriorityView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
 
     def post(self, request, *args, **kwargs):
         form = SetPriorityForm(request.POST)
-        results = {}
 
         if form.is_valid():
             # Use the form data to retrieve the filter conditions
@@ -102,10 +93,8 @@ class PriorityView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                 filterset["camera_station__micro_site__macro_site__in"] = macrosites
             if camera_stations:
                 filterset["camera_station__in"] = camera_stations
-            Upload.objects.filter(**filterset).update(priority=priority_by)
-            queryset = Upload.objects.filter(**filterset)
-            print(queryset.values())
-            results = queryset
+            results = Upload.objects.filter(**filterset).update(priority=priority_by)
+            print(results)
             return render(
                 request, self.template_name, {"form": form, "results": results}
             )

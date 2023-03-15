@@ -104,7 +104,7 @@ for image in images:
     #         print(f"    No category for box {box.id}")
     
     if (image_count % 1000) == 0:
-       print(f"Image count {image_count}, Current checked_by counts (staff/all): {staff_count} / {checked_by_count}")
+       print(f"Image count {image_count}, Current checked_by counts (staff/all): {staff_count} / {checked_by_count}, time taken: {time.time() - start_time} seconds")
 
 print(f"Total images: {image_count}")
 print(f"Total checked_by (staff/all): {staff_count} / {checked_by_count}")

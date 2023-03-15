@@ -108,7 +108,7 @@ for image in images:
 
     if (image_count % 1000) == 0:
         print(
-            f"Image count {image_count}, Current checked_by counts (staff/all): {staff_count} / {checked_by_count}, time taken: {time.time() - start_time} seconds"
+            f"Image count {image_count}, Current checked_by counts (staff/all): {staff_count} / {checked_by_count}, time taken: {time.time() - start_time:.0f} seconds"
         )
 
 print(f"Total images: {image_count}")

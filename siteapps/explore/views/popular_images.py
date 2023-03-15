@@ -19,7 +19,7 @@ class ExplorePopularImagesView(LoginRequiredMixin, ListView):
         # Call the base implementation first to get a context
         context = super().get_context_data(**kwargs)
         # Add in a QuerySet of all the books
-        images = Image.objects.filter(social_media_worthy__gt=0).order_by("-id", "-social_media_worthy")
+        images = Image.objects.filter(social_media_worthy__gt=0).exclude(species_checked_by=None).order_by("-trigger_timestamp", "-id", "-social_media_worthy")
         paginator = Paginator(images, IMAGE_PAGINATION_LIMIT)
         page_number = self.request.GET.get("page")
         paged_images = paginator.get_page(page_number)

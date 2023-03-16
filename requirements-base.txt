@@ -6,8 +6,6 @@ crispy-bootstrap5==0.6  # https://github.com/django-crispy-forms/crispy-bootstra
 django==4.0.6  # pyup: < 4.0  # https://www.djangoproject.com/
 django-allauth==0.51.0  # https://github.com/pennersr/django-allauth
 django-braces==1.15.0 # https://github.com/brack3t/django-braces
-django-ckeditor==6.4.2 # https://github.com/django-ckeditor/django-ckeditor
-django-compressor==4.0 # https://github.com/django-compressor/django-compressor
 django-crispy-forms==1.14.0  # https://github.com/django-crispy-forms/django-crispy-forms
 django-environ==0.9.0  # https://github.com/joke2k/django-environ
 django-jazzmin==2.4.9  # https://github.com/farridav/django-jazzmin
@@ -31,3 +29,4 @@ rcssmin==1.1.0  # https://github.com/ndparker/rcssmin
 # Third party libs
 # ------------------------------------------------------------------------------
 requests==2.27.1  # https://github.com/psf/requests
+whitenoise==6.4.0 # https://github.com/evansd/whitenoise

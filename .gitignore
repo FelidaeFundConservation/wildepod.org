@@ -1,7 +1,8 @@
 # Custom ignore
 local/
 media/
-collected_static/
+staticfiles/
+siteapps/static/css/main.css.map
 .ipynb_checkpoints/
 db.sqlite3
 db.sqlite3-journal
@@ -223,3 +224,7 @@ tags
 .idea/
 
 .pytest_cache/
+
+
+nohup.out
+.sass-cache/

@@ -24,12 +24,9 @@ urlpatterns = [
     path(f"admin{settings.ADMIN_URL_SUFFIX}/", admin.site.urls),
     # User management
     path("accounts/", include("allauth.urls")),
-    path("ckeditor/", include("ckeditor_uploader.urls")),
     path("users/", include(("users.urls", "users"), namespace="users")),
     path("explore/", include(("explore.urls", "explore"), namespace="explore")),
     path("images/", include(("images.urls", "images"), namespace="images")),
-    # TODO: Remove this line if user guide lives on google docs
-    # path("instructions/", include(("instructions.urls", "instructions"), namespace="instructions")),
     path("", include(("home.urls", "home"), namespace="home")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

@@ -93,7 +93,7 @@ repos:
           - "--line-length=120"
 
   - repo: https://github.com/timothycrosley/isort
-    rev: 5.10.1
+    rev: 5.12.0
     hooks:
       - id: isort
         name: isort
@@ -133,43 +133,4 @@ repos:
         args:
           - "--max-line-length=120"
           - "--max-complexity=12"
-          - "--ignore=E501,W503,E203,F405,F403,F401"
-
-  # - repo: https://github.com/pre-commit/mirrors-mypy
-  #   rev: v0.971
-  #   hooks:
-  #     - id: mypy
-  #       name: mypy
-  #       entry: mypy
-  #       language: python
-  #       types: [ python ]
-  #       args: [ "--ignore-missing-imports", "--scripts-are-modules" ]
-  #       require_serial: true
-  #       additional_dependencies: [tokenize-rt==3.2.0]
-
-  # - repo: https://github.com/PyCQA/pydocstyle
-  #   rev: 6.1.1
-  #   hooks:
-  #     - id: pydocstyle
-  #       name: pydocstyle
-  #       description: "pydocstyle is a static analysis tool for checking compliance with Python docstring conventions."
-  #       entry: pydocstyle
-  #       language: python
-  #       types: [ python ]
-  #       language_version: python3.9
-  #       args:
-  #         [
-  #             "--convention=numpy",
-  #             "--add-ignore=D100,D101,D102,D103,D104,D105,D107",
-  #         ]
-
-  # - repo: https://github.com/PyCQA/bandit
-  #   rev: 1.7.4
-  #   hooks:
-  #     - id: bandit
-  #       name: bandit
-  #       description: 'Bandit is a tool for finding common security issues in Python code'
-  #       entry: bandit
-  #       language: python
-  #       language_version: python3
-  #       types: [python]
+          - "--ignore=E501,W503,E203,F405,F403,F401,SIM105,C901"

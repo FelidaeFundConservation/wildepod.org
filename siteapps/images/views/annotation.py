@@ -42,14 +42,19 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
             images = (
                 Image.objects.annotated()
                 .filter(
+                    # It must not be checked or skipped by the current annotator
                     ~Q(bbox_checked_by__in=[annotator]) & ~Q(bbox_skipped_by__in=[annotator]),
+                    # There must be at least one or more "uncertain" bounding boxes.
+                    # This will make sure that the images that need more votes are served first
+                    Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
+                    # Image must be marked as processed by MegaDetector
                     processed=True,
+                    # Image must have at least one bounding box
                     num_objects__gt=0,
-                    num_bbox_checked_by__lt=MAX_VOTES_PER_IMAGE,
                 )
-                .order_by("-upload__priority", "num_objects", "num_bbox_checked_by", "trigger_timestamp", "num_objects")
+                .order_by("-upload__priority", "trigger_timestamp")
             )
-            # Get the image stack based on stack size
+            # Get the image stack based on stack size.
             images = images[: settings.ANNOTATION_QUEUE_SIZE]
 
             # Get the image ids & convert to string
@@ -249,7 +254,7 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
 
             # Check if the image was tagged as social media worthy
             social_media_worthy = request.POST.get("social_media_worthy")
-            social_media_worthy = True if social_media_worthy and social_media_worthy == "true" else False
+            social_media_worthy = bool(social_media_worthy and social_media_worthy == "true")
 
             logging.info(f"Processing bounding box annotations for image '{image_id}' by user - '{request.user.name}'")
             # Process the annotations

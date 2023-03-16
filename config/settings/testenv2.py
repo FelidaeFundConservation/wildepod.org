@@ -14,12 +14,17 @@ ALLOWED_HOSTS = ["*"]
 DEBUG = True
 
 # https://docs.djangoproject.com/en/dev/ref/settings/#wsgi-application
-WSGI_APPLICATION = "config.wsgi.dev.application"
+WSGI_APPLICATION = "config.wsgi.testenv2.application"
 
 # DATABASES
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases
 DATABASES = {"default": env.db("STAGING_DATABASE_URL")}
+
+# import pdb; pdb.set_trace()
+DATABASES["default"]["NAME"] = "dev_test"
+
+
 # TODO: Check if this needs to be done
 
 # If the flag has been set, configure to use proxy
@@ -40,6 +45,7 @@ ADMIN_URL_SUFFIX = ""
 # ------------------------------------------------------------------------------
 # GS_BUCKET_NAME = env("GS_BUCKET_NAME_DEV")
 GS_BUCKET_NAME = env("GS_BUCKET_NAME_STAGING")
+GS_BUCKET_NAME = env("GS_BUCKET_NAME_PROD")
 GS_DEFAULT_ACL = "publicRead"
 DEFAULT_FILE_STORAGE = "siteapps.utils.storages.MediaRootGoogleCloudStorage"
 MEDIA_URL = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/media/"
@@ -58,7 +64,6 @@ DROPBOX_APP_KEY = env("DROPBOX_APP_KEY_STAGING")
 DROPBOX_APP_SECRET = env("DROPBOX_APP_SECRET_STAGING")
 DROPBOX_REFRESH_TOKEN = env("DROPBOX_REFRESH_TOKEN_STAGING")
 DROPBOX_URL_PREFIX = "https://www.dropbox.com/work/WildePod%20Cloud%20DB/Apps/wildepod_prod"
-
 
 # LOGGING
 # ------------------------------------------------------------------------------

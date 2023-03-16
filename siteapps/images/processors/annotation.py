@@ -147,54 +147,63 @@ def process_md_annotations(
             bbox_obj = BoundingBox.objects.get(id=bbox_id)
             category_obj = Category.objects.get(bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"])
 
-            # If the user is staff or annotator, directly edit the bounding box & category
-            if user.is_staff or bbox_obj.created_by == annotator:
-                bbox_obj.x = formatted_annotations[bbox_id]["x"]
-                bbox_obj.y = formatted_annotations[bbox_id]["y"]
-                bbox_obj.w = formatted_annotations[bbox_id]["w"]
-                bbox_obj.h = formatted_annotations[bbox_id]["h"]
-                category_obj.name = formatted_annotations[bbox_id]["category"]
-                category_obj.confidence = formatted_annotations[bbox_id]["confidence"]
-                bbox_obj.save()
-                category_obj.save()
-            # Else, if its a regular annotator
-            else:
-                # Check if the co-ordinates have changed. If they haven't, count it as an accept/reject vote
-                if all(
+            # First handle the case of 'accept' votes. This can happen in 3 cases,
+            # 1) The user is staff
+            # 2) The user is the same as the annotator who created the bounding box
+            # 3) The user is a regular annotator but the bounding box coordinates haven't changed
+            if (
+                user.is_staff
+                or bbox_obj.created_by == annotator
+                or all(
                     [
                         abs(bbox_obj.x - formatted_annotations[bbox_id]["x"]) < 0.02,
                         abs(bbox_obj.y - formatted_annotations[bbox_id]["y"]) < 0.02,
                         abs(bbox_obj.w - formatted_annotations[bbox_id]["w"]) < 0.02,
                         abs(bbox_obj.h - formatted_annotations[bbox_id]["h"]) < 0.02,
                     ]
-                ):
-                    # Update accept/reject if not created by the same user
-                    vote(bbox_obj, annotator, accept=True)
+                )
+            ):
+                # If the user is staff or annotator, we directly edit the bounding box
+                if user.is_staff or bbox_obj.created_by == annotator:
+                    bbox_obj.x = formatted_annotations[bbox_id]["x"]
+                    bbox_obj.y = formatted_annotations[bbox_id]["y"]
+                    bbox_obj.w = formatted_annotations[bbox_id]["w"]
+                    bbox_obj.h = formatted_annotations[bbox_id]["h"]
+                    category_obj.name = formatted_annotations[bbox_id]["category"]
+                    category_obj.confidence = formatted_annotations[bbox_id]["confidence"]
+                    bbox_obj.save()
+                    category_obj.save()
 
-                    # Next, cast a vote for the category label if it is the same
-                    if initial_bboxes[bbox_id]["category"] == formatted_annotations[bbox_id]["category"]:
-                        # Vote cast only if the user is not the creator
-                        vote(category_obj, annotator, accept=True)
-                    # If it isn't the same, then vote reject on the existing category & create/update a new category
-                    else:
-                        vote(category_obj, annotator, accept=False)
-                        # If the category exists, add a vote to it
-                        try:
-                            new_category_obj = Category.objects.get(
-                                bounding_box=bbox_obj,
-                                name=formatted_annotations[bbox_id]["category"],
-                            )
-                            vote(new_category_obj, annotator, accept=True)
-                        # If not, create the label & link it to the bounding box
-                        except ObjectDoesNotExist:
-                            create_category(formatted_annotations[bbox_id], bbox_obj, annotator)
+                # Now set the 'accept' votes for bounding box and category
 
-                # Else if the bounding box was modified by the annotator, treat it as a new bounding box
+                # Update accept/reject if not created by the same user
+                vote(bbox_obj, annotator, accept=True)
+
+                # Next, cast a vote for the category label if it is the same
+                if initial_bboxes[bbox_id]["category"] == formatted_annotations[bbox_id]["category"]:
+                    # Vote cast only if the user is not the creator
+                    vote(category_obj, annotator, accept=True)
+                # If it isn't the same, then vote reject on the existing category & create/update a new category
                 else:
-                    # Cast a reject vote
-                    vote(bbox_obj, annotator, accept=False)
-                    # Create the bounding box
-                    create_bbox(formatted_annotations[bbox_id], image, annotator)
+                    vote(category_obj, annotator, accept=False)
+                    # If the category exists, add a vote to it
+                    try:
+                        new_category_obj = Category.objects.get(
+                            bounding_box=bbox_obj,
+                            name=formatted_annotations[bbox_id]["category"],
+                        )
+                        vote(new_category_obj, annotator, accept=True)
+                    # If not, create the label & link it to the bounding box
+                    except ObjectDoesNotExist:
+                        create_category(formatted_annotations[bbox_id], bbox_obj, annotator)
+
+            else:
+                # Handle the cases of 'reject' votes
+
+                # Original bounding box was modified significantly by the annotator. Cast a reject vote on the original.
+                vote(bbox_obj, annotator, accept=False)
+                # Create a new bounding box
+                create_bbox(formatted_annotations[bbox_id], image, annotator)
 
     # Set image to "checked" by the annotator
     image.bbox_checked_by.add(annotator)

@@ -17,8 +17,8 @@
 # Custom ignore
 local/
 media/
+#NOTE: DO NOT IGNORE STATIC FOLDER IN PRODUCTION
 scratch/
-collected_static/
 .ipynb_checkpoints/
 db.sqlite3
 db.sqlite3-journal
@@ -240,3 +240,7 @@ tags
 .idea/
 
 .pytest_cache/
+
+
+nohup.out
+.sass-cache/

@@ -75,12 +75,14 @@
         </div>
     </div>
     <div class="row mt-2 mt-md-4 px-2 justify-content-center">
-        <div class="col-12 col-md-11 col-lg-9 col-xl-8 text-center">
-            <img
-                id="{{image.id}}"
-                class="img-fluid m-0 p-0"
-                src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}"
+        <div class="col-12 col-md-11 col-lg-9 col-xl-8 text-center" style="width: 80%">
+            <img id="{{image.id}}"
+                 class="img-fluid m-0 p-0"
+                 src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}"
             >
+        </div>
+        <div style="width: 20%; margin-top: -15px">
+            {% include './image-manipulators.html' with image_id=image.id %}
         </div>
     </div>
     <div class="row text-center">

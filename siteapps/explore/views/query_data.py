@@ -9,8 +9,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count, Exists, F, OuterRef, Q, Subquery, Value
 from django.shortcuts import render
 from django.views.generic import FormView
-from images.models import (ActivityType, Annotator, BoundingBox, Image,
-                           SpeciesName)
+from images.models import ActivityType, Annotator, BoundingBox, Image, SpeciesName
 from locations.models import CameraStation, MacroSite, MicroSite
 
 MAX_VOTES_PER_IMAGE = 4
@@ -118,36 +117,52 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             # This will be applied to each group specified in the values() call above.
             queryset_all = queryset_all.annotate(
                 all_images=Count("pk", distinct=True),
-                blank_ready=Count("pk", filter=Q(processed=True)
-                                    & Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk")))
-                                    & Exists(BoundingBox.objects.filter(image=OuterRef("pk")))
-                                    , distinct=True),
-                blank_complete=Count("pk", filter=Q(processed=True)
-                                    & ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk")))
-                                    & Exists(BoundingBox.objects.filter(image=OuterRef("pk")))
-                                    , distinct=True),
-                species_ready=Count("pk", filter=Q(processed=True)
-                                    & Exists(BoundingBox.objects.valid().filter(image=OuterRef("pk")))
-                                    & ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk")))
-                                    & Exists(BoundingBox.objects.is_animal().filter(image=OuterRef("pk")))
-                                    & Q(id__in=Subquery(
-                                            Image.objects.filter(pk=OuterRef('pk'))
-                                            .annotate(num_annotators=Count('species_checked_by'))
-                                            .filter(num_annotators__lt=MAX_VOTES_PER_IMAGE)
-                                            .values('id')
-                                        ))
-                                    , distinct=True),
-                species_complete=Count("pk", filter=Q(processed=True)
-                                    & Exists(BoundingBox.objects.valid().filter(image=OuterRef("pk")))
-                                    & ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk")))
-                                    & Exists(BoundingBox.objects.is_animal().filter(image=OuterRef("pk")))
-                                    & Q(id__in=Subquery(
-                                            Image.objects.filter(pk=OuterRef('pk'))
-                                            .annotate(num_annotators=Count('species_checked_by'))
-                                            .filter(num_annotators__gte=MAX_VOTES_PER_IMAGE)
-                                            .values('id')
-                                        ))
-                                    , distinct=True),
+                blank_ready=Count(
+                    "pk",
+                    filter=Q(processed=True)
+                    & Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk")))
+                    & Exists(BoundingBox.objects.filter(image=OuterRef("pk"))),
+                    distinct=True,
+                ),
+                blank_complete=Count(
+                    "pk",
+                    filter=Q(processed=True)
+                    & ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk")))
+                    & Exists(BoundingBox.objects.filter(image=OuterRef("pk"))),
+                    distinct=True,
+                ),
+                species_ready=Count(
+                    "pk",
+                    filter=Q(processed=True)
+                    & Exists(BoundingBox.objects.valid().filter(image=OuterRef("pk")))
+                    & ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk")))
+                    & Exists(BoundingBox.objects.is_animal().filter(image=OuterRef("pk")))
+                    & Q(
+                        id__in=Subquery(
+                            Image.objects.filter(pk=OuterRef("pk"))
+                            .annotate(num_annotators=Count("species_checked_by"))
+                            .filter(num_annotators__lt=MAX_VOTES_PER_IMAGE)
+                            .values("id")
+                        )
+                    ),
+                    distinct=True,
+                ),
+                species_complete=Count(
+                    "pk",
+                    filter=Q(processed=True)
+                    & Exists(BoundingBox.objects.valid().filter(image=OuterRef("pk")))
+                    & ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk")))
+                    & Exists(BoundingBox.objects.is_animal().filter(image=OuterRef("pk")))
+                    & Q(
+                        id__in=Subquery(
+                            Image.objects.filter(pk=OuterRef("pk"))
+                            .annotate(num_annotators=Count("species_checked_by"))
+                            .filter(num_annotators__gte=MAX_VOTES_PER_IMAGE)
+                            .values("id")
+                        )
+                    ),
+                    distinct=True,
+                ),
             ).order_by("-all_images")
 
             results = list(queryset_all)

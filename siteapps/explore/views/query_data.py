@@ -98,52 +98,13 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             if camera_stations:
                 filterset["upload__camera_station__in"] = camera_stations
 
-            # The queries for each column,
-            # 1. All Images
             queryset_all = Image.objects.annotated().filter(**filterset)
-            # 2. Images available for Object annotation
-            # queryset_objects = Image.objects.annotated().filter(
-            #         # There must be at least one or more "uncertain" bounding boxes.
-            #         # This will make sure that the images that need more votes are served first
-            #         Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
-            #         # Image must be marked as processed by MegaDetector
-            #         processed=True,
-            #         # Image must have at least one bounding box
-            #         num_objects__gt=0,
-            #     )
-            # # 3. Images available for Species annotation
-            # queryset_species = Image.objects.annotate(
-            #     num_annotators=Subquery(
-            #         Image.objects.filter(pk=OuterRef('pk'))
-            #         .values('id')
-            #         .annotate(count=Count('species_checked_by'))
-            #         .values('count'))
-            #     ).filter(
-            #         # There must be at least one or more "valid" bounding boxes
-            #         Exists(BoundingBox.objects.valid().filter(image=OuterRef("pk"))),
-            #         # There must be no uncertain bounding boxes for the image
-            #         ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
-            #         # TODO: Fix the line below
-            #         # This is a quick and dirty hack to only ever show an image if there is at least
-            #         # one bounding box that has at least one category tagged as an animal linked to it
-            #         # It should work for most of the time but is not always accurate and will generate false positives
-            #         # Must be fixed
-            #         Exists(BoundingBox.objects.is_animal().filter(image=OuterRef("pk"))),
-            #         # Image must be marked as processed
-            #         processed=True,
-            #         num_annotators__lt=MAX_VOTES_PER_IMAGE,
-            #     )
-
-            # 4. Images available for Activity annotation
-
 
             # Group the queryset based on the breakdown_by parameter
             # If there is no grouping use a dummy operator to aggregate all the images into a single group.
             aggregate_column_name = ""
             if breakdown_by == "split_none":
                 queryset_all = queryset_all.annotate(dummy_group_by=Value(" "))
-                #queryset_objects = queryset_objects.annotate(dummy_group_by=Value(" "))
-                #queryset_species = queryset_species.annotate(dummy_group_by=Value(" "))
                 aggregate_column_name = "dummy_group_by"
             elif breakdown_by == "split_macrosites":
                 aggregate_column_name = "upload__camera_station__micro_site__macro_site__name"
@@ -152,15 +113,11 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             elif breakdown_by == "split_camera_stations":
                 aggregate_column_name = "upload__camera_station__station_id"
             queryset_all = queryset_all.values(aggregate_column_name).annotate(name=F(aggregate_column_name))
-            #queryset_objects = queryset_objects.values(aggregate_column_name).annotate(name=F(aggregate_column_name))
-            #queryset_species = queryset_species.values(aggregate_column_name).annotate(name=F(aggregate_column_name))
 
             # Finally, annotate the queryset with the counts of images in each category.
             # This will be applied to each group specified in the values() call above.
             queryset_all = queryset_all.annotate(
                 all_images=Count("pk", distinct=True),
-                #md_processed=Count("pk", filter=Q(processed=True), distinct=True),
-                #md_objects_detected=Count("pk", filter=Q(boundingbox__gte=1), distinct=True),
                 blank_ready=Count("pk", filter=Q(processed=True)
                                     & Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk")))
                                     & Exists(BoundingBox.objects.filter(image=OuterRef("pk")))
@@ -193,26 +150,7 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                                     , distinct=True),
             ).order_by("-all_images")
 
-            # queryset_objects = queryset_objects.annotate(
-            #     all_images=Count("pk", distinct=True)).order_by("-all_images")
-            
-            # queryset_species = queryset_species.annotate(
-            #     all_images=Count("pk", distinct=True)).order_by("-all_images")
-            
-            # objects = {}
-            # for obj in queryset_objects:
-            #     objects[obj["name"]] = obj["all_images"]
-            
-            # species = {}
-            # for obj in queryset_species:
-            #     species[obj["name"]] = obj["all_images"]
-
             results = list(queryset_all)
-            # for obj in results:
-            #     obj["objects_pipeline"] = objects.get(obj["name"], 0)
-            #     obj["species_pipeline"] = species.get(obj["name"], 0)
-
-            print(results)
             logging.info(f"Querying data : {queryset_all.query}")
 
         return render(request, self.template_name, {"form": form, "results": results})

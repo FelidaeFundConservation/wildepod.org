@@ -40,9 +40,9 @@
                         <th scope="col">Name</th>
                         <th scope="col" class="text-end">All Images</th>
                         <th scope="col" class="text-end">Available for Blank Pipeline</th>
-                        <th scope="col" class="text-end">Blank Pipeline Completed</th>
+                        <th scope="col" class="text-end">Blank Pipeline Completed*</th>
                         <th scope="col" class="text-end">Available for Species Pipeline</th>
-                        <th scope="col" class="text-end">Species Pipeline Completed</th>
+                        <th scope="col" class="text-end">Species Pipeline Completed*</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -58,9 +58,7 @@
                     {% endfor %}
                 </tbody>
             </table>
-            {% for object in extras %}
-                {{object.name}}    Count: {{object.all_images}}
-            {% endfor %}
+            *Our pipelines don't have exact 'Completed' criteria, so the numbers are based on assumptions of what 'Completed' means for the pipeline.
         {% endif %}
     </div>
 </div>

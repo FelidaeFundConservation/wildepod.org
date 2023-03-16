@@ -13,7 +13,7 @@ ALLOWED_HOSTS = ["*"]
 
 # DEBUG MODE
 # ------------------------------------------------------------------------------
-DEBUG = True
+DEBUG = False
 
 
 # https://docs.djangoproject.com/en/dev/ref/settings/#wsgi-application

@@ -1,7 +1,6 @@
 import datetime
 import json
 import logging
-from random import sample
 
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -54,15 +53,8 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
                 )
                 .order_by("-upload__priority", "trigger_timestamp")
             )
-            # Get the image stack based on stack size. We fetch several times the queue size to make sure
-            # that we can get a random sampling of images across multiple users.
-            # Note that we also convert the images queryset to a list to ease the random sampling.
-            TOTAL_FETCH_SIZE = settings.ANNOTATION_QUEUE_SIZE * 5
-            images = list(images[:TOTAL_FETCH_SIZE])
-
-            # If we have enough images, we can randomly sample the images to get the queue size
-            if len(images) > settings.ANNOTATION_QUEUE_SIZE:
-                images = sample(images, settings.ANNOTATION_QUEUE_SIZE)
+            # Get the image stack based on stack size.
+            images = images[: settings.ANNOTATION_QUEUE_SIZE]
 
             # Get the image ids & convert to string
             image_ids = [str(image.id) for image in images]

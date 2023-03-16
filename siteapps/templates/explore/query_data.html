@@ -39,11 +39,10 @@
                     <tr>
                         <th scope="col">Name</th>
                         <th scope="col" class="text-end">All Images</th>
-                        <th scope="col" class="text-end">MD Processed</th>
-                        <th scope="col" class="text-end">MD Objects detected</th>
-                        <th scope="col" class="text-end">Blank Annotated</th>
-                        <th scope="col" class="text-end">Species Annotated</th>
-                        <th scope="col" class="text-end">Activity Annotated</th>
+                        <th scope="col" class="text-end">Available for Blank Pipeline</th>
+                        <th scope="col" class="text-end">Blank Pipeline Completed</th>
+                        <th scope="col" class="text-end">Available for Species Pipeline</th>
+                        <th scope="col" class="text-end">Species Pipeline Completed</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -51,15 +50,17 @@
                     <tr>
                         <td class="text-start">{{object.name}}</td>
                         <td class="text-end">{{object.all_images}}</td>
-                        <td class="text-end">{{object.md_processed}}</td>
-                        <td class="text-end">{{object.md_objects_detected}}</td>
-                        <td class="text-end">{{object.bbox_checked}}</td>
-                        <td class="text-end">{{object.species_checked}}</td>
-                        <td class="text-end">{{object.activity_checked}}</td>
+                        <td class="text-end">{{object.blank_ready}}</td>
+                        <td class="text-end">{{object.blank_complete}}</td>
+                        <td class="text-end">{{object.species_ready}}</td>
+                        <td class="text-end">{{object.species_complete}}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+            {% for object in extras %}
+                {{object.name}}    Count: {{object.all_images}}
+            {% endfor %}
         {% endif %}
     </div>
 </div>

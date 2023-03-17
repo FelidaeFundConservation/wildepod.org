@@ -14,6 +14,7 @@ MAX_VOTES_PER_IMAGE = 4
 CATEGORY_ANIMAL = "animal"
 CATEGORY_HUMAN = "human"
 
+
 # TODO: Clean up this code
 # TODO: There are several common bits of code across the three annotation views and should be refactored
 class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
@@ -187,42 +188,88 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["category"] = self.kwargs["category"]
+        context["activity_category"] = self.kwargs["category"]
 
         # First get the annotator object for the user
         annotator, _ = Annotator.objects.get_or_create(type="human", human=self.request.user)
 
-        # Get images based on the following set of filters
-        images = Image.objects.annotated().filter(
-            # It must not be checked or skipped by the current annotator
-            ~Q(activity_checked_by__in=[annotator]) & ~Q(activity_skipped_by__in=[annotator]),
-            # There must be at least one or more "valid" bounding boxes
-            Exists(BoundingBox.objects.valid().filter(image=OuterRef("pk"))),
-            # There must be no uncertain bounding boxes for the image
-            ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
-            # Image must be marked as processed
-            processed=True,
-            num_activity_checked_by__lt=MAX_VOTES_PER_IMAGE,
-        )
-
-        # Filter for animals or humans based on the category passed into the view
-        # TODO: The same issues with the species annotation filter exists here too
-        # We only use one bounding box to determine if an image is tagged as an animal or human
-        if context["category"] == CATEGORY_HUMAN:
-            images = images.filter(Exists(BoundingBox.objects.is_person().filter(image=OuterRef("pk"))))
+        # Get the annotation queue cached in the datastore
+        if context["activity_category"] == CATEGORY_HUMAN:
+            queue_key = settings.DATASTORE_CLIENT.key("AnnotateHumanBehaviorQueue", str(self.request.user.id))
         else:
-            images = images.filter(Exists(BoundingBox.objects.is_species_tagged().filter(image=OuterRef("pk"))))
+            queue_key = settings.DATASTORE_CLIENT.key("AnnotateAnimalActivityQueue", str(self.request.user.id))
 
-        images = images.order_by("-upload__priority", "num_activity_checked_by", "trigger_timestamp", "num_objects")
+        queue = settings.DATASTORE_CLIENT.get(queue_key)
 
-        # Serve the first image
-        image = images.first()
-        context["image"] = image
+        # If a valid object exists and if it is not expired and if the index points to a valid image, serve it
+        if (
+            queue
+            and datetime.datetime.fromisoformat(queue["expires_at"]) > datetime.datetime.now()
+            and queue["index"] < len(queue["images"])
+        ):
+            # Get the image id
+            image_id = queue["images"][queue["index"]]
+        else:
+            # Get images based on the following set of filters
+            images = Image.objects.annotated().filter(
+                # It must not be checked or skipped by the current annotator
+                ~Q(activity_checked_by__in=[annotator]) & ~Q(activity_skipped_by__in=[annotator]),
+                # There must be at least one or more "valid" bounding boxes
+                Exists(BoundingBox.objects.valid().filter(image=OuterRef("pk"))),
+                # There must be no uncertain bounding boxes for the image
+                ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
+                # Image must be marked as processed
+                processed=True,
+                num_activity_checked_by__lt=MAX_VOTES_PER_IMAGE,
+            )
+
+            # Filter for animals or humans based on the category passed into the view
+            # TODO: The same issues with the species annotation filter exists here too
+            # We only use one bounding box to determine if an image is tagged as an animal or human
+            if context["activity_category"] == CATEGORY_HUMAN:
+                images = images.filter(Exists(BoundingBox.objects.is_person().filter(image=OuterRef("pk"))))
+            else:
+                images = images.filter(
+                    Exists(BoundingBox.objects.is_nondomestic_species().filter(image=OuterRef("pk")))
+                )
+
+            images = images.order_by("-upload__priority", "num_activity_checked_by", "trigger_timestamp", "num_objects")
+
+            # Get the image stack based on stack size.
+            images = images[: settings.ANNOTATION_QUEUE_SIZE]
+
+            # Get the image ids & convert to string
+            image_ids = [str(image.id) for image in images]
+            # Create a queue entity with image ids, user id, timestamp and index
+            payload = {
+                "user": str(self.request.user.id),
+                "name": self.request.user.name,
+                "images": image_ids,
+                "expires_at": (
+                    datetime.datetime.now() + datetime.timedelta(minutes=settings.ANNOTATION_EXPIRATION_MINS)
+                ).isoformat(),
+                "index": 0,
+            }
+            # Upload to datastore
+            # If queue is a new entity, create a new key
+            if not queue:
+                queue = settings.DATASTORE_CLIENT.entity(key=queue_key)
+            # Save the queue to the datastore
+            queue.update(payload)
+            settings.DATASTORE_CLIENT.put(queue)
+
+            # Serve the first image
+            image_id = image_ids[0] if image_ids else None
 
         # If there is a valid image, add bounding box information
-        if image:
+        if image_id:
+            image = Image.objects.get(id=image_id)
+            context["image"] = image
             bounding_boxes = BoundingBox.objects.valid().filter(image=image)
             context["bounding_boxes"] = bounding_boxes
+        else:
+            context["image"] = None
+            context["bounding_boxes"] = []
 
         context["activity_list"] = ActivityType.objects.filter(category=context["category"])
 
@@ -317,6 +364,8 @@ class ActivityAnnotationProcessorView(LoginRequiredMixin, View):
 
         skip = request.POST.get("skip") == "true"
 
+        activity_category = request.POST.get("activity_category")
+
         # Get bounding box ids that were sent to infer deleted annotations
         initial_bboxes = request.POST.get("initial_bboxes")
         initial_bboxes = json.loads(initial_bboxes)
@@ -328,6 +377,19 @@ class ActivityAnnotationProcessorView(LoginRequiredMixin, View):
         # # Process the annotations
         # logging.info(f"Processing activity for Image '{image_id}' by user - '{request.user.name}'")
         success = process_activity_annotations(image_id, annotations, initial_bboxes, request.user, skip=skip)
+
+        # If success, update image index in the datastore
+        if success:
+            if activity_category == CATEGORY_HUMAN:
+                queue_key = settings.DATASTORE_CLIENT.key("AnnotateHumanBehaviorQueue", str(self.request.user.id))
+            else:
+                queue_key = settings.DATASTORE_CLIENT.key("AnnotateAnimalActivityQueue", str(self.request.user.id))
+            # Get the queue entity
+            queue = settings.DATASTORE_CLIENT.get(queue_key)
+            # Update the index
+            queue["index"] += 1
+            # Update the datastore
+            settings.DATASTORE_CLIENT.put(queue)
 
         # # TODO: Send and render a meaningful response
         return JsonResponse({"success": success})

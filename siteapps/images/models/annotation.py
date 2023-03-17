@@ -75,6 +75,24 @@ class BoundingBoxManager(BaseAnnotationManager):
                     Q(category__isnull=False) & Q(category__name="animal") & Q(species__isnull=False),
                     output_field=models.BooleanField(),
                 ),
+                # TODO: Identify non-domestic species with a field in the SpeciesName model
+                is_nondomestic_species=ExpressionWrapper(
+                    Q(category__isnull=False)
+                    & Q(category__name="animal")
+                    & Q(species__isnull=False)
+                    & ~Q(
+                        species__name__name__in=[
+                            "Human",
+                            "Domestic cat",
+                            "Domestic dog",
+                            "Domestic horse",
+                            "Cow, Cattle",
+                            "Goat (domestic)",
+                            "Sheep (domestic)",
+                        ]
+                    ),
+                    output_field=models.BooleanField(),
+                ),
             )
         )
 
@@ -86,6 +104,9 @@ class BoundingBoxManager(BaseAnnotationManager):
 
     def is_species_tagged(self):
         return self.annotated().filter(keep=True, is_species_tagged=True)
+
+    def is_nondomestic_species(self):
+        return self.annotated().filter(keep=True, is_nondomestic_species=True)
 
 
 # Certainty annotations for categories

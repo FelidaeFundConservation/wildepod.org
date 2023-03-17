@@ -68,8 +68,29 @@ class BoundingBoxManager(BaseAnnotationManager):
                 is_animal=ExpressionWrapper(
                     Q(category__isnull=False) & Q(category__name="animal"), output_field=models.BooleanField()
                 ),
+                is_person=ExpressionWrapper(
+                    Q(category__isnull=False) & Q(category__name="person"), output_field=models.BooleanField()
+                ),
                 is_species_tagged=ExpressionWrapper(
                     Q(category__isnull=False) & Q(category__name="animal") & Q(species__isnull=False),
+                    output_field=models.BooleanField(),
+                ),
+                # TODO: Identify non-domestic species with a field in the SpeciesName model
+                is_nondomestic_species=ExpressionWrapper(
+                    Q(category__isnull=False)
+                    & Q(category__name="animal")
+                    & Q(species__isnull=False)
+                    & ~Q(
+                        species__name__name__in=[
+                            "Human",
+                            "Domestic cat",
+                            "Domestic dog",
+                            "Domestic horse",
+                            "Cow, Cattle",
+                            "Goat (domestic)",
+                            "Sheep (domestic)",
+                        ]
+                    ),
                     output_field=models.BooleanField(),
                 ),
             )
@@ -78,8 +99,14 @@ class BoundingBoxManager(BaseAnnotationManager):
     def is_animal(self):
         return self.annotated().filter(keep=True, is_animal=True)
 
+    def is_person(self):
+        return self.annotated().filter(keep=True, is_person=True)
+
     def is_species_tagged(self):
         return self.annotated().filter(keep=True, is_species_tagged=True)
+
+    def is_nondomestic_species(self):
+        return self.annotated().filter(keep=True, is_nondomestic_species=True)
 
 
 # Certainty annotations for categories
@@ -233,6 +260,13 @@ class Species(TimeStampedModel):
 class ActivityType(TimeStampedModel):
     name = models.CharField(max_length=250, unique=True)
     comments = models.TextField("Additional notes", null=True, blank=True)
+
+    # The cateogory of the activity. Differenciates between activities that applies to humans or animals
+    category = models.CharField(
+        max_length=10,
+        choices=[("animal", "animal"), ("human", "human")],
+        default="animal",
+    )
 
     def __str__(self):
         return self.name

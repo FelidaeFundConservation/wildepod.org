@@ -17,7 +17,11 @@
     <div class="row">
         <div class="col-12 pt-4 text-center">
             <p>
-                What activity are the animals in the image exhibiting?
+                {% if activity_category == "human" %}
+                    What activity/behavior are people in the image engaged in?
+                {% else %}
+                    What activity are the animals in the image exhibiting?
+                {% endif %}
             </p>
         </div>
     </div>
@@ -199,7 +203,8 @@
                 'skip': skip,
                 'activity': activity,
                 'initial_bboxes': JSON.stringify(bboxes),
-                'annotations': JSON.stringify(anno.getAnnotations())
+                'annotations': JSON.stringify(anno.getAnnotations()),
+                'activity_category': '{{activity_category}}'
             }
 
             // Send back all the bbox ids back to the server to log bbox deletions

@@ -179,6 +179,7 @@
                                             class="dropdown-item"
                                             href="{% url 'images:annotate_species' %}"
                                         >Species</a></li>
+                                    {% if user.is_staff %}
                                     <li><a
                                             class="dropdown-item"
                                             href="{% url 'images:annotate_activity' category='animal' %}"
@@ -187,6 +188,7 @@
                                             class="dropdown-item"
                                             href="{% url 'images:annotate_activity' category='human' %}"
                                         >Human Behavior</a></li>
+                                    {% endif %}
                                 </ul>
                             </li>
                             <li class="nav-item mx-1 {% block nav_upload %}{% endblock nav_upload %}">

@@ -92,10 +92,11 @@
         <h2>Annotations Preview</h2>
         <hr />
     </div>
-    <div
-        class="row mt-2 mt-md-4 justify-content-center text-center"
-        id="annotations-preview"
-    >
+    <div class="row mt-2 mt-md-4 justify-content-center text-center">
+        <div class="col-12" id="annotations-preview"></div>
+        <div>
+            {% include './bbox-actions.html' %}
+        </div>
     </div>
     {% else %}
     <div class="row text-center mt-3 mt-md-5 pt-2 pt-md-5">
@@ -141,9 +142,16 @@
         ];
         let categories = ['animal','person','vehicle']
         let MDClassSelectorWidget = createCategoryWidget(categories)
+
+        let anno;
+
+        window.getAnno = function () {
+            return anno;
+        }
+
         // Set up annotations, rendering and submit hooks after the window has fully loaded
         window.addEventListener('load', function() {
-            let anno = renderBoundingBoxes("{{image.id}}", bboxes=bboxes, widgets=[MDClassSelectorWidget]);
+            anno = renderBoundingBoxes("{{image.id}}", bboxes=bboxes, widgets=[MDClassSelectorWidget]);
             renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
             anno.on("createAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
             anno.on("deleteAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})

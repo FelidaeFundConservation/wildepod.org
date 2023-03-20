@@ -119,4 +119,4 @@ DROPBOX_URL_PREFIX = "https://www.dropbox.com/work/WildePod%20Cloud%20DB/Apps/wi
 # CUSTOM VARIABLES
 # ------------------------------------------------------------------------------
 # Annotation configuration
-NUM_ACCEPTS_OVER_REJECTS = 0
+NUM_ACCEPTS_OVER_REJECTS = 2

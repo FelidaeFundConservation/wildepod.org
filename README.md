@@ -9,6 +9,12 @@ Setup
 1. Git clone this repo
 2. Create a virtualenv
 3. `pip install -r requirements.txt`
+4. Install SASS compiler - Sass is a stylesheet language that’s compiled to CSS. It is installed on the OS level, not in the virtualenv.
+   * https://sass-lang.com/install
+   * If you're using MacOs/Linux , it's  brew install sass/sass/sass
+
+
+
 
 Initialize django project
 

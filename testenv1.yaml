@@ -1,4 +1,4 @@
 runtime: python310
 instance_class: F2
 service: testenv1
-entrypoint: gunicorn -b :$PORT testenv1:app
+entrypoint: gunicorn -t 2400 -b :$PORT prod:app

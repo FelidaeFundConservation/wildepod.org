@@ -5,12 +5,15 @@ from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Button, Column, Fieldset, Layout, Row, Submit
 from django import forms
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count, F, Q, Value
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.views.generic import FormView
 from images.models import Upload
-from locations.models import CameraStation, MacroSite, MicroSite
+from locations.models import CameraStation, MacroSite
+from django.core import serializers
+
 
 MAX_VOTES_PER_IMAGE = 2
 
@@ -83,7 +86,6 @@ class PriorityView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             camera_stations = form.cleaned_data["camera_stations"]
             priority_by = form.cleaned_data["priority_by"]
 
-            # Apply the filters specified on the form on to the queryset
             filterset = {}
             if start_date:
                 filterset["date_retrieved__gte"] = start_date
@@ -93,8 +95,41 @@ class PriorityView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                 filterset["camera_station__micro_site__macro_site__in"] = macrosites
             if camera_stations:
                 filterset["camera_station__in"] = camera_stations
-            results = Upload.objects.filter(**filterset).update(priority=priority_by)
-            print(results)
-            return render(
-                request, self.template_name, {"form": form, "results": results}
-            )
+            search_set = Upload.objects.filter(**filterset)
+
+            num_records_to_update = search_set.count()
+
+            if num_records_to_update == 0:
+                message = "No records found matching the search criteria."
+                messages.info(request, message)
+                return redirect("explore:set_priority")
+            else:
+                message = f"{num_records_to_update} records will be updated. Are you sure you want to continue?"
+                # to serialize the model
+                model_list = serializers.serialize("json", search_set)
+
+                # saving serialized model and priority value
+                request.session["priority_form_data"] = model_list
+                request.session["priority_val"] = priority_by
+
+                return render(
+                    request, "explore/set_priority_confirm.html", {"message": message}
+                )
+
+
+class ConfirmUpdateView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
+    login_url = settings.LOGIN_URL
+    template_name = "explore/set_priority_confirm.html"
+
+    def post(self, request, *args, **kwargs):
+        model_data = self.request.session.pop("priority_form_data")
+        priority_val = self.request.session.pop("priority_val")
+        count = 0
+        for obj in serializers.deserialize("json", model_data):
+            obj.object.priority = priority_val
+            obj.save()
+            count += 1
+
+        message = f"{count} records updated."
+        messages.info(request, message)
+        return redirect("explore:set_priority")

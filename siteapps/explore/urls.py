@@ -1,7 +1,5 @@
 from django.urls import path
 
-from explore.views.set_priority import PriorityView
-
 from .views import (
     ExploreIndexView,
     ExploreMapView,
@@ -10,6 +8,8 @@ from .views import (
     SearchDataView,
     SnapshotCreateView,
     SnapshotListView,
+    PriorityView,
+    ConfirmUpdateView,
 )
 
 urlpatterns = [
@@ -26,4 +26,5 @@ urlpatterns = [
     path("popular-images/", ExplorePopularImagesView.as_view(), name="popular_images"),
     path("query_data/", SearchDataView.as_view(), name="query_data"),
     path("set_priority/", PriorityView.as_view(), name="set_priority"),
+    path("set_priority_confirm/", ConfirmUpdateView.as_view(), name="confirm_update"),
 ]

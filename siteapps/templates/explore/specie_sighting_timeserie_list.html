@@ -1,0 +1,53 @@
+
+
+<style>
+table, th, td {
+    border: 1px solid black;
+    border-collapse: collapse;
+    text-align: left;
+    font-family: verdana, arial, sans-serif;
+    font-size: 0.8em;
+}
+
+h1, font {
+    font-family: verdana, arial, sans-serif;
+    //font-size: 0.8em;
+}
+</style>
+
+
+
+<h1>{{specie}}</h1>
+<table width=100%>
+<tr>
+    <th>EXIF</th>
+    <th>Uploaded</th>
+    <th>Specie Annotated</th>
+    <th>Macro Site</th>
+    <th>Micro Site</th>
+    <th>Latitude</th>
+    <th>Longitude</th>
+    <th>Total</th>
+</tr>
+{% for sstl in specie_sighting_timeserie_list %}
+<tr>
+    <td>{{ sstl.exif_dt|date:'Y-m-d' }}</td>
+    <td>{{ sstl.uploaded_dt|date:'Y-m-d' }}</td>
+    <td>{{ sstl.created|date:'Y-m-d' }}</td>
+    <td>{{ sstl.macrosite }}</td>
+    <td>{{ sstl.microsite }}</td>
+    <td>{{ sstl.latitude }}</td>
+    <td>{{ sstl.longitude }}</td>
+    {% comment %} <td><a href="/explore/species/sighting/images/?specie={{specie}}&macrosite={{ sstl.macrosite }}&microsite={{ sstl.microsite }}&date_sighting={{ sstl.exif_dt|date:'Y-m-d' }}">{{ sstl.total }}</a> {% endcomment %}
+
+    <td><a href="{% url 'explore:specie_sighting_images'%}?specie={{specie}}&macrosite={{ sstl.macrosite }}&microsite={{ sstl.microsite }}&date_sighting={{ sstl.exif_dt|date:'Y-m-d' }}">
+        {{ sstl.total }}
+    </a></td>
+
+
+
+
+</tr>
+</tr>
+{% endfor %}
+</table>

@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, re_path
 
 from .views import (
     ExploreIndexView,
@@ -8,6 +8,8 @@ from .views import (
     SearchDataView,
     SnapshotCreateView,
     SnapshotListView,
+    SpecieSightingTimeserieView,
+    SpecieSightingImagesView,
 )
 
 urlpatterns = [
@@ -19,4 +21,8 @@ urlpatterns = [
     path("popular-images/remove/<uuid:pk>/", RemovePopularImageView.as_view(), name="remove_popular_image"),
     path("popular-images/", ExplorePopularImagesView.as_view(), name="popular_images"),
     path("query_data/", SearchDataView.as_view(), name="query_data"),
+
+
+    re_path("species/sighting/images/$", SpecieSightingImagesView.as_view(), name="specie_sighting_images"),
+    re_path("species/(?P<specie>.+)/$", SpecieSightingTimeserieView.as_view(), name="specie_sighting_timeserie_list"),
 ]

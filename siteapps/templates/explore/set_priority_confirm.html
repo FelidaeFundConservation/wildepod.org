@@ -27,15 +27,15 @@
                 </div>
             </div>
             {% endif %}
-            <h1>CONFIRM UPDATE</h1>
+            <h2>Confirm Update</h2>
             <p>{{ message }}</p>
             <div class="row justify-content-center">
             <form id="my-form" method="post" action="{% url 'explore:confirm_update' %}">   
                 {% csrf_token %}            
                 <div class="form-group row mt-4 ">
                     <div class="col-md-12 d-flex justify-content-center">
-                        <button type="submit" name="submit" class="btn btn-primary mx-2">UPDATE</button>                                                        
-                        <a href="{% url 'explore:set_priority' %}" class="btn btn-secondary mx-2">CANCEL</a>   
+                        <button type="submit" name="submit" class="btn btn-primary mx-2">Update</button>                                                        
+                        <a href="{% url 'explore:set_priority' %}" class="btn btn-secondary mx-2">Cancel</a>   
                     </div>
                 </div>                                        
             </form>  
@@ -47,22 +47,4 @@
 {% endblock %}
 {% block footer_includes %}
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-
-<script>
-    // script to enable the form fields after user submits the
-    // Wait for the document to be ready
-    document.addEventListener("DOMContentLoaded", function(event) {
-      // Get the form element
-      var form = document.getElementById("my-form");
-  
-      // Add an event listener for the form's submit event
-      form.addEventListener("submit", function(event) {
-        // Remove the disabled attribute from all form fields
-        var fields = form.elements;
-        for (var i = 0; i < fields.length; i++) {
-          fields[i].removeAttribute("disabled");
-        }
-      });
-    });
-  </script>
 {% endblock footer_includes %}

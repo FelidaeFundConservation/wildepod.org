@@ -21,11 +21,11 @@ MAX_VOTES_PER_IMAGE = 2
 
 class SetPriorityForm(forms.Form):
     start_date = forms.DateField(
-        widget=forms.widgets.DateInput(attrs={"type": "date"}), required=True
+        widget=forms.widgets.DateInput(attrs={"type": "date"}), required=False
     )
 
     end_date = forms.DateField(
-        widget=forms.widgets.DateInput(attrs={"type": "date"}), required=True
+        widget=forms.widgets.DateInput(attrs={"type": "date"}), required=False
     )
 
     macrosites = forms.ModelMultipleChoiceField(
@@ -33,12 +33,15 @@ class SetPriorityForm(forms.Form):
     )
 
     camera_stations = forms.ModelMultipleChoiceField(
-        queryset=CameraStation.objects.all(), required=True
+        queryset=CameraStation.objects.all(), required=False
     )
 
     priority_choices = Upload._meta.get_field("priority").choices
     priority_by = forms.ChoiceField(
-        choices=priority_choices, widget=forms.Select, initial="1"
+        label="Set Priority To",
+        choices=priority_choices,
+        widget=forms.Select,
+        initial="1",
     )
 
     def __init__(self, *args, **kwargs):
@@ -64,7 +67,7 @@ class SetPriorityForm(forms.Form):
                 )
             ),
             Row(
-                Column(Submit("submit", "SUBMIT", css_class="form-group btn-primary")),
+                Column(Submit("submit", "Submit", css_class="form-group btn-primary")),
                 css_class="text-center",
             ),
         )

@@ -2,8 +2,9 @@ import uuid
 
 from django.conf import settings
 from django.db import models
-from django.db.models import Case, Count, ExpressionWrapper, F, Q, Value, When
+from django.db.models import Case, Count, Exists, ExpressionWrapper, F, OuterRef, Q, Value, When
 from django.db.models.functions import Coalesce
+from django.forms import BooleanField
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
 
@@ -26,16 +27,28 @@ class BaseAnnotationManager(models.Manager):
             keep=ExpressionWrapper(Q(confidence__gte=F("confidence_threshold")), output_field=models.BooleanField()),
             num_accepted=Coalesce(Count("accepted_by", distinct=True), 0),
             num_rejected=Coalesce(Count("rejected_by", distinct=True), 0),
+            staff_accepted=ExpressionWrapper(
+                Exists(Annotator.objects.filter(accepted_annotation=OuterRef("pk")).filter(human__is_staff=True)),
+                output_field=models.BooleanField(),
+            ),
+            # Case(When(
+            #                         Q(accepted_bys__human__isnull=False) & Q(accepted_bys__human__is_staff=True),
+            #                         then=True
+            #                     ),
+            #                     default=False,
+            #                     output_field=BooleanField()),
             vote_diff=F("num_accepted") - F("num_rejected"),
             voted_valid=ExpressionWrapper(
-                Q(vote_diff__gte=settings.NUM_ACCEPTS_OVER_REJECTS), output_field=models.BooleanField()
+                Q(vote_diff__gte=settings.NUM_ACCEPTS_OVER_REJECTS) | Q(staff_accepted=True),
+                output_field=models.BooleanField(),
             ),
             voted_invalid=ExpressionWrapper(
                 Q(vote_diff__lte=-settings.NUM_ACCEPTS_OVER_REJECTS), output_field=models.BooleanField()
             ),
             vote_uncertain=ExpressionWrapper(
                 Q(vote_diff__lt=settings.NUM_ACCEPTS_OVER_REJECTS)
-                & Q(vote_diff__gt=-settings.NUM_ACCEPTS_OVER_REJECTS),
+                & Q(vote_diff__gt=-settings.NUM_ACCEPTS_OVER_REJECTS)
+                & Q(staff_accepted=False),
                 output_field=models.BooleanField(),
             ),
         )

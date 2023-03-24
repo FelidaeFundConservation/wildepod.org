@@ -30,19 +30,19 @@
             <h2>Confirm Update</h2>
             <p>{{ message }}</p>
             <div class="row justify-content-center">
-            <form id="my-form" method="post" action="{% url 'explore:confirm_update' %}">   
-                {% csrf_token %}            
+            <form id="my-form" method="post" action="{% url 'explore:confirm_update' %}">
+                {% csrf_token %}
                 <div class="form-group row mt-4 ">
                     <div class="col-md-12 d-flex justify-content-center">
-                        <button type="submit" name="submit" class="btn btn-primary mx-2">Update</button>                                                        
-                        <a href="{% url 'explore:set_priority' %}" class="btn btn-secondary mx-2">Cancel</a>   
+                        <button type="submit" name="submit" class="btn btn-primary mx-2">Update</button>
+                        <a href="{% url 'explore:set_priority' %}" class="btn btn-secondary mx-2">Cancel</a>
                     </div>
-                </div>                                        
-            </form>  
-            </div>          
+                </div>
+            </form>
+            </div>
         </div>
-    </div>   
-</div>  
+    </div>
+</div>
 
 {% endblock %}
 {% block footer_includes %}

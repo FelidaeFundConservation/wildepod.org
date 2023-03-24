@@ -1,15 +1,15 @@
 from django.urls import path
 
 from .views import (
+    ConfirmUpdateView,
     ExploreIndexView,
     ExploreMapView,
     ExplorePopularImagesView,
+    PriorityView,
     RemovePopularImageView,
     SearchDataView,
     SnapshotCreateView,
     SnapshotListView,
-    PriorityView,
-    ConfirmUpdateView,
 )
 
 urlpatterns = [

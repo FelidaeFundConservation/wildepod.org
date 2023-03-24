@@ -154,11 +154,12 @@
                                             class="dropdown-item"
                                             href="{% url 'explore:popular_images' %}"
                                         >Popular Images</a></li>
+                                    {% if user.is_staff %}
                                     <li><a
                                             class="dropdown-item"
                                             href="{% url 'explore:set_priority' %}"
                                         >Set Priority</a></li>
-
+                                    {% endif %}
                                 </ul>
                             </li>
                             <li class="nav-item dropdown mx-1 {% block nav_tag %}{% endblock nav_tag %}">

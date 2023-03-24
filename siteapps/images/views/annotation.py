@@ -10,7 +10,7 @@ from django.views.generic.base import TemplateView, View
 from images.models import ActivityType, Annotator, BoundingBox, Image, SpeciesName
 from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
 
-MAX_VOTES_PER_IMAGE = 4
+MAX_VOTES_PER_IMAGE = 3
 CATEGORY_ANIMAL = "animal"
 CATEGORY_HUMAN = "human"
 

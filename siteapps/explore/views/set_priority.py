@@ -1,5 +1,4 @@
 from datetime import timedelta
-import logging
 
 from braces.views import StaffuserRequiredMixin
 from crispy_forms.helper import FormHelper
@@ -8,33 +7,22 @@ from django import forms
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core import serializers
 from django.db.models import Count, F, Q, Value
-from django.shortcuts import render, redirect
+from django.shortcuts import redirect, render
 from django.views.generic import FormView
 from images.models import Upload
 from locations.models import CameraStation, MacroSite
-from django.core import serializers
-
-
-MAX_VOTES_PER_IMAGE = 2
 
 
 class SetPriorityForm(forms.Form):
-    start_date = forms.DateField(
-        widget=forms.widgets.DateInput(attrs={"type": "date"}), required=False
-    )
+    start_date = forms.DateField(widget=forms.widgets.DateInput(attrs={"type": "date"}), required=False)
 
-    end_date = forms.DateField(
-        widget=forms.widgets.DateInput(attrs={"type": "date"}), required=False
-    )
+    end_date = forms.DateField(widget=forms.widgets.DateInput(attrs={"type": "date"}), required=False)
 
-    macrosites = forms.ModelMultipleChoiceField(
-        queryset=MacroSite.objects.all(), required=True
-    )
+    macrosites = forms.ModelMultipleChoiceField(queryset=MacroSite.objects.all(), required=True)
 
-    camera_stations = forms.ModelMultipleChoiceField(
-        queryset=CameraStation.objects.all(), required=False
-    )
+    camera_stations = forms.ModelMultipleChoiceField(queryset=CameraStation.objects.all(), required=False)
 
     priority_choices = Upload._meta.get_field("priority").choices
     priority_by = forms.ChoiceField(
@@ -60,9 +48,7 @@ class SetPriorityForm(forms.Form):
             ),
             Row(
                 Column(
-                    Fieldset(
-                        "", "priority_by", css_class="form-check form-check-inline"
-                    ),
+                    Fieldset("", "priority_by", css_class="form-check form-check-inline"),
                     css_class="form-group col-12",
                 )
             ),
@@ -118,9 +104,7 @@ class PriorityView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                 request.session["priority_form_data"] = model_list
                 request.session["priority_val"] = priority_by
 
-                return render(
-                    request, "explore/set_priority_confirm.html", {"message": message}
-                )
+                return render(request, "explore/set_priority_confirm.html", {"message": message})
 
 
 class ConfirmUpdateView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):

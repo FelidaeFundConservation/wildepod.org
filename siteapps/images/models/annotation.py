@@ -27,19 +27,9 @@ class BaseAnnotationManager(models.Manager):
             keep=ExpressionWrapper(Q(confidence__gte=F("confidence_threshold")), output_field=models.BooleanField()),
             num_accepted=Coalesce(Count("accepted_by", distinct=True), 0),
             num_rejected=Coalesce(Count("rejected_by", distinct=True), 0),
-            staff_accepted=ExpressionWrapper(
-                Exists(Annotator.objects.filter(accepted_annotation=OuterRef("pk")).filter(human__is_staff=True)),
-                output_field=models.BooleanField(),
-            ),
-            # Case(When(
-            #                         Q(accepted_bys__human__isnull=False) & Q(accepted_bys__human__is_staff=True),
-            #                         then=True
-            #                     ),
-            #                     default=False,
-            #                     output_field=BooleanField()),
             vote_diff=F("num_accepted") - F("num_rejected"),
             voted_valid=ExpressionWrapper(
-                Q(vote_diff__gte=settings.NUM_ACCEPTS_OVER_REJECTS) | Q(staff_accepted=True),
+                Q(vote_diff__gte=settings.NUM_ACCEPTS_OVER_REJECTS),
                 output_field=models.BooleanField(),
             ),
             voted_invalid=ExpressionWrapper(
@@ -47,8 +37,7 @@ class BaseAnnotationManager(models.Manager):
             ),
             vote_uncertain=ExpressionWrapper(
                 Q(vote_diff__lt=settings.NUM_ACCEPTS_OVER_REJECTS)
-                & Q(vote_diff__gt=-settings.NUM_ACCEPTS_OVER_REJECTS)
-                & Q(staff_accepted=False),
+                & Q(vote_diff__gt=-settings.NUM_ACCEPTS_OVER_REJECTS),
                 output_field=models.BooleanField(),
             ),
         )
@@ -110,16 +99,16 @@ class BoundingBoxManager(BaseAnnotationManager):
         )
 
     def is_animal(self):
-        return self.annotated().filter(keep=True, is_animal=True)
+        return self.annotated().filter(is_animal=True)
 
     def is_person(self):
-        return self.annotated().filter(keep=True, is_person=True)
+        return self.annotated().filter(is_person=True)
 
     def is_species_tagged(self):
-        return self.annotated().filter(keep=True, is_species_tagged=True)
+        return self.annotated().filter(is_species_tagged=True)
 
     def is_nondomestic_species(self):
-        return self.annotated().filter(keep=True, is_nondomestic_species=True)
+        return self.annotated().filter(is_nondomestic_species=True)
 
 
 # Certainty annotations for categories

@@ -1,0 +1,125 @@
+{% extends '_base.html' %}
+{% load static %}
+
+{% block title %} Species Sighting {% endblock %}
+<!-- Set corresponding nav pill to active -->
+{% block nav_explore %}active{% endblock nav_explore %}
+
+{% block header_includes %}
+<link
+    href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+    rel="stylesheet"
+/>
+{% endblock header_includes %}
+
+{% block content %}
+<div class="container">
+
+    <div class="row  mt-3 pt-3">
+        {% comment %} <div class="alert alert-warning" role="alert">
+            Please review title and texts! This box will be removed.
+        </div> {% endcomment %}
+
+        <h1>Species sighting</h1>
+
+        <div class="col-12 col-md-9 col-sm-2 justify-content-evenly py-3">
+            <h2>{{ species }}</h2>
+
+            <p>
+            Species annotated in a sighting. The sightings are grouped by date and location. <br>
+            Click on the number of pictures to see the pictures of a related sighting.
+            </p>
+
+            <p>
+            You can select a different species from the dropdown menu below,
+            and do location filtering by clicking on a specific macro site or camera station.
+            </p>
+        </div>
+
+        <div class="col-12 col-md-3 col-sm-2 justify-content-evenly py-3">
+            <h2>View Species</h2>
+            <form id="form_species" method="get">
+                <select id="select_species" name="species" onchange="this.form.submit()">
+                    <option>Bobcat</option>
+                    <option>Puma</option>
+                    <option disabled>----------------</option>
+                    {% for species_dd in species_l %}
+                        {% if species_dd == species %}
+                            <option value="{{species_dd}}" selected="selected">{{ species_dd }}</option>
+                        {% else %}
+                            <option value="{{species_dd}}">{{species_dd}}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </form>
+
+        </div>
+
+    </div>
+
+
+
+
+    <div class="row justify-content-evenly mt-3 pt-3">
+        <table width=100%>
+        <tr>
+            <th>Trigger timestamp</th>
+            <th>Uploaded</th>
+            <th>Species Annotated</th>
+            <th>Macro Site</th>
+            {% comment %} <th>Micro Site</th> {% endcomment %}
+            <th>Station</th>
+            <th>Latitude</th>
+            <th>Longitude</th>
+            <th>Pictures</th>
+        </tr>
+
+        {% comment %}
+        {% endcomment %}
+        {% for sstl in species_sighting_timeserie_list %}
+            <tr>
+                <td>{{ sstl.exif_dt|date:'Y-m-d' }}</td>
+                <td>{{ sstl.uploaded_dt|date:'Y-m-d' }}</td>
+                <td>{{ sstl.created|date:'Y-m-d' }}</td>
+                <td><a href="{% url 'explore:species_sighting_timeserie_list' species=species %}?macrosite={{ sstl.macrosite }}">
+                        {{ sstl.macrosite }}
+                    </a></td>
+                {% comment %} <td><a href="{% url 'explore:species_sighting_timeserie_list' species=species %}?microsite={{ sstl.microsite }}">
+                        {{ sstl.microsite }}
+                    </a></td> {% endcomment %}
+                <td><a href="{% url 'explore:species_sighting_timeserie_list' species=species %}?station={{ sstl.station_id }}">
+                        {{ sstl.station_id }}
+                    </a></td>
+                <td>{{ sstl.latitude }}</td>
+                <td>{{ sstl.longitude }}</td>
+                <td class="text-center">
+                    <a href="{% url 'explore:species_sighting_images'%}?species={{species}}&macrosite={{ sstl.macrosite }}&microsite={{ sstl.microsite }}&date_sighting={{ sstl.exif_dt|date:'Y-m-d' }}&station={{ sstl.station_id }}">
+                        {{ sstl.total }}
+                    </a>
+                </td>
+            </tr>
+        {% endfor %}
+
+        </table>
+    </div>
+
+    <div class="row justify-content-evenly mt-3 pt-3">
+        <p><small>
+            The annotation of a species is a process checked by a group of volunteers. The resulting database of cannonical data of species sightings can be used in the future to train and improve the machine learning models.
+        </small></p>
+    </div>
+
+</div>
+{% endblock content %}
+
+{% block footer_includes %}
+<script>
+    document.getElementById('select_species').onchange = function() {
+        var newaction = '/explore/species/' + this.value;
+        document.getElementById('form_species').action = newaction;
+        this.form.submit()
+    };
+</script>
+{% endblock footer_includes %}
+
+

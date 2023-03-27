@@ -2,8 +2,9 @@ import uuid
 
 from django.conf import settings
 from django.db import models
-from django.db.models import Case, Count, ExpressionWrapper, F, Q, Value, When
+from django.db.models import Case, Count, Exists, ExpressionWrapper, F, OuterRef, Q, Value, When
 from django.db.models.functions import Coalesce
+from django.forms import BooleanField
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
 
@@ -26,16 +27,28 @@ class BaseAnnotationManager(models.Manager):
             keep=ExpressionWrapper(Q(confidence__gte=F("confidence_threshold")), output_field=models.BooleanField()),
             num_accepted=Coalesce(Count("accepted_by", distinct=True), 0),
             num_rejected=Coalesce(Count("rejected_by", distinct=True), 0),
+            staff_accepted=ExpressionWrapper(
+                Exists(Annotator.objects.filter(accepted_annotation=OuterRef("pk")).filter(human__is_staff=True)),
+                output_field=models.BooleanField(),
+            ),
+            # Case(When(
+            #                         Q(accepted_bys__human__isnull=False) & Q(accepted_bys__human__is_staff=True),
+            #                         then=True
+            #                     ),
+            #                     default=False,
+            #                     output_field=BooleanField()),
             vote_diff=F("num_accepted") - F("num_rejected"),
             voted_valid=ExpressionWrapper(
-                Q(vote_diff__gte=settings.NUM_ACCEPTS_OVER_REJECTS), output_field=models.BooleanField()
+                Q(vote_diff__gte=settings.NUM_ACCEPTS_OVER_REJECTS) | Q(staff_accepted=True),
+                output_field=models.BooleanField(),
             ),
             voted_invalid=ExpressionWrapper(
                 Q(vote_diff__lte=-settings.NUM_ACCEPTS_OVER_REJECTS), output_field=models.BooleanField()
             ),
             vote_uncertain=ExpressionWrapper(
                 Q(vote_diff__lt=settings.NUM_ACCEPTS_OVER_REJECTS)
-                & Q(vote_diff__gt=-settings.NUM_ACCEPTS_OVER_REJECTS),
+                & Q(vote_diff__gt=-settings.NUM_ACCEPTS_OVER_REJECTS)
+                & Q(staff_accepted=False),
                 output_field=models.BooleanField(),
             ),
         )
@@ -68,8 +81,29 @@ class BoundingBoxManager(BaseAnnotationManager):
                 is_animal=ExpressionWrapper(
                     Q(category__isnull=False) & Q(category__name="animal"), output_field=models.BooleanField()
                 ),
+                is_person=ExpressionWrapper(
+                    Q(category__isnull=False) & Q(category__name="person"), output_field=models.BooleanField()
+                ),
                 is_species_tagged=ExpressionWrapper(
                     Q(category__isnull=False) & Q(category__name="animal") & Q(species__isnull=False),
+                    output_field=models.BooleanField(),
+                ),
+                # TODO: Identify non-domestic species with a field in the SpeciesName model
+                is_nondomestic_species=ExpressionWrapper(
+                    Q(category__isnull=False)
+                    & Q(category__name="animal")
+                    & Q(species__isnull=False)
+                    & ~Q(
+                        species__name__name__in=[
+                            "Human",
+                            "Domestic cat",
+                            "Domestic dog",
+                            "Domestic horse",
+                            "Cow, Cattle",
+                            "Goat (domestic)",
+                            "Sheep (domestic)",
+                        ]
+                    ),
                     output_field=models.BooleanField(),
                 ),
             )
@@ -78,8 +112,14 @@ class BoundingBoxManager(BaseAnnotationManager):
     def is_animal(self):
         return self.annotated().filter(keep=True, is_animal=True)
 
+    def is_person(self):
+        return self.annotated().filter(keep=True, is_person=True)
+
     def is_species_tagged(self):
         return self.annotated().filter(keep=True, is_species_tagged=True)
+
+    def is_nondomestic_species(self):
+        return self.annotated().filter(keep=True, is_nondomestic_species=True)
 
 
 # Certainty annotations for categories
@@ -233,6 +273,13 @@ class Species(TimeStampedModel):
 class ActivityType(TimeStampedModel):
     name = models.CharField(max_length=250, unique=True)
     comments = models.TextField("Additional notes", null=True, blank=True)
+
+    # The cateogory of the activity. Differenciates between activities that applies to humans or animals
+    category = models.CharField(
+        max_length=10,
+        choices=[("animal", "animal"), ("human", "human")],
+        default="animal",
+    )
 
     def __str__(self):
         return self.name

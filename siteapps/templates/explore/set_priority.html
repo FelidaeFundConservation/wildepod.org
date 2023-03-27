@@ -1,0 +1,59 @@
+{% extends '_base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %} Set Priority {% endblock %}
+<!-- Set corresponding nav pill to active -->
+{% block nav_explore %}active{% endblock nav_explore %}
+
+{% block header_includes %}
+<link
+    href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+    rel="stylesheet"
+/>
+{% endblock header_includes %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-evenly mt-3 pt-3">
+        <div class="col-12 col-md-10 col-lg-8">
+            {% if messages %}
+                {% for message in messages %}
+                    {% if message.tags == "info" %}
+                        <div class="alert alert-info">
+                            {{ message }}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+            {% if form.errors %}
+            <div
+                class="alert alert-danger"
+                role="alert"
+            >
+                Server error! Please try again or contact admin.
+            </div>
+            {% endif %}
+            <form method="post">
+                {% crispy form %}
+            </form>
+        </div>
+    </div>
+
+    <div class="justify-content-center mt-3 pt-3">
+
+    </div>
+</div>
+{% endblock content %}
+
+{% block footer_includes %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    $('#id_macrosites').select2({
+        placeholder: '(optional) Only these macrosites will be included',
+    });
+    $('#id_camera_stations').select2({
+        placeholder: '(optional) Only these camera stations will be included',
+    });
+</script>
+{% endblock footer_includes %}

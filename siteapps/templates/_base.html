@@ -158,7 +158,12 @@
                                         class="dropdown-item"
                                         href="{% url 'explore:species_sighting_timeserie_list' species='Puma' %}"
                                     >Species Sightings</a></li>
-
+                                    {% if user.is_staff %}
+                                    <li><a
+                                            class="dropdown-item"
+                                            href="{% url 'explore:set_priority' %}"
+                                        >Set Priority</a></li>
+                                    {% endif %}
                                 </ul>
                             </li>
                             <li class="nav-item dropdown mx-1 {% block nav_tag %}{% endblock nav_tag %}">
@@ -184,12 +189,16 @@
                                             class="dropdown-item"
                                             href="{% url 'images:annotate_species' %}"
                                         >Species</a></li>
-                                    {% comment %}
+                                    {% if user.is_staff %}
                                     <li><a
                                             class="dropdown-item"
-                                            href="{% url 'images:annotate_activity' %}"
-                                        >Activity (Alpha)</a></li>
-                                    {% endcomment %}
+                                            href="{% url 'images:annotate_activity' category='animal' %}"
+                                        >Animal Activity</a></li>
+                                    <li><a
+                                            class="dropdown-item"
+                                            href="{% url 'images:annotate_activity' category='human' %}"
+                                        >Human Behavior</a></li>
+                                    {% endif %}
                                 </ul>
                             </li>
                             <li class="nav-item mx-1 {% block nav_upload %}{% endblock nav_upload %}">

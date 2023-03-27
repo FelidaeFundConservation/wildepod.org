@@ -1,0 +1,50 @@
+{% extends '_base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %} Confirm Update {% endblock %}
+<!-- Set corresponding nav pill to active -->
+{% block nav_explore %}active{% endblock nav_explore %}
+
+{% block header_includes %}
+<link
+    href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+    rel="stylesheet"
+/>
+{% endblock header_includes %}
+{% block content %}
+<div class="container">
+    <div class="row justify-content-evenly mt-3 pt-3">
+        <div class="col-12 col-md-10 col-lg-8">
+            {% if form.errors %}
+            <div
+                class="alert alert-danger"
+                role="alert"
+            >
+                Server error! Please try again or contact admin.
+                <div class="alert alert-danger">
+                    {{ form.errors }}
+                </div>
+            </div>
+            {% endif %}
+            <h2>Confirm Update</h2>
+            <p>{{ message }}</p>
+            <div class="row justify-content-center">
+            <form id="my-form" method="post" action="{% url 'explore:confirm_update' %}">
+                {% csrf_token %}
+                <div class="form-group row mt-4 ">
+                    <div class="col-md-12 d-flex justify-content-center">
+                        <button type="submit" name="submit" class="btn btn-primary mx-2">Update</button>
+                        <a href="{% url 'explore:set_priority' %}" class="btn btn-secondary mx-2">Cancel</a>
+                    </div>
+                </div>
+            </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+{% block footer_includes %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+{% endblock footer_includes %}

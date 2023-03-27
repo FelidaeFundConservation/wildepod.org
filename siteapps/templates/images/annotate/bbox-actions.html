@@ -1,0 +1,363 @@
+
+    <script>
+        let boxIds;
+        boxIds = [
+            {% for bbox in bounding_boxes %}
+            "{{bbox.id}}",
+            {% endfor %}
+        ];
+
+        // Need to check whether annotation preview and bounding boxes are loaded before setting up menu.
+        function checkElementsExist(func=createBboxActions) {
+            let allElementsExist = true;
+
+            for (const id of boxIds) {
+                const canvas = document.getElementById("canvas-" + id);
+                const box = document.querySelector(`[data-id="${id}"]`);
+
+                if (!canvas || !box) {
+                    allElementsExist = false;
+                    break;
+                }
+            }
+
+            if (allElementsExist) {
+                boxIds = getAnno().getAnnotations().map(obj => obj.id);
+                func();
+            }
+            else {
+                setTimeout(checkElementsExist, 100);
+            }
+        } (checkElementsExist());
+
+        // Constructs the menu and appends to each annotation preview.
+        function createBboxActions() {
+
+            //// Returns specific page elements associated with the id.
+            function getAssociatedElements(boxId) {
+                return {
+                    "canvas": document.getElementById("canvas-" + boxId),
+                    "entry": document.getElementById("entry-" + boxId),
+                    "entryText": document.getElementById("entry-text-" + boxId),
+                    "bbox": document.querySelector(`[data-id="${boxId}"]`),
+                    "rect": document.querySelector(`[data-id="${boxId}"]`)
+                                    ?.querySelector(".a9s-inner") ?? null,
+                    "hideButton": document.getElementById("hide-button-" + boxId),
+                    "deleteButton": document.getElementById("delete-button" + boxId),
+                    "annotationText": document.querySelector(`annotation-text-${id}`)
+                }
+            }
+
+            //// Create and append button to toggle hiding all bboxes.
+            function createHideAllBboxesButton() {
+
+                let hideAllBboxesButton = document.createElement("button");
+                hideAllBboxesButton.setAttribute("id", "hide-all-bboxes-button");
+                hideAllBboxesButton.textContent = `Hide All Boxes`;
+
+                Object.assign(hideAllBboxesButton.style, {
+                    width: "100%",
+                    border: "0px",
+                    background: "whitesmoke",
+                    marginBottom: "10px"
+                });
+
+                hideAllBboxesButton.addEventListener('click', function () {
+                    let unhiddenBoxes = false;
+
+                    for (id of boxIds) {
+                        const bbox = getAssociatedElements(id).bbox;
+
+                        if (bbox.style.display != 'none') {
+                            unhiddenBoxes = true;
+                            break;
+                        }
+                    }
+
+                    // If unhidden boxes remain, hide all boxes.
+                    if (unhiddenBoxes) {
+                        for (id of boxIds) {
+                            const elements = getAssociatedElements(id);
+
+                            elements.bbox.style.display = 'none';
+                            elements.hideButton.style.backgroundColor = 'gainsboro';
+
+                            if (!elements.entryText.innerHTML.includes("(Hidden)")) {
+                                elements.entryText.innerHTML += " (Hidden)";
+                                elements.entryText.style.color = 'gray';
+                                elements.entryText.style.fontStyle = 'italic';
+                            }
+
+                        }
+                    // Else if all hidden, unhide all boxes.
+                    } else {
+                        for (id of boxIds) {
+                            const elements = getAssociatedElements(id);
+                            elements.bbox.style.display = 'block';
+                            elements.hideButton.style.backgroundColor = 'whitesmoke';
+                            elements.entryText.innerHTML = elements.entryText.innerHTML.replace(" (Hidden)", "");
+                            elements.entryText.style.color = 'black';
+                            elements.entryText.style.fontStyle = 'normal';
+                        }
+
+                    }
+                });
+
+                let annotationPreview = document.getElementById("annotations-preview");
+                annotationPreview.appendChild(hideAllBboxesButton);
+            }
+
+
+            //// Creates and appends bbox action menu to annotation preview with matching data-id.
+            function createBboxEntryMenu(id, num) {
+                let bboxEntry = document.createElement("div");
+
+                // Displays the name of the bounding box.
+                function createNameText() {
+
+                    let text = document.createElement("text");
+                    text.innerHTML = `&nbsp;&nbsp;Box ${num}`;
+                    text.setAttribute("id", `entry-text-${id}`);
+
+                    Object.assign(text.style, {
+                        width: "80%",
+                        fontSize: "17px"
+                    });
+                    return text;
+                }
+
+                // Button to hide the bounding box.
+                function createHideButton() {
+
+                    let hideBboxButton = document.createElement("button");
+                    hideBboxButton.setAttribute("id", `hide-button-${id}`);
+                    hideBboxButton.textContent = "Hide Box";
+
+                    Object.assign(hideBboxButton.style, {
+                        width: "50%",
+                        border: "0px",
+                        background: "whitesmoke",
+                    });
+
+                    hideBboxButton.addEventListener('click', (function () {
+                            const elements = getAssociatedElements(id);
+
+                            if (elements.bbox.style.display === 'none') {
+                                elements.bbox.style.display = 'block';
+                                this.style.backgroundColor = 'whitesmoke';
+                                elements.entryText.style.color = 'black';
+                                elements.entryText.innerHTML = `&nbsp;&nbsp;Box ${num}`;
+                                elements.entryText.style.fontStyle = 'normal';
+                            } else {
+                                elements.bbox.style.display = 'none';
+                                this.style.backgroundColor = 'gainsboro';
+                                elements.entryText.style.color = "gray";
+                                elements.entryText.innerHTML = `&nbsp;&nbsp;Box ${num} (Hidden)`;
+                                elements.entryText.style.fontStyle = 'italic';
+
+                            }
+                        })
+                    );
+
+                    return hideBboxButton;
+                }
+
+                // Button to delete the bounding box.
+                function createDeleteButton() {
+
+                    let deleteBboxButton = document.createElement("button");
+                    deleteBboxButton.setAttribute("id", "delete-button" + id);
+                    deleteBboxButton.textContent = "Delete Box";
+
+                    Object.assign(deleteBboxButton.style, {
+                        width: "50%",
+                        border: "0px",
+                        background: "whitesmoke",
+                        color: "red"
+                    });
+
+                    anno.on("deleteAnnotation", function () {
+                            try {
+                                const newBoxIds = getAnno().getAnnotations().map(obj => obj.id);
+                                const deletedId = boxIds.find(element => !newBoxIds.includes(element));
+                                const elements = getAssociatedElements(deletedId);
+                                elements.canvas.parentNode.remove();
+                                boxIds = newBoxIds;
+                            }
+                            catch { }
+                        }
+                    );
+
+                    deleteBboxButton.addEventListener('click', (function () {
+                            const elements = getAssociatedElements(id);
+                            elements.bbox.remove();
+                            elements.canvas.parentNode.remove();
+                            anno.removeAnnotation(id);
+
+                            boxIds = getAnno().getAnnotations().map(obj => obj.id);
+                        })
+                    );
+
+                    return deleteBboxButton;
+                }
+
+                // Append all the menu elements together.
+                function buildEntryMenu() {
+                    bboxEntry.setAttribute("id", "entry-" + id);
+
+                    Object.assign(bboxEntry.style, {
+                        borderTop: "2px solid black",
+                        borderColor: "gray",
+                        whiteSpace: "nowrap",
+                    });
+
+                    bboxEntry.appendChild(createNameText());
+
+                    let buttonMenu = document.createElement('div');
+                    bboxEntry.appendChild(buttonMenu);
+                    buttonMenu.appendChild(createHideButton());
+                    buttonMenu.appendChild(createDeleteButton());
+
+                    updateEntries(id);
+
+                    return bboxEntry;
+                }
+
+                return buildEntryMenu();
+
+            }
+
+            // Assigns listeners for visual indicators and other actions.
+            function assignEntryListeners(id) {
+                const elements = getAssociatedElements(id);
+
+                try {
+                    elements.entry.parentNode;
+                }
+                // Object annotation page deleting some elements on each annotation, need to recreate menus every time. Not quite sure why.
+                catch {
+                    if (document.getElementById("entry-" + id)) {
+                        createAndAppendMenus();
+                    }
+                }
+
+                try { elements.canvas.style.border = "5px solid transparent"; }
+                catch { return; }
+
+                elements.rect.addEventListener("mouseover", (function () {
+                    this.style.backgroundColor = "yellow";
+                    elements.canvas.style.border = "5px solid yellow";
+
+                    // Entry gets deleted in object annotation for some reason, but it doesn't seem to affect functionality.
+                    // Try-catch just as an easy fix to get rid of the errors.
+                    try { elements.entry.style.backgroundColor = "yellow"; }
+                    catch { }
+                }));
+
+                elements.rect.addEventListener("mouseleave", (function () {
+                    this.style.backgroundColor = "transparent";
+                    elements.canvas.style.border = "5px solid transparent";
+
+                    try { elements.entry.style.backgroundColor = "transparent"; }
+                    catch { }
+                }));
+
+                elements.entry.parentNode.addEventListener("mouseover", (function() {
+                    elements.entry.style.backgroundColor = "yellow";
+                    elements.canvas.style.border = "5px solid yellow";
+
+                    const outerRect = elements.bbox.querySelector(".a9s-outer");
+                    outerRect.style.fill = "rgba(255, 255, 0, 0.2)";
+                }));
+
+                elements.entry.parentNode.addEventListener("mouseout", (function () {
+                    elements.entry.style.backgroundColor = "transparent";
+                    elements.canvas.style.border = "5px solid transparent";
+
+                    const outerRect = elements.bbox.querySelector(".a9s-outer");
+                    outerRect.style.fill = "transparent";
+                }));
+            }
+
+            // Checks for when annotation menu closes, then updates text and reassigns highlight handlers.
+            function updateEntries(id) {
+                const targetNode = document.body;
+
+                const config = { attributes: true, childList: true, subtree: true };
+                const callback = function (mutationsList, observer) {
+                    for (const mutation of mutationsList) {
+                        if (mutation.type === 'childList') {
+                            mutation.removedNodes.forEach(node => {
+                                if (node.classList) {
+                                    if (node.classList.contains('r6o-editor')) {
+                                        assignEntryListeners(id);
+                                        try { getAssociatedElements(id).entry.style.backgroundColor = 'transparent'; }
+                                        catch { }
+
+                                        const anno = getAnno();
+
+                                        if (!document.querySelector(".preview-label.py-2")) {
+                                            for (const annotation of anno.getAnnotations()) {
+                                                const annoText = document.getElementById(`annotation-text-${annotation.id}`);
+                                                const newAnnotation = annotation.body[0].value;
+                                                if (newAnnotation) {
+                                                    annoText.innerText = newAnnotation.length > 17 ? newAnnotation.slice(0, 17) + "..." : newAnnotation;
+                                                    annoText.style.backgroundColor = 'transparent';
+                                                }
+                                                else {
+                                                    annoText.innerText = "(No Annotation)";
+                                                    annoText.style.backgroundColor = 'rgb(255, 216, 204)';
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    }
+                };
+
+                const observer = new MutationObserver(callback);
+                observer.observe(targetNode, config);
+            }
+
+            // Create and append all the menus to each annotation preview.
+            function createAndAppendMenus() {
+                let boxNum = 1;
+
+                for (label of document.querySelectorAll('.preview-label')) {
+                    label.style.borderBottom = '1px solid black';
+                }
+
+                for (id of boxIds) {
+                    let annotationPreview = getAssociatedElements(id);
+                    annotationPreview.canvas.parentNode.classList.add("center-justify");
+                    annotationPreview.canvas.parentNode.style.border = "2px solid black";
+                    annotationPreview.canvas.parentNode.style.borderRadius = "5px";
+                    annotationPreview.canvas.parentNode.style.display = "inline-block";
+                    annotationPreview.canvas.parentNode.style.maxHeight = "100%";
+                    annotationPreview.canvas.parentNode.style.maxWidth = "100%";
+                    annotationPreview.canvas.style.maxWidth = "100%";
+
+                    if (!document.querySelector(".preview-label.py-2")) {
+                        let annotationText = document.createElement('text');
+                        annotationText.setAttribute("id", `annotation-text-${id}`);
+                        annotationText.style.fontWeight = 'bold';
+                        annotationText.style.backgroundColor = 'rgb(255, 216, 204)';
+                        annotationText.innerText = '(No Annotation)';
+
+                        annotationPreview.canvas.parentNode.insertBefore(annotationText, annotationPreview.canvas);
+                    }
+
+                    annotationPreview.canvas.parentNode.appendChild(
+                        createBboxEntryMenu(id, boxNum)
+                    );
+
+                    assignEntryListeners(id);
+
+                    boxNum++;
+                }
+                createHideAllBboxesButton();
+            } (createAndAppendMenus());
+        }
+    </script>

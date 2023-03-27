@@ -14,7 +14,7 @@ from explore.forms import CreateSnapshotForm
 from explore.models import Snapshot
 from google.cloud import tasks_v2
 
-MAX_VOTES_PER_IMAGE = 2
+MAX_VOTES_PER_IMAGE = 3
 
 
 class SnapshotCreateView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):

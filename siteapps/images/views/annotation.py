@@ -7,10 +7,10 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Exists, OuterRef, Q
 from django.http.response import JsonResponse
 from django.views.generic.base import TemplateView, View
-from images.models import ActivityType, Annotator, BoundingBox, Image, SpeciesName
+from images.models import ActivityType, Annotator, BoundingBox, Image, Species, SpeciesName
 from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
 
-MAX_VOTES_PER_IMAGE = 3
+MAX_VOTES_PER_IMAGE = 2
 CATEGORY_ANIMAL = "animal"
 CATEGORY_HUMAN = "human"
 
@@ -48,6 +48,13 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
                     # There must be at least one or more "uncertain" bounding boxes.
                     # This will make sure that the images that need more votes are served first
                     Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
+                    # There should not be any staff user annotations on the image already
+                    ~Exists(
+                        BoundingBox.objects.filter(
+                            Exists(Annotator.objects.filter(accepted_annotation=OuterRef("pk"), human__is_staff=True)),
+                            image=OuterRef("pk"),
+                        )
+                    ),
                     # Image must be marked as processed by MegaDetector
                     processed=True,
                     # Image must have at least one bounding box
@@ -134,9 +141,26 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
                     # It should work for most of the time but is not always accurate and will generate false positives
                     # Must be fixed
                     Exists(BoundingBox.objects.is_animal().filter(image=OuterRef("pk"))),
+                    # If a staff vote exists for the species, we'll no longer show it
+                    ~Exists(
+                        BoundingBox.objects.filter(
+                            Exists(
+                                Species.objects.filter(
+                                    Exists(
+                                        Annotator.objects.filter(
+                                            accepted_species_annotation=OuterRef("pk"), human__is_staff=True
+                                        )
+                                    ),
+                                    bounding_box=OuterRef("pk"),
+                                )
+                            ),
+                            image=OuterRef("pk"),
+                        )
+                    ),
+                    # Show image only if checked by fewer people
+                    num_species_checked_by__lt=MAX_VOTES_PER_IMAGE,
                     # Image must be marked as processed
                     processed=True,
-                    num_species_checked_by__lt=MAX_VOTES_PER_IMAGE,
                 )
                 .order_by("-upload__priority", "num_species_checked_by", "trigger_timestamp", "num_objects")
             )

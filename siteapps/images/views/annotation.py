@@ -1,3 +1,4 @@
+import ast
 import datetime
 import json
 import logging
@@ -76,6 +77,7 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
                 )
                 .order_by("-upload__priority", "trigger_timestamp")
             )
+
             # Get the image stack based on stack size.
             images = images[: settings.ANNOTATION_QUEUE_SIZE]
 

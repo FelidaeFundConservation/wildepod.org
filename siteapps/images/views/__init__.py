@@ -5,6 +5,7 @@ from .annotation import (
     AnnotateSpeciesView,
     MDAnnotationProcessorView,
     SpeciesAnnotationProcessorView,
+    CustomAnnotationView,
 )
 from .image import ImageDetailView
 from .upload import (  # UploadExportView,

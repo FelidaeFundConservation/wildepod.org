@@ -10,7 +10,7 @@ from django.db.models import Count, Exists, F, OuterRef, Q, Subquery, Value
 from django.shortcuts import render
 from django.views.generic import FormView
 from images.models import ActivityType, Annotator, BoundingBox, Image, SpeciesName
-from locations.models import CameraStation, MacroSite, MicroSite
+from locations.models import CameraStation, MacroSite
 
 MAX_VOTES_PER_IMAGE = 2
 
@@ -23,14 +23,11 @@ class QueryDataForm(forms.Form):
 
     macrosites = forms.ModelMultipleChoiceField(queryset=MacroSite.objects.all(), required=False)
 
-    microsites = forms.ModelMultipleChoiceField(queryset=MicroSite.objects.all(), required=False)
-
     camera_stations = forms.ModelMultipleChoiceField(queryset=CameraStation.objects.all(), required=False)
 
     radio_choices = [
         ("split_none", "None"),
         ("split_macrosites", "Macrosites"),
-        ("split_microsites", "Microsites"),
         ("split_camera_stations", "Camera Stations"),
     ]
     breakdown_by = forms.ChoiceField(choices=radio_choices, widget=forms.RadioSelect, initial="split_none")
@@ -45,9 +42,6 @@ class QueryDataForm(forms.Form):
             ),
             Row(
                 Column("macrosites", css_class="form-group col-12"),
-            ),
-            Row(
-                Column("microsites", css_class="form-group col-12"),
             ),
             Row(
                 Column("camera_stations", css_class="form-group col-12"),
@@ -80,7 +74,6 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             start_date = form.cleaned_data["start_date"]
             end_date = form.cleaned_data["end_date"]
             macrosites = form.cleaned_data["macrosites"]
-            microsites = form.cleaned_data["microsites"]
             camera_stations = form.cleaned_data["camera_stations"]
             breakdown_by = form.cleaned_data["breakdown_by"]
 
@@ -92,8 +85,6 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                 filterset["trigger_timestamp__lte"] = end_date
             if macrosites:
                 filterset["upload__camera_station__micro_site__macro_site__in"] = macrosites
-            if microsites:
-                filterset["upload__camera_station__micro_site__in"] = microsites
             if camera_stations:
                 filterset["upload__camera_station__in"] = camera_stations
 
@@ -107,8 +98,6 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                 aggregate_column_name = "dummy_group_by"
             elif breakdown_by == "split_macrosites":
                 aggregate_column_name = "upload__camera_station__micro_site__macro_site__name"
-            elif breakdown_by == "split_microsites":
-                aggregate_column_name = "upload__camera_station__micro_site__name"
             elif breakdown_by == "split_camera_stations":
                 aggregate_column_name = "upload__camera_station__station_id"
             queryset_all = queryset_all.values(aggregate_column_name).annotate(name=F(aggregate_column_name))

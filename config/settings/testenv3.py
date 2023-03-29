@@ -22,10 +22,7 @@ WSGI_APPLICATION = "config.wsgi.testenv3.application"
 DATABASES = {"default": env.db("STAGING_DATABASE_URL")}
 
 # import pdb; pdb.set_trace()
-DATABASES["default"]["NAME"] =  "dev_test"
-
-
-
+DATABASES["default"]["NAME"] = "dev_test"
 
 
 # TODO: Check if this needs to be done

@@ -10,8 +10,8 @@ from .views import (
     SearchDataView,
     SnapshotCreateView,
     SnapshotListView,
-    SpeciesSightingTimeserieView,
     SpeciesSightingImagesView,
+    SpeciesSightingTimeseriesView,
 )
 
 urlpatterns = [
@@ -30,5 +30,7 @@ urlpatterns = [
     path("set_priority/", PriorityView.as_view(), name="set_priority"),
     path("set_priority_confirm/", ConfirmUpdateView.as_view(), name="confirm_update"),
     re_path("species/sighting/images/$", SpeciesSightingImagesView.as_view(), name="species_sighting_images"),
-    re_path("species/(?P<species>.+)/$", SpeciesSightingTimeserieView.as_view(), name="species_sighting_timeserie_list"),
+    re_path(
+        "species/(?P<species>.+)/$", SpeciesSightingTimeseriesView.as_view(), name="species_sighting_timeserie_list"
+    ),
 ]

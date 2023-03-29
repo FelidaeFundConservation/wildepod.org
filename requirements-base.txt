@@ -8,6 +8,8 @@ django-allauth==0.51.0  # https://github.com/pennersr/django-allauth
 django-braces==1.15.0 # https://github.com/brack3t/django-braces
 django-crispy-forms==1.14.0  # https://github.com/django-crispy-forms/django-crispy-forms
 django-environ==0.9.0  # https://github.com/joke2k/django-environ
+
+django-extensions==3.2.1
 django-jazzmin==2.4.9  # https://github.com/farridav/django-jazzmin
 django-model-utils==4.2.0  # https://github.com/jazzband/django-model-utils
 django-simple-history==3.0.0  # https://github.com/jazzband/django-simple-history
@@ -30,5 +32,3 @@ rcssmin==1.1.0  # https://github.com/ndparker/rcssmin
 # ------------------------------------------------------------------------------
 requests==2.27.1  # https://github.com/psf/requests
 whitenoise==6.4.0 # https://github.com/evansd/whitenoise
-
-django-extensions==3.2.1

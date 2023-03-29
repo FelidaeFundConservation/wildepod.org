@@ -12,7 +12,7 @@ from django.views.generic import FormView
 from images.models import ActivityType, Annotator, BoundingBox, Image, SpeciesName
 from locations.models import CameraStation, MacroSite, MicroSite
 
-MAX_VOTES_PER_IMAGE = 3
+MAX_VOTES_PER_IMAGE = 2
 
 
 class QueryDataForm(forms.Form):

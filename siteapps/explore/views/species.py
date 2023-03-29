@@ -1,21 +1,30 @@
-from django.views.generic.list import ListView
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db import connection, reset_queries
+from django.views.generic.list import ListView
 from images.models.annotation import Species, SpeciesName
 from images.models.image import Image
-
-from django.db import reset_queries
-from django.db import connection
-
-import sys
 
 
 def ts_by_species(species, macrosite=None, microsite=None, station=None):
 
-    macrosite = "AND location_macro.name = '{}'".format(macrosite) if macrosite else 'AND location_macro.name = location_macro.name'
-    microsite = "AND location_micro.name = '{}'".format(microsite) if microsite else 'AND location_micro.name = location_micro.name'
-    station = "AND location_camera.station_id = '{}'".format(station) if station else 'AND location_camera.station_id = location_camera.station_id'
+    macrosite = (
+        "AND location_macro.name = '{}'".format(macrosite)
+        if macrosite
+        else "AND location_macro.name = location_macro.name"
+    )
+    microsite = (
+        "AND location_micro.name = '{}'".format(microsite)
+        if microsite
+        else "AND location_micro.name = location_micro.name"
+    )
+    station = (
+        "AND location_camera.station_id = '{}'".format(station)
+        if station
+        else "AND location_camera.station_id = location_camera.station_id"
+    )
 
-    sp = Species.objects.raw('''
+    sp = Species.objects.raw(
+        """
                             SELECT MIN(species.id::TEXT) AS id,
                                 MIN(image.trigger_timestamp::date) AS exif_dt,
                                 location_macro.name AS macrosite,
@@ -49,11 +58,16 @@ def ts_by_species(species, macrosite=None, microsite=None, station=None):
                                         station_id, location_camera.latitude,
                                         location_camera.longitude
                             ORDER BY image.trigger_timestamp::date DESC
-                    '''.format(species, macrosite, microsite, station))
+                    """.format(
+            species, macrosite, microsite, station
+        )
+    )
     return sp
 
+
 def get_images_by(species, date_sighting, macrosite, microsite):
-    imgs = Image.objects.raw("""
+    imgs = Image.objects.raw(
+        """
                                 SELECT image.id, image.trigger_timestamp AS exif,
                                 image.thumbnail_gcloud_path AS thumbnail
                                 FROM images_species
@@ -76,58 +90,55 @@ def get_images_by(species, date_sighting, macrosite, microsite):
                                     AND location_micro.name = '{}'
                                     AND image.trigger_timestamp::date = '{}'
                                 ORDER BY exif DESC
-                             """.format(species, macrosite, microsite, date_sighting))
+                             """.format(
+            species, macrosite, microsite, date_sighting
+        )
+    )
     return imgs
 
 
-
-class SpeciesSightingTimeserieView(LoginRequiredMixin, ListView):
+class SpeciesSightingTimeseriesView(LoginRequiredMixin, ListView):
     model = Species
-    template_name = 'explore/species_sighting_timeserie_list.html'
+    template_name = "explore/species_sighting_timeserie_list.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        species = self.kwargs['species'] if 'species' in self.kwargs else 'Puma'
-        macrosite = self.request.GET.get('macrosite', None)
-        microsite = self.request.GET.get('microsite', None)
-        station = self.request.GET.get('station', None)
+        species = self.kwargs["species"] if "species" in self.kwargs else "Puma"
+        macrosite = self.request.GET.get("macrosite", None)
+        microsite = self.request.GET.get("microsite", None)
+        station = self.request.GET.get("station", None)
 
         self.object_list = ts_by_species(species=species, macrosite=macrosite, microsite=microsite, station=station)
 
-        context['species_sighting_timeserie_list'] = self.object_list
-        context['species'] = species
+        context["species_sighting_timeserie_list"] = self.object_list
+        context["species"] = species
 
-        species_l = [species.name for species in SpeciesName.objects.all().order_by('name')]
+        species_l = [species.name for species in SpeciesName.objects.all().order_by("name")]
 
-        # species.remove('Puma')
-        # species.remove('Bobcat')
-        # species = ['Puma'] + ['Bobcat'] + species
-
-        context['species_l'] = species_l
+        context["species_l"] = species_l
         return context
-
 
 
 class SpeciesSightingImagesView(LoginRequiredMixin, ListView):
     model = Species
-    template_name = 'explore/species_sighting_images.html'
+    template_name = "explore/species_sighting_images.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        species = self.request.GET.get('species', None)
-        macrosite = self.request.GET.get('macrosite', None)
-        microsite = self.request.GET.get('microsite', None)
-        station = self.request.GET.get('station', None)
-        date_sighting = self.request.GET.get('date_sighting', None)
+        species = self.request.GET.get("species", None)
+        macrosite = self.request.GET.get("macrosite", None)
+        microsite = self.request.GET.get("microsite", None)
+        station = self.request.GET.get("station", None)
+        date_sighting = self.request.GET.get("date_sighting", None)
 
         images_list = get_images_by(species, date_sighting, macrosite, microsite)
-        context['images_list'] = images_list
-        context['species'] = species
-        context['macrosite'] = macrosite
-        context['microsite'] = microsite
-        context['station'] = station
-        context['date_sighting'] = date_sighting
+        context["images_list"] = images_list
+        context["species"] = species
+        context["macrosite"] = macrosite
+        context["microsite"] = microsite
+        context["station"] = station
+        context["date_sighting"] = date_sighting
 
         return context

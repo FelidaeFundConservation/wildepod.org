@@ -62,7 +62,7 @@ SECURE_CONTENT_TYPE_NOSNIFF = env.bool("DJANGO_SECURE_CONTENT_TYPE_NOSNIFF", def
 
 # GCP settings
 # ------------------------------------------------------------------------------
-GS_BUCKET_NAME = env("GS_BUCKET_NAME_STAGING")
+GS_BUCKET_NAME = env("GS_BUCKET_NAME_PROD")
 GS_DEFAULT_ACL = "publicRead"
 
 # Media files
@@ -111,10 +111,11 @@ google_logging_client.setup_logging()
 # EXTERNAL APPS CONFIG
 # ------------------------------------------------------------------------------
 # Dropbox token for local mode
-DROPBOX_APP_KEY = env("DROPBOX_APP_KEY_STAGING")
-DROPBOX_APP_SECRET = env("DROPBOX_APP_SECRET_STAGING")
-DROPBOX_REFRESH_TOKEN = env("DROPBOX_REFRESH_TOKEN_STAGING")
-DROPBOX_URL_PREFIX = "https://www.dropbox.com/work/WildePod%20Cloud%20DB/Apps/wildepod_staging"
+DROPBOX_APP_KEY = env("DROPBOX_APP_KEY_PROD")
+DROPBOX_APP_SECRET = env("DROPBOX_APP_SECRET_PROD")
+DROPBOX_REFRESH_TOKEN = env("DROPBOX_REFRESH_TOKEN_PROD")
+DROPBOX_URL_PREFIX = "https://www.dropbox.com/work/WildePod%20Cloud%20DB/Apps/wildepod_prod"
+
 
 # CUSTOM VARIABLES
 # ------------------------------------------------------------------------------

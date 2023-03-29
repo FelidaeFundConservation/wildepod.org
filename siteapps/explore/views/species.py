@@ -91,7 +91,7 @@ def get_images_by(species, date_sighting, macrosite, microsite):
                                     AND image.trigger_timestamp::date = '{}'
                                 ORDER BY exif DESC
                              """.format(
-            species, macrosite, microsite, date_sighting
+            species, macrosite, microsite.replace("'", "''"), date_sighting
         )
     )
     return imgs

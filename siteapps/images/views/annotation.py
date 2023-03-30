@@ -48,43 +48,59 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
         queue = settings.DATASTORE_CLIENT.get(queue_key)
 
         # retrieve custom annotation fields
-        # converting url query strings back to objects
-        start_date = datetime.datetime.fromisoformat(self.request.GET.get("start_date"))
-        end_date = datetime.datetime.fromisoformat(self.request.GET.get("end_date"))
-        end_date = end_date + datetime.timedelta(days=1) - datetime.timedelta(seconds=1)
+        start_date = self.request.GET.get("start_date")
+        end_date = self.request.GET.get("end_date")
 
         # converting camera_stations back to queryset object from string
         camera_stations_str = self.request.GET.get("camera_stations")
-        matches = re.findall(r"<([\w.]+): ([^>]+)>", camera_stations_str)
-        camera_stations = CameraStation.objects.filter(station_id=matches[0][1].split()[0])
+        if camera_stations_str:
+            cam_match = re.findall(r"<([\w.]+): ([^>]+)>", camera_stations_str)
+        else:
+            cam_match = None
 
         # converting macrosites back to queryset object from string
         macrosites_str = self.request.GET.get("macrosites")
-        matches2 = re.findall(r"<([\w.]+): ([^>]+)>", macrosites_str)
-        macrosites = MacroSite.objects.filter(name=matches2[0][1])
-
-        if None in macrosites:
-            if (
-                queue
-                and datetime.datetime.fromisoformat(queue["expires_at"]) > datetime.datetime.now()
-                and queue["index"] < len(queue["images"])
-            ):
-                # Get the image id
-                image_id = queue["images"][queue["index"]]
+        if macrosites_str:
+            mac_match = re.findall(r"<([\w.]+): ([^>]+)>", macrosites_str)
         else:
-            # First get an image stack
-            images = Image.objects.annotated().filter(
-                upload__date_retrieved__gte=start_date,
-                upload__date_retrieved__lte=end_date,
-                upload__camera_station__in=camera_stations,
-                upload__camera_station__micro_site__macro_site__in=macrosites,
-            )
+            mac_match = None
+
+        if not mac_match and (
+            queue
+            and datetime.datetime.fromisoformat(queue["expires_at"]) > datetime.datetime.now()
+            and queue["index"] < len(queue["images"])
+        ):
+            # Get the image id
+            image_id = queue["images"][queue["index"]]
+        else:
+            if mac_match:
+                filterset = {}
+                if start_date != "None":
+                    start_date = datetime.datetime.fromisoformat(start_date)
+                    filterset["upload__date_retrieved__gte"] = start_date
+                if end_date != "None":
+                    end_date = (
+                        datetime.datetime.fromisoformat(end_date)
+                        + datetime.timedelta(days=1)
+                        - datetime.timedelta(seconds=1)
+                    )
+                    filterset["upload__date_retrieved__lte"] = end_date
+                if mac_match:
+                    macrosites = MacroSite.objects.filter(name=mac_match[0][1])
+                    filterset["upload__camera_station__micro_site__macro_site__in"] = macrosites
+                if cam_match:
+                    camera_stations = CameraStation.objects.filter(station_id=cam_match[0][1].split()[0])
+                    filterset["upload__camera_station__in"] = camera_stations
+                # First get an image stack
+                images = Image.objects.annotated().filter(**filterset)
+            else:
+                images = Image.objects.annotated()
             images = images.filter(
                 # It must not be checked or skipped by the current annotator
                 ~Q(bbox_checked_by__in=[annotator]) & ~Q(bbox_skipped_by__in=[annotator]),
                 # There must be at least one or more "uncertain" bounding boxes.
                 # This will make sure that the images that need more votes are served first
-                # Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
+                Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
                 # Image must be marked as processed by MegaDetector
                 processed=True,
                 # Image must have at least one bounding box
@@ -145,29 +161,11 @@ class CustomAnnotationView(LoginRequiredMixin, FormView, TemplateView):
             macrosites = form.cleaned_data["macrosites"]
             camera_stations = form.cleaned_data["camera_stations"]
 
-            filterset = {}
-            if start_date:
-                filterset["date_retrieved__gte"] = start_date
-            if end_date:
-                # to make the end_date inclusive as its conflicting because of datetimefield and datefield comparison
-                end_date_inclusive = end_date + datetime.timedelta(days=1) - datetime.timedelta(seconds=1)
-                filterset["date_retrieved__lte"] = end_date_inclusive
-            if macrosites:
-                filterset["camera_station__micro_site__macro_site__in"] = macrosites
-            if camera_stations:
-                filterset["camera_station__in"] = camera_stations
-            search_set = Upload.objects.filter(**filterset)
-
-            if search_set.count() == 0:
-                message = "No records found matching the search criteria."
-                messages.info(request, message)
-                return redirect(request.META.get("HTTP_REFERER"))
-            else:
-                url = (
-                    reverse("images:annotate_objects")
-                    + f"?start_date={start_date}&end_date={end_date}&macrosites={macrosites}&camera_stations={camera_stations}"
-                )
-                return redirect(url)
+            url = (
+                reverse("images:annotate_objects")
+                + f"?start_date={start_date}&end_date={end_date}&macrosites={macrosites}&camera_stations={camera_stations}"
+            )
+            return redirect(url)
 
 
 # TODO: Clean up this code

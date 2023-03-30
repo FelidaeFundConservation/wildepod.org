@@ -40,13 +40,22 @@ class BaseAnnotationManager(models.Manager):
                 & Q(vote_diff__gt=-settings.NUM_ACCEPTS_OVER_REJECTS),
                 output_field=models.BooleanField(),
             ),
+            is_staff_vote=ExpressionWrapper(
+                Exists(
+                    BoundingBox.objects.filter(
+                        Exists(Annotator.objects.filter(accepted_annotation=OuterRef("pk"), human__is_staff=True)),
+                        image=OuterRef("pk"),
+                    )
+                ),
+                output_field=models.BooleanField(),
+            ),
         )
 
     def uncertain(self):
-        return self.annotated().filter(keep=True, vote_uncertain=True)
+        return self.annotated().filter(Q(vote_uncertain=True) & Q(is_staff_vote=False), keep=True)
 
     def valid(self):
-        return self.annotated().filter(keep=True, voted_valid=True)
+        return self.annotated().filter(Q(voted_valid=True) | Q(is_staff_vote=True), keep=True)
 
     def valid_or_uncertain(self):
         return self.annotated().filter(Q(voted_valid=True) | Q(vote_uncertain=True), keep=True)
@@ -72,6 +81,9 @@ class BoundingBoxManager(BaseAnnotationManager):
                 ),
                 is_person=ExpressionWrapper(
                     Q(category__isnull=False) & Q(category__name="person"), output_field=models.BooleanField()
+                ),
+                is_vehicle=ExpressionWrapper(
+                    Q(category__isnull=False) & Q(category__name="vehicle"), output_field=models.BooleanField()
                 ),
                 is_species_tagged=ExpressionWrapper(
                     Q(category__isnull=False) & Q(category__name="animal") & Q(species__isnull=False),
@@ -103,6 +115,9 @@ class BoundingBoxManager(BaseAnnotationManager):
 
     def is_person(self):
         return self.annotated().filter(is_person=True)
+
+    def is_vehicle(self):
+        return self.annotated().filter(is_vehicle=True)
 
     def is_species_tagged(self):
         return self.annotated().filter(is_species_tagged=True)

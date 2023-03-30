@@ -35,6 +35,9 @@ class QueryDataForm(forms.Form):
     radio_choices_query = [
         ("query_blank_ready", "Images available for Blank Pipeline"),
         ("query_blank_completed", "Blank Pipeline Completed Images"),
+        ("query_has_human", "Images with animals"),
+        ("query_has_animal", "Images with humans"),
+        ("query_has_vehicle", "Images with vehicles"),
         ("query_species_ready", "Images available for Species Pipeline"),
         ("query_species_completed", "Species Pipeline Completed Images"),
         ("query_activity_ready", "Images available for Activity Pipeline"),
@@ -111,15 +114,7 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             if query_choice == "query_blank_ready":
                 queryset_all = queryset_all.filter(
                     # There must be at least one or more "uncertain" bounding boxes.
-                    # This will make sure that the images that need more votes are served first
                     Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
-                    # There should not be any staff user annotations on the image already
-                    ~Exists(
-                        BoundingBox.objects.filter(
-                            Exists(Annotator.objects.filter(accepted_annotation=OuterRef("pk"), human__is_staff=True)),
-                            image=OuterRef("pk"),
-                        )
-                    ),
                     # Image must be marked as processed by MegaDetector
                     processed=True,
                     # Image must have at least one bounding box
@@ -127,15 +122,41 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                 )
             elif query_choice == "query_blank_completed":
                 queryset_all = queryset_all.filter(
-                    # There must be no "uncertain" bounding boxes, or there
-                    # should be a staff user annotation on the image.
-                    ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk")))
-                    | Exists(
-                        BoundingBox.objects.filter(
-                            Exists(Annotator.objects.filter(accepted_annotation=OuterRef("pk"), human__is_staff=True)),
-                            image=OuterRef("pk"),
-                        )
-                    ),
+                    # There must be no "uncertain" bounding boxes
+                    ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
+                    # Image must be marked as processed by MegaDetector
+                    processed=True,
+                    # Image must have at least one bounding box
+                    num_objects__gt=0,
+                )
+            elif query_choice == "query_has_animal":
+                queryset_all = queryset_all.filter(
+                    # There must be no "uncertain" bounding boxes
+                    ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
+                    # Image must have an animal
+                    Exists(BoundingBox.objects.is_animal().filter(image=OuterRef("pk"))),
+                    # Image must be marked as processed by MegaDetector
+                    processed=True,
+                    # Image must have at least one bounding box
+                    num_objects__gt=0,
+                )
+            elif query_choice == "query_has_human":
+                queryset_all = queryset_all.filter(
+                    # There must be no "uncertain" bounding boxes
+                    ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
+                    # Image must have a human
+                    Exists(BoundingBox.objects.is_person().filter(image=OuterRef("pk"))),
+                    # Image must be marked as processed by MegaDetector
+                    processed=True,
+                    # Image must have at least one bounding box
+                    num_objects__gt=0,
+                )
+            elif query_choice == "query_has_vehicle":
+                queryset_all = queryset_all.filter(
+                    # There must be no "uncertain" bounding boxes
+                    ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
+                    # Image must have a vehicle
+                    Exists(BoundingBox.objects.is_vehicle().filter(image=OuterRef("pk"))),
                     # Image must be marked as processed by MegaDetector
                     processed=True,
                     # Image must have at least one bounding box

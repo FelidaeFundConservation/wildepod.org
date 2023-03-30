@@ -33,15 +33,15 @@ class QueryDataForm(forms.Form):
     breakdown_by = forms.ChoiceField(choices=radio_choices_breakdown, widget=forms.RadioSelect, initial="split_none")
 
     radio_choices_query = [
-        ("query_blank_ready", "Images available for Blank Pipeline"),
-        ("query_blank_completed", "Blank Pipeline Completed Images"),
-        ("query_has_human", "Images with animals"),
-        ("query_has_animal", "Images with humans"),
+        ("query_blank_ready", "Images available for Blank pipeline"),
+        ("query_blank_completed", "Blank pipeline completed images"),
+        ("query_has_animal", "Images with animals"),
+        ("query_has_human", "Images with humans"),
         ("query_has_vehicle", "Images with vehicles"),
-        ("query_species_ready", "Images available for Species Pipeline"),
-        ("query_species_completed", "Species Pipeline Completed Images"),
-        ("query_activity_ready", "Images available for Activity Pipeline"),
-        ("query_activity_completed", "Activity Pipeline Completed Images"),
+        ("query_species_ready", "Images available for Species pipeline"),
+        ("query_species_completed", "Species pipeline completed images"),
+        ("query_activity_ready", "Images available for Activity pipeline"),
+        ("query_activity_completed", "Activity pipeline completed images"),
     ]
     query_choice = forms.ChoiceField(choices=radio_choices_query, widget=forms.RadioSelect, initial="query_blank_ready")
 

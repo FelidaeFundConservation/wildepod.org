@@ -12,6 +12,7 @@ from .views import (
     SnapshotListView,
     SpeciesSightingImagesView,
     SpeciesSightingTimeseriesView,
+    VolunteerEngagementView,
 )
 
 urlpatterns = [
@@ -33,4 +34,5 @@ urlpatterns = [
     re_path(
         "species/(?P<species>.+)/$", SpeciesSightingTimeseriesView.as_view(), name="species_sighting_timeserie_list"
     ),
+    path("volunteer_engagement/", VolunteerEngagementView.as_view(), name="volunteer_engagement"),
 ]

@@ -48,13 +48,6 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
                     # There must be at least one or more "uncertain" bounding boxes.
                     # This will make sure that the images that need more votes are served first
                     Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
-                    # There should not be any staff user annotations on the image already
-                    ~Exists(
-                        BoundingBox.objects.filter(
-                            Exists(Annotator.objects.filter(accepted_annotation=OuterRef("pk"), human__is_staff=True)),
-                            image=OuterRef("pk"),
-                        )
-                    ),
                     # Image must be marked as processed by MegaDetector
                     processed=True,
                     # Image must have at least one bounding box

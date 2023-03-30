@@ -16,6 +16,3 @@ class VolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, ListVi
     weekly = datetime.today() - timedelta(days=7)
 
     template_name = "explore/volunteer_engagement.html"
-
-
-from .volunteer_engagement import VolunteerEngagementView

@@ -33,12 +33,12 @@ class QueryDataForm(forms.Form):
     breakdown_by = forms.ChoiceField(choices=radio_choices_breakdown, widget=forms.RadioSelect, initial="split_none")
 
     radio_choices_query = [
-        ("query_blank_ready", "Ready for Blank Pipeline"),
-        ("query_blank_completed", "Blank Pipeline Completed"),
-        ("query_species_ready", "Ready for Species Pipeline"),
-        ("query_species_completed", "Species Pipeline Completed"),
-        ("query_activity_ready", "Ready for Activity Pipeline"),
-        ("query_activity_completed", "Activity Pipeline Completed"),
+        ("query_blank_ready", "Images available for Blank Pipeline"),
+        ("query_blank_completed", "Blank Pipeline Completed Images"),
+        ("query_species_ready", "Images available for Species Pipeline"),
+        ("query_species_completed", "Species Pipeline Completed Images"),
+        ("query_activity_ready", "Images available for Activity Pipeline"),
+        ("query_activity_completed", "Activity Pipeline Completed Images"),
     ]
     query_choice = forms.ChoiceField(choices=radio_choices_query, widget=forms.RadioSelect, initial="query_blank_ready")
 
@@ -107,7 +107,7 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
 
             queryset_all = Image.objects.annotated().filter(**filterset)
 
-            #TODO: Share the queries between the annotation page views and this view so we only have a single definition for these queries.
+            # TODO: Share the queries between the annotation page views and this view so we only have a single definition for these queries.
             if query_choice == "query_blank_ready":
                 queryset_all = queryset_all.filter(
                     # There must be at least one or more "uncertain" bounding boxes.
@@ -201,7 +201,8 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                             ),
                             image=OuterRef("pk"),
                         )
-                    ) | Q(num_species_checked_by__gte=MAX_VOTES_PER_IMAGE),
+                    )
+                    | Q(num_species_checked_by__gte=MAX_VOTES_PER_IMAGE),
                     # Image must be marked as processed
                     processed=True,
                 )
@@ -211,6 +212,9 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                     Exists(BoundingBox.objects.valid().filter(image=OuterRef("pk"))),
                     # There must be no uncertain bounding boxes for the image
                     ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
+                    # There must be non-domestic animals or humans
+                    Exists(BoundingBox.objects.is_nondomestic_species().filter(image=OuterRef("pk")))
+                    | Exists(BoundingBox.objects.is_person().filter(image=OuterRef("pk"))),
                     # Image must be marked as processed
                     processed=True,
                     num_activity_checked_by__lt=MAX_VOTES_PER_IMAGE,
@@ -221,6 +225,9 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                     Exists(BoundingBox.objects.valid().filter(image=OuterRef("pk"))),
                     # There must be no uncertain bounding boxes for the image
                     ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
+                    # There must be non-domestic animals or humans
+                    Exists(BoundingBox.objects.is_nondomestic_species().filter(image=OuterRef("pk")))
+                    | Exists(BoundingBox.objects.is_person().filter(image=OuterRef("pk"))),
                     # Image must be marked as processed
                     processed=True,
                     num_activity_checked_by__gte=MAX_VOTES_PER_IMAGE,
@@ -228,10 +235,7 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
 
             if breakdown_by == "split_none":
                 # If there is no grouping directly take the count() and pass it in the results.
-                results = [{
-                    'name' : ' ',
-                    'all_images' : queryset_all.count()
-                }]
+                results = [{"name": " ", "all_images": queryset_all.count()}]
             else:
                 # Group the queryset based on the breakdown_by parameter
                 aggregate_column_name = ""
@@ -239,14 +243,18 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                     aggregate_column_name = "upload__camera_station__micro_site__macro_site__name"
                 elif breakdown_by == "split_camera_stations":
                     aggregate_column_name = "upload__camera_station__station_id"
-                queryset_all = queryset_all.values('id', aggregate_column_name).values(aggregate_column_name).annotate(name=F(aggregate_column_name))
+                queryset_all = (
+                    queryset_all.values("id", aggregate_column_name)
+                    .values(aggregate_column_name)
+                    .annotate(name=F(aggregate_column_name))
+                )
 
                 # Finally, annotate the queryset with the counts of images in each category.
                 # This will be applied to each group specified in the values() call above.
                 queryset_all = queryset_all.annotate(
                     all_images=Count("pk", distinct=True),
                 ).order_by("-all_images")
-    
+
                 results = list(queryset_all)
             logging.info(f"Querying data : {queryset_all.query}")
 

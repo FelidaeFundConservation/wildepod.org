@@ -1,6 +1,7 @@
 
     <script>
-        const boxIds = [
+        let boxIds;
+        boxIds = [
             {% for bbox in bounding_boxes %}
             "{{bbox.id}}",
             {% endfor %}
@@ -21,6 +22,7 @@
             }
 
             if (allElementsExist) {
+                boxIds = getAnno().getAnnotations().map(obj => obj.id);
                 func();
             }
             else {
@@ -39,7 +41,7 @@
                     "entryText": document.getElementById("entry-text-" + boxId),
                     "bbox": document.querySelector(`[data-id="${boxId}"]`),
                     "rect": document.querySelector(`[data-id="${boxId}"]`)
-                                    .querySelector(".a9s-inner"),
+                                    ?.querySelector(".a9s-inner") ?? null,
                     "hideButton": document.getElementById("hide-button-" + boxId),
                     "deleteButton": document.getElementById("delete-button" + boxId),
                     "annotationText": document.querySelector(`annotation-text-${id}`)
@@ -174,11 +176,25 @@
                         color: "red"
                     });
 
+                    anno.on("deleteAnnotation", function () {
+                            try {
+                                const newBoxIds = getAnno().getAnnotations().map(obj => obj.id);
+                                const deletedId = boxIds.find(element => !newBoxIds.includes(element));
+                                const elements = getAssociatedElements(deletedId);
+                                elements.canvas.parentNode.remove();
+                                boxIds = newBoxIds;
+                            }
+                            catch { }
+                        }
+                    );
+
                     deleteBboxButton.addEventListener('click', (function () {
                             const elements = getAssociatedElements(id);
                             elements.bbox.remove();
                             elements.canvas.parentNode.remove();
                             anno.removeAnnotation(id);
+
+                            boxIds = getAnno().getAnnotations().map(obj => obj.id);
                         })
                     );
 
@@ -219,9 +235,14 @@
                     elements.entry.parentNode;
                 }
                 // Object annotation page deleting some elements on each annotation, need to recreate menus every time. Not quite sure why.
-                catch { createAndAppendMenus() }
+                catch {
+                    if (document.getElementById("entry-" + id)) {
+                        createAndAppendMenus();
+                    }
+                }
 
-                elements.canvas.style.border = "5px solid transparent";
+                try { elements.canvas.style.border = "5px solid transparent"; }
+                catch { return; }
 
                 elements.rect.addEventListener("mouseover", (function () {
                     this.style.backgroundColor = "yellow";
@@ -270,7 +291,8 @@
                                 if (node.classList) {
                                     if (node.classList.contains('r6o-editor')) {
                                         assignEntryListeners(id);
-                                        getAssociatedElements(id).entry.style.backgroundColor = 'transparent';
+                                        try { getAssociatedElements(id).entry.style.backgroundColor = 'transparent'; }
+                                        catch { }
 
                                         const anno = getAnno();
 

@@ -1,0 +1,49 @@
+{% extends '_base.html' %}
+{% load static %}
+
+{% block title %} Species Sighting {% endblock %}
+<!-- Set corresponding nav pill to active -->
+{% block nav_explore %}active{% endblock nav_explore %}
+
+{% block header_includes %}
+<link
+    href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+    rel="stylesheet"
+/>
+{% endblock header_includes %}
+
+{% block content %}
+<div class="container">
+
+    <div class="row justify-content-evenly mt-3 pt-3">
+        <h1>Species Sightings</h1>
+        <h2>{{species}}: {{date_sighting}} / {{macrosite}} / {{microsite}} / {{station}}</h3>
+    </div>
+
+    <div class="row justify-content-evenly mt-3 pt-3">
+        {% for il in images_list %}
+            <div class="col-12 col-md-6 col-xl-4 text-center py-3">
+                <a href='https://wildepod.org/images/image/{{ il.id }}'>
+                    <img class="img-fluid" src='https://storage.googleapis.com/wildepod_prod/media/{{ il.thumbnail }}'/>
+                </a>
+            </div>
+            {% if forloop.counter|divisibleby:3 %}
+            </div>
+            <div class="row justify-content-evenly mt-3 pt-3">
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    <div class="row justify-content-evenly mt-3 pt-3">
+        <p><small>
+            The annotation of a species is a process checked by a group of volunteers. The resulting database of cannonical data of species sightings can be used in the future to train and improve the machine learning models.
+        </small></p>
+    </div>
+
+</div>
+{% endblock content %}
+
+{% block footer_includes %}
+<script>
+</script>
+{% endblock footer_includes %}

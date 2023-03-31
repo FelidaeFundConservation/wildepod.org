@@ -27,19 +27,9 @@ class BaseAnnotationManager(models.Manager):
             keep=ExpressionWrapper(Q(confidence__gte=F("confidence_threshold")), output_field=models.BooleanField()),
             num_accepted=Coalesce(Count("accepted_by", distinct=True), 0),
             num_rejected=Coalesce(Count("rejected_by", distinct=True), 0),
-            staff_accepted=ExpressionWrapper(
-                Exists(Annotator.objects.filter(accepted_annotation=OuterRef("pk")).filter(human__is_staff=True)),
-                output_field=models.BooleanField(),
-            ),
-            # Case(When(
-            #                         Q(accepted_bys__human__isnull=False) & Q(accepted_bys__human__is_staff=True),
-            #                         then=True
-            #                     ),
-            #                     default=False,
-            #                     output_field=BooleanField()),
             vote_diff=F("num_accepted") - F("num_rejected"),
             voted_valid=ExpressionWrapper(
-                Q(vote_diff__gte=settings.NUM_ACCEPTS_OVER_REJECTS) | Q(staff_accepted=True),
+                Q(vote_diff__gte=settings.NUM_ACCEPTS_OVER_REJECTS),
                 output_field=models.BooleanField(),
             ),
             voted_invalid=ExpressionWrapper(
@@ -47,17 +37,25 @@ class BaseAnnotationManager(models.Manager):
             ),
             vote_uncertain=ExpressionWrapper(
                 Q(vote_diff__lt=settings.NUM_ACCEPTS_OVER_REJECTS)
-                & Q(vote_diff__gt=-settings.NUM_ACCEPTS_OVER_REJECTS)
-                & Q(staff_accepted=False),
+                & Q(vote_diff__gt=-settings.NUM_ACCEPTS_OVER_REJECTS),
+                output_field=models.BooleanField(),
+            ),
+            is_staff_vote=ExpressionWrapper(
+                Exists(
+                    BoundingBox.objects.filter(
+                        Exists(Annotator.objects.filter(accepted_annotation=OuterRef("pk"), human__is_staff=True)),
+                        image=OuterRef("pk"),
+                    )
+                ),
                 output_field=models.BooleanField(),
             ),
         )
 
     def uncertain(self):
-        return self.annotated().filter(keep=True, vote_uncertain=True)
+        return self.annotated().filter(Q(vote_uncertain=True) & Q(is_staff_vote=False), keep=True)
 
     def valid(self):
-        return self.annotated().filter(keep=True, voted_valid=True)
+        return self.annotated().filter(Q(voted_valid=True) | Q(is_staff_vote=True), keep=True)
 
     def valid_or_uncertain(self):
         return self.annotated().filter(Q(voted_valid=True) | Q(vote_uncertain=True), keep=True)
@@ -83,6 +81,9 @@ class BoundingBoxManager(BaseAnnotationManager):
                 ),
                 is_person=ExpressionWrapper(
                     Q(category__isnull=False) & Q(category__name="person"), output_field=models.BooleanField()
+                ),
+                is_vehicle=ExpressionWrapper(
+                    Q(category__isnull=False) & Q(category__name="vehicle"), output_field=models.BooleanField()
                 ),
                 is_species_tagged=ExpressionWrapper(
                     Q(category__isnull=False) & Q(category__name="animal") & Q(species__isnull=False),
@@ -110,16 +111,19 @@ class BoundingBoxManager(BaseAnnotationManager):
         )
 
     def is_animal(self):
-        return self.annotated().filter(keep=True, is_animal=True)
+        return self.annotated().filter(is_animal=True)
 
     def is_person(self):
-        return self.annotated().filter(keep=True, is_person=True)
+        return self.annotated().filter(is_person=True)
+
+    def is_vehicle(self):
+        return self.annotated().filter(is_vehicle=True)
 
     def is_species_tagged(self):
-        return self.annotated().filter(keep=True, is_species_tagged=True)
+        return self.annotated().filter(is_species_tagged=True)
 
     def is_nondomestic_species(self):
-        return self.annotated().filter(keep=True, is_nondomestic_species=True)
+        return self.annotated().filter(is_nondomestic_species=True)
 
 
 # Certainty annotations for categories

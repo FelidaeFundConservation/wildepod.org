@@ -67,10 +67,10 @@
     >
         <div class="col-12">
             <div
-                class="alert alert-danger text-center"
+                class="alert alert-warning text-center"
                 role="alert"
             >
-                <strong>Error!</strong> Some of your the bounding boxes don't have a activity. Please try again.
+                <strong>Warning! Some of your bounding boxes don't have a activity.</strong><br>If you are sure you want to submit, click "Save" again.
             </div>
         </div>
     </div>
@@ -175,21 +175,23 @@
     }
 
     // Set up annotations, rendering and submit hooks after the window has fully loaded
-    window.addEventListener('load', function() {
-        anno = renderBoundingBoxes("{{image.id}}", bboxes=bboxes, widgets=[SpeciesClassSelectorWidget]);
+    window.addEventListener('load', function () {
+        anno = renderBoundingBoxes("{{image.id}}", bboxes = bboxes, widgets = [SpeciesClassSelectorWidget]);
         renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
 
         // Function to save annotations
-        function submitAnnotations(skip=false, activity=false) {
+        function submitAnnotations(skip = false, activity = false) {
             // If it is not a single activity, make sure every entry has a activity
             if (!activity & !skip) {
-                for (const annotation of anno.getAnnotations()) {
-                    if (annotation.body[0].value === undefined) {
-                        $("#status-missing-activity").removeClass("d-none");
-                        setTimeout(function(){
-                            $("#status-missing-activity").addClass("d-none");
-                        }, 5000);
-                        return false;
+                if ($("#status-missing-activity").hasClass("d-none")) {
+                    for (const annotation of anno.getAnnotations()) {
+                        if (annotation.body[0].value === undefined) {
+                            $("#status-missing-activity").removeClass("d-none");
+                            setTimeout(function () {
+                                $("#status-missing-activity").addClass("d-none");
+                            }, 8000);
+                            return false;
+                        }
                     }
                 }
             }

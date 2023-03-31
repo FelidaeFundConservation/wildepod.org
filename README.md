@@ -12,8 +12,19 @@ Setup
 4. Install SASS compiler - Sass is a stylesheet language that’s compiled to CSS. It is installed on the OS level, not in the virtualenv.
    * https://sass-lang.com/install
    * If you're using MacOs/Linux , it's  brew install sass/sass/sass
+   Install Homebrew package manater if you still don't have (https://brew.sh)
 
 
+Google Cloud SDK
+
+1. You should have Google Cloud SDK installed (https://cloud.google.com/sdk/docs/install)
+2. Ask for your credentials on Goggle Cloud, to the WildePod adminstrators.
+3. You have to be logged in order to proceed to the next steps
+
+    gcloud auth application-default <e-mail login>
+    gcloud auth <e-mail login>
+    gcloud config set project <project-id>
+    * Maybe there is some unknow issue here with secret-key.
 
 
 Initialize django project

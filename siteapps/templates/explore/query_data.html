@@ -38,28 +38,20 @@
                 <thead>
                     <tr>
                         <th scope="col">Name</th>
-                        <th scope="col" class="text-end">All Images</th>
-                        <th scope="col" class="text-end">Available for Blank Pipeline</th>
-                        <th scope="col" class="text-end">Blank Pipeline Completed*</th>
-                        <th scope="col" class="text-end">Available for Species Pipeline</th>
-                        <th scope="col" class="text-end">Species Pipeline Completed*</th>
+                        <th scope="col">Image Count</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for object in results %}
                     <tr>
-                        <td class="text-start">{{object.name}}</td>
-                        <td class="text-end">{{object.all_images}}</td>
-                        <td class="text-end">{{object.blank_ready}}</td>
-                        <td class="text-end">{{object.blank_complete}}</td>
-                        <td class="text-end">{{object.species_ready}}</td>
-                        <td class="text-end">{{object.species_complete}}</td>
+                        <td>{{object.name}}</td>
+                        <td>{{object.all_images}}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
-            *Our pipelines don't have exact 'Completed' criteria, so the numbers are based on assumptions of what 'Completed' means for the pipeline.
         {% endif %}
+        <a href="https://docs.google.com/document/d/1BiChd-ekozUWwwglq6ovKbqJygxSfmYtPLM92znEseg">Visit WildePod Annotation Query Definitions doc for more details.</a>
     </div>
 </div>
 {% endblock content %}

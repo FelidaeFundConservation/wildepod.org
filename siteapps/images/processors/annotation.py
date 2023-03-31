@@ -25,8 +25,8 @@ def flatten_annotorious_annotations(annotations: list) -> dict:
         # Append the annotation to the list
         formatted_annotations[clean_uuid] = {
             "id": clean_uuid,
-            "category": annotation["body"][0]["value"],
-            "confidence": annotation["body"][0]["confidence"],
+            "category": annotation["body"][0]["value"] if "value" in annotation["body"][0] else None,
+            "confidence": annotation["body"][0]["confidence"] if "confidence" in annotation["body"][0] else None,
             "x": x,
             "y": y,
             "w": w,
@@ -316,28 +316,32 @@ def process_activity_annotations(
     # Convert initial boxes into the same structure
     initial_bboxes = {bbox["id"]: bbox for bbox in initial_bboxes}
     # If any bounding box is missing, return an error
-    for bbox_id in initial_bboxes:
-        if bbox_id not in formatted_annotations:
-            logging.error("Error: Bounding boxes were deleted when annotating activity.")
-            return False
+    # for bbox_id in initial_bboxes:
+    # if bbox_id not in formatted_annotations:
+    # logging.error("Error: Bounding boxes were deleted when annotating activity.")
+    # return False
 
     # Finally handle updates. This includes accept/reject depending on the category labels provided
     for bbox_id in initial_bboxes:
         # Get the initial bounding box & category object
         bbox_obj = BoundingBox.objects.get(id=bbox_id)
-        activity_type_obj = ActivityType.objects.get(name=formatted_annotations[bbox_id]["category"])
-        try:
-            activity_obj = Activity.objects.get(bounding_box=bbox_obj, name=activity_type_obj)
-            if activity_obj.created_by != annotator:
-                vote(activity_obj, annotator, accept=True)
+        if bbox_id in formatted_annotations:
+            if formatted_annotations[bbox_id]["category"]:
+                activity_type_obj = ActivityType.objects.get(name=formatted_annotations[bbox_id]["category"])
+                try:
+                    activity_obj = Activity.objects.get(bounding_box=bbox_obj, name=activity_type_obj)
+                    if activity_obj.created_by != annotator:
+                        vote(activity_obj, annotator, accept=True)
 
-        except ObjectDoesNotExist:
-            activity_obj = Activity.objects.create(
-                bounding_box=bbox_obj,
-                name=activity_type_obj,
-                created_by=annotator,
-                confidence=formatted_annotations[bbox_id]["confidence"],
-            )
+                except ObjectDoesNotExist:
+                    activity_obj = Activity.objects.create(
+                        bounding_box=bbox_obj,
+                        name=activity_type_obj,
+                        created_by=annotator,
+                        confidence=formatted_annotations[bbox_id]["confidence"],
+                    )
+            else:
+                activity_obj = None
 
     # Set image to "checked" by the annotator
     image.activity_checked_by.add(annotator)

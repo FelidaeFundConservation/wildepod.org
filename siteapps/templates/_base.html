@@ -154,6 +154,10 @@
                                             class="dropdown-item"
                                             href="{% url 'explore:popular_images' %}"
                                         >Popular Images</a></li>
+                                    <li><a
+                                        class="dropdown-item"
+                                        href="{% url 'explore:species_sighting_timeserie_list' species='Puma' %}"
+                                    >Species Sightings</a></li>
                                     {% if user.is_staff %}
                                     <li><a
                                             class="dropdown-item"

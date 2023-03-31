@@ -14,7 +14,7 @@ ALLOWED_HOSTS = ["*"]
 DEBUG = True
 
 # https://docs.djangoproject.com/en/dev/ref/settings/#wsgi-application
-WSGI_APPLICATION = "config.wsgi.testenv1.application"
+WSGI_APPLICATION = "config.wsgi.testenv3.application"
 
 # DATABASES
 # ------------------------------------------------------------------------------

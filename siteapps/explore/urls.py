@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, re_path
 
 from .views import (
     ConfirmUpdateView,
@@ -10,6 +10,8 @@ from .views import (
     SearchDataView,
     SnapshotCreateView,
     SnapshotListView,
+    SpeciesSightingImagesView,
+    SpeciesSightingTimeseriesView,
 )
 
 urlpatterns = [
@@ -27,4 +29,8 @@ urlpatterns = [
     path("query_data/", SearchDataView.as_view(), name="query_data"),
     path("set_priority/", PriorityView.as_view(), name="set_priority"),
     path("set_priority_confirm/", ConfirmUpdateView.as_view(), name="confirm_update"),
+    re_path("species/sighting/images/$", SpeciesSightingImagesView.as_view(), name="species_sighting_images"),
+    re_path(
+        "species/(?P<species>.+)/$", SpeciesSightingTimeseriesView.as_view(), name="species_sighting_timeserie_list"
+    ),
 ]

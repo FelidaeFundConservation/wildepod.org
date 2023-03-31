@@ -7,7 +7,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Exists, OuterRef, Q
 from django.http.response import JsonResponse
 from django.views.generic.base import TemplateView, View
-from images.models import ActivityType, Annotator, BoundingBox, Image, Species, SpeciesName
+from images.models import ActivityType, Annotator, BoundingBox, Image, Species, SpeciesName, rawsql_get_blank_annotation
 from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
 
 MAX_VOTES_PER_IMAGE = 2
@@ -40,28 +40,8 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
             image_id = queue["images"][queue["index"]]
         else:
             # First get an image stack
-            images = (
-                Image.objects.annotated()
-                .filter(
-                    # It must not be checked or skipped by the current annotator
-                    ~Q(bbox_checked_by__in=[annotator]) & ~Q(bbox_skipped_by__in=[annotator]),
-                    # There must be at least one or more "uncertain" bounding boxes.
-                    # This will make sure that the images that need more votes are served first
-                    Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
-                    # There should not be any staff user annotations on the image already
-                    ~Exists(
-                        BoundingBox.objects.filter(
-                            Exists(Annotator.objects.filter(accepted_annotation=OuterRef("pk"), human__is_staff=True)),
-                            image=OuterRef("pk"),
-                        )
-                    ),
-                    # Image must be marked as processed by MegaDetector
-                    processed=True,
-                    # Image must have at least one bounding box
-                    num_objects__gt=0,
-                )
-                .order_by("-upload__priority", "trigger_timestamp")
-            )
+            images = rawsql_get_blank_annotation()
+
             # Get the image stack based on stack size.
             images = images[: settings.ANNOTATION_QUEUE_SIZE]
 
@@ -94,6 +74,8 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
             context["image"] = image
             bounding_boxes = BoundingBox.objects.valid_or_uncertain().filter(image=image)
             context["bounding_boxes"] = bounding_boxes
+            context["queue_index"] = queue["index"]
+            context["queue_length"] = len(queue["images"])
         else:
             context["image"] = None
             context["bounding_boxes"] = []

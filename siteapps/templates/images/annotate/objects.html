@@ -98,6 +98,34 @@
             {% include './bbox-actions.html' %}
         </div>
     </div>
+
+
+    {% if user.is_authenticated and user.is_staff %}
+
+    <div class="row mt-3 mt-md-5 text-center">
+        <h2>Annotations Details</h2>
+        <hr />
+    </div>
+    <div class="row mt-2 mt-md-4 justify-content-center text-center">
+        <div class="col-12" id="annotations-details"></div>
+        <div>
+            <p>
+                This session is for staff only, to debug. <br>
+                For visibility, we can include details for the pipeline of the image annotation here,
+                like Bounding Boxes uncertainty, etc.
+            </p>
+            <p>
+                <b>Queue state:</b>  {{ queue_index }} of {{ queue_length }}
+            </p>
+        </div>
+    </div>
+
+    {% endif %}
+
+
+
+
+
     {% else %}
     <div class="row text-center mt-3 mt-md-5 pt-2 pt-md-5">
         <h3>There are no more images to annotate! Come back later!</h3>

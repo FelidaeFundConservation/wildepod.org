@@ -2,14 +2,13 @@ from crispy_forms.bootstrap import StrictButton
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Button, Column, Layout, Row, Submit
 from django import forms
+from locations.models import CameraStation, MacroSite
 
 from .models import Upload
-from locations.models import CameraStation, MacroSite
 
 
 # User facing form to create an upload
 class UploadForm(forms.ModelForm):
-
     date_retrieved = forms.SplitDateTimeField(
         widget=forms.widgets.SplitDateTimeWidget(date_attrs={"type": "date"}, time_attrs={"type": "time"}),
     )
@@ -57,7 +56,6 @@ class UploadForm(forms.ModelForm):
 # User facing form to examine & mark an upload as completed
 # after all pictures have been uploaded to Google Drive
 class UploadCompleteForm(forms.ModelForm):
-
     date_retrieved = forms.SplitDateTimeField(
         widget=forms.widgets.SplitDateTimeWidget(date_attrs={"type": "date"}, time_attrs={"type": "time"}),
     )
@@ -128,22 +126,15 @@ class UploadCompleteForm(forms.ModelForm):
             "date_retrieved": "Date & time retrieved",
         }
 
+
 class AnnotationForm(forms.Form):
-    start_date = forms.DateField(
-        widget=forms.widgets.DateInput(attrs={"type": "date"}), required=False
-    )
+    start_date = forms.DateField(widget=forms.widgets.DateInput(attrs={"type": "date"}), required=False)
 
-    end_date = forms.DateField(
-        widget=forms.widgets.DateInput(attrs={"type": "date"}), required=False
-    )
+    end_date = forms.DateField(widget=forms.widgets.DateInput(attrs={"type": "date"}), required=False)
 
-    macrosites = forms.ModelMultipleChoiceField(
-        queryset=MacroSite.objects.all(), required=True
-    )
+    macrosites = forms.ModelChoiceField(queryset=MacroSite.objects.all(), required=True)
 
-    camera_stations = forms.ModelMultipleChoiceField(
-        queryset=CameraStation.objects.all(), required=False
-    )
+    camera_stations = forms.ModelChoiceField(queryset=CameraStation.objects.all(), required=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -160,9 +151,7 @@ class AnnotationForm(forms.Form):
                 Column("camera_stations", css_class="form-group col-12"),
             ),
             Row(
-                Column(
-                    Submit("submit", "Annotate", css_class="form-group btn-primary")
-                ),
+                Column(Submit("submit", "Annotate", css_class="form-group btn-primary")),
                 css_class="text-center",
             ),
         )

@@ -1,25 +1,29 @@
-import re
 import datetime
 import json
 import logging
 
-from django.shortcuts import redirect, render
-from django.contrib import messages
-from django.urls import reverse
-from django.views.generic import FormView
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Exists, OuterRef, Q
 from django.http.response import JsonResponse
+from django.shortcuts import redirect, render
+from django.urls import reverse
+from django.views.generic import FormView
 from django.views.generic.base import TemplateView, View
 from images.forms import AnnotationForm
-from locations.models import CameraStation, MacroSite, MicroSite
-from images.models import ActivityType, Annotator, BoundingBox, Image, Species, SpeciesName, Upload
+from images.models import ActivityType, Annotator, BoundingBox, Image, Species, SpeciesName
+from images.models.custom_fields import get_filter_params
 from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
+from locations.models import CameraStation, MacroSite, MicroSite
 
 MAX_VOTES_PER_IMAGE = 2
 CATEGORY_ANIMAL = "animal"
 CATEGORY_HUMAN = "human"
+
+import datetime
+
+from django.db.models import Q
 
 
 # TODO: Clean up this code
@@ -37,24 +41,12 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
         queue = settings.DATASTORE_CLIENT.get(queue_key)
 
         # retrieve custom annotation fields
-        start_date = self.request.GET.get("start_date")
-        end_date = self.request.GET.get("end_date")
+        s_date = self.request.GET.get("start_date")
+        e_date = self.request.GET.get("end_date")
+        cam_id = self.request.GET.get("camera_id")
+        m_name = self.request.GET.get("macrosite_name")
 
-        # converting camera_stations back to queryset object from string
-        camera_stations_str = self.request.GET.get("camera_stations")
-        if camera_stations_str:
-            cam_match = re.findall(r"<([\w.]+): ([^>]+)>", camera_stations_str)
-        else:
-            cam_match = None
-
-        # converting macrosites back to queryset object from string
-        macrosites_str = self.request.GET.get("macrosites")
-        if macrosites_str:
-            mac_match = re.findall(r"<([\w.]+): ([^>]+)>", macrosites_str)
-        else:
-            mac_match = None
-
-        if not mac_match and (
+        if not m_name and (
             queue
             and datetime.datetime.fromisoformat(queue["expires_at"]) > datetime.datetime.now()
             and queue["index"] < len(queue["images"])
@@ -62,39 +54,7 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
             # Get the image id
             image_id = queue["images"][queue["index"]]
         else:
-            if mac_match:
-                filterset = {}
-                if start_date != "None":
-                    start_date = datetime.datetime.fromisoformat(start_date)
-                    filterset["upload__date_retrieved__gte"] = start_date
-                if end_date != "None":
-                    end_date = (
-                        datetime.datetime.fromisoformat(end_date)
-                        + datetime.timedelta(days=1)
-                        - datetime.timedelta(seconds=1)
-                    )
-                    filterset["upload__date_retrieved__lte"] = end_date
-                if mac_match:
-                    macrosites = MacroSite.objects.filter(name=mac_match[0][1])
-                    filterset["upload__camera_station__micro_site__macro_site__in"] = macrosites
-                if cam_match:
-                    camera_stations = CameraStation.objects.filter(station_id=cam_match[0][1].split()[0])
-                    filterset["upload__camera_station__in"] = camera_stations
-                # First get an image stack
-                images = Image.objects.annotated().filter(**filterset)
-            else:
-                images = Image.objects.annotated()
-            images = images.filter(
-                # It must not be checked or skipped by the current annotator
-                ~Q(bbox_checked_by__in=[annotator]) & ~Q(bbox_skipped_by__in=[annotator]),
-                # There must be at least one or more "uncertain" bounding boxes.
-                # This will make sure that the images that need more votes are served first
-                Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
-                # Image must be marked as processed by MegaDetector
-                processed=True,
-                # Image must have at least one bounding box
-                num_objects__gt=0,
-            ).order_by("-upload__priority", "trigger_timestamp")
+            filterset = get_filter_params(start_date=s_date, end_date=e_date, macrosite_name=m_name, camera_id=cam_id)
 
             # Get the image stack based on stack size.
             images = images[: settings.ANNOTATION_QUEUE_SIZE]
@@ -148,11 +108,17 @@ class CustomAnnotationView(LoginRequiredMixin, FormView, TemplateView):
             start_date = form.cleaned_data["start_date"]
             end_date = form.cleaned_data["end_date"]
             macrosites = form.cleaned_data["macrosites"]
+            macrosite_name = macrosites.name
             camera_stations = form.cleaned_data["camera_stations"]
+            if camera_stations:
+                camera_id = camera_stations.station_id
+            else:
+                camera_id = "None"
 
+            print(camera_id)
             url = (
                 reverse("images:annotate_objects")
-                + f"?start_date={start_date}&end_date={end_date}&macrosites={macrosites}&camera_stations={camera_stations}"
+                + f"?start_date={start_date}&end_date={end_date}&macrosite_name={macrosite_name}&camera_id={camera_id}"
             )
             return redirect(url)
 

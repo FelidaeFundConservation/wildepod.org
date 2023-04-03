@@ -91,6 +91,19 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
             context["image"] = None
             context["bounding_boxes"] = []
 
+        # Gather surrounding context images.
+        CONTEXT_AMOUNT = 4
+
+        lowerIndex = queue["index"] - CONTEXT_AMOUNT
+        upperIndex = queue["index"] + CONTEXT_AMOUNT
+
+        lowerIndex = 0 if (lowerIndex < 0) else lowerIndex
+        upperIndex = len(queue["images"]) if (upperIndex > len(queue["images"])) else upperIndex
+
+        context["context_images"] = [
+            Image.objects.get(id=image_id) for image_id in queue["images"][lowerIndex:upperIndex]
+        ]
+
         return context
 
 
@@ -186,6 +199,7 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
         # If there is a valid image, add bounding box information
         if image_id:
             image = Image.objects.get(id=image_id)
+
             context["image"] = image
             bounding_boxes = BoundingBox.objects.valid().filter(image=image)
             context["bounding_boxes"] = bounding_boxes
@@ -194,6 +208,19 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
             context["bounding_boxes"] = []
 
         context["species_list"] = SpeciesName.objects.all()
+
+        # Gather surrounding context images.
+        CONTEXT_AMOUNT = 4
+
+        lowerIndex = queue["index"] - CONTEXT_AMOUNT
+        upperIndex = queue["index"] + CONTEXT_AMOUNT
+
+        lowerIndex = 0 if (lowerIndex < 0) else lowerIndex
+        upperIndex = len(queue["images"]) if (upperIndex > len(queue["images"])) else upperIndex
+
+        context["context_images"] = [
+            Image.objects.get(id=image_id) for image_id in queue["images"][lowerIndex:upperIndex]
+        ]
 
         return context
 
@@ -289,6 +316,19 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
             context["bounding_boxes"] = []
 
         context["activity_list"] = ActivityType.objects.filter(category=context["category"])
+
+        # Gather surrounding context images.
+        CONTEXT_AMOUNT = 4
+
+        lowerIndex = queue["index"] - CONTEXT_AMOUNT
+        upperIndex = queue["index"] + CONTEXT_AMOUNT
+
+        lowerIndex = 0 if (lowerIndex < 0) else lowerIndex
+        upperIndex = len(queue["images"]) if (upperIndex > len(queue["images"])) else upperIndex
+
+        context["context_images"] = [
+            Image.objects.get(id=image_id) for image_id in queue["images"][lowerIndex:upperIndex]
+        ]
 
         return context
 

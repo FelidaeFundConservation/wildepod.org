@@ -78,11 +78,11 @@ class PriorityView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
 
             filterset = {}
             if start_date:
-                filterset["date_retrieved__gte"] = start_date
+                filterset["image__trigger_timestamp__gte"] = start_date
             if end_date:
                 # to make the end_date inclusive as its conflicting because of datetimefield and datefield comparison
                 end_date_inclusive = end_date + timedelta(days=1) - timedelta(seconds=1)
-                filterset["date_retrieved__lte"] = end_date_inclusive
+                filterset["image__trigger_timestamp__lte"] = end_date_inclusive
             if macrosites:
                 filterset["camera_station__micro_site__macro_site__in"] = macrosites
             if camera_stations:

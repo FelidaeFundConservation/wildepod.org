@@ -97,18 +97,12 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
         lowerIndex = queue["index"] - CONTEXT_AMOUNT
         upperIndex = queue["index"] + CONTEXT_AMOUNT
 
-        if queue["index"] < CONTEXT_AMOUNT:
-            context["context_images"] = [
-                Image.objects.get(id=image_id) for image_id in queue["images"][0:CONTEXT_AMOUNT]
-            ]
-        elif upperIndex >= len(queue["images"]):
-            context["context_images"] = [
-                Image.objects.get(id=image_id) for image_id in queue["images"][queue["index"] : len(queue["images"])]
-            ]
-        else:
-            context["context_images"] = [
-                Image.objects.get(id=image_id) for image_id in queue["images"][lowerIndex:upperIndex]
-            ]
+        lowerIndex = 0 if (lowerIndex < 0) else lowerIndex
+        upperIndex = len(queue["images"]) if (upperIndex > len(queue["images"])) else upperIndex
+
+        context["context_images"] = [
+            Image.objects.get(id=image_id) for image_id in queue["images"][lowerIndex:upperIndex]
+        ]
 
         return context
 
@@ -221,18 +215,12 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
         lowerIndex = queue["index"] - CONTEXT_AMOUNT
         upperIndex = queue["index"] + CONTEXT_AMOUNT
 
-        if queue["index"] < CONTEXT_AMOUNT:
-            context["context_images"] = [
-                Image.objects.get(id=image_id) for image_id in queue["images"][0:CONTEXT_AMOUNT]
-            ]
-        elif upperIndex >= len(queue["images"]):
-            context["context_images"] = [
-                Image.objects.get(id=image_id) for image_id in queue["images"][queue["index"] : len(queue["images"])]
-            ]
-        else:
-            context["context_images"] = [
-                Image.objects.get(id=image_id) for image_id in queue["images"][lowerIndex:upperIndex]
-            ]
+        lowerIndex = 0 if (lowerIndex < 0) else lowerIndex
+        upperIndex = len(queue["images"]) if (upperIndex > len(queue["images"])) else upperIndex
+
+        context["context_images"] = [
+            Image.objects.get(id=image_id) for image_id in queue["images"][lowerIndex:upperIndex]
+        ]
 
         return context
 
@@ -335,18 +323,12 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
         lowerIndex = queue["index"] - CONTEXT_AMOUNT
         upperIndex = queue["index"] + CONTEXT_AMOUNT
 
-        if queue["index"] < CONTEXT_AMOUNT:
-            context["context_images"] = [
-                Image.objects.get(id=image_id) for image_id in queue["images"][0:CONTEXT_AMOUNT]
-            ]
-        elif upperIndex >= len(queue["images"]):
-            context["context_images"] = [
-                Image.objects.get(id=image_id) for image_id in queue["images"][queue["index"] : len(queue["images"])]
-            ]
-        else:
-            context["context_images"] = [
-                Image.objects.get(id=image_id) for image_id in queue["images"][lowerIndex:upperIndex]
-            ]
+        lowerIndex = 0 if (lowerIndex < 0) else lowerIndex
+        upperIndex = len(queue["images"]) if (upperIndex > len(queue["images"])) else upperIndex
+
+        context["context_images"] = [
+            Image.objects.get(id=image_id) for image_id in queue["images"][lowerIndex:upperIndex]
+        ]
 
         return context
 

@@ -249,28 +249,32 @@ def process_species_annotations(
     # Convert initial boxes into the same structure
     initial_bboxes = {bbox["id"]: bbox for bbox in initial_bboxes}
     # If any bounding box is missing, return an error
-    for bbox_id in initial_bboxes:
-        if bbox_id not in formatted_annotations:
-            logging.error("Error: Bounding boxes were deleted when annotating species.")
-            return False
+    # for bbox_id in initial_bboxes:
+    #    if bbox_id not in formatted_annotations:
+    #        logging.error("Error: Bounding boxes were deleted when annotating species.")
+    #        return False
 
     # Finally handle updates. This includes accept/reject depending on the category labels provided
     for bbox_id in initial_bboxes:
         # Get the initial bounding box & category object
         bbox_obj = BoundingBox.objects.get(id=bbox_id)
-        species_name_obj = SpeciesName.objects.get(name=formatted_annotations[bbox_id]["category"])
-        try:
-            species_obj = Species.objects.get(bounding_box=bbox_obj, name=species_name_obj)
-            if species_obj.created_by != annotator:
-                vote(species_obj, annotator, accept=True)
+        if bbox_id in formatted_annotations:
+            if formatted_annotations[bbox_id]["category"]:
+                species_name_obj = SpeciesName.objects.get(name=formatted_annotations[bbox_id]["category"])
+                try:
+                    species_obj = Species.objects.get(bounding_box=bbox_obj, name=species_name_obj)
+                    if species_obj.created_by != annotator:
+                        vote(species_obj, annotator, accept=True)
 
-        except ObjectDoesNotExist:
-            species_obj = Species.objects.create(
-                bounding_box=bbox_obj,
-                name=species_name_obj,
-                created_by=annotator,
-                confidence=formatted_annotations[bbox_id]["confidence"],
-            )
+                except ObjectDoesNotExist:
+                    species_obj = Species.objects.create(
+                        bounding_box=bbox_obj,
+                        name=species_name_obj,
+                        created_by=annotator,
+                        confidence=formatted_annotations[bbox_id]["confidence"],
+                    )
+            else:
+                species_obj = None
 
     # Set image to "checked" by the annotator
     image.species_checked_by.add(annotator)

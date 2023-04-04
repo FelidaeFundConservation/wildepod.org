@@ -62,6 +62,20 @@
                 name="save_annotations"
                 value="Save Annotations"
             >
+            <div class="mt-3">
+                <input
+                    class="form-check-input"
+                    type="checkbox"
+                    value=""
+                    id="social-media-worthy-specie"
+                >
+                <label
+                    class="form-check-label"
+                    for="social-media-worthy-specie"
+                >
+                    &nbsp; Social Media Worthy?
+                </label>
+            </div>
         </form>
     </div>
     <div
@@ -210,7 +224,8 @@
                 'skip': skip,
                 'species': species,
                 'initial_bboxes': JSON.stringify(bboxes),
-                'annotations': JSON.stringify(anno.getAnnotations())
+                'annotations': JSON.stringify(anno.getAnnotations()),
+                'social_media_worthy': document.getElementById('social-media-worthy-specie').checked
             }
 
             // Send back all the bbox ids back to the server to log bbox deletions

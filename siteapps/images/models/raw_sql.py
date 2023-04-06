@@ -126,7 +126,7 @@ def get_uncertain_images(annotator=None, start_date=None, end_date=None, station
                 {} {} {} {}
                 ORDER BY priority DESC, ts DESC
             )
-            SELECT id
+            SELECT *
             FROM result_set
         """.format(start_date, end_date, macrosite, station)
     )

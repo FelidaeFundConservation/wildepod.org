@@ -1,7 +1,7 @@
 import datetime
 import json
 import logging
-import numpy as np
+import pandas as pd
 
 from django.conf import settings
 from django.contrib import messages
@@ -45,26 +45,24 @@ class ImagesToAnnotateView():
                             }
         return super().dispatch(request, *args, **kwargs)
 
-    def images_to_annotate(self):
+
+    def _get_images_to_annotate(self):
             # Get the images to annotate (uncertain images). Check raw sql to see how this is done
             # Get the images to not consider to annotate (images touched by user). Check raw sql to see how this is done
-            self.uncertain_images = get_uncertain_images(**self.filterset)
+            uncertain_images = get_uncertain_images(**self.filterset)
             ignore_images = get_images_to_ignore(self.request.user.id)
 
-            # Convert images raw sql objects to numpy arrays
-            np_uncertain_images=np.array([ui.id for ui in self.uncertain_images])
-            ignore_images=np.array([ui.id for ui in ignore_images])
+            # Convert images raw sql objects to set of images
+            ignore_images_s=set([ui.id for ui in ignore_images])
 
             # Skipped image by the user. Not to be considered for annotation here.
             image_skiped = Image.objects.filter(bbox_skipped_by__id=self.annotator.id).values_list('id', flat=True)
-            ignore_images = np.append(ignore_images, image_skiped)
+            ignore_images_s.add(image_skiped)
 
             # Remove images to ignore from uncertain images
             # Resulting uncertain images need to be annotated
-            indices = np.argwhere(np.isin(np_uncertain_images, ignore_images))
-            images = np.delete(np_uncertain_images,indices)
+            images = [ui for ui in uncertain_images if ui.id not in ignore_images_s]
             return images
-
 
 
 # TODO: Clean up this code
@@ -89,13 +87,13 @@ class AnnotateObjectsView(ImagesToAnnotateView, LoginRequiredMixin, TemplateView
             image_id = queue["images"][queue["index"]]
         else:
             # Get the images to annotate from parent class
-            images = self.images_to_annotate()
+            images = self._get_images_to_annotate()
 
             # Get the image stack based on stack size.
             images = images[: settings.ANNOTATION_QUEUE_SIZE]
 
             # Get the image ids & convert to string
-            image_ids = [str(image) for image in images]
+            image_ids = [str(image.id) for image in images]
 
             # Create a queue entity with image ids, user id, timestamp and index
             payload = {
@@ -138,14 +136,27 @@ class CustomAnnotationView(ImagesToAnnotateView, LoginRequiredMixin, FormView):
     template_name = "images/annotate/custom_annotation.html"
     form_class = AnnotationForm
 
-    def get(self, request, *args, **kwargs):
-        # Get the images to annotate from parent class
+    def _pd_group_uncertain_images(self, images):
+        """
+        Group the images objects by macrosite and camera station
+        using pandas
+        """
+        df = pd.DataFrame([{'Macrosite': i.macrosite,\
+                            'Priority': i.priority, \
+                            'Trigger': i.ts,} for i in images])
 
-        images = self.images_to_annotate()
-        import pdb; pdb.set_trace()
-        self.uncertain_images
-        return super().get(request, *args, **kwargs)
+        df['Trigger'] = df['Trigger'].dt.date
+        result = df.groupby(['Macrosite', 'Priority'])['Trigger'].agg(['min', 'max', 'count'])
+        result = result.sort_values(['Macrosite', 'Priority'],  ascending=[True, False])
 
+        uncertain_images = result.reset_index()
+        return uncertain_images.values.tolist()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        images = self._get_images_to_annotate()
+        context['uncertain_images'] = self._pd_group_uncertain_images(images)
+        return context
 
     def post(self, request, *args, **kwargs):
         form = AnnotationForm(request.POST)

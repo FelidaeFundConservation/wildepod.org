@@ -35,3 +35,5 @@ whitenoise==6.4.0 # https://github.com/evansd/whitenoise
 
 
 numpy==1.24.2
+pandas==2.0.0
+

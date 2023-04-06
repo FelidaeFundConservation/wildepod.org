@@ -65,10 +65,6 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
             # Get the image id
             image_id = queue["images"][queue["index"]]
         else:
-
-            image_skiped = Image.objects.filter(bbox_skipped_by__id=annotator.id).values_list('id', flat=True)
-
-
             # Get the images to annotate (uncertain images). Check raw sql to see how this is done
             # Get the images to not consider to annotate (images touched by user). Check raw sql to see how this is done
             uncertain_images = get_uncertain_images(**self.filterset)
@@ -78,8 +74,9 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
             uncertain_images=np.array([ui.id for ui in uncertain_images])
             ignore_images=np.array([ui.id for ui in ignore_images])
 
+            # Skipped image by the user. Not to be considered for annotation here.
+            image_skiped = Image.objects.filter(bbox_skipped_by__id=annotator.id).values_list('id', flat=True)
             ignore_images = np.append(ignore_images, image_skiped)
-
 
             # Remove images to ignore from uncertain images
             # Resulting uncertain images need to be annotated

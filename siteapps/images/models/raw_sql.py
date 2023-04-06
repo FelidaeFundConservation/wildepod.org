@@ -18,7 +18,7 @@ def get_images_to_ignore(annotator):
                 INNER JOIN	images_annotator AS ia
                     ON ia.human_id = uu.id
                 WHERE uu.is_staff
-                    OR uu.id='b638c541-f341-4328-b30a-81392f25b334'
+                    OR uu.id = '{}'
             ),
             ignore_bbs AS
             (
@@ -40,7 +40,7 @@ def get_images_to_ignore(annotator):
                     ON ib.id = ignore_bbs.boundingbox_id
             )
             SELECT * FROM ignore_images
-        """
+        """.format(annotator)
     )
     return imgs
 

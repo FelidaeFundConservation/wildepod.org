@@ -1,7 +1,7 @@
 import datetime
 import json
 import logging
-import numpy as np
+import pandas as pd
 
 from django.conf import settings
 from django.contrib import messages
@@ -29,13 +29,12 @@ import datetime
 from django.db.models import Q
 
 
-# TODO: Clean up this code
-# TODO: There are several common bits of code across the three annotation views and should be refactored
-class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
-    login_url = settings.LOGIN_URL
-    template_name = "images/annotate/objects.html"
 
-    def get(self, request, *args, **kwargs):
+
+class ImagesToAnnotateView():
+    def dispatch(self, request, *args, **kwargs):
+        self.annotator, _ = Annotator.objects.get_or_create(type="human", human=self.request.user)
+
         station = None if self.request.GET.get("camera_id") == 'None' else self.request.GET.get("camera_id")
 
         self.filterset = {'start_date': self.request.GET.get("start_date"),
@@ -44,20 +43,42 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
                             'macrosite':self.request.GET.get("macrosite_name"),
                             'annotator':self.request.user
                             }
-        return super().get(request, *args, **kwargs)
+        return super().dispatch(request, *args, **kwargs)
 
 
+    def _get_images_to_annotate(self):
+            # Get the images to annotate (uncertain images). Check raw sql to see how this is done
+            # Get the images to not consider to annotate (images touched by user). Check raw sql to see how this is done
+            uncertain_images = get_uncertain_images(**self.filterset)
+            ignore_images = get_images_to_ignore(self.request.user.id)
+
+            # Convert images raw sql objects to set of images
+            ignore_images_s=set([ui.id for ui in ignore_images])
+
+            # Skipped image by the user. Not to be considered for annotation here.
+            image_skiped = Image.objects.filter(bbox_skipped_by__id=self.annotator.id).values_list('id', flat=True)
+            ignore_images_s.add(image_skiped)
+
+            # Remove images to ignore from uncertain images
+            # Resulting uncertain images need to be annotated
+            images = [ui for ui in uncertain_images if ui.id not in ignore_images_s]
+            return images
+
+
+# TODO: Clean up this code
+# TODO: There are several common bits of code across the three annotation views and should be refactored
+class AnnotateObjectsView(ImagesToAnnotateView, LoginRequiredMixin, TemplateView):
+    login_url = settings.LOGIN_URL
+    template_name = "images/annotate/objects.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # First get the annotator object for the user
-        annotator, _ = Annotator.objects.get_or_create(type="human", human=self.request.user)
         # Get the annotation queue cached in the datastore
         queue_key = settings.DATASTORE_CLIENT.key("AnnotateObjectsQueue", str(self.request.user.id))
         queue = settings.DATASTORE_CLIENT.get(queue_key)
 
         if not self.filterset['macrosite'] and (
-
             queue
             and datetime.datetime.fromisoformat(queue["expires_at"]) > datetime.datetime.now()
             and queue["index"] < len(queue["images"])
@@ -65,29 +86,14 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
             # Get the image id
             image_id = queue["images"][queue["index"]]
         else:
-            # Get the images to annotate (uncertain images). Check raw sql to see how this is done
-            # Get the images to not consider to annotate (images touched by user). Check raw sql to see how this is done
-            uncertain_images = get_uncertain_images(**self.filterset)
-            ignore_images = get_images_to_ignore(self.request.user.id)
-
-            # Convert images raw sql objects to numpy arrays
-            uncertain_images=np.array([ui.id for ui in uncertain_images])
-            ignore_images=np.array([ui.id for ui in ignore_images])
-
-            # Skipped image by the user. Not to be considered for annotation here.
-            image_skiped = Image.objects.filter(bbox_skipped_by__id=annotator.id).values_list('id', flat=True)
-            ignore_images = np.append(ignore_images, image_skiped)
-
-            # Remove images to ignore from uncertain images
-            # Resulting uncertain images need to be annotated
-            indices = np.argwhere(np.isin(uncertain_images, ignore_images))
-            images = np.delete(uncertain_images,indices)
+            # Get the images to annotate from parent class
+            images = self._get_images_to_annotate()
 
             # Get the image stack based on stack size.
             images = images[: settings.ANNOTATION_QUEUE_SIZE]
 
             # Get the image ids & convert to string
-            image_ids = [str(image) for image in images]
+            image_ids = [str(image.id) for image in images]
 
             # Create a queue entity with image ids, user id, timestamp and index
             payload = {
@@ -138,10 +144,32 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
         return context
 
 
-class CustomAnnotationView(LoginRequiredMixin, FormView, TemplateView):
+class CustomAnnotationView(ImagesToAnnotateView, LoginRequiredMixin, FormView):
     login_url = settings.LOGIN_URL
     template_name = "images/annotate/custom_annotation.html"
     form_class = AnnotationForm
+
+    def _pd_group_uncertain_images(self, images):
+        """
+        Group the images objects by macrosite and camera station
+        using pandas
+        """
+        df = pd.DataFrame([{'Macrosite': i.macrosite,\
+                            'Priority': i.priority, \
+                            'Trigger': i.ts,} for i in images])
+
+        df['Trigger'] = df['Trigger'].dt.date
+        result = df.groupby(['Macrosite', 'Priority'])['Trigger'].agg(['min', 'max', 'count'])
+        result = result.sort_values(['Macrosite', 'Priority'],  ascending=[True, False])
+
+        uncertain_images = result.reset_index()
+        return uncertain_images.values.tolist()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        images = self._get_images_to_annotate()
+        context['uncertain_images'] = self._pd_group_uncertain_images(images)
+        return context
 
     def post(self, request, *args, **kwargs):
         form = AnnotationForm(request.POST)

@@ -2,9 +2,12 @@ import uuid
 
 from django.conf import settings
 from django.db import models
+from django.db.models import Count
 from locations.models import CameraStation
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
+
+
 
 from .annotator import Annotator
 from .upload import Upload
@@ -50,7 +53,7 @@ class Image(TimeStampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     # Specific camera station upload the images are linked to
-    upload = models.ForeignKey(Upload, on_delete=models.PROTECT)
+    upload = models.ForeignKey(Upload, on_delete=models.PROTECT, related_name='images')
     # Dropbox filename.
     # NOTE: Dropbox requests prepend files with the "Uploader's name" which should be removed to get the actual filename although not useful
     dropbox_file_name = models.TextField()
@@ -106,8 +109,43 @@ class Image(TimeStampedModel):
     # Custom manager
     objects = ImageManager()
 
+
     def __str__(self):
         return self.dropbox_file_name
+
+    @staticmethod
+    def get_total_images():
+        return Image.objects.count()
+
+    @staticmethod
+    def get_total_images_processed():
+        return Image.objects.filter(processed=True).count()
+
+    @staticmethod
+    def get_total_images_not_processed():
+        return Image.objects.filter(processed=False).count()
+
+    @staticmethod
+    def get_total_images_priorities():
+        priorities = Upload.objects.annotate(total=Count('images'))
+
+        pri_1 = priorities.filter(priority=1)
+        pri_2 = priorities.filter(priority=2)
+        pri_3 = priorities.filter(priority=3)
+
+        return {'priority_1':sum(pr.total for pr in pri_1),
+         'priority_2':sum(pr.total for pr in pri_2),
+         'priority_3':sum(pr.total for pr in pri_3)}
+
+    @staticmethod
+    def get_untouched_images():
+        from images.models.annotation import BoundingBox
+        return len(BoundingBox.objects.exclude(accepted_by__isnull=False).exclude(rejected_by__isnull=False).values_list('image_id', flat=True))
+
+
+
+
+
 
     class Meta:
         ordering = (

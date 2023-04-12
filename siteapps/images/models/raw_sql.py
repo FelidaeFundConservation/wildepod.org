@@ -103,7 +103,7 @@ def get_uncertain_images(annotator=None, start_date=None, end_date=None, station
             * The order or operations below matters,
             * to filter from the smallest group to the largest
             */
-            result_set AS (
+            images_details AS (
                 SELECT DISTINCT images.id AS id,
                     images.trigger_timestamp AS ts,
                     image_upload.priority AS priority,
@@ -126,8 +126,55 @@ def get_uncertain_images(annotator=None, start_date=None, end_date=None, station
                 {} {} {} {}
                 ORDER BY priority DESC, ts DESC
             )
-            SELECT *
-            FROM result_set
+            SELECT * FROM images_details
         """.format(start_date, end_date, macrosite, station)
+    )
+    return imgs
+
+
+def get_prioritized_images():
+    """
+    Prioritized images.
+    Images still not touched by any annotator.
+    No bounding box accepted or rejected.
+    """
+
+    imgs = Image.objects.raw("""
+            WITH images_not_touched AS
+            (
+                SELECT DISTINCT(image_id)
+                FROM images_boundingbox
+                WHERE NOT EXISTS (
+                    SELECT boundingbox_id
+                    FROM images_boundingbox_accepted_by AS iba
+                    WHERE iba.boundingbox_id = images_boundingbox.id
+                        UNION
+                    SELECT boundingbox_id
+                    FROM images_boundingbox_rejected_by AS ibr
+                    WHERE ibr.boundingbox_id = images_boundingbox.id
+                )
+            ),
+            images_details AS
+            (
+                SELECT images.id,
+                    images.trigger_timestamp AS ts,
+                    image_upload.priority AS priority,
+                    location_macro.name AS macrosite
+                FROM images_image AS images
+                INNER JOIN images_not_touched AS images_nt
+                    ON images_nt.image_id = images.id
+                INNER JOIN images_upload AS image_upload
+                    ON image_upload.id = images.upload_id
+                LEFT JOIN locations_camerastation AS location_camera
+                    ON image_upload.camera_station_id = location_camera.id
+                LEFT JOIN locations_microsite AS location_micro
+                    ON location_camera.micro_site_id = location_micro.id
+                LEFT JOIN locations_macrosite AS location_macro
+                    ON location_micro.macro_site_id = location_macro.id
+            )
+            SELECT * FROM images_details
+            --LIMIT 200
+            ;
+            """.format()
     )
     return imgs

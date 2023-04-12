@@ -12,6 +12,9 @@ from .views import (
     SnapshotListView,
     SpeciesSightingImagesView,
     SpeciesSightingTimeseriesView,
+    WorkflowStateView,
+    PrioritizedImagesJsonView,
+    UncertainImagesJsonView,
 )
 
 urlpatterns = [
@@ -29,6 +32,13 @@ urlpatterns = [
     path("query_data/", SearchDataView.as_view(), name="query_data"),
     path("set_priority/", PriorityView.as_view(), name="set_priority"),
     path("set_priority_confirm/", ConfirmUpdateView.as_view(), name="confirm_update"),
+
+    path("workflow-state/", WorkflowStateView.as_view(), name="workflow_state"),
+    path("prioritized-images/", PrioritizedImagesJsonView.as_view(), name="prioritized_images"),
+    path("uncertain-images/", UncertainImagesJsonView.as_view(), name="uncertain_images"),
+
+
+
     re_path("species/sighting/images/$", SpeciesSightingImagesView.as_view(), name="species_sighting_images"),
     re_path(
         "species/(?P<species>.+)/$", SpeciesSightingTimeseriesView.as_view(), name="species_sighting_timeserie_list"

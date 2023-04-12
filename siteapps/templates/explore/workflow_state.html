@@ -41,7 +41,6 @@
             This page displays the state of each step in the workflow of the images processing pipeline.<br>
             <small>
             ** All texts and icons are subject to change. Please check. **<Br>
-            ** Default style for headers elements (h1,h2, etc) are not distinguishable from each other **<Br>
             </small>
             {% comment %} The pipeline is composed of the main steps:
 
@@ -299,11 +298,16 @@
         return dt.getFullYear() + '-' + (parseInt(dt.getMonth())+1) + '-' + dt.getDate()
       }
 
+    add_rows = (result) => {
+        $('#prioritezed_images').rows.add(result); // add to DataTable instance
+        $('#prioritezed_images').draw();
+    }
+
     $(document).ready(function() {
       $('#prioritezed_images-spinner').show(); // Show the spinner
 
       $.ajax({
-        url: '/explore/prioritized-images/',
+        url: '/explore/prioritized-images/2/',
         type: 'GET',
         dataType: 'json',
         success: function(data) {

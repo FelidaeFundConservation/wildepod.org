@@ -228,3 +228,6 @@ tags
 
 nohup.out
 .sass-cache/
+
+
+local_settings.py

@@ -34,9 +34,8 @@ urlpatterns = [
     path("set_priority_confirm/", ConfirmUpdateView.as_view(), name="confirm_update"),
 
     path("workflow-state/", WorkflowStateView.as_view(), name="workflow_state"),
-    path("prioritized-images/", PrioritizedImagesJsonView.as_view(), name="prioritized_images"),
     path("uncertain-images/", UncertainImagesJsonView.as_view(), name="uncertain_images"),
-
+    re_path("prioritized-images/(?P<priority>.+)/$", PrioritizedImagesJsonView.as_view(), name="prioritized_images"),
 
 
     re_path("species/sighting/images/$", SpeciesSightingImagesView.as_view(), name="species_sighting_images"),

@@ -63,7 +63,8 @@ def _get_images_to_annotate(request):
 @method_decorator(csrf_exempt, name='dispatch')
 class PrioritizedImagesJsonView(View):
     def get(self, request, *args, **kwargs):
-        images = get_prioritized_images()
+        priority = kwargs['priority']
+        images = get_prioritized_images(priority)
         data = {
             'result': 'success',
             # 'message': 'Message: Prioritized images',

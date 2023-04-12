@@ -132,7 +132,7 @@ def get_uncertain_images(annotator=None, start_date=None, end_date=None, station
     return imgs
 
 
-def get_prioritized_images():
+def get_prioritized_images(priority=None, start_date=None, end_date=None, station=None, macrosite=None):
     """
     Prioritized images.
     Images still not touched by any annotator.
@@ -173,8 +173,9 @@ def get_prioritized_images():
                     ON location_micro.macro_site_id = location_macro.id
             )
             SELECT * FROM images_details
+            --WHERE priority = '{}'
             --LIMIT 200
             ;
-            """.format()
+            """#.format(priority)
     )
     return imgs

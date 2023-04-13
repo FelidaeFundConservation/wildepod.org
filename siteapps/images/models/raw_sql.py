@@ -122,7 +122,7 @@ def get_uncertain_images(annotator=None, start_date=None, end_date=None, station
                 INNER JOIN locations_macrosite AS location_macro
                     ON location_micro.macro_site_id = location_macro.id
 
-                WHERE 1 = 1
+                WHERE images.processed = TRUE
                 {} {} {} {}
                 ORDER BY priority DESC, ts DESC
             )

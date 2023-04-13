@@ -45,6 +45,11 @@ class MacroSite(TimeStampedModel):
     class Meta:
         ordering = ("name",)
 
+        # Keep commented while testing to check effect on performance
+        # indexes = [
+        #     models.Index(fields=['name',])
+        # ]
+
 
 class Grid(TimeStampedModel):
     name = models.CharField("Grid name", max_length=250, unique=True)
@@ -71,6 +76,11 @@ class MicroSite(TimeStampedModel):
     class Meta:
         ordering = ("name",)
 
+        # Keep commented while testing to check effect on performance
+        # indexes = [
+        #     models.Index(fields=['macro_site',]),
+        #     models.Index(fields=['name',])
+        # ]
 
 class TrailType(TimeStampedModel):
     name = models.CharField("Trail Type", max_length=100, unique=True)
@@ -214,3 +224,9 @@ class CameraStation(TimeStampedModel):
 
     class Meta:
         ordering = ("station_id",)
+
+
+        # Keep commented while testing to check effect on performance
+        # indexes = [
+        #     models.Index(fields=['micro_site',])
+        # ]

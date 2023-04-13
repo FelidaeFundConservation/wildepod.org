@@ -140,7 +140,7 @@ class Image(TimeStampedModel):
     @staticmethod
     def get_untouched_images():
         from images.models.annotation import BoundingBox
-        return len(BoundingBox.objects.exclude(accepted_by__isnull=False).exclude(rejected_by__isnull=False).values_list('image_id', flat=True))
+        return BoundingBox.objects.exclude(accepted_by__isnull=False).exclude(rejected_by__isnull=False).values('image_id').distinct().count()
 
 
 

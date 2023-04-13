@@ -21,10 +21,6 @@ WSGI_APPLICATION = "config.wsgi.testenv1.application"
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases
 DATABASES = {"default": env.db("STAGING_DATABASE_URL")}
 
-# import pdb; pdb.set_trace()
-DATABASES["default"]["NAME"] = "dev_test"
-
-
 # TODO: Check if this needs to be done
 
 # If the flag has been set, configure to use proxy

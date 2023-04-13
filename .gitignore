@@ -238,20 +238,12 @@ config/settings/
 !config/settings/__init__.py
 !config/settings/base.py
 !config/settings/local.py
-!config/settings/prod.py
-!config/settings/staging.py
 
 config/wsgi/
 !config/wsgi/__init__.py
 !config/wsgi/local.py
-!config/wsgi/prod.py
-!config/wsgi/staging.py
 
 /*.py
 !/manage.py
-!/prod.py
-!/staging.py
 
 /*.yaml
-!/prod.yaml
-!/staging.yaml

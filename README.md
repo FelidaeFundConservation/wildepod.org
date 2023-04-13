@@ -4,7 +4,7 @@
 
 ## Local dev
 
-Setup
+Quick Setup
 
 1. Git clone this repo
 2. Create a virtualenv
@@ -13,6 +13,13 @@ Setup
    * https://sass-lang.com/install
    * If you're using MacOs/Linux , it's  brew install sass/sass/sass
    Install Homebrew package manater if you still don't have (https://brew.sh)
+5. Set env variables:
+    * export GOOGLE_CLOUD_PROJECT=wildepod-339517
+    * export PYTHONPATH=<your_project_path>
+6. At this point, to perform all checkup locally, you mut have a sqlite running. View DATABASES variable in: /config/settings/local.py
+7. The site must be running:
+    * ./manage.py runserver --settings=config.settings.local
+
 
 
 Google Cloud SDK
@@ -55,20 +62,19 @@ This should be fine for those spreadsheets. If there is any error, add that row 
 2. Alter `app.yaml` & `dev/staging/prod` settings as needed
 3. Deploy + Check cloud build to see what happpened
 
-## Deployment instructions (Fresh GCP - if needed)
+---
+## Deployment instructions
+To deploy to GCP on existing environments.test, staging and prod.
 
-1. Create a new GCP project
-2. Enable cloud function API & deploy megadetector cloud function (independent of app engine)
-3. Create CloudSQL instance & prod/staging databases
-4. Create relevant buckets on Google Storage and make sure they have fine-grained permissions
-5. Create relevant Dropbox apps with appropriate permissions & set tokens in env if haven't already
-6. Use cloud sql proxy and run db migrations
-7. Install sass compiler (if needed) and run from project root. This should continuously watch for changes in scss files and compile them to css (static files are served using whitenoise)
-   `sass --watch --style compressed ./siteapps/static/scss/main.scss:./siteapps/static/css/main.css`
-8. Collect static files using `python manage.py collectstatic --settings=config.settings.prod`
-9. Deploy app using `gcloud app deploy`
-10. Add relevant secrets from .env to Secret manager (Important: Give your appengine app "Secret Manager Secret Accessor" permission)
+Ask for the following files
+* /env_file.yaml
+* /env_file.py
+* /cnfig/settings/env_file.py
+* /config/wsgi/env_file.py
 
+Deploy app using `gcloud app deploy env_file.yaml`
+
+---
 ## With SQL proxy
 
 Setenv
@@ -85,6 +91,8 @@ Emulating google app.yaml locally. Make sure proxy is running using
 Then run this so app.yaml uses the proxy. Note there can be many .yaml configs that can be specified
 
 `dev_appserver.py app.yaml --env_var=USE_CLOUD_SQL_AUTH_PROXY=true`
+
+---
 
 ## Gotchas
 
@@ -113,3 +121,20 @@ gcloud config set project <project-id>
 ```
 export ID_TOKEN="$(gcloud auth print-identity-token -q)"
 ```
+
+---
+
+
+## Deployment instructions (Fresh GCP - if needed)
+
+1. Create a new GCP project
+2. Enable cloud function API & deploy megadetector cloud function (independent of app engine)
+3. Create CloudSQL instance & prod/staging databases
+4. Create relevant buckets on Google Storage and make sure they have fine-grained permissions
+5. Create relevant Dropbox apps with appropriate permissions & set tokens in env if haven't already
+6. Use cloud sql proxy and run db migrations
+7. Install sass compiler (if needed) and run from project root. This should continuously watch for changes in scss files and compile them to css (static files are served using whitenoise)
+   `sass --watch --style compressed ./siteapps/static/scss/main.scss:./siteapps/static/css/main.css`
+8. Collect static files using `python manage.py collectstatic --settings=config.settings.prod`
+9. Deploy app using `gcloud app deploy`
+10. Add relevant secrets from .env to Secret manager (Important: Give your appengine app "Secret Manager Secret Accessor" permission)

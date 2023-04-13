@@ -1,28 +1,44 @@
 # Django Website for WildePod (Felidae Conservation Fund)
 
----
 
-## Local dev
-
-Quick Setup
+## Quick Setup
+Check the configuration of your environment
 
 1. Git clone this repo
 2. Create a virtualenv
 3. `pip install -r requirements.txt`
 4. Install SASS compiler - Sass is a stylesheet language that’s compiled to CSS. It is installed on the OS level, not in the virtualenv.
    * https://sass-lang.com/install
-   * If you're using MacOs/Linux , it's  brew install sass/sass/sass
+   * If you're using MacOs/Linux , it's  `brew install sass/sass/sass`
    Install Homebrew package manater if you still don't have (https://brew.sh)
 5. Set env variables:
-    * export GOOGLE_CLOUD_PROJECT=wildepod-339517
-    * export PYTHONPATH=<your_project_path>
-6. At this point, to perform all checkup locally, you mut have a sqlite running. View DATABASES variable in: /config/settings/local.py
-7. The site must be running:
-    * ./manage.py runserver --settings=config.settings.local
+    * `export GOOGLE_CLOUD_PROJECT=wildepod-339517`
+    * `export PYTHONPATH=<your_project_path>`
+6. At this point, to perform all checkup locally, you mut have a sqlite running. View DATABASES variable in: `/config/settings/local.py`
 
+Run Django
 
+1. Make migrations - `python manage.py makemigrations --settings=config.settings.local`
+   (Note: This may not work since `migrations` folder is gitignored for now and Django requires the folder's existence.
+   To fix that for now, simply create python packages named `migrations` in each of the app packages.
+   This has to be a package so the `migrations` folder must have a `__init__.py` file or django can't see it.
+2. Apply migrations - `python manage.py migrate --settings=config.settings.local`
+3. Create superuser - `python manage.py createsuperuser --settings=config.settings.local`
+4. Run server - `python manage.py runserver --settings=config.settings.local`
 
-Google Cloud SDK
+This should have things running on `localhost:8000` and use a local sqlite db
+### Initalize some data - hacky version
+
+1. Download the "active camera data" & "Camera inventory" sheets from the Slack channel
+2. Alter lines 7-10 of `scratch/load.py` file accordingly depending on where the downloaded files are saved
+3. Run `python manage.py shell --settings=config.settings.local < scratch/load.py`
+
+This should be fine for those spreadsheets. If there is any error, add that row to the skip list in the code
+
+## Local development environment
+To have a fully operational environment for development, you need to have access to the project's GCP.
+
+### Google Cloud SDK
 
 1. You should have Google Cloud SDK installed (https://cloud.google.com/sdk/docs/install)
 2. Ask for your credentials on Goggle Cloud, to the WildePod adminstrators.
@@ -34,25 +50,14 @@ Google Cloud SDK
     * Maybe there is some unknow issue here with secret-key.
 
 
-Initialize django project
+### Run Django project
 
-1. Make migrations - `python manage.py makemigrations --settings=config.settings.local`
-   (Note: This may not work since `migrations` folder is gitignored for now and Django requires the folder's existence.
-   To fix that for now, simply create python packages named `migrations` in each of the app packages.
-   This has to be a package so the `migrations` folder must have a `__init__.py` file or django can't see it.
-2. Apply migrations - `python manage.py migrate --settings=config.settings.local`
-3. Create superuser - `python manage.py createsuperuser --settings=config.settings.local`
-4. Run server - `python manage.py runserver --settings=config.settings.local`
+1. You need configuration files to access database.
+2. Run `python manage.py runserver --settings=config.settings.dev`
 
-This should have things running on `localhost:8000` and use a local sqlite db
+This should have things running on `localhost:8000` and use the project database.
 
-### Initalize some data - hacky version
 
-1. Download the "active camera data" & "Camera inventory" sheets from the Slack channel
-2. Alter lines 7-10 of `scratch/load.py` file accordingly depending on where the downloaded files are saved
-3. Run `python manage.py shell --settings=config.settings.local < scratch/load.py`
-
-This should be fine for those spreadsheets. If there is any error, add that row to the skip list in the code
 
 ---
 
@@ -64,9 +69,9 @@ This should be fine for those spreadsheets. If there is any error, add that row 
 
 ---
 ## Deployment instructions
-To deploy to GCP on existing environments.test, staging and prod.
+To deploy to GCP on existing environments (test, staging and prod)
 
-Ask for the following files
+Ask for the following files:
 * /env_file.yaml
 * /env_file.py
 * /cnfig/settings/env_file.py
@@ -122,6 +127,11 @@ gcloud config set project <project-id>
 export ID_TOKEN="$(gcloud auth print-identity-token -q)"
 ```
 
+Check if you are connected to the project's GCP
+
+```
+gcloud auth list
+```
 ---
 
 

@@ -14,8 +14,7 @@ from django.views.generic import FormView
 from django.views.generic.base import TemplateView, View
 from images.forms import AnnotationForm
 from images.models import ActivityType, Annotator, BoundingBox, Image, Species, SpeciesName, \
-                                get_uncertain_images, get_images_to_ignore
-from images.models.custom_fields import get_filter_params
+                                get_object_annotation_images
 from images.processors import process_activity_annotations, process_md_annotations, \
                                 process_species_annotations
 from locations.models import CameraStation, MacroSite, MicroSite
@@ -57,7 +56,6 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
         queue = settings.DATASTORE_CLIENT.get(queue_key)
 
         if not self.filterset['macrosite'] and (
-
             queue
             and datetime.datetime.fromisoformat(queue["expires_at"]) > datetime.datetime.now()
             and queue["index"] < len(queue["images"])
@@ -65,29 +63,12 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
             # Get the image id
             image_id = queue["images"][queue["index"]]
         else:
-            # Get the images to annotate (uncertain images). Check raw sql to see how this is done
-            # Get the images to not consider to annotate (images touched by user). Check raw sql to see how this is done
-            uncertain_images = get_uncertain_images(**self.filterset)
-            ignore_images = get_images_to_ignore(self.request.user.id)
-
-            # Convert images raw sql objects to numpy arrays
-            uncertain_images=np.array([ui.id for ui in uncertain_images])
-            ignore_images=np.array([ui.id for ui in ignore_images])
-
-            # Skipped image by the user. Not to be considered for annotation here.
-            image_skiped = Image.objects.filter(bbox_skipped_by__id=annotator.id).values_list('id', flat=True)
-            ignore_images = np.append(ignore_images, image_skiped)
-
-            # Remove images to ignore from uncertain images
-            # Resulting uncertain images need to be annotated
-            indices = np.argwhere(np.isin(uncertain_images, ignore_images))
-            images = np.delete(uncertain_images,indices)
-
-            # Get the image stack based on stack size.
-            images = images[: settings.ANNOTATION_QUEUE_SIZE]
+            # Get the images to annotate. Check raw sql to see how this is done
+            images = get_object_annotation_images(**self.filterset,
+                                                  queue_size=settings.ANNOTATION_QUEUE_SIZE)
 
             # Get the image ids & convert to string
-            image_ids = [str(image) for image in images]
+            image_ids = [str(image.id) for image in images]
 
             # Create a queue entity with image ids, user id, timestamp and index
             payload = {

@@ -1,57 +1,10 @@
 from images.models.image import Image
 
 
-def get_images_to_ignore(annotator):
+def get_object_annotation_images(annotator=None, start_date=None, end_date=None, station=None, macrosite=None, queue_size=0):
     """
-    Return images touched by a user via BoundingBoxes.
-    Also include images that were toucjhed by staff.
+    This function contains the raw SQL query for the Object annotation pipeline. 
     """
-    imgs = Image.objects.raw("""
-            /*
-            * Return images touched by a user.
-            * Images that should be ignored at anytime.
-            */
-            WITH ignore_annotators AS
-            (
-                SELECT ia.id AS id
-                FROM users_user AS uu
-                INNER JOIN	images_annotator AS ia
-                    ON ia.human_id = uu.id
-                WHERE uu.is_staff
-                    OR uu.id = '{}'
-            ),
-            ignore_bbs AS
-            (
-                SELECT ibab.boundingbox_id
-                FROM images_boundingbox_accepted_by ibab
-                INNER JOIN ignore_annotators AS ia
-                    ON ibab.annotator_id = ia.id
-                UNION
-                SELECT ibrb.boundingbox_id
-                FROM images_boundingbox_rejected_by ibrb
-                INNER JOIN ignore_annotators AS ia
-                    ON ibrb.annotator_id = ia.id
-            ),
-            ignore_images AS
-            (
-                SELECT DISTINCT(image_id) as id
-                FROM ignore_bbs
-                INNER JOIN	images_boundingbox AS ib
-                    ON ib.id = ignore_bbs.boundingbox_id
-            )
-            SELECT * FROM ignore_images
-        """.format(annotator)
-    )
-    return imgs
-
-
-def get_uncertain_images(annotator=None, start_date=None, end_date=None, station=None, macrosite=None):
-    """
-    These are images that have been accepted and rejected by
-    the difference of one, in the number of annotators.
-    See more comments inline
-    """
-
     start_date = ("AND images.trigger_timestamp >= '{}'".format(start_date)
                     if start_date else "AND images.trigger_timestamp = images.trigger_timestamp")
     end_date = ("AND images.trigger_timestamp <= '{}'".format(end_date)
@@ -61,6 +14,17 @@ def get_uncertain_images(annotator=None, start_date=None, end_date=None, station
     station = ("AND location_camera.station_id = '{}'".format(station)
                     if station else "AND location_camera.station_id = location_camera.station_id"
     )
+
+    """
+    The following sequence of queries first collects all the bounding boxes
+    that need to be voted on. Either because they're new, or their accept / reject
+    threshold has not been met yet. 
+    While doing this we filter based on timestamp / macro_station / camera_station if they're passed in.
+
+    Then we filter out annotations by staff users because their vote automatically counts
+    as a universal accept / reject.
+    We also filter out the images that have already been voted on by the currently logged in user.
+    """
 
     imgs = Image.objects.raw("""
             /* All accepted Bounding Boxes */
@@ -87,12 +51,14 @@ def get_uncertain_images(annotator=None, start_date=None, end_date=None, station
             */
             bb_uncertain AS
             (
-                SELECT bb_accepted_all.group_column AS bb_id,
+                SELECT bbox.id AS bb_id,
                     COALESCE(bb_accepted_all.total_count, 0) -
                         COALESCE(bb_rejected_all.total_count, 0) AS difference
-                FROM bb_accepted_all
-                INNER JOIN bb_rejected_all
-                    ON bb_accepted_all.group_column = bb_rejected_all.group_column
+                FROM images_boundingbox as bbox 
+                LEFT JOIN bb_accepted_all
+                    ON bbox.id = bb_accepted_all.group_column
+                LEFT JOIN bb_rejected_all
+                    ON bbox.id = bb_rejected_all.group_column
                 WHERE COALESCE(bb_accepted_all.total_count, 0) -
                         COALESCE(bb_rejected_all.total_count, 0) < 2
                     AND COALESCE(bb_accepted_all.total_count, 0) -
@@ -122,12 +88,55 @@ def get_uncertain_images(annotator=None, start_date=None, end_date=None, station
                 INNER JOIN locations_macrosite AS location_macro
                     ON location_micro.macro_site_id = location_macro.id
 
-                WHERE 1 = 1
-                {} {} {} {}
-                ORDER BY priority DESC, ts DESC
+                WHERE images.processed = TRUE
+                {start_date} {end_date} {macrosite} {station}
+            ),
+            /*
+            * Return images touched by a user.
+            * Images that should be ignored at anytime.
+            */
+            ignore_annotators AS
+            (
+                SELECT ia.id AS id
+                FROM users_user AS uu
+                INNER JOIN	images_annotator AS ia
+                    ON ia.human_id = uu.id
+                WHERE uu.is_staff
+                    OR uu.id = '{annotator_id}'
+            ),
+            ignore_bbs AS
+            (
+                SELECT ibab.boundingbox_id
+                FROM images_boundingbox_accepted_by ibab
+                INNER JOIN ignore_annotators AS ia
+                    ON ibab.annotator_id = ia.id
+                UNION
+                SELECT ibrb.boundingbox_id
+                FROM images_boundingbox_rejected_by ibrb
+                INNER JOIN ignore_annotators AS ia
+                    ON ibrb.annotator_id = ia.id
+            ),
+            ignore_images AS
+            (
+                SELECT DISTINCT(image_id) as id
+                FROM ignore_bbs
+                INNER JOIN	images_boundingbox AS ib
+                    ON ib.id = ignore_bbs.boundingbox_id
             )
-            SELECT id
-            FROM result_set
-        """.format(start_date, end_date, macrosite, station)
+            SELECT 
+                rs.id,
+                rs.ts,
+                rs.priority,
+                rs.macrosite
+            FROM result_set rs
+            WHERE NOT EXISTS (
+                SELECT id
+                FROM ignore_images ii
+                WHERE ii.id = rs.id
+            )
+            ORDER BY priority DESC, ts DESC
+            LIMIT {queue_size}
+        """.format(start_date=start_date, end_date=end_date, macrosite=macrosite, 
+                   station=station, annotator_id=annotator.id, queue_size=queue_size)
     )
     return imgs

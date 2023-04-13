@@ -56,6 +56,10 @@
                         }
                         image.style.filter = filterString;
 
+                        for (let image of window.contextImageElements) {
+                            image.style.filter = filterString;
+                        }
+
                     }
 
                     // Resets all filters to the default value when clicked.

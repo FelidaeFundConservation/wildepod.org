@@ -228,3 +228,22 @@ tags
 
 nohup.out
 .sass-cache/
+
+
+# Settings - dev
+# Ignore the entire config/settings folder and allow only local, prod and staging.
+
+config/settings/
+
+!config/settings/__init__.py
+!config/settings/base.py
+!config/settings/local.py
+
+config/wsgi/
+!config/wsgi/__init__.py
+!config/wsgi/local.py
+
+/*.py
+!/manage.py
+
+/*.yaml

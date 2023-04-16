@@ -115,6 +115,7 @@ class Image(TimeStampedModel):
 
     @staticmethod
     def get_total_images():
+        """ Returns the number of uploaded images"""
         return Image.objects.count()
 
     @staticmethod

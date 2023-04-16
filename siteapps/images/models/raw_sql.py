@@ -1,11 +1,15 @@
 from images.models.image import Image
 
 
-def get_images_to_ignore(annotator):
+def get_images_to_ignore(annotator=None):
     """
     Return images touched by a user via BoundingBoxes.
     Also include images that were toucjhed by staff.
     """
+
+    annotator = ("OR uu.id='{}'".format(annotator)
+                    if annotator else "")
+
     imgs = Image.objects.raw("""
             /*
             * Return images touched by a user.
@@ -18,7 +22,7 @@ def get_images_to_ignore(annotator):
                 INNER JOIN	images_annotator AS ia
                     ON ia.human_id = uu.id
                 WHERE uu.is_staff
-                    OR uu.id = '{}'
+                    '{}'
             ),
             ignore_bbs AS
             (

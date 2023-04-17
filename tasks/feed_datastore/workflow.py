@@ -39,7 +39,7 @@ def totals_document():
             "species_annotation": 0,
             "uncertain_annotation_images": 0,
             "uploaded_images": Image.get_total_images(),
-            "last_update": datetime.datetime.now()
+            "last_update": datetime.datetime.utcnow()
         }
         totals.update(payload)
         client.put(totals)
@@ -92,7 +92,7 @@ def blank_annotation_images():
         # Update blank_annotation_images document
         payload = {
             "data": serialized_bai,
-            "last_update": datetime.datetime.now()
+            "last_update": datetime.datetime.utcnow()
         }
         blank_annotation.update(payload)
         client.put(blank_annotation)
@@ -132,7 +132,7 @@ def uncertain_images():
         # Update uncertain_images document
         payload = {
             "data": serialized_ui,
-            "last_update": datetime.datetime.now()
+            "last_update": datetime.datetime.utcnow()
         }
         uncertain_images.update(payload)
         client.put(uncertain_images)

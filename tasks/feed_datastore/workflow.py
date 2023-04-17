@@ -5,6 +5,8 @@ This script updates the workflow documents in the datastore/firebase.
 import datetime
 import pandas as pd
 import os, sys, json, django
+from datetime import timedelta
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(os.path.join(__file__, '../../')))
 sys.path.append(os.path.join(BASE_DIR, 'siteapps'))
@@ -53,13 +55,21 @@ def _pd_group_images(images):
     """
     df = pd.DataFrame([{'Macrosite': i.macrosite,\
                         'Priority': i.priority, \
+                        'Station': i.station, \
                         'Trigger': i.ts,} for i in images])
 
     try:
-        result = df.groupby(['Macrosite', 'Priority'])['Trigger'].agg(['min', 'max', 'count'])
+        result = df.groupby(['Macrosite', 'Station', 'Priority'])['Trigger'].agg(['min', 'max', 'count'])
+
+        # Before serialize date, increase for max and decrease for min,
+        # to avoid loose days in the range.
+        result['min'] = result['min'] - timedelta(days=1)
+        result['max'] = result['max'] + timedelta(days=1)
+
+        # Serialize dates
         result['min'] = result['min'].dt.strftime('%Y-%m-%d')
         result['max'] = result['max'].dt.strftime('%Y-%m-%d')
-        result = result.sort_values(['Macrosite', 'Priority'],  ascending=[True, False])
+        result = result.sort_values(['Macrosite', 'Station', 'Priority'],  ascending=[True, False])
     except Exception as e:
         # import pdb; pdb.set_trace()
         print(e)
@@ -93,8 +103,25 @@ def blank_annotation_images():
 
 
 
+
+
+def _get_images_to_annotate():
+        # Get the images to annotate (uncertain images). Check raw sql to see how this is done
+        # Get the images to not consider to annotate (images touched by user). Check raw sql to see how this is done
+        uncertain_images = get_uncertain_images()
+        ignore_images = get_images_to_ignore()
+
+        # Convert images raw sql objects to set of images
+        ignore_images_s=set([ui.id for ui in ignore_images])
+
+        # Remove images to ignore from uncertain images
+        # Resulting uncertain images need to be annotated
+        images = [ui for ui in uncertain_images if ui.id not in ignore_images_s]
+        return images
+
+
 def uncertain_images():
-    images = get_uncertain_images()
+    images = _get_images_to_annotate()
     uncertain_images = _pd_group_images(images)
     serialized_ui = json.dumps(uncertain_images, default=str)
 

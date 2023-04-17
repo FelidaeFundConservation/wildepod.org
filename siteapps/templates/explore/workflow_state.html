@@ -90,7 +90,8 @@
     <hr/>
 
     <div class="row  mt-3 pt-3">
-        <h2>Blank Annotation Images: {{ untouched_images|intcomma }}</h2>
+        <h2>Blank Annotation Images: {{ total_blank_annotation|intcomma }}</h2>
+        <small>Last update:{{ blank_annotation.last_update }}</small>
         <p>
             Untouched images, ready to annotate.
         </p>
@@ -99,30 +100,29 @@
                 <thead>
                     <tr>
                         <th>Macrosite</th>
+                        <th>Station</th>
                         <th class="text-center">Priority</th>
                         <th>From</th>
                         <th>To</th>
                         <th class="text-right">Total</th>
                     </tr>
                 </thead>
-                <tbody></tbody>
-
-
-                <tr>
-                    <td colspan="5" class="text-center">
-                        <div id="prioritezed_images-spinner">
-                            <div style="width: 2rem; height: 2rem;" class="spinner-border text-success" role="status"></div>
-                            <br>
-                            <small>Wait a minute for the table to load.</small>
-                            {% comment %}
-                                Maybe split return data in 3 priorities and show 3 different spinners.
-                                <div id="prioritezed_images-spinner2"  style="width: 2rem; height: 2rem;" class="spinner-border text-warning" role="status">
-                                </div>&nbsp;
-                                <div id="prioritezed_images-spinner3"  style="width: 2rem; height: 2rem;" class="spinner-border text-primary" role="status">
-                            {% endcomment %}
-                        </div>
-                    </td>
-                </tr>
+                <tbody>
+                    {% for ba in blank_annotation.data %}
+                        <tr>
+                            <td>{{ ba.0 }}</td>
+                            <td>{{ ba.1 }}</td>
+                            <td>{{ ba.2 }}</td>
+                            <td>{{ ba.3 }}</td>
+                            <td>{{ ba.4 }}</td>
+                            <td>
+                                <a target="_blank" href="/images/annotate/objects?start_date={{ba.3}}&end_date={{ba.4}}&macrosite_name={{ba.0}}&camera_id=None">
+                                {{ ba.5|intcomma }}
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
             </table>
             <div id="prioritezed_images-message"></div>
         </div>
@@ -130,9 +130,9 @@
 
     <hr/>
 
-
     <div class="row  mt-3 pt-3">
-        <h2>Uncertain Annotations</h2>
+        <h2>Uncertain Annotations: {{ total_uncertain_images|intcomma }}</h2>
+        <small>Last update:{{ uncertain_images.last_update }}</small>
         <p>
             Images in the annotation process, to be double checked. <br>
             Images annotated by you should not be displayed for no duplication effort.
@@ -142,34 +142,35 @@
                 <thead>
                     <tr>
                         <th>Macrosite</th>
+                        <th>Station</th>
                         <th class="text-center">Priority</th>
                         <th>From</th>
                         <th>To</th>
                         <th class="text-right">Total</th>
                     </tr>
                 </thead>
-                <tbody></tbody>
-
-
-                <tr>
-                    <td colspan="5" class="text-center">
-                        <div id="uncertain_images-spinner">
-                            <div style="width: 2rem; height: 2rem;" class="spinner-border text-success" role="status"></div>
-                            <br>
-                            <small>Wait a minute for the table to load.</small>
-                            &nbsp;
-                        </div>
-                    </td>
-                </tr>
+                <tbody>
+                    {% for ba in uncertain_images.data %}
+                        <tr>
+                            <td>{{ ba.0 }}</td>
+                            <td>{{ ba.1 }}</td>
+                            <td>{{ ba.2 }}</td>
+                            <td>{{ ba.3 }}</td>
+                            <td>{{ ba.4 }}</td>
+                            <td>
+                                <a target="_blank" href="/images/annotate/objects?start_date={{ba.3}}&end_date={{ba.4}}&macrosite_name={{ba.0}}&camera_id=None">
+                                {{ ba.5|intcomma }}
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
             </table>
             <div id="uncertain_images-message"></div>
         </div>
     </div>
 
-
-
     <hr/>
-
 
     <div class="row  mt-3 pt-3">
         <h2>Species Annotation</h2>
@@ -205,10 +206,7 @@
         </div>
     </div>
 
-
-
     <hr/>
-
 
     <div class="row  mt-3 pt-3">
         <h2>Animal Activity</h2>
@@ -244,13 +242,7 @@
         </div>
     </div>
 
-
-
-
-
-
     <hr/>
-
 
     <div class="row  mt-3 pt-3">
         <h2>Human Behavior</h2>
@@ -286,8 +278,6 @@
         </div>
     </div>
 
-
-
 </div>
 
 
@@ -302,533 +292,28 @@
       }
 
     $(document).ready(function() {
-
-        /*
-        *   Loading static data !!!
-        */
-        $('#prioritezed_images-spinner').hide(); // Hide the spinner
-        $('#uncertain_images-spinner').hide(); // Hide the spinner
-
-        let prioritezedImages = {
-            "result": "success",
-            "prioritezed_images": [
-                [
-                    "Chileno Valley Ranch",
-                    "2",
-                    "2022-05-20T03:45:27Z",
-                    "2022-07-14T19:31:20Z",
-                    4016
-                ],
-                [
-                    "Filoli Estate",
-                    "1",
-                    "2019-08-01T20:23:49Z",
-                    "2023-03-06T20:32:23Z",
-                    9313
-                ],
-                [
-                    "Indian Tree Open Space",
-                    "2",
-                    "2023-02-22T20:52:45Z",
-                    "2023-03-27T20:08:37Z",
-                    1624
-                ],
-                [
-                    "Indian Tree Open Space",
-                    "1",
-                    "2023-01-06T21:28:22Z",
-                    "2023-02-22T20:43:43Z",
-                    4256
-                ],
-                [
-                    "Kings Mountain",
-                    "1",
-                    "2017-01-02T02:49:00Z",
-                    "2023-03-02T19:50:17Z",
-                    45136
-                ],
-                [
-                    "La Honda",
-                    "1",
-                    "2021-10-30T19:22:17Z",
-                    "2022-11-19T19:26:00Z",
-                    7842
-                ],
-                [
-                    "Lynch Canyon",
-                    "1",
-                    "2022-09-28T21:49:02Z",
-                    "2023-03-27T18:57:47Z",
-                    3853
-                ],
-                [
-                    "Marin Municipal Water District",
-                    "2",
-                    "2020-10-23T20:30:05Z",
-                    "2023-03-07T18:51:49Z",
-                    53449
-                ],
-                [
-                    "Marin Municipal Water District",
-                    "1",
-                    "2022-09-16T20:49:57Z",
-                    "2023-02-13T18:15:32Z",
-                    2928
-                ],
-                [
-                    "Marinwood Open Space Preserve",
-                    "2",
-                    "2020-12-23T16:12:13Z",
-                    "2023-03-20T13:52:50Z",
-                    7777
-                ],
-                [
-                    "Marinwood Open Space Preserve",
-                    "1",
-                    "2021-01-20T18:52:57Z",
-                    "2022-12-23T00:19:12Z",
-                    897
-                ],
-                [
-                    "Mark West Springs Road",
-                    "1",
-                    "2022-12-22T12:16:56Z",
-                    "2023-03-10T19:38:46Z",
-                    695
-                ],
-                [
-                    "MidPeninsula Open Space Preserve",
-                    "1",
-                    "2020-05-19T00:48:07Z",
-                    "2022-11-25T23:37:03Z",
-                    62295
-                ],
-                [
-                    "Milagra Ridge",
-                    "1",
-                    "2022-06-23T17:20:36Z",
-                    "2022-11-03T19:37:14Z",
-                    55
-                ],
-                [
-                    "Montara State Beach/McNee Ranch",
-                    "2",
-                    "2022-07-05T14:45:20Z",
-                    "2023-01-29T19:49:56Z",
-                    19915
-                ],
-                [
-                    "Mount Diablo State Park",
-                    "2",
-                    "2012-02-08T06:48:05Z",
-                    "2023-03-27T00:01:58Z",
-                    12092
-                ],
-                [
-                    "Mount Diablo State Park",
-                    "1",
-                    "2022-12-18T00:05:35Z",
-                    "2023-02-18T17:58:15Z",
-                    767
-                ],
-                [
-                    "Mount Tamalpais State Park",
-                    "2",
-                    "2022-07-19T17:40:00Z",
-                    "2023-03-24T16:26:35Z",
-                    18731
-                ],
-                [
-                    "Mount Tamalpais State Park",
-                    "1",
-                    "2022-09-13T19:09:27Z",
-                    "2022-10-31T16:54:27Z",
-                    3039
-                ],
-                [
-                    "Mt. Burdell Preserve",
-                    "2",
-                    "2023-02-16T21:15:52Z",
-                    "2023-03-20T19:55:23Z",
-                    5573
-                ],
-                [
-                    "Mt. Wanda",
-                    "1",
-                    "2023-02-14T18:58:57Z",
-                    "2023-03-12T22:14:45Z",
-                    1679
-                ],
-                [
-                    "Olompali State Park",
-                    "2",
-                    "2020-07-16T21:32:10Z",
-                    "2023-03-03T21:36:47Z",
-                    15131
-                ],
-                [
-                    "Pacifica Land Trust",
-                    "1",
-                    "2022-06-05T21:47:01Z",
-                    "2023-02-14T20:05:42Z",
-                    5120
-                ],
-                [
-                    "Phleger Estate (NPS)",
-                    "1",
-                    "2020-03-08T18:34:32Z",
-                    "2022-09-24T18:42:00Z",
-                    7521
-                ],
-                [
-                    "Point Reyes National Seashore",
-                    "2",
-                    "2021-10-23T21:24:16Z",
-                    "2023-03-15T17:53:41Z",
-                    22244
-                ],
-                [
-                    "Point Reyes National Seashore",
-                    "1",
-                    "2022-03-07T01:31:19Z",
-                    "2023-02-23T20:48:57Z",
-                    31677
-                ],
-                [
-                    "Rancho Corral de Tierra (NPS)",
-                    "1",
-                    "2013-01-01T08:00:01Z",
-                    "2023-02-10T20:04:57Z",
-                    16875
-                ],
-                [
-                    "Roy Redwoods Preserve",
-                    "2",
-                    "2022-11-10T19:51:24Z",
-                    "2023-01-24T00:06:28Z",
-                    1289
-                ],
-                [
-                    "Roy Redwoods Preserve",
-                    "1",
-                    "2022-11-30T20:18:04Z",
-                    "2023-03-02T21:55:51Z",
-                    951
-                ],
-                [
-                    "SF Archers Range",
-                    "1",
-                    "2022-05-25T18:10:27Z",
-                    "2023-03-02T18:39:27Z",
-                    2783
-                ],
-                [
-                    "SFPUC",
-                    "3",
-                    "2021-08-29T18:42:17Z",
-                    "2023-02-21T19:47:29Z",
-                    1700
-                ],
-                [
-                    "Samuel P Taylor State Park",
-                    "2",
-                    "2021-11-02T02:57:10Z",
-                    "2023-03-07T22:29:45Z",
-                    9728
-                ],
-                [
-                    "San Bruno Mountain State Park",
-                    "2",
-                    "2022-10-23T23:00:13Z",
-                    "2023-01-15T20:40:17Z",
-                    112
-                ],
-                [
-                    "San Bruno Mountain State Park",
-                    "1",
-                    "2020-06-17T22:08:22Z",
-                    "2023-03-05T21:18:48Z",
-                    461
-                ],
-                [
-                    "San Carlos",
-                    "1",
-                    "2023-02-08T00:24:06Z",
-                    "2023-03-07T19:26:32Z",
-                    458
-                ],
-                [
-                    "Soulajule Reserviour",
-                    "2",
-                    "2021-02-24T20:37:58Z",
-                    "2023-03-09T01:10:42Z",
-                    13953
-                ],
-                [
-                    "Sweeney Ridge",
-                    "1",
-                    "2022-09-17T16:50:57Z",
-                    "2023-02-03T23:22:29Z",
-                    19121
-                ],
-                [
-                    "Tierra Linda - Sleepy Hollow Northern Divide Preserve",
-                    "2",
-                    "2023-02-16T19:15:32Z",
-                    "2023-03-25T21:46:00Z",
-                    4925
-                ],
-                [
-                    "Walker Creek Ranch",
-                    "2",
-                    "2021-01-31T00:45:00Z",
-                    "2022-11-04T21:26:18Z",
-                    7178
-                ],
-                [
-                    "White Hill Open Space Preserve",
-                    "2",
-                    "2022-09-16T18:25:22Z",
-                    "2023-03-09T01:39:54Z",
-                    7764
-                ],
-                [
-                    "White Hill Open Space Preserve",
-                    "1",
-                    "2022-11-30T19:03:08Z",
-                    "2022-12-24T17:11:33Z",
-                    1979
-                ],
-                [
-                    "Woodside/I-280",
-                    "1",
-                    "2020-02-12T18:29:24Z",
-                    "2022-11-29T23:28:35Z",
-                    14636
-                ],
-                [
-                    "Wunderlich County Park",
-                    "1",
-                    "2019-07-05T20:45:05Z",
-                    "2023-03-04T23:09:26Z",
-                    70917
-                ]
-            ]
-        }
-            $('#prioritezed-images').dataTable( {
-                "data": prioritezedImages.prioritezed_images,
-                "pageLength": 100,
-                columnDefs: [
-                    {
-                        targets:4,
-                        render: function ( data, type, row, meta ) {
-                            if(type === 'display'){
-                                data = '<a target="_blank" href=/images/annotate/objects?start_date=' + format_date(row[2]) +
-                                            '&end_date=' + format_date(row[3]) +
-                                            '&macrosite_name=' + encodeURIComponent(row[0]) +  '&camera_id=None' + '>' + data +
-                                        '</a>'
-                            }
-                            return data;
-                        }
-                    }
-                ]
-            });
-            $('#prioritezed-images').show();
-
-
-
-        let uncertainImages = {
-            "result": "success",
-            "prioritezed_images": [
-                [
-                    "Marin Municipal Water District",
-                    "2",
-                    "2020-11-20T11:56:24Z",
-                    "2021-11-25T10:33:25Z",
-                    20
-                ],
-                [
-                    "MidPeninsula Open Space Preserve",
-                    "1",
-                    "2020-11-01T16:31:04Z",
-                    "2022-07-24T15:19:06Z",
-                    498
-                ],
-                [
-                    "Montara State Beach/McNee Ranch",
-                    "2",
-                    "2022-07-16T20:42:36Z",
-                    "2022-07-20T16:09:10Z",
-                    5
-                ],
-                [
-                    "Mount Diablo State Park",
-                    "2",
-                    "2021-07-07T23:16:29Z",
-                    "2022-06-06T19:00:42Z",
-                    84
-                ],
-                [
-                    "Olompali State Park",
-                    "2",
-                    "2017-01-01T08:00:33Z",
-                    "2022-10-25T09:46:41Z",
-                    116
-                ],
-                [
-                    "Phleger Estate (NPS)",
-                    "1",
-                    "2020-03-08T18:34:30Z",
-                    "2022-06-16T02:30:19Z",
-                    46
-                ],
-                [
-                    "Point Reyes National Seashore",
-                    "2",
-                    "2022-04-25T06:01:42Z",
-                    "2022-06-18T17:42:50Z",
-                    14
-                ],
-                [
-                    "Rancho Corral de Tierra (NPS)",
-                    "1",
-                    "2013-02-08T14:31:11Z",
-                    "2022-06-18T14:50:49Z",
-                    8
-                ],
-                [
-                    "Samuel P Taylor State Park",
-                    "2",
-                    "2015-01-11T05:00:06Z",
-                    "2022-08-09T00:46:26Z",
-                    76
-                ],
-                [
-                    "Soulajule Reserviour",
-                    "2",
-                    "2021-02-24T22:24:51Z",
-                    "2021-12-30T02:02:02Z",
-                    45
-                ],
-                [
-                    "Walker Creek Ranch",
-                    "2",
-                    "2021-08-08T19:45:08Z",
-                    "2021-08-08T19:45:08Z",
-                    1
-                ],
-                [
-                    "Wunderlich County Park",
-                    "1",
-                    "2020-10-15T01:52:11Z",
-                    "2020-11-11T21:22:18Z",
-                    3
-                ]
-            ]
-        }
-        $('#uncertain-images').dataTable( {
-            "data": uncertainImages.prioritezed_images,
+        $('#prioritezed-images').DataTable( {
             "pageLength": 100,
-            columnDefs: [
-                {
-                    targets:4,
-                    render: function ( data, type, row, meta ) {
-                        if(type === 'display'){
-                            data = '<a target="_blank" href=/images/annotate/objects?start_date=' + format_date(row[2]) +
-                                        '&end_date=' + format_date(row[3]) +
-                                        '&macrosite_name=' + encodeURIComponent(row[0]) +  '&camera_id=None' + '>' + data +
-                                    '</a>'
-                        }
-                        return data;
-                    }
-                }
+            "columns": [
+                { "data": "Macrosite" },
+                { "data": "Station" },
+                { "data": "Priority" },
+                { "data": "From" },
+                { "data": "To" },
+                { "data": "Total" }
             ]
         });
-        $('#prioritezed-images').show();
-
-
-
-
-    /*
-    * Load from here, from some bucket
-    */
-
-
-    /*
-      $('#prioritezed_images-spinner').show(); // Show the spinner
-
-      $.ajax({
-        url: '/explore/prioritized-images/',
-        type: 'GET',
-        dataType: 'json',
-        success: function(data) {
-            console.log(data)
-          $('#prioritezed_images-message').text(data.message); // Update the HTML with the response data
-          $('#prioritezed_images-spinner').hide(); // Hide the spinner
-
-          $('#prioritezed-images').dataTable( {
-            "data": data.prioritezed_images,
+        $('#uncertain-images').DataTable( {
             "pageLength": 100,
-            columnDefs: [
-                {
-                    targets:4,
-                    render: function ( data, type, row, meta ) {
-                        if(type === 'display'){
-                            data = '<a target="_blank" href=/images/annotate/objects?start_date=' + format_date(row[2]) +
-                                        '&end_date=' + format_date(row[3]) +
-                                        '&macrosite_name=' + encodeURIComponent(row[0]) +  '&camera_id=None' + '>' + data +
-                                    '</a>'
-                        }
-                        return data;
-                    }
-                }
+            "columns": [
+                { "data": "Macrosite" },
+                { "data": "Station" },
+                { "data": "Priority" },
+                { "data": "From" },
+                { "data": "To" },
+                { "data": "Total" }
             ]
-          });
-        },
-        error: function(jqXHR, textStatus, errorThrown) {
-          console.log('Error:', textStatus, errorThrown);
-          $('#prioritezed_images-spinner').hide(); // Hide the spinner
-        }
-      });
-    */
-
-      /*
-      $.ajax({
-        url: '/explore/uncertain-images/',
-        type: 'GET',
-        dataType: 'json',
-        success: function(data) {
-            console.log(data)
-          $('#uncertain_images-message').text(data.message); // Update the HTML with the response data
-          $('#uncertain_images-spinner').hide(); // Hide the spinner
-
-          $('#uncertain-images').dataTable( {
-            "data": data.prioritezed_images,
-            "pageLength": 100,
-            columnDefs: [
-                {
-                    targets:4,
-                    render: function ( data, type, row, meta ) {
-                        if(type === 'display'){
-                            data = '<a target="_blank" href=/images/annotate/objects?start_date=' + format_date(row[2]) +
-                                        '&end_date=' + format_date(row[3]) +
-                                        '&macrosite_name=' + encodeURIComponent(row[0]) +  '&camera_id=None' + '>' + data +
-                                    '</a>'
-                        }
-                        return data;
-                    }
-                }
-            ]
-          });
-        },
-        error: function(jqXHR, textStatus, errorThrown) {
-          console.log('Error:', textStatus, errorThrown);
-          $('#uncertain_images-spinner').hide(); // Hide the spinner
-        }
-      });
-      */
-
-
+        });
     });
   </script>
 

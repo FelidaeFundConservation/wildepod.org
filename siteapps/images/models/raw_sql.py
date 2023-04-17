@@ -22,7 +22,7 @@ def get_images_to_ignore(annotator=None):
                 INNER JOIN	images_annotator AS ia
                     ON ia.human_id = uu.id
                 WHERE uu.is_staff
-                    '{}'
+                    {}
             ),
             ignore_bbs AS
             (
@@ -111,7 +111,8 @@ def get_uncertain_images(annotator=None, start_date=None, end_date=None, station
                 SELECT DISTINCT images.id AS id,
                     images.trigger_timestamp AS ts,
                     image_upload.priority AS priority,
-                    location_macro.name AS macrosite
+                    location_macro.name AS macrosite,
+                    location_camera.station_id AS station
                 FROM bb_uncertain
                 LEFT JOIN images_boundingbox AS ib
                     ON ib.id = bb_uncertain.bb_id
@@ -163,7 +164,8 @@ def get_prioritized_images(priority=None, start_date=None, end_date=None, statio
                 SELECT images.id,
                     images.trigger_timestamp AS ts,
                     image_upload.priority AS priority,
-                    location_macro.name AS macrosite
+                    location_macro.name AS macrosite,
+                    location_camera.station_id AS station
                 FROM images_image AS images
                 INNER JOIN images_not_touched AS images_nt
                     ON images_nt.image_id = images.id

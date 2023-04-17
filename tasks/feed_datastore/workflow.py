@@ -57,7 +57,6 @@ def _pd_group_images(images):
                         'Priority': i.priority, \
                         'Station': i.station, \
                         'Trigger': i.ts,} for i in images])
-
     try:
         result = df.groupby(['Macrosite', 'Station', 'Priority'])['Trigger'].agg(['min', 'max', 'count'])
 
@@ -69,7 +68,7 @@ def _pd_group_images(images):
         # Serialize dates
         result['min'] = result['min'].dt.strftime('%Y-%m-%d')
         result['max'] = result['max'].dt.strftime('%Y-%m-%d')
-        result = result.sort_values(['Macrosite', 'Station', 'Priority'],  ascending=[True, False])
+        result = result.sort_values(['Macrosite', 'Priority'],  ascending=[True, False])
     except Exception as e:
         # import pdb; pdb.set_trace()
         print(e)

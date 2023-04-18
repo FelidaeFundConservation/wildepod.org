@@ -51,6 +51,8 @@ class WorkflowStateView(TemplateView):
             datastore = self._get_datastore()
             context = super().get_context_data(**kwargs)
 
+
+            context["totals_last_update"] = datastore['totals']['last_update']
             context["total_images"] = datastore['totals']['uploaded_images']
             context["total_images_processed"] = datastore['totals']['processed_images']
             context["total_images_not_processed"] = datastore['totals']['not_processed_images']

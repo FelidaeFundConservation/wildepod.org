@@ -40,11 +40,10 @@
         <p>
             This page displays the state of each step in the workflow of the images processing pipeline.<br>
             <small>
-            ** Texts and icons are subject to change. Please check. **<Br>
-            ** All data comes from database, however data displayed in the tables are static on this page.
-            The information will be cached in a bucket to not overload servers.
-            **<Br>
-            </small>
+            ** Texts and icons are subject to change. Please check. **
+            </small><br>
+            <small>Last update overall:{{ totals_last_update }}</small>
+
             {% comment %} The pipeline is composed of the main steps:
 
             <ul>

@@ -135,7 +135,12 @@
         <small>Last update:{{ uncertain_images.last_update }}</small>
         <p>
             Images in the annotation process, to be double checked. <br>
-            Images annotated by you should not be displayed for no duplication effort.
+            Uncertain annotation:
+            <ul>
+                <li>Difference less than one in summation of accepted/rejeted Bounding Box.</li>
+                <li>Not checked by staff.</li>
+            </ul>
+
         </p>
         <div class="row justify-content-evenly mt-3 pt-3">
             <table id="uncertain-images">
@@ -173,36 +178,48 @@
     <hr/>
 
     <div class="row  mt-3 pt-3">
-        <h2>Species Annotation</h2>
+        <h2>Species Annotations: {{ total_species_annotation|intcomma }}</h2>
+        <small>Last update:{{ species_annotation.last_update }}</small>
         <p>
-            .... work in progress ... Species data will be displayed here.
+            Images to annotate species.<br>
+            They are already:
+            <ul>
+                <li>Categorized as animal, in ['animal', 'person', 'vehicle']</li>
+                <li>Have at least one bounding box accepted or rejected.</li>
+            </ul>
         </p>
         <div class="row justify-content-evenly mt-3 pt-3">
             <table id="species-annotation">
                 <thead>
                     <tr>
                         <th>Macrosite</th>
+                        <th>Station</th>
                         <th class="text-center">Priority</th>
                         <th>From</th>
                         <th>To</th>
                         <th class="text-right">Total</th>
                     </tr>
                 </thead>
-                <tbody></tbody>
+                <tbody>
+                    {% for ba in species_annotation.data %}
+                        <tr>
+                            <td>{{ ba.0 }}</td>
+                            <td>{{ ba.1 }}</td>
+                            <td>{{ ba.2 }}</td>
+                            <td>{{ ba.3 }}</td>
+                            <td>{{ ba.4 }}</td>
+                            <td>{{ ba.5 }}</td>
 
-
-                {% comment %} <tr>
-                    <td colspan="5" class="text-center">
-                        <div id="species_annotation-spinner">
-                            <div style="width: 2rem; height: 2rem;" class="spinner-border text-success" role="status"></div>
-                            <br>
-                            <small>Wait a minute for the table to load.</small>
-                            &nbsp;
-                        </div>
-                    </td>
-                </tr> {% endcomment %}
+                            {% comment %} <td>
+                                <a target="_blank" href="/images/annotate/objects?start_date={{ba.3}}&end_date={{ba.4}}&macrosite_name={{ba.0}}&camera_id=None">
+                                {{ ba.5|intcomma }}
+                                </a>
+                            </td> {% endcomment %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
             </table>
-            <div id="species_annotation-message"></div>
+            <div id="uncertain_images-message"></div>
         </div>
     </div>
 
@@ -292,28 +309,30 @@
       }
 
     $(document).ready(function() {
-        $('#prioritezed-images').DataTable( {
-            "pageLength": 100,
-            "columns": [
+
+
+        let columns = [
                 { "data": "Macrosite" },
                 { "data": "Station" },
                 { "data": "Priority" },
                 { "data": "From" },
                 { "data": "To" },
                 { "data": "Total" }
-            ]
+            ];
+        let pageLength = 25;
+        $('#prioritezed-images').DataTable( {
+            "pageLength": pageLength,
+            "columns": columns
         });
         $('#uncertain-images').DataTable( {
-            "pageLength": 100,
-            "columns": [
-                { "data": "Macrosite" },
-                { "data": "Station" },
-                { "data": "Priority" },
-                { "data": "From" },
-                { "data": "To" },
-                { "data": "Total" }
-            ]
+            "pageLength": pageLength,
+            "columns": columns
         });
+        $('#species-annotation').DataTable( {
+            "pageLength": pageLength,
+            "columns": columns
+        });
+
     });
   </script>
 

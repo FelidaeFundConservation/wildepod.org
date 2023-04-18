@@ -11,7 +11,7 @@ from datetime import timedelta
 BASE_DIR = os.path.dirname(os.path.abspath(os.path.join(__file__, '../../')))
 sys.path.append(os.path.join(BASE_DIR, 'siteapps'))
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.dev')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.local_settings')
 django.setup()
 
 from django.conf import settings
@@ -77,8 +77,6 @@ def _pd_group_images(images):
     return images.values.tolist()
 
 
-
-
 def blank_annotation_images():
     images = get_prioritized_images()
     blank_annotation_images = _pd_group_images(images)
@@ -99,9 +97,6 @@ def blank_annotation_images():
     except Exception as e:
         print(e)
         return
-
-
-
 
 
 def _get_images_to_annotate():
@@ -141,9 +136,62 @@ def uncertain_images():
         return
 
 
+def _get_images_to_annotate_species():
+    # Images with at least one annotation. Through BB accepted or rejected.
+    images_not_ba = Image.get_not_blank_annotation()
+
+    # Images pendings to finish annotation
+    images_to_annotate = _get_images_to_annotate()
+    ignore_images_s = set([ia.id for ia in images_to_annotate])
+
+    # Images where category is not animal
+    animals = Image.get_total_images_annotated_exclude_category('animal')
+    ignore_images_s |= set([a.id for a in animals])
+
+    # Images with at least one species annotation
+    species_annotation = Image.get_total_images_annotated_species()
+    ignore_images_s |= set([sa.id for sa in species_annotation])
+
+    images = [inb for inb in images_not_ba if inb.id not in ignore_images_s]
+
+    return images
+
+
+
+def species_annotation():
+    images = _get_images_to_annotate_species()
+    species_annotation = _pd_group_images(images)
+    serialized_ui = json.dumps(species_annotation, default=str)
+
+    # Get workflow collection
+    c_key = client.key('species_annotation', 'workflow')
+    species_annotation = settings.DATASTORE_CLIENT.get(c_key)
+
+    try:
+        # Update species_annotation document
+        payload = {
+            "data": serialized_ui,
+            "last_update": datetime.datetime.utcnow()
+        }
+        species_annotation.update(payload)
+        client.put(species_annotation)
+    except Exception as e:
+        print(e)
+        return
+
+
+
+
+
+
+
+
+
+
 
 if __name__ == '__main__':
-    totals_document()
-    uncertain_images()
-    blank_annotation_images()
+    species_annotation()
+    # totals_document()
+    # uncertain_images()
+    # blank_annotation_images()
 

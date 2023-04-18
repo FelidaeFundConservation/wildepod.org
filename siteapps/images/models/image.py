@@ -7,10 +7,9 @@ from locations.models import CameraStation
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
 
-
-
 from .annotator import Annotator
 from .upload import Upload
+from .raw_sql import *
 
 
 # Bounding Box manager. For now, this simply returns "valid" bounding boxes as determined
@@ -127,21 +126,55 @@ class Image(TimeStampedModel):
         return Image.objects.filter(processed=False).count()
 
     @staticmethod
-    def get_total_images_priorities():
-        priorities = Upload.objects.annotate(total=Count('images'))
+    def get_total_images_annotated_species():
+        """
+        Returns the number of images with annotated species. This is made through bounding_box
+        """
+        return Image.objects.filter(boundingbox__species__isnull=False).distinct()#.count()
 
+    @staticmethod
+    def get_total_images_annotated_category(category_name):
+        """
+        Returns the number of images with annotated category. This is made through bounding_box
+        """
+        return Image.objects.filter(boundingbox__category__name=category_name).distinct()
+
+    @staticmethod
+    def get_total_images_annotated_exclude_category(category_name):
+        """
+        Returns the number of images without the annotated category. This is made through bounding_box
+        """
+        return Image.objects.exclude(boundingbox__category__name=category_name).distinct()
+
+
+    @staticmethod
+    def get_total_images_priorities():
+        """ Returns the number of uploaded images by priority """
+        priorities = Upload.objects.annotate(total=Count('images'))
         pri_1 = priorities.filter(priority=1)
         pri_2 = priorities.filter(priority=2)
         pri_3 = priorities.filter(priority=3)
-
         return {'priority_1':sum(pr.total for pr in pri_1),
-         'priority_2':sum(pr.total for pr in pri_2),
-         'priority_3':sum(pr.total for pr in pri_3)}
+                'priority_2':sum(pr.total for pr in pri_2),
+                'priority_3':sum(pr.total for pr in pri_3)}
 
     @staticmethod
     def get_untouched_images():
+        """ Returns the number of untouched images, no accepted or rejected bounding box """
+
+        # !!! have to return images, not bounding boxes.
+
         from images.models.annotation import BoundingBox
         return BoundingBox.objects.exclude(accepted_by__isnull=False).exclude(rejected_by__isnull=False).values('image_id').distinct().count()
+
+
+    """
+    FROM RAW SQL
+    """
+    @staticmethod
+    def get_not_blank_annotation():
+        return get_not_blank_annotation()
+
 
 
 

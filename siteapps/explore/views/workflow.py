@@ -32,7 +32,16 @@ class WorkflowStateView(TemplateView):
             uncertain_images['data'] = json.loads(uncertain_images['data'])
             totals['uncertain_images'] = sum(sublist[-1] for sublist in uncertain_images['data'])
 
-            return {'totals': totals, 'uncertain_images': uncertain_images, 'blank_annotation': blank_annotation}
+            species_annotation = settings.DATASTORE_CLIENT.get(client.key('species_annotation', 'workflow'))
+            species_annotation = {k: v for k, v in species_annotation.items()}
+            species_annotation['data'] = json.loads(species_annotation['data'])
+            totals['species_annotation'] = sum(sublist[-1] for sublist in species_annotation['data'])
+
+            return {'totals': totals,
+                    'uncertain_images': uncertain_images,
+                    'blank_annotation': blank_annotation,
+                    'species_annotation': species_annotation}
+
         except Exception as e:
             print(e)
             return HttpResponseServerError("Error in getting data from datastore")
@@ -47,8 +56,10 @@ class WorkflowStateView(TemplateView):
             context["total_images_not_processed"] = datastore['totals']['not_processed_images']
             context["total_blank_annotation"] = datastore['totals']['blank_annotation']
             context["total_uncertain_images"] = datastore['totals']['uncertain_images']
+            context["total_species_annotation"] = datastore['totals']['species_annotation']
 
             context["blank_annotation"] = datastore['blank_annotation']
             context["uncertain_images"] = datastore['uncertain_images']
+            context["species_annotation"] = datastore['species_annotation']
 
             return context

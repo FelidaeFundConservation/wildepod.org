@@ -126,26 +126,36 @@ class Image(TimeStampedModel):
         return Image.objects.filter(processed=False).count()
 
     @staticmethod
-    def get_total_images_annotated_species():
+    def get_total_images_annotated_species(species_name=None):
         """
-        Returns the number of images with annotated species. This is made through bounding_box
+        Returns the images with annotated species. This is made through bounding_box
         """
-        return Image.objects.filter(boundingbox__species__isnull=False).distinct()#.count()
+        if species_name == 'human':
+            return Image.objects.filter(boundingbox__species__name_id=8).distinct()
+        else:
+            return Image.objects.filter(boundingbox__species__isnull=False).exclude(boundingbox__species__name_id=8).distinct()
 
     @staticmethod
     def get_total_images_annotated_category(category_name):
         """
-        Returns the number of images with annotated category. This is made through bounding_box
+        Returns the images with annotated category. This is made through bounding_box
         """
         return Image.objects.filter(boundingbox__category__name=category_name).distinct()
 
     @staticmethod
     def get_total_images_annotated_exclude_category(category_name):
         """
-        Returns the number of images without the annotated category. This is made through bounding_box
+        Returns the images without the annotated category. This is made through bounding_box
         """
         return Image.objects.exclude(boundingbox__category__name=category_name).distinct()
 
+    @staticmethod
+    def get_total_images_annotated_activity(category_name='animal'):
+        """
+        Returns the images with annotated activity. This is made through bounding_box
+        """
+        category = [5,6,7,8] if category_name == 'human' else [1,2,3,4]
+        return Image.objects.filter(boundingbox__activity__name__in=category).distinct()
 
     @staticmethod
     def get_total_images_priorities():

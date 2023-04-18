@@ -136,7 +136,7 @@ def uncertain_images():
         return
 
 
-def _get_images_to_annotate_species():
+def _get_images_to_annotate_species(species):
     # Images with at least one annotation. Through BB accepted or rejected.
     images_not_ba = Image.get_not_blank_annotation()
 
@@ -145,21 +145,21 @@ def _get_images_to_annotate_species():
     ignore_images_s = set([ia.id for ia in images_to_annotate])
 
     # Images where category is not animal
-    animals = Image.get_total_images_annotated_exclude_category('animal')
-    ignore_images_s |= set([a.id for a in animals])
+    not_exclude = Image.get_total_images_annotated_category(species)
+    not_ignore_images_s = set([a.id for a in not_exclude])
 
     # Images with at least one species annotation
     species_annotation = Image.get_total_images_annotated_species()
     ignore_images_s |= set([sa.id for sa in species_annotation])
 
-    images = [inb for inb in images_not_ba if inb.id not in ignore_images_s]
+    images = [inb for inb in images_not_ba if inb.id not in ignore_images_s and inb.id in not_ignore_images_s]
 
     return images
 
 
 
 def species_annotation():
-    images = _get_images_to_annotate_species()
+    images = _get_images_to_annotate_species('animal')
     species_annotation = _pd_group_images(images)
     serialized_ui = json.dumps(species_annotation, default=str)
 
@@ -181,17 +181,73 @@ def species_annotation():
 
 
 
+def _get_images_to_annotate_activity(species=None):
+    species_annotated = Image.get_total_images_annotated_species(species)
+    activity_annotated = Image.get_total_images_annotated_activity(species)
+    ignore_images_s = set([aa.id for aa in activity_annotated])
+
+    images = [sa for sa in species_annotated if sa.id not in ignore_images_s]
+
+    return images
 
 
 
 
+"""
+Have to make the RAW SQL for these two:
+ORM doesn have enriched images info.
+"""
+def animal_activity():
+    images = _get_images_to_annotate_activity()
+    animal_activity = _pd_group_images(images)
+    serialized_ui = json.dumps(animal_activity, default=str)
+
+    # Get workflow collection
+    c_key = client.key('species_annotation', 'workflow')
+    animal_activity = settings.DATASTORE_CLIENT.get(c_key)
+
+    try:
+        # Update species_annotation document
+        payload = {
+            "data": serialized_ui,
+            "last_update": datetime.datetime.utcnow()
+        }
+        animal_activity.update(payload)
+        client.put(animal_activity)
+    except Exception as e:
+        print(e)
+        return
+
+
+def human_behavior():
+    images = _get_images_to_annotate_activity(species='human')
+    human_behavior = _pd_group_images(images)
+    serialized_ui = json.dumps(human_behavior, default=str)
+
+    # Get workflow collection
+    c_key = client.key('human_behavior', 'workflow')
+    human_behavior = settings.DATASTORE_CLIENT.get(c_key)
+
+    try:
+        # Update human_behavior document
+        payload = {
+            "data": serialized_ui,
+            "last_update": datetime.datetime.utcnow()
+        }
+        human_behavior.update(payload)
+        client.put(human_behavior)
+    except Exception as e:
+        print(e)
+        return
 
 
 
 
 if __name__ == '__main__':
+    # animal_activity()
+    # human_behavior()
     species_annotation()
-    # totals_document()
-    # uncertain_images()
-    # blank_annotation_images()
+    totals_document()
+    uncertain_images()
+    blank_annotation_images()
 

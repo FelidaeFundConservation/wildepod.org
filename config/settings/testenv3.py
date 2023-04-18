@@ -19,7 +19,7 @@ WSGI_APPLICATION = "config.wsgi.testenv3.application"
 # DATABASES
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases
-DATABASES = {"default": env.db("STAGING_DATABASE_URL")}
+DATABASES = {"default": env.db("PROD_DATABASE_URL")}
 
 # import pdb; pdb.set_trace()
 DATABASES["default"]["NAME"] = "dev_test"

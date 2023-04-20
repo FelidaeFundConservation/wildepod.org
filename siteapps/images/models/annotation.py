@@ -241,6 +241,13 @@ class Category(TimeStampedModel):
         verbose_name_plural = "Category Annotations"
 
 
+    @staticmethod
+    def get_categories_group_by():
+        return Category.objects.values('name').annotate(total=Count(1))
+
+
+
+
 # Each annotation is futher linked to an Annotation Type if the primary class is an animal
 # This is the Species of the animal identified
 class Species(TimeStampedModel):

@@ -29,6 +29,28 @@
       <path d="M14 4a4 4 0 1 1-8 0 4 4 0 0 1 8 0z"></path>
     </symbol>
   </svg>
+  <style>
+    hr {
+        margin-left: 12px;
+        border: 1px solid #ff4b00 !important;
+        background-color: #ff4b00 !important;
+        opacity: 1 !important;
+    }
+    hr.light {
+        margin-left: 12px;
+        border: 0px solid #ff4b00 !important;
+        background-color: #ff4b00 !important;
+        width:30%;
+        opacity: 1 !important;
+    }
+    .py-5 {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+    }
+    h3{
+        padding-top: 2rem !important;
+    }
+  </style>
 
 {% endblock header_includes %}
 
@@ -42,7 +64,6 @@
             <small>
             ** Texts and icons are subject to change. Please check. **
             </small><br>
-            <small>Last update overall:{{ totals_last_update }}</small>
 
             {% comment %} The pipeline is composed of the main steps:
 
@@ -56,13 +77,16 @@
             </ul> {% endcomment %}
         </p>
 
+
+        <h2>Key Findings</h2>
         <hr/>
+        <small>Last update: {{ totals_last_update }}</small>
 
         <div class="container px-4 py-5" id="featured-3">
-            <h2>Key Findings</h2>
+
             <div class="row g-4 py-5 row-cols-1 row-cols-lg-3">
                 <div class="feature col">
-                  <div class="feature-icon d-inline-flex align-items-center justify-content-center text-bg-primary bg-gradient fs-2 mb-3">
+                  '<div class="feature-icon d-inline-flex align-items-center justify-content-center text-bg-primary bg-gradient fs-2 mb-3">
                     <svg class="bi" width="1em" height="1em"><use xlink:href="#collection"></use></svg>
                   </div>
                   <h3>Uploaded Images: {{ total_images|intcomma }} </h3>
@@ -83,17 +107,36 @@
                   <p>Images processed by MegaDetector. They are in the annotation process.</p>
                 </div>
               </div>
+
+
+
         </div>
+
+
     </div>
 
-    <hr/>
+
 
     <div class="row  mt-3 pt-3">
-        <h2>Blank Annotation Images: {{ total_blank_annotation|intcomma }}</h2>
+        <h2>Categories</h2>
+        <hr/>
+
+        <h3>Categories identified</h3>
+        <div class="row">
+            {% for cat in categories %}
+            <div class="col-md-3 col-xs-6">
+                <p>{{ cat.name|capfirst }}: <b>{{ cat.total|intcomma }}</b> </p>
+            </div>
+            {% endfor %}
+        </div>
+        <small>The summation of all categories may be higher than the number of images, because one image may contain zero or more categories.<br>
+        These are bounding boxes.</small>
+
+
+        <h3>Category Annotation</h3>
+        <hr class="light"/>
         <small>Last update:{{ blank_annotation.last_update }}</small>
-        <p>
-            Untouched images, ready to annotate.
-        </p>
+        <p>Images to check category annotation: <b> {{ total_blank_annotation|intcomma }}</b></p>
         <div class="row justify-content-evenly mt-3 pt-3">
             <table id="prioritezed-images">
                 <thead>
@@ -127,20 +170,24 @@
         </div>
     </div>
 
-    <hr/>
 
     <div class="row  mt-3 pt-3">
-        <h2>Uncertain Annotations: {{ total_uncertain_images|intcomma }}</h2>
+
+        <h2>Category - Uncertain Annotation</h2>
+        <hr class="light"/>
         <small>Last update:{{ uncertain_images.last_update }}</small>
         <p>
-            Images in the annotation process, to be double checked. <br>
-            Uncertain annotation:
-            <ul>
-                <li>Difference less than one in summation of accepted/rejeted Bounding Box.</li>
-                <li>Not checked by staff.</li>
-            </ul>
+            Images to double check categories annotation: <b> {{ total_uncertain_images|intcomma }} </b><br>
 
         </p>
+        <small>
+        Uncertain annotation:
+        <ul>
+            <li>Difference less than one in summation of accepted/rejeted Bounding Box.</li>
+            <li>Not checked by staff.</li>
+        </ul>
+        </small>
+
         <div class="row justify-content-evenly mt-3 pt-3">
             <table id="uncertain-images">
                 <thead>
@@ -174,19 +221,37 @@
         </div>
     </div>
 
-    <hr/>
 
     <div class="row  mt-3 pt-3">
-        <h2>Species Annotations: {{ total_species_annotation|intcomma }}</h2>
+
+        <h2>Species</h2>
+        <hr/>
+
+        <h3>Species identified</h3>
+        <div class="row">
+            {% for cat in categories %}
+            <div class="col-md-3 col-xs-6">
+                <p>{{ cat.name|capfirst }}: <b>{{ cat.total|intcomma }}</b> </p>
+            </div>
+            {% endfor %}
+        </div>
+        <small>The summation of all categories may be higher than the number of images, because one image may contain zero or more categories.<br>
+        These are bounding boxes.</small>
+
+
+        <h2>Species Annotations</h2>
+        <hr class="light"/>
         <small>Last update:{{ species_annotation.last_update }}</small>
         <p>
-            Images to annotate species.<br>
+            Images to annotate species: <b>{{ total_species_annotation|intcomma }}</b><br>
+        </p>
+            <small>
             They are already:
             <ul>
                 <li>Categorized as animal, in ['animal', 'person', 'vehicle']</li>
                 <li>Have at least one bounding box accepted or rejected.</li>
             </ul>
-        </p>
+        </small>
         <div class="row justify-content-evenly mt-3 pt-3">
             <table id="species-annotation">
                 <thead>
@@ -222,10 +287,10 @@
         </div>
     </div>
 
-    <hr/>
 
     <div class="row  mt-3 pt-3">
         <h2>Animal Activity</h2>
+        <hr/>
         <p>
             .... work in progress ...  Animal activity data will be displayed here.
         </p>
@@ -258,10 +323,10 @@
         </div>
     </div>
 
-    <hr/>
 
     <div class="row  mt-3 pt-3">
         <h2>Human Behavior</h2>
+        <hr/>
         <p>
             .... work in progress ... Human behaviour data will be displayed here.
         </p>

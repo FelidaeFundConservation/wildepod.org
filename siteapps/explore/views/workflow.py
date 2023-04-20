@@ -5,6 +5,7 @@ from django.views.generic.base import TemplateView
 
 from images.models.image import Image
 from images.models.raw_sql import get_prioritized_images, get_uncertain_images, get_images_to_ignore
+from images.models.annotation import Category
 
 
 class WorkflowStateView(TemplateView):
@@ -52,6 +53,7 @@ class WorkflowStateView(TemplateView):
             context = super().get_context_data(**kwargs)
 
 
+            context["categories"] = Category.get_categories_group_by()
             context["totals_last_update"] = datastore['totals']['last_update']
             context["total_images"] = datastore['totals']['uploaded_images']
             context["total_images_processed"] = datastore['totals']['processed_images']

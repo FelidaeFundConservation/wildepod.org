@@ -260,13 +260,13 @@
                 data: data,
                 dataType: 'json',
                 success: function (data) {
-                    let deletionText = document.getElementById(`deletion-text-${data.boxId}`);
+                    let deletionText = document.getElementById(`deletion-text-${data.name}`);
 
                     if (data.success) {
-                        deletionText.innerHTML = `<i>Annotation "<b>${data.boxId}</b>" has been deleted.</i>`;
+                        deletionText.innerHTML = `<i>Annotation "<b>${data.name}</b>" has been deleted.</i>`;
                     }
                     else {
-                        deletionText.innerHTML = `There was a problem deleting <i>annotation "<b>${data.boxId}</b>".</i>`;
+                        deletionText.innerHTML = `There was a problem deleting <i>annotation "<b>${data.name}</b>".</i>`;
                     }
                 },
             });

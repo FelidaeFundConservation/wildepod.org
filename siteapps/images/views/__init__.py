@@ -3,6 +3,7 @@ from .annotation import (
     AnnotateActivityView,
     AnnotateObjectsView,
     AnnotateSpeciesView,
+    DeleteAnnotationView,
     MDAnnotationProcessorView,
     SpeciesAnnotationProcessorView,
 )

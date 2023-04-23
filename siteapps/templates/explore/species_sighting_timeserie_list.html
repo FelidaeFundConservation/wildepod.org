@@ -63,15 +63,12 @@
             <th>Uploaded</th>
             <th>Species Annotated</th>
             <th>Macro Site</th>
-            {% comment %} <th>Micro Site</th> {% endcomment %}
             <th>Station</th>
             <th>Latitude</th>
             <th>Longitude</th>
             <th>Pictures</th>
         </tr>
 
-        {% comment %}
-        {% endcomment %}
         {% for sstl in species_sighting_timeserie_list %}
             <tr>
                 <td>{{ sstl.exif_dt|date:'Y-m-d' }}</td>
@@ -80,9 +77,6 @@
                 <td><a href="{% url 'explore:species_sighting_timeserie_list' species=species %}?macrosite={{ sstl.macrosite }}">
                         {{ sstl.macrosite }}
                     </a></td>
-                {% comment %} <td><a href="{% url 'explore:species_sighting_timeserie_list' species=species %}?microsite={{ sstl.microsite }}">
-                        {{ sstl.microsite }}
-                    </a></td> {% endcomment %}
                 <td><a href="{% url 'explore:species_sighting_timeserie_list' species=species %}?station={{ sstl.station_id }}">
                         {{ sstl.station_id }}
                     </a></td>

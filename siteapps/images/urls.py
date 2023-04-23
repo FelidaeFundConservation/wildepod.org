@@ -5,6 +5,7 @@ from .views import (
     AnnotateActivityView,
     AnnotateObjectsView,
     AnnotateSpeciesView,
+    CustomAnnotationView,
     DeleteAnnotationView,
     ImageDetailView,
     MDAnnotationProcessorView,
@@ -40,7 +41,16 @@ urlpatterns = [
     path("image/<uuid:pk>", ImageDetailView.as_view(), name="image"),
     path("annotate/objects", AnnotateObjectsView.as_view(), name="annotate_objects"),
     path("annotate/species", AnnotateSpeciesView.as_view(), name="annotate_species"),
-    path("annotate/activity/<str:category>", AnnotateActivityView.as_view(), name="annotate_activity"),
+    path(
+        "annotate/custom_annotation",
+        CustomAnnotationView.as_view(),
+        name="custom_annotation",
+    ),
+    path(
+        "annotate/activity/<str:category>",
+        AnnotateActivityView.as_view(),
+        name="annotate_activity",
+    ),
     path(
         "md-annotation-processor/",
         MDAnnotationProcessorView.as_view(),

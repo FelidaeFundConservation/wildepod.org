@@ -263,12 +263,14 @@
                 method: 'POST',
                 data: data,
                 dataType: 'json',
-                success: function (data){
+                success: function (data) {
+                    let deletionText = document.getElementById(`deletion-text-${data.name}`);
+
                     if (data.success) {
-                        console.log("annotation deleted");
+                        deletionText.innerHTML = `<i>Annotation "<b>${data.name}</b>" has been deleted.</i>`;
                     }
                     else {
-                        console.log("deletion failed")
+                        deletionText.innerHTML = `There was a problem deleting <i>annotation "<b>${data.name}</b>".</i>`;
                     }
                 },
             });

@@ -129,7 +129,7 @@
                                                             <div style="border-bottom: 1px solid gray; width: 100%" >
                                                                 <text style="font-size: 16px; width: 80%">{{ category.name }}</text>
                                                                 <button type="button" style="width: 10%; color: red; border: none; background-color: transparent"
-                                                                    onclick="staffDeleteAnnotation('category', '{{ bbox.id }}', '{{ category.name }}'); deleteAnnotationEntry('category-{{ bbox.id }}-{{ category.name }}');">
+                                                                    onclick="staffDeleteAnnotation('category', '{{ bbox.id }}', '{{ category.name }}'); deleteAnnotationEntry('category-{{ bbox.id }}-{{ category.name }}', `{{ category.name }}`);">
                                                                     (Delete)
                                                                 </button>
                                                             </div>
@@ -173,7 +173,7 @@
                                                             <div style="border-bottom: 1px solid gray; width: 100%" >
                                                                 <text style="font-size: 16px; width: 90%">{{ species }}</text>
                                                                 <button type="button" style="width: 10%; color: red; border: none; background-color: transparent"
-                                                                    onclick="staffDeleteAnnotation('species', '{{ bbox.id }}', '{{ species.name }}'); deleteAnnotationEntry('species-{{ bbox.id }}-{{ species.name }}');">
+                                                                    onclick="staffDeleteAnnotation('species', '{{ bbox.id }}', '{{ species.name }}'); deleteAnnotationEntry('species-{{ bbox.id }}-{{ species.name }}', `{{ species.name }}`);">
                                                                     (Delete)
                                                                 </button>
                                                             </div>
@@ -217,7 +217,7 @@
                                                             <div style="border-bottom: 1px solid gray; width: 100%" >
                                                                 <text style="font-size: 16px; width: 90%">{{ activity.name }}</text>
                                                                 <button type="button" style="width: 10%; color: red; border: none; background-color: transparent"
-                                                                    onclick="staffDeleteAnnotation('activity', '{{ bbox.id }}', '{{ activity.name }}'); deleteAnnotationEntry('activity-{{ bbox.id }}-{{ activity.name }}');">
+                                                                    onclick="staffDeleteAnnotation('activity', '{{ bbox.id }}', '{{ activity.name }}'); deleteAnnotationEntry('activity-{{ bbox.id }}-{{ activity.name }}', `{{ activity.name }}`);">
                                                                     (Delete)
                                                                 </button>
                                                             </div>
@@ -268,8 +268,18 @@
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
-    function deleteAnnotationEntry(id) {
-        try { document.getElementById(id).remove(); }
-        catch { console.log("Annotation entry element couldn't be found."); }
+    function deleteAnnotationEntry(parentId, annotationName) {
+        try {
+            const annotationEntry = document.getElementById(parentId);
+            annotationEntry.innerHTML = "";
+
+            const deletionText = document.createElement("text");
+            deletionText.id = `deletion-text-${annotationName}`;
+
+            annotationEntry.appendChild(deletionText);
+        }
+        catch {
+            console.log("Annotation entry element couldn't be found.");
+        }
     }
 </script>

@@ -4,10 +4,11 @@ import logging
 
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Exists, OuterRef, Q
 from django.http.response import JsonResponse
 from django.views.generic.base import TemplateView, View
-from images.models import ActivityType, Annotator, BoundingBox, Image, Species, SpeciesName
+from images.models import Activity, ActivityType, Annotator, BoundingBox, Category, Image, Species, SpeciesName
 from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
 
 MAX_VOTES_PER_IMAGE = 2
@@ -103,6 +104,30 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
         context["context_images"] = [
             Image.objects.get(id=image_id) for image_id in queue["images"][lowerIndex:upperIndex]
         ]
+
+        # Gather all annotations for bounding boxes.
+        class BboxAnnotationInfo:
+            def __init__(self, boxId, categories, species, activities):
+                self.id = boxId
+                self.categories = categories
+                self.species = species
+                self.activities = activities
+
+        try:
+            bboxes = BoundingBox.objects.filter(image=queue["images"][queue["index"]])
+        except ObjectDoesNotExist:
+            bboxes = []
+
+        infoList = []
+
+        for bbox in bboxes:
+            categories = Category.objects.filter(bounding_box=bbox)
+            species = Species.objects.filter(bounding_box=bbox)
+            activities = Activity.objects.filter(bounding_box=bbox)
+
+            infoList.append(BboxAnnotationInfo(bbox.id, categories, species, activities))
+
+        context["bbox_all_annotations"] = infoList
 
         return context
 
@@ -222,6 +247,30 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
             Image.objects.get(id=image_id) for image_id in queue["images"][lowerIndex:upperIndex]
         ]
 
+        # Gather all annotations for bounding boxes.
+        class BboxAnnotationInfo:
+            def __init__(self, id, categories, species, activities):
+                self.id = id
+                self.categories = categories
+                self.species = species
+                self.activities = activities
+
+        try:
+            bboxes = BoundingBox.objects.filter(image=queue["images"][queue["index"]])
+        except ObjectDoesNotExist:
+            bboxes = []
+
+        infoList = []
+
+        for bbox in bboxes:
+            categories = Category.objects.filter(bounding_box=bbox)
+            species = Species.objects.filter(bounding_box=bbox)
+            activities = Activity.objects.filter(bounding_box=bbox)
+
+            infoList.append(BboxAnnotationInfo(bbox.id, categories, species, activities))
+
+        context["bbox_all_annotations"] = infoList
+
         return context
 
 
@@ -329,6 +378,30 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
         context["context_images"] = [
             Image.objects.get(id=image_id) for image_id in queue["images"][lowerIndex:upperIndex]
         ]
+
+        # Gather all annotations for bounding boxes.
+        class BboxAnnotationInfo:
+            def __init__(self, id, categories, species, activities):
+                self.id = id
+                self.categories = categories
+                self.species = species
+                self.activities = activities
+
+        try:
+            bboxes = BoundingBox.objects.filter(image=queue["images"][queue["index"]])
+        except ObjectDoesNotExist:
+            bboxes = []
+
+        infoList = []
+
+        for bbox in bboxes:
+            categories = Category.objects.filter(bounding_box=bbox)
+            species = Species.objects.filter(bounding_box=bbox)
+            activities = Activity.objects.filter(bounding_box=bbox)
+
+            infoList.append(BboxAnnotationInfo(bbox.id, categories, species, activities))
+
+        context["bbox_all_annotations"] = infoList
 
         return context
 
@@ -449,4 +522,31 @@ class ActivityAnnotationProcessorView(LoginRequiredMixin, View):
             settings.DATASTORE_CLIENT.put(queue)
 
         # # TODO: Send and render a meaningful response
+        return JsonResponse({"success": success})
+
+
+class DeleteAnnotationView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        model = request.POST.get("model")
+        boxId = request.POST.get("boxId")
+        annotationName = request.POST.get("annotationName")
+
+        success = None
+        bbox = BoundingBox.objects.get(id=boxId)
+
+        try:
+            if model == "category":
+                category = Category.objects.get(bounding_box=bbox, name=annotationName)
+                category.delete()
+                success = True
+            elif model == "species":
+                species = Species.objects.get(bounding_box=bbox, name=annotationName)
+                species.delete()
+                success = True
+            elif model == "activity":
+                activity = Activity.objects.get(bounding_box=bbox, name=annotationName)
+                activity.delete()
+                success = True
+        except ObjectDoesNotExist:
+            success = False
         return JsonResponse({"success": success})

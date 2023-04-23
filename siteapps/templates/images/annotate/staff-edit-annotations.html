@@ -1,0 +1,275 @@
+{% load static %}
+
+<div class="modal" id="staffEditModal" tabindex="-1" role="dialog" aria-labelledby="staffEditModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content" style="width: 70vw; margin-left: -200px">
+      <div class="modal-header">
+        <h5 class="modal-title" id="staffEditModalLabel">Admin Annotations Overview</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="my-content">
+          <!-- Modal content here -->
+            <div id="staff-edit-annotations">
+                <div id="staff-bbox-list">
+                    <div id="image-information-entry" style="border: 2px solid black; margin-bottom: 30px;">
+                        <h2 style="text-align: left; border-bottom: 2px solid black; width: 100%">&nbsp;&nbsp;Image</h2>
+                        <div>
+                            <div style="display: flex">
+                                <div id="image-bbox-checkedby" style="border: 1px solid black; margin: 10px; width: 33.3%">
+                                    <text style="border-bottom: 2px solid black;"><b>BBox Checked By</b></text>
+                                    {% if image.bbox_checked_by.exists %}
+                                        {% for annotator in image.bbox_checked_by.all %}
+                                            <br><text style="font-size: 12px">{{ annotator }}</text>
+                                        {% endfor %}
+                                    {% else %}
+                                        <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
+                                    {% endif %}
+                                </div>
+                                <div id="image-species-checkedby" style="border: 1px solid black; margin: 10px; width: 33.3%">
+                                    <text style="border-bottom: 1px solid black;"><b>Species Checked By</b></text>
+                                    {% if image.species_checked_by.exists %}
+                                        {% for annotator in image.species_checked_by.all %}
+                                            <br><text style="font-size: 12px">{{ annotator }}</text>
+                                        {% endfor %}
+                                    {% else %}
+                                        <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
+                                    {% endif %}
+                                </div>
+                                 <div id="image-activity-checkedby" style="border: 1px solid black; margin: 10px; width: 33.3%">
+                                    <text style="border-bottom: 1px solid black;"><b>Activity Checked By</b></text>
+                                    {% if image.activity_checked_by.exists %}
+                                        {% for annotator in image.activity_checked_by.all %}
+                                            <br><text style="font-size: 12px">{{ annotator }}</text>
+                                        {% endfor %}
+                                    {% else %}
+                                        <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div style="display: flex">
+                                <div id="image-bbox-skippedby" style="border: 1px solid black; margin: 10px; width: 33.3%">
+                                    <text style="border-bottom: 1px solid black;"><b>BBox Skipped By</b></text>
+                                    {% if image.bbox_skipped_by.exists %}
+                                        {% for annotator in image.bbox_skipped_by.all %}
+                                            <br><text style="font-size: 12px">{{ annotator }}</text>
+                                        {% endfor %}
+                                    {% else %}
+                                        <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
+                                    {% endif %}
+                                </div>
+                                <div id="image-species-skippedby" style="border: 1px solid black; margin: 10px; width: 33.3%">
+                                    <text style="border-bottom: 1px solid black;"><b>Species Skipped By</b></text>
+                                    {% if image.species_skipped_by.exists %}
+                                        {% for annotator in image.species_skipped_by.all %}
+                                            <br><text style="font-size: 12px">{{ annotator }}</text>
+                                        {% endfor %}
+                                    {% else %}
+                                        <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
+                                    {% endif %}
+                                </div>
+                                 <div id="image-activity-skippedby" style="border: 1px solid black; margin: 10px; width: 33.3%">
+                                    <text style="border-bottom: 1px solid black;"><b>Activity Skipped By</b></text>
+                                    {% if image.activity_skipped_by.exists %}
+                                        {% for annotator in image.activity_skipped_by.all %}
+                                            <br><text style="font-size: 12px">{{ annotator }}</text>
+                                        {% endfor %}
+                                    {% else %}
+                                        <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                     </div>
+
+                     {% for bbox in bounding_boxes %}
+                     <div id="bbox-information-entry-{{ bbox.id }}" style="border: 2px solid black; margin-bottom: 30px; width: 100%;">
+                         <h2 style="text-align: left; border-bottom: 2px solid black; width: 100%;">&nbsp;&nbsp;Bounding Box {{ forloop.counter }}</h2>
+
+                         <div style="width: 100%;">
+                            <div style="display: flex;">
+                                <div style="border: 1px solid black; margin: 10px; width: 33%;">
+                                    <text style="border-bottom: 1px solid black;"><b>Preview Image</b></text>
+                                    <div id="staff-modal-card-{{ bbox.id }}" style="margin: 10px;">
+
+                                    </div>
+                                </div>
+                                <div id="bbox-acceptedby-{{ bbox.id }}" style="border: 1px solid black; margin: 10px; width: 33%">
+                                    <text style="border-bottom: 1px solid black;"><b>Bbox Accepted By</b></text>
+                                    {% if bbox.accepted_by.exists %}
+                                        {% for annotator in bbox.accepted_by.all %}
+                                            <br><text style="font-size: 12px">{{ annotator }}</text>
+                                        {% endfor %}
+                                    {% else %}
+                                        <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
+                                    {% endif %}
+                                </div>
+                                <div id="bbox-rejectedby-{{ bbox.id }}" style="border: 1px solid black; margin: 10px; width: 33%">
+                                    <text style="border-bottom: 1px solid black;"><b>Bbox Rejected By</b></text>
+                                    {% if bbox.rejected_by.exists %}
+                                        {% for annotator in bbox.rejected_by.all %}
+                                            <br><text style="font-size: 12px">{{ annotator }}</text>
+                                        {% endfor %}
+                                    {% else %}
+                                        <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div style="display: flex">
+                                <div id="bbox-category-{{ bbox.id }}" style="border: 1px solid black; margin: 10px; width: 100%">
+                                    <text style="border-bottom: 1px solid black;"><b>Category Annotations</b></text><br>
+                                    {% for info in bbox_all_annotations %}
+                                        {% if bbox.id == info.id %}
+                                            {% if info.categories.exists %}
+                                                {% for category in info.categories.all %}
+                                                    <div id="category-{{ bbox.id }}-{{ category.name }}" style="border: 1px solid gray; margin: 10px">
+                                                        <div style="display: flex;">
+                                                            <div style="border-bottom: 1px solid gray; width: 100%" >
+                                                                <text style="font-size: 16px; width: 80%">{{ category.name }}</text>
+                                                                <button type="button" style="width: 10%; color: red; border: none; background-color: transparent"
+                                                                    onclick="staffDeleteAnnotation('category', '{{ bbox.id }}', '{{ category.name }}'); deleteAnnotationEntry('category-{{ bbox.id }}-{{ category.name }}');">
+                                                                    (Delete)
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        <div style="margin: 10px; border: 1px solid silver">
+                                                            <text style="font-size: 12px; width: 100%;"><b><u>Accepted</u></b></text><br>
+                                                            {% if category.accepted_by.exists %}
+                                                                {% for annotator in category.accepted_by.all %}
+                                                                <text style="font-size: 12px"><i>{{ annotator }}</i></text><br>
+                                                                {% endfor %}
+                                                            {% else %}
+                                                                <text style="font-size: 12px"><i>No annotators yet.</i></text>
+                                                            {% endif %}
+                                                        </div>
+                                                        <div style="margin: 10px; border: 1px solid silver">
+                                                            <text style="font-size: 12px; width: 100%"><b><u>Rejected</u></b></text><br>
+                                                            {% if category.rejected_by.exists %}
+                                                                {% for annotator in category.rejected_by.all %}
+                                                                <text style="font-size: 12px"><i>{{ annotator }}</i></text><br>
+                                                                {% endfor %}
+                                                            {% else %}
+                                                                <text style="font-size: 12px"><i>No annotators yet.</i></text>
+                                                            {% endif %}
+                                                        </div>
+                                                    </div>
+                                                {% endfor %}
+                                            {% else %}
+                                                <text style="font-size: 12px"><i>No annotations yet.</i></text>
+                                            {% endif %}
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                                <div id="bbox-species-{{ bbox.id }}" style="border: 1px solid black; margin: 10px; width: 100%">
+                                    <text style="border-bottom: 1px solid black;"><b>Species Annotations</b></text><br>
+                                    {% for info in bbox_all_annotations %}
+                                        {% if bbox.id == info.id %}
+                                            {% if info.species.exists %}
+                                                {% for species in info.species.all %}
+                                                    <div id="species-{{ bbox.id }}-{{ species.name }}" style="border: 1px solid gray; margin: 10px">
+                                                        <div style="display: flex;">
+                                                            <div style="border-bottom: 1px solid gray; width: 100%" >
+                                                                <text style="font-size: 16px; width: 90%">{{ species }}</text>
+                                                                <button type="button" style="width: 10%; color: red; border: none; background-color: transparent"
+                                                                    onclick="staffDeleteAnnotation('species', '{{ bbox.id }}', '{{ species.name }}'); deleteAnnotationEntry('species-{{ bbox.id }}-{{ species.name }}');">
+                                                                    (Delete)
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        <div style="margin: 10px; border: 1px solid silver">
+                                                            <text style="font-size: 12px; width: 100%;"><b><u>Accepted</u></b></text><br>
+                                                            {% if species.accepted_by.exists %}
+                                                                {% for annotator in species.accepted_by.all %}
+                                                                <text style="font-size: 12px"><i>{{ annotator }}</i></text><br>
+                                                                {% endfor %}
+                                                            {% else %}
+                                                                <text style="font-size: 12px"><i>No annotators yet.</i></text>
+                                                            {% endif %}
+                                                        </div>
+                                                        <div style="margin: 10px; border: 1px solid silver">
+                                                            <text style="font-size: 12px; width: 100%"><b><u>Rejected</u></b></text><br>
+                                                            {% if species.rejected_by.exists %}
+                                                                {% for annotator in species.rejected_by.all %}
+                                                                <text style="font-size: 12px"><i>{{ annotator }}</i></text><br>
+                                                                {% endfor %}
+                                                            {% else %}
+                                                                <text style="font-size: 12px"><i>No annotators yet.</i></text>
+                                                            {% endif %}
+                                                        </div>
+                                                    </div>
+                                                {% endfor %}
+                                            {% else %}
+                                                <text style="font-size: 12px"><i>No annotations yet.</i></text>
+                                            {% endif %}
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                                 <div id="bbox-activity-{{ bbox.id }}" style="border: 1px solid black; margin: 10px; width: 100%">
+                                    <text style="border-bottom: 1px solid black;"><b>Activity Annotations</b></text><br>
+                                    {% for info in bbox_all_annotations %}
+                                        {% if bbox.id == info.id %}
+                                            {% if info.activities.exists %}
+                                                {% for activity in info.activities.all %}
+                                                    <div id="activity-{{ bbox.id }}-{{ activity.name }}" style="border: 1px solid gray; margin: 10px">
+                                                        <div style="display: flex;">
+                                                            <div style="border-bottom: 1px solid gray; width: 100%" >
+                                                                <text style="font-size: 16px; width: 90%">{{ activity.name }}</text>
+                                                                <button type="button" style="width: 10%; color: red; border: none; background-color: transparent"
+                                                                    onclick="staffDeleteAnnotation('activity', '{{ bbox.id }}', '{{ activity.name }}'); deleteAnnotationEntry('activity-{{ bbox.id }}-{{ activity.name }}');">
+                                                                    (Delete)
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                        <div style="margin: 10px; border: 1px solid silver">
+                                                                <text style="font-size: 12px; width: 100%;"><b><u>Accepted</u></b></text><br>
+                                                                {% if activities.accepted_by.exists %}
+                                                                    {% for annotator in activities.accepted_by.all %}
+                                                                    <text style="font-size: 12px"><i>{{ annotator }}</i></text><br>
+                                                                    {% endfor %}
+                                                                {% else %}
+                                                                    <text style="font-size: 12px"><i>No annotators yet.</i></text>
+                                                                {% endif %}
+                                                            </div>
+                                                        <div style="margin: 10px; border: 1px solid silver">
+                                                            <text style="font-size: 12px; width: 100%"><b><u>Rejected</u></b></text><br>
+                                                            {% if activities.rejected_by.exists %}
+                                                                {% for annotator in activities.rejected_by.all %}
+                                                                <text style="font-size: 12px"><i>{{ annotator }}</i></text><br>
+                                                                {% endfor %}
+                                                            {% else %}
+                                                                <text style="font-size: 12px"><i>No annotators yet.</i></text>
+                                                            {% endif %}
+                                                        </div>
+                                                    </div>
+                                                {% endfor %}
+                                            {% else %}
+                                                <text style="font-size: 12px"><i>No annotations yet.</i></text>
+                                            {% endif %}
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                     </div>
+                     {% endfor %}
+                </div>
+            </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary me-2 close" data-dismiss="modal" aria-label="Close">Close</button>
+        <button type="button" class="btn btn-primary">Save changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    function deleteAnnotationEntry(id) {
+        try { document.getElementById(id).remove(); }
+        catch { console.log("Annotation entry element couldn't be found."); }
+    }
+</script>

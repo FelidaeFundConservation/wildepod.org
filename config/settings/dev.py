@@ -19,27 +19,8 @@ WSGI_APPLICATION = "config.wsgi.dev.application"
 # DATABASES
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases
-DATABASES = {"default": env.db("STAGING_DATABASE_URL")}
-# TODO: Check if this needs to be done
 
-# If the flag has been set, configure to use proxy
-if env.bool("USE_CLOUD_SQL_AUTH_PROXY", False):
-    DATABASES["default"]["HOST"] = "127.0.0.1"
-    DATABASES["default"]["PORT"] = 5440
-# TODO: Check if this needs to be done
-# DATABASES["default"]["ATOMIC_REQUESTS"] = True
-
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'dev',
-        'USER': 'postgres',
-        'PASSWORD': 'postgres',
-        'HOST': 'localhost',
-        'PORT': '5432',
-    }
-}
+DATABASES = {"default": env.db("DEV_DATABASE_URL")}
 
 # ADMIN
 # ------------------------------------------------------------------------------
@@ -50,7 +31,7 @@ ADMIN_URL_SUFFIX = ""
 # MEDIA
 # ------------------------------------------------------------------------------
 # GS_BUCKET_NAME = env("GS_BUCKET_NAME_DEV")
-GS_BUCKET_NAME = env("GS_BUCKET_NAME_PROD")
+GS_BUCKET_NAME = env("GS_BUCKET_NAME_DEV")
 GS_DEFAULT_ACL = "publicRead"
 DEFAULT_FILE_STORAGE = "siteapps.utils.storages.MediaRootGoogleCloudStorage"
 MEDIA_URL = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/media/"
@@ -65,9 +46,9 @@ EMAIL_TIMEOUT = 5
 
 # EXTERNAL APPS CONFIG
 # ------------------------------------------------------------------------------
-DROPBOX_APP_KEY = env("DROPBOX_APP_KEY_PROD")
-DROPBOX_APP_SECRET = env("DROPBOX_APP_SECRET_PROD")
-DROPBOX_REFRESH_TOKEN = env("DROPBOX_REFRESH_TOKEN_PROD")
+DROPBOX_APP_KEY = env("DROPBOX_APP_KEY_DEV")
+DROPBOX_APP_SECRET = env("DROPBOX_APP_SECRET_DEV")
+DROPBOX_REFRESH_TOKEN = env("DROPBOX_REFRESH_TOKEN_DEV")
 DROPBOX_URL_PREFIX = "https://www.dropbox.com/work/WildePod%20Cloud%20DB/Apps/wildepod_prod"
 
 

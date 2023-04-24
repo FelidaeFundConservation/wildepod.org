@@ -1,9 +1,8 @@
 
-
-
 def get_object_annotation_images(
     annotator=None, start_date=None, end_date=None, station=None, macrosite=None, queue_size=0
 ):
+    from images.models.image import Image
     """
     This function contains the raw SQL query for the Object annotation pipeline.
     """
@@ -33,7 +32,6 @@ def get_object_annotation_images(
     that need to be voted on. Either because they're new, or their accept / reject
     threshold has not been met yet.
     While doing this we filter based on timestamp / macro_station / camera_station if they're passed in.
-
     Then we filter out annotations by staff users because their vote automatically counts
     as a universal accept / reject.
     We also filter out the images that have already been voted on by the currently logged in user.
@@ -56,7 +54,6 @@ def get_object_annotation_images(
                         ibb_rejected.boundingbox_id AS group_column
                 FROM images_boundingbox_rejected_by AS ibb_rejected
                 GROUP BY group_column
-
             ),
             /*
             * Uncertain BBs, this is the target.
@@ -83,7 +80,7 @@ def get_object_annotation_images(
             * The order or operations below matters,
             * to filter from the smallest group to the largest
             */
-            images_details AS (
+            result_set AS (
                 SELECT DISTINCT images.id AS id,
                     images.trigger_timestamp AS ts,
                     image_upload.priority AS priority,
@@ -102,7 +99,6 @@ def get_object_annotation_images(
                     ON location_camera.micro_site_id = location_micro.id
                 INNER JOIN locations_macrosite AS location_macro
                     ON location_micro.macro_site_id = location_macro.id
-
                 WHERE images.processed = TRUE
                 {start_date} {end_date} {macrosite} {station}
             ),

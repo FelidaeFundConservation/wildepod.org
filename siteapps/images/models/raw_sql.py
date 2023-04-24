@@ -73,7 +73,8 @@ def get_object_annotation_images(annotator=None, start_date=None, end_date=None,
                 SELECT DISTINCT images.id AS id,
                     images.trigger_timestamp AS ts,
                     image_upload.priority AS priority,
-                    location_macro.name AS macrosite
+                    location_macro.name AS macrosite,
+                    location_camera.id AS camera_station
                 FROM bb_uncertain
                 LEFT JOIN images_boundingbox AS ib
                     ON ib.id = bb_uncertain.bb_id
@@ -127,14 +128,15 @@ def get_object_annotation_images(annotator=None, start_date=None, end_date=None,
                 rs.id,
                 rs.ts,
                 rs.priority,
-                rs.macrosite
+                rs.macrosite,
+                rs.camera_station
             FROM result_set rs
             WHERE NOT EXISTS (
                 SELECT id
                 FROM ignore_images ii
                 WHERE ii.id = rs.id
             )
-            ORDER BY priority DESC, ts DESC
+            ORDER BY priority DESC, camera_station, ts DESC
             LIMIT {queue_size}
         """.format(start_date=start_date, end_date=end_date, macrosite=macrosite, 
                    station=station, annotator_id=annotator.id, queue_size=queue_size)

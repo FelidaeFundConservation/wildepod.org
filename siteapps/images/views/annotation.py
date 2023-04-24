@@ -209,8 +209,9 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
                 )
                 .order_by(
                     "-upload__priority",
-                    "num_species_checked_by",
+                    "upload__camera_station",
                     "trigger_timestamp",
+                    "num_species_checked_by",
                     "num_objects",
                 )
             )
@@ -323,8 +324,9 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
 
             images = images.order_by(
                 "-upload__priority",
-                "num_activity_checked_by",
+                "upload__camera_station",
                 "trigger_timestamp",
+                "num_activity_checked_by",
                 "num_objects",
             )
 

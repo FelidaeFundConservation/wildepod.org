@@ -17,7 +17,7 @@ django.setup()
 from django.conf import settings
 from images.models.image import Image
 from images.models.raw_sql import get_prioritized_images, get_uncertain_images, get_images_to_ignore
-
+from images.models.annotation import Species
 
 
 client = settings.DATASTORE_CLIENT
@@ -48,17 +48,25 @@ def totals_document():
         return
 
 
-def _pd_group_images(images):
+def _pd_group_images(images, species=False):
     """
     Group the images objects by macrosite and camera station
     using pandas
     """
-    df = pd.DataFrame([{'Macrosite': i.macrosite,\
-                        'Priority': i.priority, \
-                        'Station': i.station, \
-                        'Trigger': i.ts,} for i in images])
     try:
-        result = df.groupby(['Macrosite', 'Station', 'Priority'])['Trigger'].agg(['min', 'max', 'count'])
+        if species:
+            df = pd.DataFrame([{'Macrosite': i.macrosite,\
+                                'Priority': i.priority, \
+                                'Station': i.station, \
+                                'Trigger': i.ts, \
+                                'Species': i.species} for i in images])
+            result = df.groupby(['Macrosite', 'Station', 'Species', 'Priority'])['Trigger'].agg(['min', 'max', 'count'])
+        else:
+            df = pd.DataFrame([{'Macrosite': i.macrosite,\
+                                'Priority': i.priority, \
+                                'Station': i.station, \
+                                'Trigger': i.ts,} for i in images])
+            result = df.groupby(['Macrosite', 'Station', 'Priority'])['Trigger'].agg(['min', 'max', 'count'])
 
         # Before serialize date, increase for max and decrease for min,
         # to avoid loose days in the range.
@@ -181,29 +189,31 @@ def species_annotation():
 
 
 
-def _get_images_to_annotate_activity(species=None):
-    species_annotated = Image.get_total_images_annotated_species(species)
-    activity_annotated = Image.get_total_images_annotated_activity(species)
+def _get_images_to_annotate_activity(species='animal'):
+    """
+    Get all images with species annotated.
+    Get all images with activity annotated.
+    Remove from species annotated the images with activity annotated.
+    This are the images of species to annotate activity.
+    """
+    species_ids = Species.species_human_animal()
+    images_species_annotated = Image.get_species_annotated(species_ids=species_ids[species])
+    activity_annotated = Image.get_total_images_annotated_activity(category_name=species)
+
     ignore_images_s = set([aa.id for aa in activity_annotated])
 
-    images = [sa for sa in species_annotated if sa.id not in ignore_images_s]
-
+    images = [sa for sa in images_species_annotated if sa.id not in ignore_images_s]
     return images
 
 
-
-
-"""
-Have to make the RAW SQL for these two:
-ORM doesn have enriched images info.
-"""
 def animal_activity():
     images = _get_images_to_annotate_activity()
-    animal_activity = _pd_group_images(images)
+
+    animal_activity = _pd_group_images(images, species=True)
     serialized_ui = json.dumps(animal_activity, default=str)
 
     # Get workflow collection
-    c_key = client.key('species_annotation', 'workflow')
+    c_key = client.key('animal_activity', 'workflow')
     animal_activity = settings.DATASTORE_CLIENT.get(c_key)
 
     try:
@@ -219,6 +229,7 @@ def animal_activity():
         return
 
 
+
 def human_behavior():
     images = _get_images_to_annotate_activity(species='human')
     human_behavior = _pd_group_images(images)
@@ -229,7 +240,7 @@ def human_behavior():
     human_behavior = settings.DATASTORE_CLIENT.get(c_key)
 
     try:
-        # Update human_behavior document
+        # Update species_annotation document
         payload = {
             "data": serialized_ui,
             "last_update": datetime.datetime.utcnow()
@@ -242,10 +253,9 @@ def human_behavior():
 
 
 
-
 if __name__ == '__main__':
-    # animal_activity()
-    # human_behavior()
+    human_behavior()
+    animal_activity()
     species_annotation()
     totals_document()
     uncertain_images()

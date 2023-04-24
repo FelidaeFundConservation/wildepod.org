@@ -233,3 +233,43 @@ def get_not_blank_annotation(annotator=None, start_date=None, end_date=None, sta
         SELECT * FROM images_details
     """)
     return imgs
+
+
+def get_species_annotated(species_ids):
+    from images.models.image import Image
+    """
+    All images with species annotated.
+    """
+    imgs = Image.objects.raw("""
+        WITH species_annotated AS
+        (
+            SELECT images.id,
+                images.trigger_timestamp AS ts,
+                image_upload.priority AS priority,
+                location_macro.name AS macrosite,
+                location_camera.station_id AS station,
+                speciesname.name AS species
+            FROM images_species AS species
+            LEFT JOIN images_boundingbox AS image_bb
+                ON species.bounding_box_id = image_bb.id
+            LEFT JOIN images_image AS images
+                ON image_bb.image_id = images.id
+            LEFT JOIN images_upload AS image_upload
+                ON images.upload_id = image_upload.id
+            LEFT JOIN locations_camerastation AS location_camera
+                ON image_upload.camera_station_id = location_camera.id
+            LEFT JOIN locations_microsite AS location_micro
+                ON location_camera.micro_site_id = location_micro.id
+            LEFT JOIN locations_macrosite AS location_macro
+                ON location_micro.macro_site_id = location_macro.id
+            LEFT JOIN images_speciesname speciesname
+                ON species.name_id = speciesname.id
+            WHERE species.name_id IN {}
+
+            --LIMIT 100
+        )
+        SELECT * FROM species_annotated
+
+
+    """.format(species_ids))
+    return imgs

@@ -1,8 +1,8 @@
 import datetime
 import json
 import logging
-import numpy as np
 
+import numpy as np
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -13,19 +13,21 @@ from django.urls import reverse
 from django.views.generic import FormView
 from django.views.generic.base import TemplateView, View
 from images.forms import AnnotationForm
-from images.models import ActivityType, Annotator, BoundingBox, Image, Species, SpeciesName, \
-                                get_object_annotation_images
-from images.processors import process_activity_annotations, process_md_annotations, \
-                                process_species_annotations
+from images.models import (
+    ActivityType,
+    Annotator,
+    BoundingBox,
+    Image,
+    Species,
+    SpeciesName,
+    get_object_annotation_images,
+)
+from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
 from locations.models import CameraStation, MacroSite, MicroSite
 
 MAX_VOTES_PER_IMAGE = 2
 CATEGORY_ANIMAL = "animal"
 CATEGORY_HUMAN = "human"
-
-import datetime
-
-from django.db.models import Q
 
 
 # TODO: Clean up this code
@@ -35,17 +37,16 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
     template_name = "images/annotate/objects.html"
 
     def get(self, request, *args, **kwargs):
-        station = None if self.request.GET.get("camera_id") == 'None' else self.request.GET.get("camera_id")
+        station = None if self.request.GET.get("camera_id") == "None" else self.request.GET.get("camera_id")
 
-        self.filterset = {'start_date': self.request.GET.get("start_date"),
-                            'end_date': self.request.GET.get("end_date"),
-                            'station':station,
-                            'macrosite':self.request.GET.get("macrosite_name"),
-                            'annotator':self.request.user
-                            }
+        self.filterset = {
+            "start_date": self.request.GET.get("start_date"),
+            "end_date": self.request.GET.get("end_date"),
+            "station": station,
+            "macrosite": self.request.GET.get("macrosite_name"),
+            "annotator": self.request.user,
+        }
         return super().get(request, *args, **kwargs)
-
-
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -55,7 +56,7 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
         queue_key = settings.DATASTORE_CLIENT.key("AnnotateObjectsQueue", str(self.request.user.id))
         queue = settings.DATASTORE_CLIENT.get(queue_key)
 
-        if not self.filterset['macrosite'] and (
+        if not self.filterset["macrosite"] and (
             queue
             and datetime.datetime.fromisoformat(queue["expires_at"]) > datetime.datetime.now()
             and queue["index"] < len(queue["images"])
@@ -64,8 +65,7 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
             image_id = queue["images"][queue["index"]]
         else:
             # Get the images to annotate. Check raw sql to see how this is done
-            images = get_object_annotation_images(**self.filterset,
-                                                  queue_size=settings.ANNOTATION_QUEUE_SIZE)
+            images = get_object_annotation_images(**self.filterset, queue_size=settings.ANNOTATION_QUEUE_SIZE)
 
             # Get the image ids & convert to string
             image_ids = [str(image.id) for image in images]
@@ -138,7 +138,6 @@ class CustomAnnotationView(LoginRequiredMixin, FormView, TemplateView):
             else:
                 camera_id = "None"
 
-            print(camera_id)
             url = (
                 reverse("images:annotate_objects")
                 + f"?start_date={start_date}&end_date={end_date}&macrosite_name={macrosite_name}&camera_id={camera_id}"
@@ -209,8 +208,9 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
                 )
                 .order_by(
                     "-upload__priority",
-                    "num_species_checked_by",
+                    "upload__camera_station",
                     "trigger_timestamp",
+                    "num_species_checked_by",
                     "num_objects",
                 )
             )
@@ -323,8 +323,9 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
 
             images = images.order_by(
                 "-upload__priority",
-                "num_activity_checked_by",
+                "upload__camera_station",
                 "trigger_timestamp",
+                "num_activity_checked_by",
                 "num_objects",
             )
 
@@ -411,7 +412,9 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
 
             logging.info(f"Processing bounding box annotations for image '{image_id}' by user - '{request.user.name}'")
             # Process the annotations
-            success = process_md_annotations(image_id, annotations, initial_bboxes, request.user, social_media_worthy, False)
+            success = process_md_annotations(
+                image_id, annotations, initial_bboxes, request.user, social_media_worthy, False
+            )
 
         # If success, update image index in the datastore
         if success:

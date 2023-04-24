@@ -5,6 +5,7 @@ from .views import (
     AnnotateActivityView,
     AnnotateObjectsView,
     AnnotateSpeciesView,
+    CustomAnnotationView,
     ImageDetailView,
     MDAnnotationProcessorView,
     SpeciesAnnotationProcessorView,
@@ -14,7 +15,6 @@ from .views import (
     UploadListView,
     UploadResumeProcessingView,
     UploadStatusView,
-    CustomAnnotationView,
 )
 
 urlpatterns = [

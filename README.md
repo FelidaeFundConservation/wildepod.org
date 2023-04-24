@@ -1,21 +1,44 @@
 # Django Website for WildePod (Felidae Conservation Fund)
 
----
 
-## Local dev
-
-Setup
+## Quick Setup
+Check the configuration of your environment
 
 1. Git clone this repo
 2. Create a virtualenv
 3. `pip install -r requirements.txt`
 4. Install SASS compiler - Sass is a stylesheet language that’s compiled to CSS. It is installed on the OS level, not in the virtualenv.
    * https://sass-lang.com/install
-   * If you're using MacOs/Linux , it's  brew install sass/sass/sass
+   * If you're using MacOs/Linux , it's  `brew install sass/sass/sass`
    Install Homebrew package manater if you still don't have (https://brew.sh)
+5. Set env variables:
+    * `export GOOGLE_CLOUD_PROJECT=wildepod-339517`
+    * `export PYTHONPATH=<your_project_path>`
+6. At this point, to perform all checkup locally, you mut have a sqlite running. View DATABASES variable in: `/config/settings/local.py`
 
+Run Django
 
-Google Cloud SDK
+1. Make migrations - `python manage.py makemigrations --settings=config.settings.local`
+   (Note: This may not work since `migrations` folder is gitignored for now and Django requires the folder's existence.
+   To fix that for now, simply create python packages named `migrations` in each of the app packages.
+   This has to be a package so the `migrations` folder must have a `__init__.py` file or django can't see it.
+2. Apply migrations - `python manage.py migrate --settings=config.settings.local`
+3. Create superuser - `python manage.py createsuperuser --settings=config.settings.local`
+4. Run server - `python manage.py runserver --settings=config.settings.local`
+
+This should have things running on `localhost:8000` and use a local sqlite db
+### Initalize some data - hacky version
+
+1. Download the "active camera data" & "Camera inventory" sheets from the Slack channel
+2. Alter lines 7-10 of `scratch/load.py` file accordingly depending on where the downloaded files are saved
+3. Run `python manage.py shell --settings=config.settings.local < scratch/load.py`
+
+This should be fine for those spreadsheets. If there is any error, add that row to the skip list in the code
+
+## Local development environment
+To have a fully operational environment for development, you need to have access to the project's GCP.
+
+### Google Cloud SDK
 
 1. You should have Google Cloud SDK installed (https://cloud.google.com/sdk/docs/install)
 2. Ask for your credentials on Goggle Cloud, to the WildePod adminstrators.
@@ -27,25 +50,14 @@ Google Cloud SDK
     * Maybe there is some unknow issue here with secret-key.
 
 
-Initialize django project
+### Run Django project
 
-1. Make migrations - `python manage.py makemigrations --settings=config.settings.local`
-   (Note: This may not work since `migrations` folder is gitignored for now and Django requires the folder's existence.
-   To fix that for now, simply create python packages named `migrations` in each of the app packages.
-   This has to be a package so the `migrations` folder must have a `__init__.py` file or django can't see it.
-2. Apply migrations - `python manage.py migrate --settings=config.settings.local`
-3. Create superuser - `python manage.py createsuperuser --settings=config.settings.local`
-4. Run server - `python manage.py runserver --settings=config.settings.local`
+1. You need configuration files to access database.
+2. Run `python manage.py runserver --settings=config.settings.dev`
 
-This should have things running on `localhost:8000` and use a local sqlite db
+This should have things running on `localhost:8000` and use the project database.
 
-### Initalize some data - hacky version
 
-1. Download the "active camera data" & "Camera inventory" sheets from the Slack channel
-2. Alter lines 7-10 of `scratch/load.py` file accordingly depending on where the downloaded files are saved
-3. Run `python manage.py shell --settings=config.settings.local < scratch/load.py`
-
-This should be fine for those spreadsheets. If there is any error, add that row to the skip list in the code
 
 ---
 
@@ -55,20 +67,19 @@ This should be fine for those spreadsheets. If there is any error, add that row 
 2. Alter `app.yaml` & `dev/staging/prod` settings as needed
 3. Deploy + Check cloud build to see what happpened
 
-## Deployment instructions (Fresh GCP - if needed)
+---
+## Deployment instructions
+To deploy to GCP on existing environments (test, staging and prod)
 
-1. Create a new GCP project
-2. Enable cloud function API & deploy megadetector cloud function (independent of app engine)
-3. Create CloudSQL instance & prod/staging databases
-4. Create relevant buckets on Google Storage and make sure they have fine-grained permissions
-5. Create relevant Dropbox apps with appropriate permissions & set tokens in env if haven't already
-6. Use cloud sql proxy and run db migrations
-7. Install sass compiler (if needed) and run from project root. This should continuously watch for changes in scss files and compile them to css (static files are served using whitenoise)
-   `sass --watch --style compressed ./siteapps/static/scss/main.scss:./siteapps/static/css/main.css`
-8. Collect static files using `python manage.py collectstatic --settings=config.settings.prod`
-9. Deploy app using `gcloud app deploy`
-10. Add relevant secrets from .env to Secret manager (Important: Give your appengine app "Secret Manager Secret Accessor" permission)
+Ask for the following files:
+* /env_file.yaml
+* /env_file.py
+* /cnfig/settings/env_file.py
+* /config/wsgi/env_file.py
 
+Deploy app using `gcloud app deploy env_file.yaml`
+
+---
 ## With SQL proxy
 
 Setenv
@@ -85,6 +96,8 @@ Emulating google app.yaml locally. Make sure proxy is running using
 Then run this so app.yaml uses the proxy. Note there can be many .yaml configs that can be specified
 
 `dev_appserver.py app.yaml --env_var=USE_CLOUD_SQL_AUTH_PROXY=true`
+
+---
 
 ## Gotchas
 
@@ -113,3 +126,25 @@ gcloud config set project <project-id>
 ```
 export ID_TOKEN="$(gcloud auth print-identity-token -q)"
 ```
+
+Check if you are connected to the project's GCP
+
+```
+gcloud auth list
+```
+---
+
+
+## Deployment instructions (Fresh GCP - if needed)
+
+1. Create a new GCP project
+2. Enable cloud function API & deploy megadetector cloud function (independent of app engine)
+3. Create CloudSQL instance & prod/staging databases
+4. Create relevant buckets on Google Storage and make sure they have fine-grained permissions
+5. Create relevant Dropbox apps with appropriate permissions & set tokens in env if haven't already
+6. Use cloud sql proxy and run db migrations
+7. Install sass compiler (if needed) and run from project root. This should continuously watch for changes in scss files and compile them to css (static files are served using whitenoise)
+   `sass --watch --style compressed ./siteapps/static/scss/main.scss:./siteapps/static/css/main.css`
+8. Collect static files using `python manage.py collectstatic --settings=config.settings.prod`
+9. Deploy app using `gcloud app deploy`
+10. Add relevant secrets from .env to Secret manager (Important: Give your appengine app "Secret Manager Secret Accessor" permission)

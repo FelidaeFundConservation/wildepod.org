@@ -3,9 +3,9 @@ from .annotation import (
     AnnotateActivityView,
     AnnotateObjectsView,
     AnnotateSpeciesView,
+    CustomAnnotationView,
     MDAnnotationProcessorView,
     SpeciesAnnotationProcessorView,
-    CustomAnnotationView,
 )
 from .image import ImageDetailView
 from .upload import (  # UploadExportView,

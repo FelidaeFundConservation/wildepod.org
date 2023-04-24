@@ -9,7 +9,7 @@
 
 {% block header_includes %}
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.css" />
-
+<link rel="stylesheet" href="https://getbootstrap.com/docs/5.3/examples/breadcrumbs/breadcrumbs.css" />
 
 <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
     <symbol id="bootstrap" viewBox="0 0 118 94">
@@ -32,15 +32,8 @@
   <style>
     hr {
         margin-left: 12px;
-        border: 1px solid #ff4b00 !important;
+        height: 1px !important;
         background-color: #ff4b00 !important;
-        opacity: 1 !important;
-    }
-    hr.light {
-        margin-left: 12px;
-        border: 0px solid #ff4b00 !important;
-        background-color: #ff4b00 !important;
-        width:30%;
         opacity: 1 !important;
     }
     .py-5 {
@@ -50,6 +43,36 @@
     h3{
         padding-top: 2rem !important;
     }
+    h3.w_feature_icon{
+        padding-top: 0 !important;
+    }
+
+
+    .nav-tabs .nav-link{
+        font-weight: bolder;
+    }
+    .nav-tabs .nav-item.show .nav-link, .nav-tabs .nav-link.active{
+        border-color: #ff4b00 #ff4b00 #fff !important;
+    }
+    .nav-tabs {
+        border-bottom: 1px solid #ff4b00 !important;
+    }
+
+    .breadcrumb{
+        padding-left: 1.2em;
+    }
+
+    .breadcrumb-item{
+        font-size: 1.1em;
+        font-weight: 700;
+        padding: 0.8em 0 0.8em 0;
+    }
+    span.values{
+        font-size:0.8em;
+        display: contents;
+    }
+
+
   </style>
 
 {% endblock header_includes %}
@@ -60,7 +83,7 @@
     <div class="row  mt-3 pt-3">
         <h1>Workflow State</h1>
         <p>
-            This page displays the state of each step in the workflow of the images processing pipeline.<br>
+            Workflow steps of the images processing pipeline.<br>
             <small>
             ** Texts and icons are subject to change. Please check. **
             </small><br>
@@ -89,21 +112,21 @@
                   '<div class="feature-icon d-inline-flex align-items-center justify-content-center text-bg-primary bg-gradient fs-2 mb-3">
                     <svg class="bi" width="1em" height="1em"><use xlink:href="#collection"></use></svg>
                   </div>
-                  <h3>Uploaded Images: {{ total_images|intcomma }} </h3>
+                  <h3 class="w_feature_icon">Uploaded Images: {{ total_images|intcomma }} </h3>
                   <p>Total number of images uploaded to WildePod.</p>
                 </div>
                 <div class="feature col">
                   <div class="feature-icon d-inline-flex align-items-center justify-content-center text-bg-primary bg-gradient fs-2 mb-3">
                     <svg class="bi" width="1em" height="1em"><use xlink:href="#toggles2"></use></svg>
                   </div>
-                  <h3>Not Processed Images: {{ total_images_not_processed|intcomma }} </h3>
+                  <h3 class="w_feature_icon">Not Processed Images: {{ total_images_not_processed|intcomma }} </h3>
                   <p>Images ready to be processed by MegaDetector.</p>
                 </div>
                 <div class="feature col">
                   <div class="feature-icon d-inline-flex align-items-center justify-content-center text-bg-primary bg-gradient fs-2 mb-3">
                     <svg class="bi" width="1em" height="1em"><use xlink:href="#people-circle"></use></svg>
                   </div>
-                  <h3>Processed Images: {{ total_images_processed|intcomma }} </h3>
+                  <h3 class="w_feature_icon">Processed Images: {{ total_images_processed|intcomma }} </h3>
                   <p>Images processed by MegaDetector. They are in the annotation process.</p>
                 </div>
               </div>
@@ -115,157 +138,344 @@
 
     </div>
 
-
-
-    <div class="row  mt-3 pt-3">
-        <h2>Categories</h2>
-        <hr/>
-
-        <h3>Categories identified</h3>
-        <div class="row">
-            {% for cat in categories %}
-            <div class="col-md-3 col-xs-6">
-                <p>{{ cat.name|capfirst }}: <b>{{ cat.total|intcomma }}</b> </p>
-            </div>
-            {% endfor %}
+    <h2>Overall Pipeline</h2>
+    <nav>
+        <div class="nav nav-tabs" id="nav-tab" role="tablist">
+          <a class="nav-link active" id="nav-category-tab" data-bs-toggle="tab" href="#nav-category" role="tab" aria-controls="nav-category" aria-selected="true">Category</a>
+          <a class="nav-link" id="nav-species-tab" data-bs-toggle="tab" href="#nav-species" role="tab" aria-controls="nav-species" aria-selected="false">Species</a>
+          <a class="nav-link" id="nav-animal-tab" data-bs-toggle="tab" href="#nav-animal" role="tab" aria-controls="nav-animal" aria-selected="false">Animal Activity</a>
+          <a class="nav-link" id="nav-human-tab" data-bs-toggle="tab" href="#nav-human" role="tab" aria-controls="nav-human" aria-selected="false">Human Behavior</a>
         </div>
-        <small>The summation of all categories may be higher than the number of images, because one image may contain zero or more categories.<br>
-        These are bounding boxes.</small>
+      </nav>
+      <div class="tab-content" id="nav-tabContent">
+        <div class="tab-pane fade show active" id="nav-category" role="tabpanel" aria-labelledby="nav-category-tab">
 
-
-        <h3>Category Annotation</h3>
-        <hr class="light"/>
-        <small>Last update:{{ blank_annotation.last_update }}</small>
-        <p>Images to check category annotation: <b> {{ total_blank_annotation|intcomma }}</b></p>
-        <div class="row justify-content-evenly mt-3 pt-3">
-            <table id="prioritezed-images">
-                <thead>
-                    <tr>
-                        <th>Macrosite</th>
-                        <th>Station</th>
-                        <th class="text-center">Priority</th>
-                        <th>From</th>
-                        <th>To</th>
-                        <th class="text-right">Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for ba in blank_annotation.data %}
-                        <tr>
-                            <td>{{ ba.0 }}</td>
-                            <td>{{ ba.1 }}</td>
-                            <td>{{ ba.2 }}</td>
-                            <td>{{ ba.3 }}</td>
-                            <td>{{ ba.4 }}</td>
-                            <td>
-                                <a target="_blank" href="/images/annotate/objects?start_date={{ba.3}}&end_date={{ba.4}}&macrosite_name={{ba.0}}&camera_id=None">
-                                {{ ba.5|intcomma }}
-                                </a>
-                            </td>
-                        </tr>
+                <h3>Category Pipeline</h3>
+                    <nav aria-label="breadcrumb">
+                      <ol class="breadcrumb breadcrumb-chevron bg-body-tertiary border rounded-3 text-center">
+                        <li class="breadcrumb-item">
+                            Total Input <br> <span class="values">{{ pipe_category_input|intcomma }}</span>
+                        </li>
+                        <li class="breadcrumb-item">
+                          To Annotate <br> <span class="values">{{ pipe_category_first_round|intcomma }}</span>
+                        </li>
+                        <li class="breadcrumb-item">
+                            Annotated  <br> <span class="values">{{ pipe_category_annotated|intcomma }}</span>
+                        </li>
+                      </ol>
+                    </nav>
+                <h3>Categories identified</h3>
+                <div style="font-size:1.7em">
+                    {% for cat in categories %}
+                        <span class="badge bg-info text-light">{{ cat.name|capfirst }}: <span class="text-dark">{{ cat.total|intcomma }}</span></span>
                     {% endfor %}
-                </tbody>
-            </table>
-            <div id="prioritezed_images-message"></div>
+                </div>
+                <small>The summation of all categories may be higher than the number of images, because one image may contain zero or more categories.<br>
+                These are bounding boxes.</small>
+
+                <h3>Category Annotation</h3>
+
+                <small>Double check MegaDetector classification</small><br>
+                <small>Last update:{{ blank_annotation.last_update }}</small>
+                <p>
+                    Images pending verification: <b> {{ total_blank_annotation|intcomma }}</b>
+                </p>
+                <div class="row justify-content-evenly mt-3 pt-3">
+                    <table id="prioritezed-images">
+                        <thead>
+                            <tr>
+                                <th>Macrosite</th>
+                                <th>Station</th>
+                                <th class="text-center">Priority</th>
+                                <th>From</th>
+                                <th>To</th>
+                                <th class="text-right">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ba in blank_annotation.data %}
+                                <tr>
+                                    <td>{{ ba.0 }}</td>
+                                    <td>{{ ba.1 }}</td>
+                                    <td>{{ ba.2 }}</td>
+                                    <td>{{ ba.3 }}</td>
+                                    <td>{{ ba.4 }}</td>
+                                    <td>
+                                        {% if user.is_authenticated %}
+                                        <a target="_blank" href="/images/annotate/objects?start_date={{ba.3}}&end_date={{ba.4}}&macrosite_name={{ba.0}}&camera_id=None">
+                                            {{ ba.5|intcomma }}
+                                        </a>
+                                        {% else %}
+                                            {{ ba.5|intcomma }}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <div id="prioritezed_images-message"></div>
+                </div>
+
+
+
+                <h3>Category - Uncertain Annotation</h3>
+
+                <small>Last update:{{ uncertain_images.last_update }}</small>
+                <p>
+                    Images to double check categories: <b> {{ total_uncertain_images|intcomma }} </b>
+                </p>
+                <small>
+                Uncertain annotation:
+                <ul>
+                    <li>Difference less than one in summation of accepted/rejeted Bounding Box.</li>
+                    <li>Not checked by staff.</li>
+                </ul>
+                </small>
+
+                <div class="row justify-content-evenly mt-3 pt-3">
+                    <table id="uncertain-images">
+                        <thead>
+                            <tr>
+                                <th>Macrosite</th>
+                                <th>Station</th>
+                                <th class="text-center">Priority</th>
+                                <th>From</th>
+                                <th>To</th>
+                                <th class="text-right">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ba in uncertain_images.data %}
+                                <tr>
+                                    <td>{{ ba.0 }}</td>
+                                    <td>{{ ba.1 }}</td>
+                                    <td>{{ ba.2 }}</td>
+                                    <td>{{ ba.3 }}</td>
+                                    <td>{{ ba.4 }}</td>
+                                    <td>
+                                        {% if user.is_authenticated %}
+                                        <a target="_blank" href="/images/annotate/objects?start_date={{ba.3}}&end_date={{ba.4}}&macrosite_name={{ba.0}}&camera_id=None">
+                                            {{ ba.5|intcomma }}
+                                        </a>
+                                        {% else %}
+                                            {{ ba.5|intcomma }}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <div id="uncertain_images-message"></div>
+                </div>
+
+
         </div>
-    </div>
+        <div class="tab-pane fade" id="nav-species" role="tabpanel" aria-labelledby="nav-species-tab">
+            <h3>Species Pipeline</h3>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb breadcrumb-chevron bg-body-tertiary border rounded-3 text-center">
+                  <li class="breadcrumb-item">
+                      Total Input <br> <span class="values">{{ pipe_species_input|intcomma }}</span>
+                  </li>
+                  <li class="breadcrumb-item">
+                    To Annotate <br> <span class="values">{{ pipe_species_first_round|intcomma }}</span>
+                  </li>
+                  <li class="breadcrumb-item">
+                      Annotated  <br> <span class="values">{{ pipe_species_annotated|intcomma }}</span>
+                  </li>
+                </ol>
+              </nav>
 
-
-    <div class="row  mt-3 pt-3">
-
-        <h2>Category - Uncertain Annotation</h2>
-        <hr class="light"/>
-        <small>Last update:{{ uncertain_images.last_update }}</small>
-        <p>
-            Images to double check categories annotation: <b> {{ total_uncertain_images|intcomma }} </b><br>
-
-        </p>
-        <small>
-        Uncertain annotation:
-        <ul>
-            <li>Difference less than one in summation of accepted/rejeted Bounding Box.</li>
-            <li>Not checked by staff.</li>
-        </ul>
-        </small>
-
-        <div class="row justify-content-evenly mt-3 pt-3">
-            <table id="uncertain-images">
-                <thead>
-                    <tr>
-                        <th>Macrosite</th>
-                        <th>Station</th>
-                        <th class="text-center">Priority</th>
-                        <th>From</th>
-                        <th>To</th>
-                        <th class="text-right">Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for ba in uncertain_images.data %}
-                        <tr>
-                            <td>{{ ba.0 }}</td>
-                            <td>{{ ba.1 }}</td>
-                            <td>{{ ba.2 }}</td>
-                            <td>{{ ba.3 }}</td>
-                            <td>{{ ba.4 }}</td>
-                            <td>
-                                <a target="_blank" href="/images/annotate/objects?start_date={{ba.3}}&end_date={{ba.4}}&macrosite_name={{ba.0}}&camera_id=None">
-                                {{ ba.5|intcomma }}
-                                </a>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            <div id="uncertain_images-message"></div>
-        </div>
-    </div>
-
-
-    <div class="row  mt-3 pt-3">
-
-        <h2>Species</h2>
-        <hr/>
-
-        <h3>Species identified</h3>
-        <div class="row">
-            {% for cat in categories %}
-            <div class="col-md-3 col-xs-6">
-                <p>{{ cat.name|capfirst }}: <b>{{ cat.total|intcomma }}</b> </p>
+            <h3>Species identified</h3>
+            <div style="font-size: 1.1em">
+                {% for spec in species %}
+                    {% if spec.species == 'Puma' or spec.species == 'Bobcat'%}
+                        <span class="badge bg-primary">{{ spec.species }} <span class="badge bg-secondary">{{ spec.total }}</span></span>
+                    {% else %}
+                        <span class="badge bg-info">{{ spec.species }} <span class="badge bg-secondary">{{ spec.total }}</span></span>
+                    {% endif %}
+                {% endfor %}
             </div>
-            {% endfor %}
+            <small>Number of species identified. One image can have more than one specie.</small>
+
+
+            <h3>Species Annotations</h3>
+
+            <small>Last update:{{ species_annotation.last_update }}</small>
+            <p>
+                Images to annotate species: <b>{{ pipe_species_first_round|intcomma }}</b><br>
+            </p>
+                <small>
+                They are already:
+                <ul>
+                    <li>Categorized as animal, in ['animal', 'person', 'vehicle']</li>
+                    <li>Have at least one bounding box accepted or rejected.</li>
+                </ul>
+            </small>
+            <div class="row justify-content-evenly mt-3 pt-3">
+                <table id="species-annotation">
+                    <thead>
+                        <tr>
+                            <th>Macrosite</th>
+                            <th>Station</th>
+                            <th class="text-center">Priority</th>
+                            <th>From</th>
+                            <th>To</th>
+                            <th class="text-right">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ba in species_annotation.data %}
+                            <tr>
+                                <td>{{ ba.0 }}</td>
+                                <td>{{ ba.1 }}</td>
+                                <td>{{ ba.2 }}</td>
+                                <td>{{ ba.3 }}</td>
+                                <td>{{ ba.4 }}</td>
+                                <td>{{ ba.5 }}</td>
+
+                                {% comment %} <td>
+                                {% if user.is_authenticated %}
+                                <a target="_blank" href="/images/annotate/objects?start_date={{ba.3}}&end_date={{ba.4}}&macrosite_name={{ba.0}}&camera_id=None">
+                                    {{ ba.5|intcomma }}
+                                </a>
+                                {% else %}
+                                    {{ ba.5|intcomma }}
+                                {% endif %}
+                                </td> {% endcomment %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div id="uncertain_images-message"></div>
+            </div>
+
         </div>
-        <small>The summation of all categories may be higher than the number of images, because one image may contain zero or more categories.<br>
-        These are bounding boxes.</small>
+        <div class="tab-pane fade" id="nav-animal" role="tabpanel" aria-labelledby="nav-animal-tab">
+            <h3>Animal Activity Pipeline</h3>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb breadcrumb-chevron bg-body-tertiary border rounded-3 text-center">
+                  <li class="breadcrumb-item">
+                      Total Input <br> <span class="values">{{ pipe_animal_activity_input|intcomma }}</span>
+                  </li>
+                  <li class="breadcrumb-item">
+                    To Annotate <br> <span class="values">{{ pipe_animal_activity_first_round|intcomma }}</span>
+                  </li>
+                  <li class="breadcrumb-item">
+                      Annotated  <br> <span class="values">{{ pipe_animal_activity_annotated|intcomma }}</span>
+                  </li>
+                </ol>
+              </nav>
+
+            <h3>Activities observed</h3>
+            <div style="font-size:1.7em">
+                {% for ac in animal_activity_observed %}
+                    <span class="badge bg-info text-light">{{ ac.activity }}: <span class="text-dark">{{ ac.total|intcomma }}</span></span>
+                {% endfor %}
+            </div>
+            <small>One or more activities can be observed in a image.</small>
 
 
-        <h2>Species Annotations</h2>
-        <hr class="light"/>
-        <small>Last update:{{ species_annotation.last_update }}</small>
-        <p>
-            Images to annotate species: <b>{{ total_species_annotation|intcomma }}</b><br>
-        </p>
-            <small>
-            They are already:
-            <ul>
-                <li>Categorized as animal, in ['animal', 'person', 'vehicle']</li>
-                <li>Have at least one bounding box accepted or rejected.</li>
-            </ul>
-        </small>
-        <div class="row justify-content-evenly mt-3 pt-3">
-            <table id="species-annotation">
-                <thead>
-                    <tr>
-                        <th>Macrosite</th>
-                        <th>Station</th>
-                        <th class="text-center">Priority</th>
-                        <th>From</th>
-                        <th>To</th>
-                        <th class="text-right">Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for ba in species_annotation.data %}
+                <h3>Animal Activity</h3>
+                <p>
+                    Images to annotate Animal Activity: <b>{{ total_animal_activity|intcomma }}</b><br>
+                </p>
+
+                <div class="row justify-content-evenly mt-3 pt-3">
+                    <table id="animal-activity">
+                        <thead>
+                            <tr>
+                                <th>Macrosite</th>
+                                <th>Station</th>
+                                <th>Species</th>
+                                <th class="text-center">Priority</th>
+                                <th>From</th>
+                                <th>To</th>
+                                <th class="text-right">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ba in animal_activity.data %}
+                            <tr>
+                                <td>{{ ba.0 }}</td>
+                                <td>{{ ba.1 }}</td>
+                                <td>{{ ba.2 }}</td>
+                                <td>{{ ba.3 }}</td>
+                                <td>{{ ba.4 }}</td>
+                                <td>{{ ba.5 }}</td>
+                                <td>{{ ba.6 }}</td>
+
+                                {% comment %} <td>
+                                {% if user.is_authenticated %}
+                                <a target="_blank" href="/images/annotate/objects?start_date={{ba.3}}&end_date={{ba.4}}&macrosite_name={{ba.0}}&camera_id=None">
+                                    {{ ba.5|intcomma }}
+                                </a>
+                                {% else %}
+                                    {{ ba.5|intcomma }}
+                                {% endif %}
+                                </td> {% endcomment %}
+                            </tr>
+                        {% endfor %}
+
+                        </tbody>
+
+
+                        {% comment %} <tr>
+                            <td colspan="5" class="text-center">
+                                <div id="animal_activity-spinner">
+                                    <div style="width: 2rem; height: 2rem;" class="spinner-border text-success" role="status"></div>
+                                    <br>
+                                    <small>Wait a minute for the table to load.</small>
+                                    &nbsp;
+                                </div>
+                            </td>
+                        </tr> {% endcomment %}
+                    </table>
+                    <div id="animal_activity-message"></div>
+                </div>
+
+        </div>
+        <div class="tab-pane fade" id="nav-human" role="tabpanel" aria-labelledby="nav-human-tab">
+            <h3>Human Behavior Pipeline</h3>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb breadcrumb-chevron bg-body-tertiary border rounded-3 text-center">
+                  <li class="breadcrumb-item">
+                      Total Input <br> <span class="values">{{ pipe_human_behavior_input|intcomma }}</span>
+                  </li>
+                  <li class="breadcrumb-item">
+                    To Annotate <br> <span class="values">{{ pipe_human_behavior_first_round|intcomma }}</span>
+                  </li>
+                  <li class="breadcrumb-item">
+                      Annotated  <br> <span class="values">{{ pipe_human_behavior_annotated|intcomma }}</span>
+                  </li>
+                </ol>
+              </nav>
+            <h3>Activities observed</h3>
+            <div style="font-size:1.7em">
+                {% for hb in human_behavior_observed %}
+                    <span class="badge bg-info text-light">{{ hb.activity }}: <span class="text-dark">{{ hb.total|intcomma }}</span></span>
+                {% endfor %}
+            </div>
+            <small>One or more activities can be observed in a image.</small>
+
+            <h3>Human Behavior</h3>
+            <p>
+                Images to annotate Human Behavior: <b>{{ total_human_behavior|intcomma }}</b><br>
+            </p>
+            <div class="row justify-content-evenly mt-3 pt-3">
+                <table id="human-behavior">
+                    <thead>
+                        <tr>
+                            <th>Macrosite</th>
+                            <th>Station</th>
+                            <th class="text-center">Priority</th>
+                            <th>From</th>
+                            <th>To</th>
+                            <th class="text-right">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ba in human_behavior.data %}
                         <tr>
                             <td>{{ ba.0 }}</td>
                             <td>{{ ba.1 }}</td>
@@ -275,89 +485,39 @@
                             <td>{{ ba.5 }}</td>
 
                             {% comment %} <td>
-                                <a target="_blank" href="/images/annotate/objects?start_date={{ba.3}}&end_date={{ba.4}}&macrosite_name={{ba.0}}&camera_id=None">
+                            {% if user.is_authenticated %}
+                            <a target="_blank" href="/images/annotate/objects?start_date={{ba.3}}&end_date={{ba.4}}&macrosite_name={{ba.0}}&camera_id=None">
                                 {{ ba.5|intcomma }}
-                                </a>
+                            </a>
+                            {% else %}
+                                {{ ba.5|intcomma }}
+                            {% endif %}
                             </td> {% endcomment %}
                         </tr>
                     {% endfor %}
-                </tbody>
-            </table>
-            <div id="uncertain_images-message"></div>
-        </div>
-    </div>
+
+                    </tbody>
 
 
-    <div class="row  mt-3 pt-3">
-        <h2>Animal Activity</h2>
-        <hr/>
-        <p>
-            .... work in progress ...  Animal activity data will be displayed here.
-        </p>
-        <div class="row justify-content-evenly mt-3 pt-3">
-            <table id="animal-activity">
-                <thead>
-                    <tr>
-                        <th>Macrosite</th>
-                        <th class="text-center">Priority</th>
-                        <th>From</th>
-                        <th>To</th>
-                        <th class="text-right">Total</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
+                    {% comment %} <tr>
+                        <td colspan="5" class="text-center">
+                            <div id="human_behavior-spinner">
+                                <div style="width: 2rem; height: 2rem;" class="spinner-border text-success" role="status"></div>
+                                <br>
+                                <small>Wait a minute for the table to load.</small>
+                                &nbsp;
+                            </div>
+                        </td>
+                    </tr> {% endcomment %}
+                </table>
+                <div id="human_behavior-message"></div>
+            </div>
+          </div>
+      </div>
 
 
-                {% comment %} <tr>
-                    <td colspan="5" class="text-center">
-                        <div id="animal_activity-spinner">
-                            <div style="width: 2rem; height: 2rem;" class="spinner-border text-success" role="status"></div>
-                            <br>
-                            <small>Wait a minute for the table to load.</small>
-                            &nbsp;
-                        </div>
-                    </td>
-                </tr> {% endcomment %}
-            </table>
-            <div id="animal_activity-message"></div>
-        </div>
-    </div>
 
 
-    <div class="row  mt-3 pt-3">
-        <h2>Human Behavior</h2>
-        <hr/>
-        <p>
-            .... work in progress ... Human behaviour data will be displayed here.
-        </p>
-        <div class="row justify-content-evenly mt-3 pt-3">
-            <table id="human-behavior">
-                <thead>
-                    <tr>
-                        <th>Macrosite</th>
-                        <th class="text-center">Priority</th>
-                        <th>From</th>
-                        <th>To</th>
-                        <th class="text-right">Total</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-
-
-                {% comment %} <tr>
-                    <td colspan="5" class="text-center">
-                        <div id="human_behavior-spinner">
-                            <div style="width: 2rem; height: 2rem;" class="spinner-border text-success" role="status"></div>
-                            <br>
-                            <small>Wait a minute for the table to load.</small>
-                            &nbsp;
-                        </div>
-                    </td>
-                </tr> {% endcomment %}
-            </table>
-            <div id="human_behavior-message"></div>
-        </div>
-    </div>
 
 </div>
 
@@ -396,10 +556,29 @@
             "pageLength": pageLength,
             "columns": columns
         });
+        $('#human-behavior').DataTable( {
+            "pageLength": pageLength,
+            "columns": columns
+        });
+        let columns_animal_activity = [
+            { "data": "Macrosite" },
+            { "data": "Station" },
+            { "data": "Species" },
+            { "data": "Priority" },
+            { "data": "From" },
+            { "data": "To" },
+            { "data": "Total" }
+        ];
+        $('#animal-activity').DataTable({
+            "pageLength": pageLength,
+            "columns": columns_animal_activity
+        });
 
     });
   </script>
 
   <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.js"></script>
+  <script src="https://getbootstrap.com/docs/5.3/assets/js/color-modes.js"></script>
+
 
 {% endblock footer_includes %}

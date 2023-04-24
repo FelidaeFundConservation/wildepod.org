@@ -280,6 +280,30 @@ class Species(TimeStampedModel):
         verbose_name_plural = "Species Annotations"
 
 
+
+    @staticmethod
+    def get_total_species():
+        return Species.objects.all().count()
+
+
+    @staticmethod
+    def get_species_group_by():
+        return Species.objects.all().annotate(species=F('name__name')).values('species').annotate(total=Count(1)).order_by('species')
+
+
+    @staticmethod
+    def species_human_animal():
+        """
+        Get the total number of species that are human or not human.
+        If a new human name is added, the list shuld be updated here.
+        Better to create a broad category over SpeciesName.
+        """
+        human = (1,56,57,58)
+        animal = SpeciesName.objects.exclude(id__in=human).values_list('id', flat=True)
+        return({'human': human, 'animal': tuple(animal)})
+
+
+
 # Names of different types of activity
 class ActivityType(TimeStampedModel):
     name = models.CharField(max_length=250, unique=True)
@@ -330,3 +354,12 @@ class Activity(TimeStampedModel):
     class Meta:
         ordering = ("-modified",)
         verbose_name_plural = "Activity Annotations"
+
+
+    @staticmethod
+    def get_human_behavior_group_by():
+        return Activity.objects.filter(name_id__in=[5,6,7,8] ).annotate(activity=F('name__name')).values('activity').annotate(total=Count(1))
+
+    @staticmethod
+    def get_animal_activity_group_by():
+        return Activity.objects.filter(name_id__in=[1,2,3,4] ).annotate(activity=F('name__name')).values('activity').annotate(total=Count(1))

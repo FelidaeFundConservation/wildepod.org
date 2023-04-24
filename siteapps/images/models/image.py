@@ -185,7 +185,9 @@ class Image(TimeStampedModel):
     def get_not_blank_annotation():
         return get_not_blank_annotation()
 
-
+    @staticmethod
+    def get_species_annotated(species_ids):
+        return get_species_annotated(species_ids)
 
 
 

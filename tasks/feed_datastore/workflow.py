@@ -21,11 +21,11 @@ from images.models.annotation import Species
 
 
 client = settings.DATASTORE_CLIENT
-client.namespace='workflow'
 
 def totals_document():
     """ Update the totals document in the workflow collection"""
     # Get workflow collection
+    client.namespace='workflow'
     c_key = client.key('total', 'workflow')
     totals = settings.DATASTORE_CLIENT.get(c_key)
 
@@ -91,6 +91,7 @@ def blank_annotation_images():
     serialized_bai = json.dumps(blank_annotation_images, default=str)
 
     # Get workflow collection
+    client.namespace='workflow'
     c_key = client.key('blank_annotation', 'workflow')
     blank_annotation = settings.DATASTORE_CLIENT.get(c_key)
 
@@ -128,6 +129,7 @@ def uncertain_images():
     serialized_ui = json.dumps(uncertain_images, default=str)
 
     # Get workflow collection
+    client.namespace='workflow'
     c_key = client.key('uncertain_images', 'workflow')
     uncertain_images = settings.DATASTORE_CLIENT.get(c_key)
 
@@ -172,6 +174,7 @@ def species_annotation():
     serialized_ui = json.dumps(species_annotation, default=str)
 
     # Get workflow collection
+    client.namespace='workflow'
     c_key = client.key('species_annotation', 'workflow')
     species_annotation = settings.DATASTORE_CLIENT.get(c_key)
 
@@ -213,6 +216,7 @@ def animal_activity():
     serialized_ui = json.dumps(animal_activity, default=str)
 
     # Get workflow collection
+    client.namespace='workflow'
     c_key = client.key('animal_activity', 'workflow')
     animal_activity = settings.DATASTORE_CLIENT.get(c_key)
 
@@ -236,6 +240,7 @@ def human_behavior():
     serialized_ui = json.dumps(human_behavior, default=str)
 
     # Get workflow collection
+    client.namespace='workflow'
     c_key = client.key('human_behavior', 'workflow')
     human_behavior = settings.DATASTORE_CLIENT.get(c_key)
 

@@ -92,8 +92,8 @@ class WorkflowStateView(TemplateView):
         # Identified/Observed
         context["categories"] = Category.get_categories_group_by()
         context["species"] = Species.get_species_group_by()
-        context["animal_activity_observed"] = Activity.get_animal_activity_group_by()
-        context["human_behavior_observed"] = Activity.get_human_behavior_group_by()
+        context["animal_activity_observed"] = Activity.get_activities_group_by_category('animal')
+        context["human_behavior_observed"] = Activity.get_activities_group_by_category('human')
 
         # Pipelines
         # Still to count the uncertain for all steps.

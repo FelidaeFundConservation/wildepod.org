@@ -353,19 +353,10 @@ class Activity(TimeStampedModel):
         ordering = ("-modified",)
         verbose_name_plural = "Activity Annotations"
 
-    @staticmethod
-    def get_human_behavior_group_by():
+    def get_activities_group_by_category(category):
+        category = ActivityType.objects.filter(category=category)
         return (
-            Activity.objects.filter(name_id__in=[5, 6, 7, 8])
-            .annotate(activity=F("name__name"))
-            .values("activity")
-            .annotate(total=Count(1))
-        )
-
-    @staticmethod
-    def get_animal_activity_group_by():
-        return (
-            Activity.objects.filter(name_id__in=[1, 2, 3, 4])
+            Activity.objects.filter(name_id__in=category)
             .annotate(activity=F("name__name"))
             .values("activity")
             .annotate(total=Count(1))

@@ -32,10 +32,6 @@ MAX_VOTES_PER_IMAGE = 2
 CATEGORY_ANIMAL = "animal"
 CATEGORY_HUMAN = "human"
 
-import datetime
-
-from django.db.models import Q
-
 
 class BboxAnnotationInfo:
     def __init__(self, id, categories, species, activities):
@@ -170,7 +166,6 @@ class CustomAnnotationView(LoginRequiredMixin, FormView, TemplateView):
             else:
                 camera_id = "None"
 
-            print(camera_id)
             url = (
                 reverse("images:annotate_objects")
                 + f"?start_date={start_date}&end_date={end_date}&macrosite_name={macrosite_name}&camera_id={camera_id}"
@@ -241,8 +236,9 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
                 )
                 .order_by(
                     "-upload__priority",
-                    "num_species_checked_by",
+                    "upload__camera_station",
                     "trigger_timestamp",
+                    "num_species_checked_by",
                     "num_objects",
                 )
             )
@@ -372,8 +368,9 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
 
             images = images.order_by(
                 "-upload__priority",
-                "num_activity_checked_by",
+                "upload__camera_station",
                 "trigger_timestamp",
+                "num_activity_checked_by",
                 "num_objects",
             )
 

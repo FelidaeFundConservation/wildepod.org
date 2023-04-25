@@ -1,8 +1,8 @@
-
 def get_object_annotation_images(
     annotator=None, start_date=None, end_date=None, station=None, macrosite=None, queue_size=0
 ):
     from images.models.image import Image
+
     """
     This function contains the raw SQL query for the Object annotation pipeline.
     """
@@ -160,24 +160,17 @@ def get_object_annotation_images(
     return imgs
 
 
-
-
-
-
-
-
-
-
-
 def get_prioritized_images(priority=None, start_date=None, end_date=None, station=None, macrosite=None):
     from images.models.image import Image
+
     """
     Prioritized images.
     Images still not touched by any annotator.
     No bounding box accepted or rejected.
     """
 
-    imgs = Image.objects.raw("""
+    imgs = Image.objects.raw(
+        """
             WITH images_not_touched AS
             (
                 SELECT DISTINCT(image_id)
@@ -215,18 +208,20 @@ def get_prioritized_images(priority=None, start_date=None, end_date=None, statio
             --WHERE priority = '{}'
             --LIMIT 200
             ;
-            """#.format(priority)
+            """  # .format(priority)
     )
     return imgs
 
 
 def get_not_blank_annotation(annotator=None, start_date=None, end_date=None, station=None, macrosite=None):
     from images.models.image import Image
+
     """
     All images that have at least one bounding box accepted or rejected.
     """
 
-    imgs = Image.objects.raw("""
+    imgs = Image.objects.raw(
+        """
         WITH images_touched AS
         (
             SELECT image_id
@@ -261,16 +256,19 @@ def get_not_blank_annotation(annotator=None, start_date=None, end_date=None, sta
             --LIMIT 100
         )
         SELECT * FROM images_details
-    """)
+    """
+    )
     return imgs
 
 
 def get_species_annotated(species_ids):
     from images.models.image import Image
+
     """
     All images with species annotated.
     """
-    imgs = Image.objects.raw("""
+    imgs = Image.objects.raw(
+        """
         WITH species_annotated AS
         (
             SELECT images.id,
@@ -298,24 +296,25 @@ def get_species_annotated(species_ids):
             --LIMIT 100
         )
         SELECT * FROM species_annotated
-    """.format(species_ids))
+    """.format(
+            species_ids
+        )
+    )
     return imgs
-
-
-
 
 
 def get_images_to_ignore(annotator=None):
     from images.models.image import Image
+
     """
     Return images touched by a user via BoundingBoxes.
     Also include images that were toucjhed by staff.
     """
 
-    annotator = ("OR uu.id='{}'".format(annotator)
-                    if annotator else "")
+    annotator = "OR uu.id='{}'".format(annotator) if annotator else ""
 
-    imgs = Image.objects.raw("""
+    imgs = Image.objects.raw(
+        """
             /*
             * Return images touched by a user.
             * Images that should be ignored at anytime.
@@ -349,31 +348,45 @@ def get_images_to_ignore(annotator=None):
                     ON ib.id = ignore_bbs.boundingbox_id
             )
             SELECT * FROM ignore_images
-        """.format(annotator)
+        """.format(
+            annotator
+        )
     )
     return imgs
 
 
-
 def get_uncertain_images(annotator=None, start_date=None, end_date=None, station=None, macrosite=None):
     from images.models.image import Image
+
     """
     These are images that have been accepted and rejected by
     the difference of one, in the number of annotators.
     See more comments inline
     """
 
-    start_date = ("AND images.trigger_timestamp >= '{}'".format(start_date)
-                    if start_date else "AND images.trigger_timestamp = images.trigger_timestamp")
-    end_date = ("AND images.trigger_timestamp <= '{}'".format(end_date)
-                    if end_date else "AND images.trigger_timestamp = images.trigger_timestamp")
-    macrosite = ("AND location_macro.name = '{}'".format(macrosite)
-                    if macrosite   else "AND location_macro.name = location_macro.name")
-    station = ("AND location_camera.station_id = '{}'".format(station)
-                    if station else "AND location_camera.station_id = location_camera.station_id"
+    start_date = (
+        "AND images.trigger_timestamp >= '{}'".format(start_date)
+        if start_date
+        else "AND images.trigger_timestamp = images.trigger_timestamp"
+    )
+    end_date = (
+        "AND images.trigger_timestamp <= '{}'".format(end_date)
+        if end_date
+        else "AND images.trigger_timestamp = images.trigger_timestamp"
+    )
+    macrosite = (
+        "AND location_macro.name = '{}'".format(macrosite)
+        if macrosite
+        else "AND location_macro.name = location_macro.name"
+    )
+    station = (
+        "AND location_camera.station_id = '{}'".format(station)
+        if station
+        else "AND location_camera.station_id = location_camera.station_id"
     )
 
-    imgs = Image.objects.raw("""
+    imgs = Image.objects.raw(
+        """
             /* All accepted Bounding Boxes */
             WITH bb_accepted_all AS
             (
@@ -437,6 +450,8 @@ def get_uncertain_images(annotator=None, start_date=None, end_date=None, station
                 ORDER BY priority DESC, ts DESC
             )
             SELECT * FROM images_details
-        """.format(start_date, end_date, macrosite, station)
+        """.format(
+            start_date, end_date, macrosite, station
+        )
     )
     return imgs

@@ -8,8 +8,8 @@ from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
 
 from .annotator import Annotator
-from .upload import Upload
 from .raw_sql import *
+from .upload import Upload
 
 
 # Bounding Box manager. For now, this simply returns "valid" bounding boxes as determined
@@ -52,7 +52,7 @@ class Image(TimeStampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     # Specific camera station upload the images are linked to
-    upload = models.ForeignKey(Upload, on_delete=models.PROTECT, related_name='images')
+    upload = models.ForeignKey(Upload, on_delete=models.PROTECT, related_name="images")
     # Dropbox filename.
     # NOTE: Dropbox requests prepend files with the "Uploader's name" which should be removed to get the actual filename although not useful
     dropbox_file_name = models.TextField()
@@ -108,13 +108,12 @@ class Image(TimeStampedModel):
     # Custom manager
     objects = ImageManager()
 
-
     def __str__(self):
         return self.dropbox_file_name
 
     @staticmethod
     def get_total_images():
-        """ Returns the number of uploaded images"""
+        """Returns the number of uploaded images"""
         return Image.objects.count()
 
     @staticmethod
@@ -130,10 +129,14 @@ class Image(TimeStampedModel):
         """
         Returns the images with annotated species. This is made through bounding_box
         """
-        if species_name == 'human':
+        if species_name == "human":
             return Image.objects.filter(boundingbox__species__name_id=8).distinct()
         else:
-            return Image.objects.filter(boundingbox__species__isnull=False).exclude(boundingbox__species__name_id=8).distinct()
+            return (
+                Image.objects.filter(boundingbox__species__isnull=False)
+                .exclude(boundingbox__species__name_id=8)
+                .distinct()
+            )
 
     @staticmethod
     def get_total_images_annotated_category(category_name):
@@ -150,37 +153,46 @@ class Image(TimeStampedModel):
         return Image.objects.exclude(boundingbox__category__name=category_name).distinct()
 
     @staticmethod
-    def get_total_images_annotated_activity(category_name='animal'):
+    def get_total_images_annotated_activity(category_name="animal"):
         """
         Returns the images with annotated activity. This is made through bounding_box
         """
-        category = [5,6,7,8] if category_name == 'human' else [1,2,3,4]
+        category = [5, 6, 7, 8] if category_name == "human" else [1, 2, 3, 4]
         return Image.objects.filter(boundingbox__activity__name__in=category).distinct()
 
     @staticmethod
     def get_total_images_priorities():
-        """ Returns the number of uploaded images by priority """
-        priorities = Upload.objects.annotate(total=Count('images'))
+        """Returns the number of uploaded images by priority"""
+        priorities = Upload.objects.annotate(total=Count("images"))
         pri_1 = priorities.filter(priority=1)
         pri_2 = priorities.filter(priority=2)
         pri_3 = priorities.filter(priority=3)
-        return {'priority_1':sum(pr.total for pr in pri_1),
-                'priority_2':sum(pr.total for pr in pri_2),
-                'priority_3':sum(pr.total for pr in pri_3)}
+        return {
+            "priority_1": sum(pr.total for pr in pri_1),
+            "priority_2": sum(pr.total for pr in pri_2),
+            "priority_3": sum(pr.total for pr in pri_3),
+        }
 
     @staticmethod
     def get_untouched_images():
-        """ Returns the number of untouched images, no accepted or rejected bounding box """
+        """Returns the number of untouched images, no accepted or rejected bounding box"""
 
         # !!! have to return images, not bounding boxes.
 
         from images.models.annotation import BoundingBox
-        return BoundingBox.objects.exclude(accepted_by__isnull=False).exclude(rejected_by__isnull=False).values('image_id').distinct().count()
 
+        return (
+            BoundingBox.objects.exclude(accepted_by__isnull=False)
+            .exclude(rejected_by__isnull=False)
+            .values("image_id")
+            .distinct()
+            .count()
+        )
 
     """
     FROM RAW SQL
     """
+
     @staticmethod
     def get_not_blank_annotation():
         return get_not_blank_annotation()
@@ -188,10 +200,6 @@ class Image(TimeStampedModel):
     @staticmethod
     def get_species_annotated(species_ids):
         return get_species_annotated(species_ids)
-
-
-
-
 
     class Meta:
         ordering = (

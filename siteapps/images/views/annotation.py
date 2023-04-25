@@ -37,6 +37,14 @@ import datetime
 from django.db.models import Q
 
 
+class BboxAnnotationInfo:
+    def __init__(self, id, categories, species, activities):
+        self.id = id
+        self.categories = categories
+        self.species = species
+        self.activities = activities
+
+
 # TODO: Clean up this code
 # TODO: There are several common bits of code across the three annotation views and should be refactored
 class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
@@ -124,13 +132,6 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
         ]
 
         # Gather all annotations for bounding boxes.
-        class BboxAnnotationInfo:
-            def __init__(self, boxId, categories, species, activities):
-                self.id = boxId
-                self.categories = categories
-                self.species = species
-                self.activities = activities
-
         try:
             bboxes = BoundingBox.objects.filter(image=queue["images"][queue["index"]])
         except ObjectDoesNotExist:
@@ -298,13 +299,6 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
         ]
 
         # Gather all annotations for bounding boxes.
-        class BboxAnnotationInfo:
-            def __init__(self, id, categories, species, activities):
-                self.id = id
-                self.categories = categories
-                self.species = species
-                self.activities = activities
-
         try:
             bboxes = BoundingBox.objects.filter(image=queue["images"][queue["index"]])
         except ObjectDoesNotExist:
@@ -435,13 +429,6 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
         ]
 
         # Gather all annotations for bounding boxes.
-        class BboxAnnotationInfo:
-            def __init__(self, id, categories, species, activities):
-                self.id = id
-                self.categories = categories
-                self.species = species
-                self.activities = activities
-
         try:
             bboxes = BoundingBox.objects.filter(image=queue["images"][queue["index"]])
         except ObjectDoesNotExist:

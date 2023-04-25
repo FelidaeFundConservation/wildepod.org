@@ -133,4 +133,4 @@ repos:
         args:
           - "--max-line-length=120"
           - "--max-complexity=12"
-          - "--ignore=E501,W503,E203,F405,F403,F401,SIM105,C901"
+          - "--ignore=E501,W503,E203,F405,F403,F401,SIM105,C901,SIM113"

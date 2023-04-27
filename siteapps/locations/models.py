@@ -82,6 +82,7 @@ class MicroSite(TimeStampedModel):
         #     models.Index(fields=['name',])
         # ]
 
+
 class TrailType(TimeStampedModel):
     name = models.CharField("Trail Type", max_length=100, unique=True)
     comments = models.TextField("Additional notes", blank=True)
@@ -224,7 +225,6 @@ class CameraStation(TimeStampedModel):
 
     class Meta:
         ordering = ("station_id",)
-
 
         # Keep commented while testing to check effect on performance
         # indexes = [

@@ -113,3 +113,9 @@ class Upload(TimeStampedModel):
     class Meta:
         ordering = ("-created",)
         unique_together = [["camera_station", "date_retrieved"]]
+
+        # Keep commented while testing to check effect on performance
+        # indexes = [
+        #     models.Index(fields=['camera_station',]),
+        #     models.Index(fields=['priority',])
+        # ]

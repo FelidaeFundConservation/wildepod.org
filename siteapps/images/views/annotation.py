@@ -2,17 +2,43 @@ import datetime
 import json
 import logging
 
+import numpy as np
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Exists, OuterRef, Q
 from django.http.response import JsonResponse
+from django.shortcuts import redirect, render
+from django.urls import reverse
+from django.views.generic import FormView
 from django.views.generic.base import TemplateView, View
-from images.models import ActivityType, Annotator, BoundingBox, Image, Species, SpeciesName
+from images.forms import AnnotationForm
+from images.models import (
+    Activity,
+    ActivityType,
+    Annotator,
+    BoundingBox,
+    Category,
+    Image,
+    Species,
+    SpeciesName,
+    get_object_annotation_images,
+)
 from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
+from locations.models import CameraStation, MacroSite, MicroSite
 
 MAX_VOTES_PER_IMAGE = 2
 CATEGORY_ANIMAL = "animal"
 CATEGORY_HUMAN = "human"
+
+
+class BboxAnnotationInfo:
+    def __init__(self, id, categories, species, activities):
+        self.id = id
+        self.categories = categories
+        self.species = species
+        self.activities = activities
 
 
 # TODO: Clean up this code
@@ -21,17 +47,27 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
     login_url = settings.LOGIN_URL
     template_name = "images/annotate/objects.html"
 
+    def get(self, request, *args, **kwargs):
+        station = None if self.request.GET.get("camera_id") == "None" else self.request.GET.get("camera_id")
+
+        self.filterset = {
+            "start_date": self.request.GET.get("start_date"),
+            "end_date": self.request.GET.get("end_date"),
+            "station": station,
+            "macrosite": self.request.GET.get("macrosite_name"),
+            "annotator": self.request.user,
+        }
+        return super().get(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # First get the annotator object for the user
         annotator, _ = Annotator.objects.get_or_create(type="human", human=self.request.user)
-
         # Get the annotation queue cached in the datastore
         queue_key = settings.DATASTORE_CLIENT.key("AnnotateObjectsQueue", str(self.request.user.id))
         queue = settings.DATASTORE_CLIENT.get(queue_key)
 
-        # If a valid object exists and if it is not expired and if the index points to a valid image, serve it
-        if (
+        if not self.filterset["macrosite"] and (
             queue
             and datetime.datetime.fromisoformat(queue["expires_at"]) > datetime.datetime.now()
             and queue["index"] < len(queue["images"])
@@ -39,27 +75,12 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
             # Get the image id
             image_id = queue["images"][queue["index"]]
         else:
-            # First get an image stack
-            images = (
-                Image.objects.annotated()
-                .filter(
-                    # It must not be checked or skipped by the current annotator
-                    ~Q(bbox_checked_by__in=[annotator]) & ~Q(bbox_skipped_by__in=[annotator]),
-                    # There must be at least one or more "uncertain" bounding boxes.
-                    # This will make sure that the images that need more votes are served first
-                    Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
-                    # Image must be marked as processed by MegaDetector
-                    processed=True,
-                    # Image must have at least one bounding box
-                    num_objects__gt=0,
-                )
-                .order_by("-upload__priority", "trigger_timestamp")
-            )
-            # Get the image stack based on stack size.
-            images = images[: settings.ANNOTATION_QUEUE_SIZE]
+            # Get the images to annotate. Check raw sql to see how this is done
+            images = get_object_annotation_images(**self.filterset, queue_size=settings.ANNOTATION_QUEUE_SIZE)
 
             # Get the image ids & convert to string
             image_ids = [str(image.id) for image in images]
+
             # Create a queue entity with image ids, user id, timestamp and index
             payload = {
                 "user": str(self.request.user.id),
@@ -87,6 +108,8 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
             context["image"] = image
             bounding_boxes = BoundingBox.objects.valid_or_uncertain().filter(image=image)
             context["bounding_boxes"] = bounding_boxes
+            context["queue_index"] = queue["index"]
+            context["queue_length"] = len(queue["images"])
         else:
             context["image"] = None
             context["bounding_boxes"] = []
@@ -104,7 +127,50 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
             Image.objects.get(id=image_id) for image_id in queue["images"][lowerIndex:upperIndex]
         ]
 
+        # Gather all annotations for bounding boxes.
+        try:
+            bboxes = BoundingBox.objects.filter(image=queue["images"][queue["index"]])
+        except ObjectDoesNotExist:
+            bboxes = []
+
+        infoList = []
+
+        for bbox in bboxes:
+            categories = Category.objects.filter(bounding_box=bbox)
+            species = Species.objects.filter(bounding_box=bbox)
+            activities = Activity.objects.filter(bounding_box=bbox)
+
+            infoList.append(BboxAnnotationInfo(bbox.id, categories, species, activities))
+
+        context["bbox_all_annotations"] = infoList
+
         return context
+
+
+class CustomAnnotationView(LoginRequiredMixin, FormView, TemplateView):
+    login_url = settings.LOGIN_URL
+    template_name = "images/annotate/custom_annotation.html"
+    form_class = AnnotationForm
+
+    def post(self, request, *args, **kwargs):
+        form = AnnotationForm(request.POST)
+
+        if form.is_valid():
+            start_date = form.cleaned_data["start_date"]
+            end_date = form.cleaned_data["end_date"]
+            macrosites = form.cleaned_data["macrosites"]
+            macrosite_name = macrosites.name
+            camera_stations = form.cleaned_data["camera_stations"]
+            if camera_stations:
+                camera_id = camera_stations.station_id
+            else:
+                camera_id = "None"
+
+            url = (
+                reverse("images:annotate_objects")
+                + f"?start_date={start_date}&end_date={end_date}&macrosite_name={macrosite_name}&camera_id={camera_id}"
+            )
+            return redirect(url)
 
 
 # TODO: Clean up this code
@@ -168,7 +234,13 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
                     # Image must be marked as processed
                     processed=True,
                 )
-                .order_by("-upload__priority", "num_species_checked_by", "trigger_timestamp", "num_objects")
+                .order_by(
+                    "-upload__priority",
+                    "upload__camera_station",
+                    "trigger_timestamp",
+                    "num_species_checked_by",
+                    "num_objects",
+                )
             )
             # Get the image stack based on stack size
             images = images[: settings.ANNOTATION_QUEUE_SIZE]
@@ -221,6 +293,23 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
         context["context_images"] = [
             Image.objects.get(id=image_id) for image_id in queue["images"][lowerIndex:upperIndex]
         ]
+
+        # Gather all annotations for bounding boxes.
+        try:
+            bboxes = BoundingBox.objects.filter(image=queue["images"][queue["index"]])
+        except ObjectDoesNotExist:
+            bboxes = []
+
+        infoList = []
+
+        for bbox in bboxes:
+            categories = Category.objects.filter(bounding_box=bbox)
+            species = Species.objects.filter(bounding_box=bbox)
+            activities = Activity.objects.filter(bounding_box=bbox)
+
+            infoList.append(BboxAnnotationInfo(bbox.id, categories, species, activities))
+
+        context["bbox_all_annotations"] = infoList
 
         return context
 
@@ -277,7 +366,13 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
                     Exists(BoundingBox.objects.is_nondomestic_species().filter(image=OuterRef("pk")))
                 )
 
-            images = images.order_by("-upload__priority", "num_activity_checked_by", "trigger_timestamp", "num_objects")
+            images = images.order_by(
+                "-upload__priority",
+                "upload__camera_station",
+                "trigger_timestamp",
+                "num_activity_checked_by",
+                "num_objects",
+            )
 
             # Get the image stack based on stack size.
             images = images[: settings.ANNOTATION_QUEUE_SIZE]
@@ -330,6 +425,23 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
             Image.objects.get(id=image_id) for image_id in queue["images"][lowerIndex:upperIndex]
         ]
 
+        # Gather all annotations for bounding boxes.
+        try:
+            bboxes = BoundingBox.objects.filter(image=queue["images"][queue["index"]])
+        except ObjectDoesNotExist:
+            bboxes = []
+
+        infoList = []
+
+        for bbox in bboxes:
+            categories = Category.objects.filter(bounding_box=bbox)
+            species = Species.objects.filter(bounding_box=bbox)
+            activities = Activity.objects.filter(bounding_box=bbox)
+
+            infoList.append(BboxAnnotationInfo(bbox.id, categories, species, activities))
+
+        context["bbox_all_annotations"] = infoList
+
         return context
 
 
@@ -346,7 +458,7 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
             annotations = []
             logging.info(f"Bounding box annotations for image '{image_id}' was skipped by user - '{request.user.name}'")
             # Process the annotations
-            success = process_md_annotations(image_id, annotations, initial_bboxes, request.user, skip)
+            success = process_md_annotations(image_id, annotations, initial_bboxes, request.user, False, skip)
         else:
             # Get bounding box ids that were sent to infer deleted annotations
             initial_bboxes = request.POST.get("initial_bboxes")
@@ -362,7 +474,9 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
 
             logging.info(f"Processing bounding box annotations for image '{image_id}' by user - '{request.user.name}'")
             # Process the annotations
-            success = process_md_annotations(image_id, annotations, initial_bboxes, request.user, social_media_worthy)
+            success = process_md_annotations(
+                image_id, annotations, initial_bboxes, request.user, social_media_worthy, False
+            )
 
         # If success, update image index in the datastore
         if success:
@@ -454,3 +568,30 @@ class ActivityAnnotationProcessorView(LoginRequiredMixin, View):
 
         # # TODO: Send and render a meaningful response
         return JsonResponse({"success": success})
+
+
+class DeleteAnnotationView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        model = request.POST.get("model")
+        boxId = request.POST.get("boxId")
+        annotationName = request.POST.get("annotationName")
+
+        success = None
+        bbox = BoundingBox.objects.get(id=boxId)
+
+        try:
+            if model == "category":
+                category = Category.objects.get(bounding_box=bbox, name=annotationName)
+                category.delete()
+                success = True
+            elif model == "species":
+                species = Species.objects.get(bounding_box=bbox, name__name=annotationName)
+                species.delete()
+                success = True
+            elif model == "activity":
+                activity = Activity.objects.get(bounding_box=bbox, name__name=annotationName)
+                activity.delete()
+                success = True
+        except ObjectDoesNotExist:
+            success = False
+        return JsonResponse({"success": success, "name": annotationName})

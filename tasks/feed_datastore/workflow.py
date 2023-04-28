@@ -20,7 +20,7 @@ django.setup()
 from django.conf import settings
 from images.models.annotation import Species
 from images.models.image import Image
-from images.models.raw_sql import get_images_to_ignore, get_prioritized_images, get_uncertain_images
+from images.models import get_images_to_ignore, get_prioritized_images, get_uncertain_images, get_species_to_annotate
 
 client = settings.DATASTORE_CLIENT
 
@@ -159,26 +159,25 @@ def uncertain_images():
 
 def _get_images_to_annotate_species(species):
     # Images with at least one annotation. Through BB accepted or rejected.
-    images_not_ba = Image.get_not_blank_annotation()
-
+    images_not_ba = get_species_to_annotate()
+    
     # Images pendings to finish annotation
     images_to_annotate = _get_images_to_annotate()
     ignore_images_s = set([ia.id for ia in images_to_annotate])
-
-    # Images where category is not animal
-    not_exclude = Image.get_total_images_annotated_category(species)
-    not_ignore_images_s = set([a.id for a in not_exclude])
 
     # Images with at least one species annotation
     species_annotation = Image.get_total_images_annotated_species()
     ignore_images_s |= set([sa.id for sa in species_annotation])
 
-    images = [inb for inb in images_not_ba if inb.id not in ignore_images_s and inb.id in not_ignore_images_s]
+    images = [inb for inb in images_not_ba if inb.id not in ignore_images_s]
 
     return images
 
 
 def species_annotation():
+    """ 
+    Images to annotate species, grouped by macrosite, station and species
+    """
     images = _get_images_to_annotate_species("animal")
     species_annotation = _pd_group_images(images)
     serialized_ui = json.dumps(species_annotation, default=str)
@@ -257,9 +256,9 @@ def human_behavior():
 
 
 if __name__ == "__main__":
-    human_behavior()
-    animal_activity()
+    # human_behavior()
+    # animal_activity()
     species_annotation()
-    totals_document()
-    uncertain_images()
-    blank_annotation_images()
+    # totals_document()
+    # uncertain_images()
+    # blank_annotation_images()

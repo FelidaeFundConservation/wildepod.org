@@ -213,53 +213,6 @@ def get_prioritized_images(priority=None, start_date=None, end_date=None, statio
     return imgs
 
 
-def get_not_blank_annotation(annotator=None, start_date=None, end_date=None, station=None, macrosite=None):
-    from images.models.image import Image
-
-    """
-    All images that have at least one bounding box accepted or rejected.
-    """
-
-    imgs = Image.objects.raw(
-        """
-        WITH images_touched AS
-        (
-            SELECT image_id
-            FROM images_boundingbox AS ib
-            LEFT JOIN(
-                SELECT boundingbox_id
-                FROM images_boundingbox_accepted_by AS iba
-                    UNION
-                SELECT boundingbox_id
-                FROM images_boundingbox_rejected_by AS ibr
-            ) AS bbs
-            ON bbs.boundingbox_id = ib.id
-        ),
-        images_details AS
-        (
-            SELECT images.id,
-                images.trigger_timestamp AS ts,
-                image_upload.priority AS priority,
-                location_macro.name AS macrosite,
-                location_camera.station_id AS station
-            FROM images_image AS images
-            INNER JOIN images_touched AS images_t
-                ON images_t.image_id = images.id
-            INNER JOIN images_upload AS image_upload
-                ON image_upload.id = images.upload_id
-            LEFT JOIN locations_camerastation AS location_camera
-                ON image_upload.camera_station_id = location_camera.id
-            LEFT JOIN locations_microsite AS location_micro
-                ON location_camera.micro_site_id = location_micro.id
-            LEFT JOIN locations_macrosite AS location_macro
-                ON location_micro.macro_site_id = location_macro.id
-            --LIMIT 100
-        )
-        SELECT * FROM images_details
-    """
-    )
-    return imgs
-
 
 def get_species_annotated(species_ids):
     from images.models.image import Image
@@ -452,6 +405,93 @@ def get_uncertain_images(annotator=None, start_date=None, end_date=None, station
             SELECT * FROM images_details
         """.format(
             start_date, end_date, macrosite, station
+        )
+    )
+    return imgs
+
+
+
+def get_species_to_annotate(
+    annotator=None, start_date=None, end_date=None, station=None, macrosite=None, queue_size=0
+):
+    from images.models.image import Image
+
+    """
+    This function contains the raw SQL query for the Species annotation pipeline.
+    """
+    start_date = (
+        "AND images.trigger_timestamp >= '{}'".format(start_date)
+        if start_date
+        else "AND images.trigger_timestamp = images.trigger_timestamp"
+    )
+    end_date = (
+        "AND images.trigger_timestamp <= '{}'".format(end_date)
+        if end_date
+        else "AND images.trigger_timestamp = images.trigger_timestamp"
+    )
+    macrosite = (
+        "AND location_macro.name = '{}'".format(macrosite)
+        if macrosite
+        else "AND location_macro.name = location_macro.name"
+    )
+    station = (
+        "AND location_camera.station_id = '{}'".format(station)
+        if station
+        else "AND location_camera.station_id = location_camera.station_id"
+    )
+    queue_size = (
+        "LIMIT {}".format(queue_size)
+        if queue_size > 0
+        else ''
+    )
+
+    imgs = Image.objects.raw(
+        """    
+        WITH animal_images_touched AS
+        (
+            SELECT image_id
+            FROM images_boundingbox AS ib
+            RIGHT JOIN(
+                SELECT boundingbox_id
+                FROM images_boundingbox_accepted_by AS iba
+                    UNION
+                SELECT boundingbox_id
+                FROM images_boundingbox_rejected_by AS ibr
+            ) AS bbs
+                ON bbs.boundingbox_id = ib.id
+            INNER JOIN images_category AS ic
+                ON ic.bounding_box_id = ib.id
+            WHERE ic.name = 'animal'
+        ),
+        images_details AS
+        (
+            SELECT images.id,
+                images.trigger_timestamp AS ts,
+                image_upload.priority AS priority,
+                location_macro.name AS macrosite,
+                location_camera.station_id AS station
+            FROM images_image AS images
+            RIGHT JOIN animal_images_touched AS images_t
+                ON images_t.image_id = images.id
+            LEFT JOIN images_upload AS image_upload
+                ON image_upload.id = images.upload_id
+            LEFT JOIN locations_camerastation AS location_camera
+                ON image_upload.camera_station_id = location_camera.id
+            LEFT JOIN locations_microsite AS location_micro
+                ON location_camera.micro_site_id = location_micro.id
+            LEFT JOIN locations_macrosite AS location_macro
+                ON location_micro.macro_site_id = location_macro.id
+            WHERE images.processed = TRUE
+            {start_date} {end_date} {macrosite} {station}
+            {queue_size}
+        )
+        SELECT * FROM images_details
+        """.format(
+            start_date=start_date,
+            end_date=end_date,
+            macrosite=macrosite,
+            station=station,
+            queue_size=queue_size,
         )
     )
     return imgs

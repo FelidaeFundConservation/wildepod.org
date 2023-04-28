@@ -254,6 +254,7 @@
                 'csrfmiddlewaretoken': csrftoken
             }
 
+            {% if user.is_staff %}
             $.ajax({
                 url: '{% url 'images:staff_delete_annotation'%}',
                 method: 'POST',
@@ -270,6 +271,7 @@
                     }
                 },
             });
+            {% endif %}
         }
 
         // Toggle between single & multiple species annotations

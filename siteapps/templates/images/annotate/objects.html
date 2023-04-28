@@ -245,6 +245,7 @@
                 'csrfmiddlewaretoken': csrftoken
             }
 
+            {% if user.is_staff %}
             $.ajax({
                 url: '{% url 'images:staff_delete_annotation'%}',
                 method: 'POST',
@@ -262,6 +263,7 @@
                     },
                 });
             }
+            {% endif %}
 
             // Submit annotations to the server
             $("#save_annotations").click(function(e){

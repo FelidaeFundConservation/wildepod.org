@@ -114,3 +114,8 @@ class Image(TimeStampedModel):
             "trigger_timestamp",
             "-created",
         )
+
+        # Keep commented while testing to check effect on performance
+        # indexes = [
+        #     models.Index(fields=['upload',])
+        # ]

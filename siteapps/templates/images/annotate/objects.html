@@ -170,7 +170,7 @@
                 {
                     "id": "{{bbox.id}}",
                     "category": "{{bbox.category_set.all.0.name}}",
-                    "confidence": {{bbox.category_set.all.0.confidence}},
+                    "confidence": "{{bbox.category_set.all.0.confidence}}",
                     "x": {{bbox.x}},
                     "y": {{bbox.y}},
                     "w": {{bbox.w}},
@@ -235,23 +235,23 @@
                 })
             }
 
-            window.staffDeleteAnnotation = function() {
-            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-            let data = {
-                'model': arguments[0],
-                'boxId': arguments[1],
-                'annotationName': arguments[2],
-                'csrfmiddlewaretoken': csrftoken
-            }
-
             {% if user.is_staff %}
-            $.ajax({
-                url: '{% url 'images:staff_delete_annotation'%}',
-                method: 'POST',
-                data: data,
-                dataType: 'json',
-                success: function (data) {
+            window.staffDeleteAnnotation = function () {
+                const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+                let data = {
+                    'model': arguments[0],
+                    'boxId': arguments[1],
+                    'annotationName': arguments[2],
+                    'csrfmiddlewaretoken': csrftoken
+                }
+
+                $.ajax({
+                    url: `{% url 'images:staff_delete_annotation'%}`,
+                    method: 'POST',
+                    data: data,
+                    dataType: 'json',
+                    success: function (data) {
                         let deletionText = document.getElementById(`deletion-text-${data.name}`);
 
                         if (data.success) {
@@ -260,7 +260,7 @@
                         else {
                             deletionText.innerHTML = `There was a problem deleting <i>annotation "<b>${data.name}</b>".</i>`;
                         }
-                    },
+                    }
                 });
             }
             {% endif %}

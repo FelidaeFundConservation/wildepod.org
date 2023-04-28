@@ -202,10 +202,16 @@ function renderBoundingBoxes(imageElementID, annotations, widgets, config) {
       col.appendChild(canvas);
 
       // Show the previews in the staff annotation overview modal as well.
-      let canvasClone = canvas.cloneNode();
-      canvasClone.id = 'canvas-clone' + annotation.id;
-      let cloneContext = canvasClone.getContext("2d");
-      cloneContext.drawImage(imageElement, x, y, w, h, dx, dy, dw, dh);
-      document.getElementById(`staff-modal-card-${annotation.id}`).appendChild(canvasClone);
+        try {
+            let canvasClone = canvas.cloneNode();
+            canvasClone.id = 'canvas-clone-' + annotation.id;
+            let cloneContext = canvasClone.getContext("2d");
+            cloneContext.drawImage(imageElement, x, y, w, h, dx, dy, dw, dh);
+            document.getElementById(`staff-modal-card-${annotation.id}`).appendChild(canvasClone);
+        }
+        catch {
+
+        }
+
     }
   }

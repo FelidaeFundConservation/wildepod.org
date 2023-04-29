@@ -260,33 +260,35 @@
             });
         }
 
-        window.staffDeleteAnnotation = function() {
-            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        {% if user.is_staff %}
+            window.staffDeleteAnnotation = function () {
+                const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-            let data = {
-                'model': arguments[0],
-                'boxId': arguments[1],
-                'annotationName': arguments[2],
-                'csrfmiddlewaretoken': csrftoken
+                let data = {
+                    'model': arguments[0],
+                    'boxId': arguments[1],
+                    'annotationName': arguments[2],
+                    'csrfmiddlewaretoken': csrftoken
+                }
+
+                $.ajax({
+                    url: `{% url 'images:staff_delete_annotation'%}`,
+                    method: 'POST',
+                    data: data,
+                    dataType: 'json',
+                    success: function (data) {
+                        let deletionText = document.getElementById(`deletion-text-${data.name}`);
+
+                        if (data.success) {
+                            deletionText.innerHTML = `<i>Annotation "<b>${data.name}</b>" has been deleted.</i>`;
+                        }
+                        else {
+                            deletionText.innerHTML = `There was a problem deleting <i>annotation "<b>${data.name}</b>".</i>`;
+                        }
+                    }
+                });
             }
-
-            $.ajax({
-                url: '{% url 'images:staff_delete_annotation'%}',
-                method: 'POST',
-                data: data,
-                dataType: 'json',
-                success: function (data) {
-                    let deletionText = document.getElementById(`deletion-text-${data.name}`);
-
-                    if (data.success) {
-                        deletionText.innerHTML = `<i>Annotation "<b>${data.name}</b>" has been deleted.</i>`;
-                    }
-                    else {
-                        deletionText.innerHTML = `There was a problem deleting <i>annotation "<b>${data.name}</b>".</i>`;
-                    }
-                },
-            });
-        }
+        {% endif %}
 
         // Toggle between single & multiple species annotations
         $("#single-species").click(function(e){

@@ -18,9 +18,9 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local_settings"
 django.setup()
 
 from django.conf import settings
+from images.models import get_images_to_ignore, get_prioritized_images, get_species_to_annotate, get_uncertain_images
 from images.models.annotation import Species
 from images.models.image import Image
-from images.models import get_images_to_ignore, get_prioritized_images, get_uncertain_images, get_species_to_annotate
 
 client = settings.DATASTORE_CLIENT
 
@@ -160,7 +160,7 @@ def uncertain_images():
 def _get_images_to_annotate_species(species):
     # Images with at least one annotation. Through BB accepted or rejected.
     images_not_ba = get_species_to_annotate()
-    
+
     # Images pendings to finish annotation
     images_to_annotate = _get_images_to_annotate()
     ignore_images_s = set([ia.id for ia in images_to_annotate])
@@ -175,7 +175,7 @@ def _get_images_to_annotate_species(species):
 
 
 def species_annotation():
-    """ 
+    """
     Images to annotate species, grouped by macrosite, station and species
     """
     images = _get_images_to_annotate_species("animal")

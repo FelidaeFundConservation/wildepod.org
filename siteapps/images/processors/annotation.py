@@ -246,7 +246,7 @@ def process_species_annotations(
 
     # Update the image's social media worthy status
     if social_media_worthy:
-       image.social_media_worthy += 1
+        image.social_media_worthy += 1
 
     # Prep the annotations data
     # Format the annotorious annotations

@@ -62,6 +62,21 @@
                 name="save_annotations"
                 value="Save Annotations"
             >
+ #37-feature-social-media-worthy
+            <div class="mt-3">
+                <input
+                    class="form-check-input"
+                    type="checkbox"
+                    value=""
+                    id="social-media-worthy-species"
+                >
+                <label
+                    class="form-check-label"
+                    for="social-media-worthy-species"
+                >
+                    &nbsp; Social Media Worthy?
+                </label>
+            </div>
             {% if user.is_staff %}
             <button type="button"
                     class="btn btn-primary me-2"
@@ -220,7 +235,8 @@
                 'skip': skip,
                 'species': species,
                 'initial_bboxes': JSON.stringify(bboxes),
-                'annotations': JSON.stringify(anno.getAnnotations())
+                'annotations': JSON.stringify(anno.getAnnotations()),
+                'social_media_worthy': document.getElementById('social-media-worthy-species').checked
             }
 
             // Send back all the bbox ids back to the server to log bbox deletions
@@ -244,33 +260,35 @@
             });
         }
 
-        window.staffDeleteAnnotation = function() {
-            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        {% if user.is_staff %}
+            window.staffDeleteAnnotation = function () {
+                const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-            let data = {
-                'model': arguments[0],
-                'boxId': arguments[1],
-                'annotationName': arguments[2],
-                'csrfmiddlewaretoken': csrftoken
+                let data = {
+                    'model': arguments[0],
+                    'boxId': arguments[1],
+                    'annotationName': arguments[2],
+                    'csrfmiddlewaretoken': csrftoken
+                }
+
+                $.ajax({
+                    url: `{% url 'images:staff_delete_annotation'%}`,
+                    method: 'POST',
+                    data: data,
+                    dataType: 'json',
+                    success: function (data) {
+                        let deletionText = document.getElementById(`deletion-text-${data.name}`);
+
+                        if (data.success) {
+                            deletionText.innerHTML = `<i>Annotation "<b>${data.name}</b>" has been deleted.</i>`;
+                        }
+                        else {
+                            deletionText.innerHTML = `There was a problem deleting <i>annotation "<b>${data.name}</b>".</i>`;
+                        }
+                    }
+                });
             }
-
-            $.ajax({
-                url: '{% url 'images:staff_delete_annotation'%}',
-                method: 'POST',
-                data: data,
-                dataType: 'json',
-                success: function (data) {
-                    let deletionText = document.getElementById(`deletion-text-${data.name}`);
-
-                    if (data.success) {
-                        deletionText.innerHTML = `<i>Annotation "<b>${data.name}</b>" has been deleted.</i>`;
-                    }
-                    else {
-                        deletionText.innerHTML = `There was a problem deleting <i>annotation "<b>${data.name}</b>".</i>`;
-                    }
-                },
-            });
-        }
+        {% endif %}
 
         // Toggle between single & multiple species annotations
         $("#single-species").click(function(e){

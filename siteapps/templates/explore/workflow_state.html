@@ -186,6 +186,9 @@
                                     <td>{{ ba.2 }}</td>
                                     <td>{{ ba.3 }}</td>
                                     <td>{{ ba.4 }}</td>
+                                    <td>{{ ba.5|intcomma }}</td>
+                                    
+                                    {% comment %}
                                     <td>
                                         {% if user.is_authenticated %}
                                         <a target="_blank" href="/images/annotate/objects?start_date={{ba.3}}&end_date={{ba.4}}&macrosite_name={{ba.0}}&camera_id=None">
@@ -195,6 +198,7 @@
                                             {{ ba.5|intcomma }}
                                         {% endif %}
                                     </td>
+                                    {% endcomment %}
                                 </tr>
                             {% endfor %}
                         </tbody>
@@ -238,6 +242,9 @@
                                     <td>{{ ba.2 }}</td>
                                     <td>{{ ba.3 }}</td>
                                     <td>{{ ba.4 }}</td>
+                                    <td>{{ ba.5|intcomma }}</td>
+                                    
+                                    {% comment %}
                                     <td>
                                         {% if user.is_authenticated %}
                                         <a target="_blank" href="/images/annotate/objects?start_date={{ba.3}}&end_date={{ba.4}}&macrosite_name={{ba.0}}&camera_id=None">
@@ -247,6 +254,7 @@
                                             {{ ba.5|intcomma }}
                                         {% endif %}
                                     </td>
+                                    {% endcomment %}
                                 </tr>
                             {% endfor %}
                         </tbody>

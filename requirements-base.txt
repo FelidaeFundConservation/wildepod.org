@@ -22,8 +22,8 @@ google-auth-oauthlib==0.5.2 # https://github.com/googleapis/google-auth-library-
 google-cloud-datastore==2.13.0 # https://github.com/googleapis/python-datastore
 google-cloud-secret-manager==2.11.1 # https://github.com/googleapis/python-secret-manager
 
-
 numpy==1.24.2
+pandas==2.0.0
 
 Pillow==9.0.1  # https://github.com/python-pillow/Pillow
 psycopg2-binary==2.9.3  # https://github.com/psycopg/psycopg2

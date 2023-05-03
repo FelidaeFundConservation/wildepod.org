@@ -240,6 +240,10 @@ class Category(TimeStampedModel):
         ordering = ("-modified",)
         verbose_name_plural = "Category Annotations"
 
+    @staticmethod
+    def get_categories_group_by():
+        return Category.objects.values("name").annotate(total=Count(1))
+
 
 # Each annotation is futher linked to an Annotation Type if the primary class is an animal
 # This is the Species of the animal identified
@@ -271,6 +275,31 @@ class Species(TimeStampedModel):
     class Meta:
         ordering = ("-modified",)
         verbose_name_plural = "Species Annotations"
+
+    @staticmethod
+    def get_total_species():
+        return Species.objects.all().count()
+
+    @staticmethod
+    def get_species_group_by():
+        return (
+            Species.objects.all()
+            .annotate(species=F("name__name"))
+            .values("species")
+            .annotate(total=Count(1))
+            .order_by("species")
+        )
+
+    @staticmethod
+    def species_human_animal():
+        """
+        Get the total number of species that are human or not human.
+        If a new human name is added, the list shuld be updated here.
+        Better to create a broad category over SpeciesName.
+        """
+        human = (1, 56, 57, 58)
+        animal = SpeciesName.objects.exclude(id__in=human).values_list("id", flat=True)
+        return {"human": human, "animal": tuple(animal)}
 
 
 # Names of different types of activity
@@ -323,3 +352,12 @@ class Activity(TimeStampedModel):
     class Meta:
         ordering = ("-modified",)
         verbose_name_plural = "Activity Annotations"
+
+    def get_activities_group_by_category(category):
+        category = ActivityType.objects.filter(category=category)
+        return (
+            Activity.objects.filter(name_id__in=category)
+            .annotate(activity=F("name__name"))
+            .values("activity")
+            .annotate(total=Count(1))
+        )

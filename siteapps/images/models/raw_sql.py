@@ -213,7 +213,6 @@ def get_prioritized_images(priority=None, start_date=None, end_date=None, statio
     return imgs
 
 
-
 def get_species_annotated(species_ids):
     from images.models.image import Image
 
@@ -410,10 +409,7 @@ def get_uncertain_images(annotator=None, start_date=None, end_date=None, station
     return imgs
 
 
-
-def get_species_to_annotate(
-    annotator=None, start_date=None, end_date=None, station=None, macrosite=None, queue_size=0
-):
+def get_species_to_annotate(annotator=None, start_date=None, end_date=None, station=None, macrosite=None, queue_size=0):
     from images.models.image import Image
 
     """
@@ -439,14 +435,10 @@ def get_species_to_annotate(
         if station
         else "AND location_camera.station_id = location_camera.station_id"
     )
-    queue_size = (
-        "LIMIT {}".format(queue_size)
-        if queue_size > 0
-        else ''
-    )
+    queue_size = "LIMIT {}".format(queue_size) if queue_size > 0 else ""
 
     imgs = Image.objects.raw(
-        """    
+        """
         WITH animal_images_touched AS
         (
             SELECT image_id

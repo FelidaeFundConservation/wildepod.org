@@ -189,13 +189,11 @@ class Image(TimeStampedModel):
             .count()
         )
 
-    
-    
     """  FROM RAW SQL """
+
     @staticmethod
     def get_species_annotated(species_ids):
         return get_species_annotated(species_ids)
-
 
     class Meta:
         ordering = (

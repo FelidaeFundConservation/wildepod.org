@@ -256,9 +256,9 @@ def human_behavior():
 
 
 if __name__ == "__main__":
-    # human_behavior()
-    # animal_activity()
+    human_behavior()
+    animal_activity()
     species_annotation()
-    # totals_document()
-    # uncertain_images()
-    # blank_annotation_images()
+    totals_document()
+    uncertain_images()
+    blank_annotation_images()

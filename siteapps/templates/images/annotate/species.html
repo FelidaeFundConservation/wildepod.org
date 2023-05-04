@@ -62,7 +62,13 @@
                 name="save_annotations"
                 value="Save Annotations"
             >
- #37-feature-social-media-worthy
+            {% if user.is_staff %}
+            <button type="button"
+                    class="btn btn-primary me-2"
+                    style="background-color: orange" data-toggle="modal" data-target="#staffEditModal"
+            >Admin View</button>
+            {% include './staff-edit-annotations.html' %}
+            {% endif %}
             <div class="mt-3">
                 <input
                     class="form-check-input"
@@ -77,13 +83,6 @@
                     &nbsp; Social Media Worthy?
                 </label>
             </div>
-            {% if user.is_staff %}
-            <button type="button"
-                    class="btn btn-primary me-2"
-                    style="background-color: orange" data-toggle="modal" data-target="#staffEditModal"
-            >Admin View</button>
-            {% include './staff-edit-annotations.html' %}
-            {% endif %}
         </form>
     </div>
     <div
@@ -103,7 +102,7 @@
         <div class="col-12 col-md-11 col-lg-9 col-xl-8 text-center" style="width: 80%">
             <h6>
                 <b>
-                    {{ image.upload.camera_station.micro_site }} |
+                    {{ image.upload.camera_station.station_id }} |
                     {{ image.upload.camera_station.micro_site.macro_site }} |
                     {{ image.upload.camera_station.micro_site.macro_site.county }}
                 </b>
@@ -236,7 +235,7 @@
                 'species': species,
                 'initial_bboxes': JSON.stringify(bboxes),
                 'annotations': JSON.stringify(anno.getAnnotations()),
-                'social_media_worthy': document.getElementById('social-media-worthy-specie').checked
+                'social_media_worthy': document.getElementById('social-media-worthy-species').checked
             }
 
             // Send back all the bbox ids back to the server to log bbox deletions
@@ -260,33 +259,35 @@
             });
         }
 
-        window.staffDeleteAnnotation = function() {
-            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        {% if user.is_staff %}
+            window.staffDeleteAnnotation = function () {
+                const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-            let data = {
-                'model': arguments[0],
-                'boxId': arguments[1],
-                'annotationName': arguments[2],
-                'csrfmiddlewaretoken': csrftoken
+                let data = {
+                    'model': arguments[0],
+                    'boxId': arguments[1],
+                    'annotationName': arguments[2],
+                    'csrfmiddlewaretoken': csrftoken
+                }
+
+                $.ajax({
+                    url: `{% url 'images:staff_delete_annotation'%}`,
+                    method: 'POST',
+                    data: data,
+                    dataType: 'json',
+                    success: function (data) {
+                        let deletionText = document.getElementById(`deletion-text-${data.name}`);
+
+                        if (data.success) {
+                            deletionText.innerHTML = `<i>Annotation "<b>${data.name}</b>" has been deleted.</i>`;
+                        }
+                        else {
+                            deletionText.innerHTML = `There was a problem deleting <i>annotation "<b>${data.name}</b>".</i>`;
+                        }
+                    }
+                });
             }
-
-            $.ajax({
-                url: '{% url 'images:staff_delete_annotation'%}',
-                method: 'POST',
-                data: data,
-                dataType: 'json',
-                success: function (data) {
-                    let deletionText = document.getElementById(`deletion-text-${data.name}`);
-
-                    if (data.success) {
-                        deletionText.innerHTML = `<i>Annotation "<b>${data.name}</b>" has been deleted.</i>`;
-                    }
-                    else {
-                        deletionText.innerHTML = `There was a problem deleting <i>annotation "<b>${data.name}</b>".</i>`;
-                    }
-                },
-            });
-        }
+        {% endif %}
 
         // Toggle between single & multiple species annotations
         $("#single-species").click(function(e){

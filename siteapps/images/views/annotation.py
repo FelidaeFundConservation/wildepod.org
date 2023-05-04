@@ -532,7 +532,9 @@ class SpeciesAnnotationProcessorView(LoginRequiredMixin, View):
 
         # # Process the annotations
         # logging.info(f"Processing species for Image '{image_id}' by user - '{request.user.name}'")
-        success = process_species_annotations(image_id, annotations, initial_bboxes, request.user, social_media_worthy, skip=skip)
+        success = process_species_annotations(
+            image_id, annotations, initial_bboxes, request.user, social_media_worthy, skip=skip
+        )
 
         # If success, update image index in the datastore
         if success:

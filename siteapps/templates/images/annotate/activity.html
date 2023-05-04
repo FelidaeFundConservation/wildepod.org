@@ -57,7 +57,7 @@
                 class="btn btn-primary"
                 id="save_annotations"
                 name="save_annotations"
-                value="Save!"
+                value="Save Annotations"
             >
             {% if user.is_staff %}
             <button type="button"
@@ -83,6 +83,13 @@
     </div>
     <div class="row mt-2 mt-md-4 px-2 justify-content-center">
         <div class="col-12 col-md-11 col-lg-9 col-xl-8 text-center" style="width: 80%">
+            <h6>
+                <b>
+                    {{ image.upload.camera_station.station_id }} |
+                    {{ image.upload.camera_station.micro_site.macro_site }} |
+                    {{ image.upload.camera_station.micro_site.macro_site.county }}
+                </b>
+            </h6>
             <img id="{{image.id}}"
                  class="img-fluid m-0 p-0"
                  src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}"
@@ -248,33 +255,35 @@
             });
         }
 
-        window.staffDeleteAnnotation = function() {
-            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        {% if user.is_staff %}
+            window.staffDeleteAnnotation = function () {
+                const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-            let data = {
-                'model': arguments[0],
-                'boxId': arguments[1],
-                'annotationName': arguments[2],
-                'csrfmiddlewaretoken': csrftoken
+                let data = {
+                    'model': arguments[0],
+                    'boxId': arguments[1],
+                    'annotationName': arguments[2],
+                    'csrfmiddlewaretoken': csrftoken
+                }
+
+                $.ajax({
+                    url: `{% url 'images:staff_delete_annotation'%}`,
+                    method: 'POST',
+                    data: data,
+                    dataType: 'json',
+                    success: function (data) {
+                        let deletionText = document.getElementById(`deletion-text-${data.name}`);
+
+                        if (data.success) {
+                            deletionText.innerHTML = `<i>Annotation "<b>${data.name}</b>" has been deleted.</i>`;
+                        }
+                        else {
+                            deletionText.innerHTML = `There was a problem deleting <i>annotation "<b>${data.name}</b>".</i>`;
+                        }
+                    }
+                });
             }
-
-            $.ajax({
-                url: '{% url 'images:staff_delete_annotation'%}',
-                method: 'POST',
-                data: data,
-                dataType: 'json',
-                success: function (data) {
-                    let deletionText = document.getElementById(`deletion-text-${data.name}`);
-
-                    if (data.success) {
-                        deletionText.innerHTML = `<i>Annotation "<b>${data.name}</b>" has been deleted.</i>`;
-                    }
-                    else {
-                        deletionText.innerHTML = `There was a problem deleting <i>annotation "<b>${data.name}</b>".</i>`;
-                    }
-                },
-            });
-        }
+        {% endif %}
 
         // Toggle between single & multiple activity annotations
         $("#single-activity").click(function(e){

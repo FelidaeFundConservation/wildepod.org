@@ -1,0 +1,4 @@
+runtime: python310
+instance_class: F4
+service: testenv3
+entrypoint: gunicorn -b :$PORT testenv3:app

@@ -66,7 +66,7 @@
         <div class="col-12 col-md-11 col-lg-9 col-xl-8 text-center" style="width: 80%">
             <h6>
                 <b>
-                    {{ image.upload.camera_station.micro_site }} |
+                    {{ image.upload.camera_station.station_id }} |
                     {{ image.upload.camera_station.micro_site.macro_site }} |
                     {{ image.upload.camera_station.micro_site.macro_site.county }}
                 </b>
@@ -170,7 +170,7 @@
                 {
                     "id": "{{bbox.id}}",
                     "category": "{{bbox.category_set.all.0.name}}",
-                    "confidence": {{bbox.category_set.all.0.confidence}},
+                    "confidence": "{{bbox.category_set.all.0.confidence}}",
                     "x": {{bbox.x}},
                     "y": {{bbox.y}},
                     "w": {{bbox.w}},
@@ -235,22 +235,23 @@
                 })
             }
 
-            window.staffDeleteAnnotation = function() {
-            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            {% if user.is_staff %}
+            window.staffDeleteAnnotation = function () {
+                const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-            let data = {
-                'model': arguments[0],
-                'boxId': arguments[1],
-                'annotationName': arguments[2],
-                'csrfmiddlewaretoken': csrftoken
-            }
+                let data = {
+                    'model': arguments[0],
+                    'boxId': arguments[1],
+                    'annotationName': arguments[2],
+                    'csrfmiddlewaretoken': csrftoken
+                }
 
-            $.ajax({
-                url: '{% url 'images:staff_delete_annotation'%}',
-                method: 'POST',
-                data: data,
-                dataType: 'json',
-                success: function (data) {
+                $.ajax({
+                    url: `{% url 'images:staff_delete_annotation'%}`,
+                    method: 'POST',
+                    data: data,
+                    dataType: 'json',
+                    success: function (data) {
                         let deletionText = document.getElementById(`deletion-text-${data.name}`);
 
                         if (data.success) {
@@ -259,9 +260,10 @@
                         else {
                             deletionText.innerHTML = `There was a problem deleting <i>annotation "<b>${data.name}</b>".</i>`;
                         }
-                    },
+                    }
                 });
             }
+            {% endif %}
 
             // Submit annotations to the server
             $("#save_annotations").click(function(e){

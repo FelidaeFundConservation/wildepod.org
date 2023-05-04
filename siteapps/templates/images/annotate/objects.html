@@ -24,6 +24,7 @@
                 id="skip_annotations"
                 name="skip_annotations"
                 value="Skip Image"
+                disabled
             >
             <input
                 type="submit"
@@ -38,6 +39,7 @@
                 id="save_annotations"
                 name="save_annotations"
                 value="Save Annotations"
+                disabled
             >
             {% if user.is_staff %}
             <button type="button"
@@ -193,7 +195,10 @@
             renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
             anno.on("createAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
             anno.on("deleteAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
-            anno.on("updateAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
+            anno.on("updateAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno) })
+
+            document.getElementById("save_annotations").disabled = false;
+            document.getElementById("skip_annotations").disabled = false;
 
             // Function to save annotations
             function submitAnnotations(skip=false) {

@@ -14,18 +14,12 @@ from django.urls import reverse
 from django.views.generic import FormView
 from django.views.generic.base import TemplateView, View
 from images.forms import AnnotationForm
-from images.models import (
-    Activity,
-    ActivityType,
-    Annotator,
-    BoundingBox,
-    Category,
-    Image,
-    Species,
-    SpeciesName,
-    get_object_annotation_images,
-)
-from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
+from images.models import (Activity, ActivityType, Annotator, BoundingBox,
+                           Category, Image, Species, SpeciesName,
+                           get_object_annotation_images)
+from images.processors import (process_activity_annotations,
+                               process_md_annotations,
+                               process_species_annotations)
 from locations.models import CameraStation, MacroSite, MicroSite
 
 MAX_VOTES_PER_IMAGE = 2
@@ -130,7 +124,7 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
         # Gather all annotations for bounding boxes.
         try:
             bboxes = BoundingBox.objects.filter(image=queue["images"][queue["index"]])
-        except ObjectDoesNotExist:
+        except (ObjectDoesNotExist, IndexError):
             bboxes = []
 
         infoList = []
@@ -298,7 +292,7 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
         # Gather all annotations for bounding boxes.
         try:
             bboxes = BoundingBox.objects.filter(image=queue["images"][queue["index"]])
-        except ObjectDoesNotExist:
+        except (ObjectDoesNotExist, IndexError):
             bboxes = []
 
         infoList = []
@@ -446,7 +440,7 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
         # Gather all annotations for bounding boxes.
         try:
             bboxes = BoundingBox.objects.filter(image=queue["images"][queue["index"]])
-        except ObjectDoesNotExist:
+        except (ObjectDoesNotExist, IndexError):
             bboxes = []
 
         infoList = []

@@ -14,18 +14,12 @@ from django.urls import reverse
 from django.views.generic import FormView
 from django.views.generic.base import TemplateView, View
 from images.forms import AnnotationForm
-from images.models import (
-    Activity,
-    ActivityType,
-    Annotator,
-    BoundingBox,
-    Category,
-    Image,
-    Species,
-    SpeciesName,
-    get_object_annotation_images,
-)
-from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
+from images.models import (Activity, ActivityType, Annotator, BoundingBox,
+                           Category, Image, Species, SpeciesName,
+                           get_object_annotation_images)
+from images.processors import (process_activity_annotations,
+                               process_md_annotations,
+                               process_species_annotations)
 from locations.models import CameraStation, MacroSite, MicroSite
 
 MAX_VOTES_PER_IMAGE = 2
@@ -130,7 +124,7 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
         # Gather all annotations for bounding boxes.
         try:
             bboxes = BoundingBox.objects.filter(image=queue["images"][queue["index"]])
-        except ObjectDoesNotExist:
+        except (ObjectDoesNotExist, IndexError):
             bboxes = []
 
         infoList = []
@@ -220,7 +214,8 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
                                 Species.objects.filter(
                                     Exists(
                                         Annotator.objects.filter(
-                                            accepted_species_annotation=OuterRef("pk"), human__is_staff=True
+                                            Q(human__is_staff=True) | Q(human__is_expert=True),
+                                            accepted_species_annotation=OuterRef("pk")
                                         )
                                     ),
                                     bounding_box=OuterRef("pk"),
@@ -297,7 +292,7 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
         # Gather all annotations for bounding boxes.
         try:
             bboxes = BoundingBox.objects.filter(image=queue["images"][queue["index"]])
-        except ObjectDoesNotExist:
+        except (ObjectDoesNotExist, IndexError):
             bboxes = []
 
         infoList = []
@@ -351,6 +346,23 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
                 Exists(BoundingBox.objects.valid().filter(image=OuterRef("pk"))),
                 # There must be no uncertain bounding boxes for the image
                 ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
+                # If a staff vote exists for the activity, we'll no longer show it
+                ~Exists(
+                    BoundingBox.objects.filter(
+                        Exists(
+                            Activity.objects.filter(
+                                Exists(
+                                    Annotator.objects.filter(
+                                        Q(human__is_staff=True) | Q(human__is_expert=True),
+                                        accepted_species_annotation=OuterRef("pk")
+                                    )
+                                ),
+                                bounding_box=OuterRef("pk"),
+                            )
+                        ),
+                        image=OuterRef("pk"),
+                    )
+                ),
                 # Image must be marked as processed
                 processed=True,
                 num_activity_checked_by__lt=MAX_VOTES_PER_IMAGE,
@@ -428,7 +440,7 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
         # Gather all annotations for bounding boxes.
         try:
             bboxes = BoundingBox.objects.filter(image=queue["images"][queue["index"]])
-        except ObjectDoesNotExist:
+        except (ObjectDoesNotExist, IndexError):
             bboxes = []
 
         infoList = []

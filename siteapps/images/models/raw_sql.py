@@ -113,6 +113,7 @@ def get_object_annotation_images(
                 INNER JOIN images_annotator AS ia
                     ON ia.human_id = uu.id
                 WHERE uu.is_staff
+                    OR uu.is_expert
                     OR uu.id = '{annotator_id}'
             ),
             ignore_bbs AS

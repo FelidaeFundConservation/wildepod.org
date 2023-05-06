@@ -95,7 +95,7 @@ class UploadDetailView(LoginRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
         # Get valid annotations for this image
-        images = self.get_object().image_set.all()
+        images = self.get_object().images.all()
         paginator = Paginator(images, IMAGE_PAGINATION_LIMIT)
         page_number = self.request.GET.get("page")
         paged_images = paginator.get_page(page_number)

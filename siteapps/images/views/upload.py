@@ -116,8 +116,8 @@ class UploadStatusView(LoginRequiredMixin, View):
         for upload_id in upload_ids:
             try:
                 upload = Upload.objects.get(id=upload_id)
-                total_images = upload.image_set.count()
-                processed_images = upload.image_set.filter(processed=True).count()
+                total_images = upload.images.count()
+                processed_images = upload.images.filter(processed=True).count()
                 upload_statuses[upload_id] = {
                     "valid": True,
                     "total_images": total_images,

@@ -165,6 +165,7 @@ function renderBoundingBoxes(imageElementID, annotations, widgets, config) {
       // Create a column container for each annotation
       let col = document.createElement('div');
       col.className = 'col-6 col-md-4 col-lg-3 col-xl-2 m-2';
+      col.id = 'preview-col-' + annotation.id;
       // Add the column to the container first
       previewContainer.appendChild(col)
 
@@ -182,6 +183,7 @@ function renderBoundingBoxes(imageElementID, annotations, widgets, config) {
       let context = canvas.getContext("2d");
       canvas.id = 'canvas-' + annotation.id;
       canvas.width = col.offsetWidth;
+      canvas.style.maxWidth = '100%';
       canvas.height = col.offsetWidth;
 
       // Calculate height of destination canvas to maintain aspect ratio

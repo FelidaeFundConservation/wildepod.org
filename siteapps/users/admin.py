@@ -11,8 +11,8 @@ User = get_user_model()
 class UserAdmin(auth_admin.UserAdmin):
     form = UserAdminChangeForm
     add_form = UserAdminCreationForm
-    list_display = ("email", "name", "is_volunteer", "is_staff")
-    list_filter = ("is_staff", "is_active", "is_volunteer")
+    list_display = ("email", "name", "is_volunteer", "is_staff", "is_expert")
+    list_filter = ("is_active", "is_volunteer", "is_staff", "is_expert")
     fieldsets = (
         (None, {"fields": ("email", "password", "name", "phone_number")}),
         (

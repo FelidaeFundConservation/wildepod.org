@@ -58,6 +58,7 @@
                 id="save_annotations"
                 name="save_annotations"
                 value="Save Annotations"
+                disabled
             >
             {% if user.is_staff %}
             <button type="button"
@@ -107,6 +108,7 @@
                 id="skip_annotations"
                 name="skip_annotations"
                 value="Skip Image >>"
+                disabled
             >
         </form>
     </div>
@@ -196,6 +198,9 @@
     window.addEventListener('load', function () {
         anno = renderBoundingBoxes("{{image.id}}", bboxes = bboxes, widgets = [SpeciesClassSelectorWidget]);
         renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
+
+        document.getElementById("save_annotations").disabled = false;
+        document.getElementById("skip_annotations").disabled = false;
 
         // Function to save annotations
         function submitAnnotations(skip = false, activity = false) {
@@ -316,6 +321,17 @@
 
         $('#activity-list').select2({
             placeholder: 'Select a activity',
+        });
+
+        // Show the single activity on all annotation previews.
+        $('#activity-list').on('change', function () {
+            const selectedOption = $('#activity-list').val();
+            annotationTexts = document.querySelectorAll("[id^='annotation-text-']");
+
+            for (let annoText of annotationTexts) {
+                annoText.innerText = selectedOption.length > 17 ? selectedOption.slice(0, 17) + "..." : selectedOption;
+                annoText.style.backgroundColor = 'transparent';
+            }
         });
     });
 

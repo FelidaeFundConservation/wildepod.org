@@ -44,7 +44,8 @@
                                     ?.querySelector(".a9s-inner") ?? null,
                     "hideButton": document.getElementById("hide-button-" + boxId),
                     "deleteButton": document.getElementById("delete-button" + boxId),
-                    "annotationText": document.querySelector(`annotation-text-${id}`)
+                    "annotationText": document.getElementById(`annotation-text-${boxId}`),
+                    "previewCol": document.getElementById(`preview-col-${boxId}`),
                 }
             }
 
@@ -79,13 +80,13 @@
                         for (id of boxIds) {
                             const elements = getAssociatedElements(id);
 
-                            elements.bbox.style.display = 'none';
-                            elements.hideButton.style.backgroundColor = 'gainsboro';
+                            elements['bbox'].style.display = 'none';
+                            elements['hideButton'].style.backgroundColor = 'gainsboro';
 
-                            if (!elements.entryText.innerHTML.includes("(Hidden)")) {
-                                elements.entryText.innerHTML += " (Hidden)";
-                                elements.entryText.style.color = 'gray';
-                                elements.entryText.style.fontStyle = 'italic';
+                            if (!elements['entryText'].innerHTML.includes("(Hidden)")) {
+                                elements['entryText'].innerHTML += " (Hidden)";
+                                elements['entryText'].style.color = 'gray';
+                                elements['entryText'].style.fontStyle = 'italic';
                             }
 
                         }
@@ -93,11 +94,11 @@
                     } else {
                         for (id of boxIds) {
                             const elements = getAssociatedElements(id);
-                            elements.bbox.style.display = 'block';
-                            elements.hideButton.style.backgroundColor = 'whitesmoke';
-                            elements.entryText.innerHTML = elements.entryText.innerHTML.replace(" (Hidden)", "");
-                            elements.entryText.style.color = 'black';
-                            elements.entryText.style.fontStyle = 'normal';
+                            elements['bbox'].style.display = 'block';
+                            elements['hideButton'].style.backgroundColor = 'whitesmoke';
+                            elements['entryText'].innerHTML = elements['entryText'].innerHTML.replace(" (Hidden)", "");
+                            elements['entryText'].style.color = 'black';
+                            elements['entryText'].style.fontStyle = 'normal';
                         }
 
                     }
@@ -106,7 +107,6 @@
                 let annotationPreview = document.getElementById("annotations-preview");
                 annotationPreview.appendChild(hideAllBboxesButton);
             }
-
 
             //// Creates and appends bbox action menu to annotation preview with matching data-id.
             function createBboxEntryMenu(id, num) {
@@ -142,18 +142,18 @@
                     hideBboxButton.addEventListener('click', (function () {
                             const elements = getAssociatedElements(id);
 
-                            if (elements.bbox.style.display === 'none') {
-                                elements.bbox.style.display = 'block';
+                            if (elements['bbox'].style.display === 'none') {
+                                elements['bbox'].style.display = 'block';
                                 this.style.backgroundColor = 'whitesmoke';
-                                elements.entryText.style.color = 'black';
-                                elements.entryText.innerHTML = `&nbsp;&nbsp;Box ${num}`;
-                                elements.entryText.style.fontStyle = 'normal';
+                                elements['entryText'].style.color = 'black';
+                                elements['entryText'].innerHTML = `&nbsp;&nbsp;Box ${num}`;
+                                elements['entryText'].style.fontStyle = 'normal';
                             } else {
-                                elements.bbox.style.display = 'none';
+                                elements['bbox'].style.display = 'none';
                                 this.style.backgroundColor = 'gainsboro';
-                                elements.entryText.style.color = "gray";
-                                elements.entryText.innerHTML = `&nbsp;&nbsp;Box ${num} (Hidden)`;
-                                elements.entryText.style.fontStyle = 'italic';
+                                elements['entryText'].style.color = "gray";
+                                elements['entryText'].innerHTML = `&nbsp;&nbsp;Box ${num} (Hidden)`;
+                                elements['entryText'].style.fontStyle = 'italic';
 
                             }
                         })
@@ -166,7 +166,7 @@
                 function createDeleteButton() {
 
                     let deleteBboxButton = document.createElement("button");
-                    deleteBboxButton.setAttribute("id", "delete-button" + id);
+                    deleteBboxButton.setAttribute("id", "delete-button-" + id);
                     deleteBboxButton.textContent = "Delete Box";
 
                     Object.assign(deleteBboxButton.style, {
@@ -176,27 +176,15 @@
                         color: "red"
                     });
 
-                    anno.on("deleteAnnotation", function () {
-                            try {
-                                const newBoxIds = getAnno().getAnnotations().map(obj => obj.id);
-                                const deletedId = boxIds.find(element => !newBoxIds.includes(element));
-                                const elements = getAssociatedElements(deletedId);
-                                elements.canvas.parentNode.remove();
-                                boxIds = newBoxIds;
-                            }
-                            catch { }
-                        }
-                    );
+                    deleteBboxButton.addEventListener('click', function () {
+                        const elements = getAssociatedElements(id);
 
-                    deleteBboxButton.addEventListener('click', (function () {
-                            const elements = getAssociatedElements(id);
-                            elements.bbox.remove();
-                            elements.canvas.parentNode.remove();
-                            anno.removeAnnotation(id);
+                        elements['previewCol'].remove();
+                        anno.removeAnnotation(id);
 
-                            boxIds = getAnno().getAnnotations().map(obj => obj.id);
-                        })
-                    );
+                        // Update the present boxIds.
+                        boxIds = getAnno().getAnnotations().map(obj => obj.id);
+                    });
 
                     return deleteBboxButton;
                 }
@@ -218,8 +206,6 @@
                     buttonMenu.appendChild(createHideButton());
                     buttonMenu.appendChild(createDeleteButton());
 
-                    updateEntries(id);
-
                     return bboxEntry;
                 }
 
@@ -227,98 +213,95 @@
 
             }
 
+            // Recreate menus when deletion occurs (due to renderBoundingBoxPreviews() recreating the preview images).
+            anno.on("deleteAnnotation", function () {
+                const newBoxIds = getAnno().getAnnotations().map(obj => obj.id);
+                const deletedId = boxIds.find(element => !newBoxIds.includes(element));
+                const elements = getAssociatedElements(deletedId);
+
+                if (elements['previewCol']) {
+                    elements['previewCol'].remove();
+                }
+
+                // Update the present boxIds.
+                boxIds = newBoxIds;
+                checkElementsExist();
+            });
+
+            // Change the preview text and recreate menus when annotations are changed. (same reason as above)
+            anno.on("updateAnnotation", function () {
+                checkElementsExist();
+
+                try { getAssociatedElements(id)['entry'].style.backgroundColor = 'transparent'; }
+                catch { }
+
+                const anno = getAnno();
+
+                if (!document.querySelector(".preview-label.py-2")) {
+                    for (const annotation of anno.getAnnotations()) {
+                        const annoText = document.getElementById(`annotation-text-${annotation.id}`);
+                        const newAnnotation = annotation.body[0].value;
+                        if (newAnnotation) {
+                            annoText.innerText = newAnnotation.length > 17 ? newAnnotation.slice(0, 17) + "..." : newAnnotation;
+                            annoText.style.backgroundColor = 'transparent';
+                        }
+                        else {
+                            annoText.innerText = "(No Annotation)";
+                            annoText.style.backgroundColor = 'rgb(255, 216, 204)';
+                        }
+
+                        assignEntryListeners(annotation.id);
+                    }
+                }
+            });
+
+            // Recreate menus on new box creation. (same reason as above)
+            anno.on("createAnnotation", function () {
+                const newBoxIds = getAnno().getAnnotations().map(obj => obj.id);
+                boxIds = newBoxIds;
+                checkElementsExist();
+            });
+
             // Assigns listeners for visual indicators and other actions.
             function assignEntryListeners(id) {
                 const elements = getAssociatedElements(id);
 
-                try {
-                    elements.entry.parentNode;
-                }
-                // Object annotation page deleting some elements on each annotation, need to recreate menus every time. Not quite sure why.
-                catch {
-                    if (document.getElementById("entry-" + id)) {
-                        createAndAppendMenus();
-                    }
-                }
-
-                try { elements.canvas.style.border = "5px solid transparent"; }
+                try { elements['canvas'].style.border = "5px solid transparent"; }
                 catch { return; }
 
-                elements.rect.addEventListener("mouseover", (function () {
+                elements['rect'].addEventListener("mouseover", (function () {
                     this.style.backgroundColor = "yellow";
-                    elements.canvas.style.border = "5px solid yellow";
+                    elements['canvas'].style.border = "5px solid yellow";
 
                     // Entry gets deleted in object annotation for some reason, but it doesn't seem to affect functionality.
                     // Try-catch just as an easy fix to get rid of the errors.
-                    try { elements.entry.style.backgroundColor = "yellow"; }
+                    try { elements['entry'].style.backgroundColor = "yellow"; }
                     catch { }
                 }));
 
-                elements.rect.addEventListener("mouseleave", (function () {
+                elements['rect'].addEventListener("mouseleave", (function () {
                     this.style.backgroundColor = "transparent";
-                    elements.canvas.style.border = "5px solid transparent";
+                    elements['canvas'].style.border = "5px solid transparent";
 
-                    try { elements.entry.style.backgroundColor = "transparent"; }
+                    try { elements['entry'].style.backgroundColor = "transparent"; }
                     catch { }
                 }));
 
-                elements.entry.parentNode.addEventListener("mouseover", (function() {
-                    elements.entry.style.backgroundColor = "yellow";
-                    elements.canvas.style.border = "5px solid yellow";
+                elements['previewCol'].addEventListener("mouseover", (function() {
+                    elements['entry'].style.backgroundColor = "yellow";
+                    elements['canvas'].style.border = "5px solid yellow";
 
-                    const outerRect = elements.bbox.querySelector(".a9s-outer");
+                    const outerRect = elements['bbox'].querySelector(".a9s-outer");
                     outerRect.style.fill = "rgba(255, 255, 0, 0.2)";
                 }));
 
-                elements.entry.parentNode.addEventListener("mouseout", (function () {
-                    elements.entry.style.backgroundColor = "transparent";
-                    elements.canvas.style.border = "5px solid transparent";
+                elements['previewCol'].addEventListener("mouseout", (function () {
+                    elements['entry'].style.backgroundColor = "transparent";
+                    elements['canvas'].style.border = "5px solid transparent";
 
-                    const outerRect = elements.bbox.querySelector(".a9s-outer");
+                    const outerRect = elements['bbox'].querySelector(".a9s-outer");
                     outerRect.style.fill = "transparent";
                 }));
-            }
-
-            // Checks for when annotation menu closes, then updates text and reassigns highlight handlers.
-            function updateEntries(id) {
-                const targetNode = document.body;
-
-                const config = { attributes: true, childList: true, subtree: true };
-                const callback = function (mutationsList, observer) {
-                    for (const mutation of mutationsList) {
-                        if (mutation.type === 'childList') {
-                            mutation.removedNodes.forEach(node => {
-                                if (node.classList) {
-                                    if (node.classList.contains('r6o-editor')) {
-                                        assignEntryListeners(id);
-                                        try { getAssociatedElements(id).entry.style.backgroundColor = 'transparent'; }
-                                        catch { }
-
-                                        const anno = getAnno();
-
-                                        if (!document.querySelector(".preview-label.py-2")) {
-                                            for (const annotation of anno.getAnnotations()) {
-                                                const annoText = document.getElementById(`annotation-text-${annotation.id}`);
-                                                const newAnnotation = annotation.body[0].value;
-                                                if (newAnnotation) {
-                                                    annoText.innerText = newAnnotation.length > 17 ? newAnnotation.slice(0, 17) + "..." : newAnnotation;
-                                                    annoText.style.backgroundColor = 'transparent';
-                                                }
-                                                else {
-                                                    annoText.innerText = "(No Annotation)";
-                                                    annoText.style.backgroundColor = 'rgb(255, 216, 204)';
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            });
-                        }
-                    }
-                };
-
-                const observer = new MutationObserver(callback);
-                observer.observe(targetNode, config);
             }
 
             // Create and append all the menus to each annotation preview.
@@ -330,14 +313,18 @@
                 }
 
                 for (id of boxIds) {
+                    if (document.getElementById(`entry-${id}`)) { continue; }
+
                     let annotationPreview = getAssociatedElements(id);
-                    annotationPreview.canvas.parentNode.classList.add("center-justify");
-                    annotationPreview.canvas.parentNode.style.border = "2px solid black";
-                    annotationPreview.canvas.parentNode.style.borderRadius = "5px";
-                    annotationPreview.canvas.parentNode.style.display = "inline-block";
-                    annotationPreview.canvas.parentNode.style.maxHeight = "100%";
-                    annotationPreview.canvas.parentNode.style.maxWidth = "100%";
-                    annotationPreview.canvas.style.maxWidth = "100%";
+                    Object.assign(annotationPreview['previewCol'].style, {
+                        border: "2px solid black",
+                        borderRadius: "5px",
+                        display: "inline-block",
+                        maxHeight: "100%",
+                        maxWidth: "100%"
+                    });
+                    annotationPreview['previewCol'].classList.add("center-justify");
+                    annotationPreview['previewCol'].maxWidth = "100%";
 
                     if (!document.querySelector(".preview-label.py-2")) {
                         let annotationText = document.createElement('text');
@@ -346,18 +333,32 @@
                         annotationText.style.backgroundColor = 'rgb(255, 216, 204)';
                         annotationText.innerText = '(No Annotation)';
 
-                        annotationPreview.canvas.parentNode.insertBefore(annotationText, annotationPreview.canvas);
+                        annotationPreview['previewCol'].insertBefore(annotationText, annotationPreview.canvas);
                     }
 
-                    annotationPreview.canvas.parentNode.appendChild(
+                    annotationPreview['previewCol'].appendChild(
                         createBboxEntryMenu(id, boxNum)
                     );
+
+                    // If single species selected before load, update annotation preview titles.
+                    try {
+                        if ($('#activity-list').length > 0) {
+                            $('#activity-list').trigger('change');
+                        }
+                        if ($('#species-list').length > 0) {
+                            $('#species-list').trigger('change');
+                        }
+                    }
+                    catch (error) { /*console.log(error);*/ }
 
                     assignEntryListeners(id);
 
                     boxNum++;
                 }
-                createHideAllBboxesButton();
+
+                if (!document.getElementById("hide-all-bboxes-button")) {
+                    createHideAllBboxesButton();
+                }
             } (createAndAppendMenus());
         }
     </script>

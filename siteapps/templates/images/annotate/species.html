@@ -54,6 +54,7 @@
                 id="skip_annotations"
                 name="skip_annotations"
                 value="Skip Image"
+                disabled
             >
             <input
                 type="submit"
@@ -61,6 +62,7 @@
                 id="save_annotations"
                 name="save_annotations"
                 value="Save Annotations"
+                disabled
             >
             {% if user.is_staff %}
             <button type="button"
@@ -203,6 +205,9 @@
         anno = renderBoundingBoxes("{{image.id}}", bboxes=bboxes, widgets=[SpeciesClassSelectorWidget]);
         renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
 
+        document.getElementById("save_annotations").disabled = false;
+        document.getElementById("skip_annotations").disabled = false;
+
         // Function to save annotations
         function submitAnnotations(skip=false, species=false) {
             // If it is not a single species, make sure every entry has a species
@@ -321,6 +326,18 @@
         $('#species-list').select2({
             placeholder: 'Select a species',
         });
+
+        // Show the single species annotation on all annotation previews.
+        $('#species-list').on('change', function () {
+            const selectedOption = $('#species-list').val();
+            annotationTexts = document.querySelectorAll("[id^='annotation-text-']");
+
+            for (let annoText of annotationTexts) {
+                annoText.innerText = selectedOption.length > 17 ? selectedOption.slice(0, 17) + "..." : selectedOption;
+                annoText.style.backgroundColor = 'transparent';
+            }
+        });
+
     });
 
 </script>

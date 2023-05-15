@@ -22,7 +22,7 @@ def send_welcome_email(user, password_generated):
         send_mail(
             subject,
             plain_message,
-            "WildePod Admin <noreply@wildepod.org>",
+            "WildePod Admin <wildepod@felidaefund.org>",
             [user.email],
             html_message=html_message,
             fail_silently=False,

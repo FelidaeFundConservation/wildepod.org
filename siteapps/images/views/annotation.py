@@ -641,7 +641,7 @@ class ChangeAnnotationView(LoginRequiredMixin, View):
                 success = True
             elif model == "activity":
                 activity = Activity.objects.get(bounding_box=bbox, name__name=annotationName)
-                activity.name = annotationName
+                activity.name = newAnnotationName
                 activity.save()
                 success = True
         except ObjectDoesNotExist:

@@ -14,12 +14,18 @@ from django.urls import reverse
 from django.views.generic import FormView
 from django.views.generic.base import TemplateView, View
 from images.forms import AnnotationForm
-from images.models import (Activity, ActivityType, Annotator, BoundingBox,
-                           Category, Image, Species, SpeciesName,
-                           get_object_annotation_images)
-from images.processors import (process_activity_annotations,
-                               process_md_annotations,
-                               process_species_annotations)
+from images.models import (
+    Activity,
+    ActivityType,
+    Annotator,
+    BoundingBox,
+    Category,
+    Image,
+    Species,
+    SpeciesName,
+    get_object_annotation_images,
+)
+from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
 from locations.models import CameraStation, MacroSite, MicroSite
 
 MAX_VOTES_PER_IMAGE = 2
@@ -215,7 +221,7 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
                                     Exists(
                                         Annotator.objects.filter(
                                             Q(human__is_staff=True) | Q(human__is_expert=True),
-                                            accepted_species_annotation=OuterRef("pk")
+                                            accepted_species_annotation=OuterRef("pk"),
                                         )
                                     ),
                                     bounding_box=OuterRef("pk"),
@@ -354,7 +360,7 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
                                 Exists(
                                     Annotator.objects.filter(
                                         Q(human__is_staff=True) | Q(human__is_expert=True),
-                                        accepted_species_annotation=OuterRef("pk")
+                                        accepted_species_annotation=OuterRef("pk"),
                                     )
                                 ),
                                 bounding_box=OuterRef("pk"),
@@ -422,6 +428,7 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
             context["image"] = None
             context["bounding_boxes"] = []
 
+        context["species_list"] = SpeciesName.objects.all()
         context["activity_list"] = ActivityType.objects.filter(category=context["category"])
 
         # Gather surrounding context images.
@@ -609,3 +616,35 @@ class DeleteAnnotationView(LoginRequiredMixin, View):
         except ObjectDoesNotExist:
             success = False
         return JsonResponse({"success": success, "name": annotationName})
+
+
+class ChangeAnnotationView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        model = request.POST.get("model")
+        boxId = request.POST.get("boxId")
+        annotationName = request.POST.get("annotationName")
+        newAnnotationName = request.POST.get("newAnnotationName")
+
+        success = None
+        bbox = BoundingBox.objects.get(id=boxId)
+
+        try:
+            if model == "category":
+                category = Category.objects.get(bounding_box=bbox, name=annotationName)
+                category.name = newAnnotationName
+                category.save()
+                success = True
+            elif model == "species":
+                species = Species.objects.get(bounding_box=bbox, name__name=annotationName)
+                species.name = SpeciesName.objects.get(name=newAnnotationName)
+                species.save()
+                success = True
+            elif model == "activity":
+                activity = Activity.objects.get(bounding_box=bbox, name__name=annotationName)
+                activity.name = annotationName
+                activity.save()
+                success = True
+        except ObjectDoesNotExist:
+            success = False
+
+        return JsonResponse({"success": success, "oldName": annotationName, "newName": newAnnotationName})

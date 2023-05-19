@@ -14,12 +14,18 @@ from django.urls import reverse
 from django.views.generic import FormView
 from django.views.generic.base import TemplateView, View
 from images.forms import AnnotationForm
-from images.models import (Activity, ActivityType, Annotator, BoundingBox,
-                           Category, Image, Species, SpeciesName,
-                           get_object_annotation_images)
-from images.processors import (process_activity_annotations,
-                               process_md_annotations,
-                               process_species_annotations)
+from images.models import (
+    Activity,
+    ActivityType,
+    Annotator,
+    BoundingBox,
+    Category,
+    Image,
+    Species,
+    SpeciesName,
+    get_object_annotation_images,
+)
+from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
 from locations.models import CameraStation, MacroSite, MicroSite
 
 MAX_VOTES_PER_IMAGE = 2
@@ -100,6 +106,7 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
         if image_id:
             image = Image.objects.get(id=image_id)
             context["image"] = image
+            context["social_media_worthy"] = image.social_media_worthy
             bounding_boxes = BoundingBox.objects.valid_or_uncertain().filter(image=image)
             context["bounding_boxes"] = bounding_boxes
             context["queue_index"] = queue["index"]
@@ -215,7 +222,7 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
                                     Exists(
                                         Annotator.objects.filter(
                                             Q(human__is_staff=True) | Q(human__is_expert=True),
-                                            accepted_species_annotation=OuterRef("pk")
+                                            accepted_species_annotation=OuterRef("pk"),
                                         )
                                     ),
                                     bounding_box=OuterRef("pk"),
@@ -266,8 +273,8 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
         # If there is a valid image, add bounding box information
         if image_id:
             image = Image.objects.get(id=image_id)
-
             context["image"] = image
+            context["social_media_worthy"] = image.social_media_worthy
             bounding_boxes = BoundingBox.objects.valid().filter(image=image)
             context["bounding_boxes"] = bounding_boxes
         else:
@@ -354,7 +361,7 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
                                 Exists(
                                     Annotator.objects.filter(
                                         Q(human__is_staff=True) | Q(human__is_expert=True),
-                                        accepted_species_annotation=OuterRef("pk")
+                                        accepted_species_annotation=OuterRef("pk"),
                                     )
                                 ),
                                 bounding_box=OuterRef("pk"),

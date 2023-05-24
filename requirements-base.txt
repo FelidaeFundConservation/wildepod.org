@@ -33,5 +33,5 @@ rcssmin==1.1.0  # https://github.com/ndparker/rcssmin
 
 # Third party libs
 # ------------------------------------------------------------------------------
-requests==2.27.1  # https://github.com/psf/requests
+requests==2.31.0  # https://github.com/psf/requests
 whitenoise==6.4.0 # https://github.com/evansd/whitenoise

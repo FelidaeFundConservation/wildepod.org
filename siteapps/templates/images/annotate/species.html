@@ -337,7 +337,11 @@
                 annoText.style.backgroundColor = 'transparent';
             }
         });
+    });
 
+    // Focus on text input field in dropdown upon opening species list.
+    $('#species-list').on('select2:open', function () {
+        $('.select2-search__field')[0].focus();
     });
 
 </script>

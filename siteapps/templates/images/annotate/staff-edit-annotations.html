@@ -14,11 +14,13 @@
           <!-- Modal content here -->
             <div id="staff-edit-annotations">
                 <div id="staff-bbox-list">
-                    <div id="image-information-entry" style="border: 2px solid black; margin-bottom: 30px;">
+                    <div id="image-information-entry"
+                         style="border: 2px solid black; margin-bottom: 30px;">
                         <h2 style="text-align: left; border-bottom: 2px solid black; width: 100%">&nbsp;&nbsp;Image</h2>
                         <div>
                             <div style="display: flex">
-                                <div id="image-bbox-checkedby" style="border: 1px solid black; margin: 10px; width: 33.3%">
+                                <div id="image-bbox-checkedby"
+                                     style="border: 1px solid black; margin: 10px; width: 33.3%">
                                     <text style="border-bottom: 2px solid black;"><b>BBox Checked By</b></text>
                                     {% if image.bbox_checked_by.exists %}
                                         {% for annotator in image.bbox_checked_by.all %}
@@ -28,7 +30,8 @@
                                         <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
                                     {% endif %}
                                 </div>
-                                <div id="image-species-checkedby" style="border: 1px solid black; margin: 10px; width: 33.3%">
+                                <div id="image-species-checkedby"
+                                     style="border: 1px solid black; margin: 10px; width: 33.3%">
                                     <text style="border-bottom: 1px solid black;"><b>Species Checked By</b></text>
                                     {% if image.species_checked_by.exists %}
                                         {% for annotator in image.species_checked_by.all %}
@@ -38,7 +41,8 @@
                                         <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
                                     {% endif %}
                                 </div>
-                                 <div id="image-activity-checkedby" style="border: 1px solid black; margin: 10px; width: 33.3%">
+                                 <div id="image-activity-checkedby"
+                                      style="border: 1px solid black; margin: 10px; width: 33.3%">
                                     <text style="border-bottom: 1px solid black;"><b>Activity Checked By</b></text>
                                     {% if image.activity_checked_by.exists %}
                                         {% for annotator in image.activity_checked_by.all %}
@@ -50,7 +54,8 @@
                                 </div>
                             </div>
                             <div style="display: flex">
-                                <div id="image-bbox-skippedby" style="border: 1px solid black; margin: 10px; width: 33.3%">
+                                <div id="image-bbox-skippedby"
+                                     style="border: 1px solid black; margin: 10px; width: 33.3%">
                                     <text style="border-bottom: 1px solid black;"><b>BBox Skipped By</b></text>
                                     {% if image.bbox_skipped_by.exists %}
                                         {% for annotator in image.bbox_skipped_by.all %}
@@ -60,7 +65,8 @@
                                         <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
                                     {% endif %}
                                 </div>
-                                <div id="image-species-skippedby" style="border: 1px solid black; margin: 10px; width: 33.3%">
+                                <div id="image-species-skippedby"
+                                     style="border: 1px solid black; margin: 10px; width: 33.3%">
                                     <text style="border-bottom: 1px solid black;"><b>Species Skipped By</b></text>
                                     {% if image.species_skipped_by.exists %}
                                         {% for annotator in image.species_skipped_by.all %}
@@ -70,7 +76,8 @@
                                         <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
                                     {% endif %}
                                 </div>
-                                 <div id="image-activity-skippedby" style="border: 1px solid black; margin: 10px; width: 33.3%">
+                                 <div id="image-activity-skippedby"
+                                      style="border: 1px solid black; margin: 10px; width: 33.3%">
                                     <text style="border-bottom: 1px solid black;"><b>Activity Skipped By</b></text>
                                     {% if image.activity_skipped_by.exists %}
                                         {% for annotator in image.activity_skipped_by.all %}
@@ -85,15 +92,16 @@
                      </div>
 
                      {% for bbox in bounding_boxes %}
-                     <div id="bbox-information-entry-{{ bbox.id }}" style="border: 2px solid black; margin-bottom: 30px; width: 100%;">
+                     <div id="bbox-information-entry-{{ bbox.id }}"
+                          style="border: 2px solid black; margin-bottom: 30px; width: 100%;">
                          <h2 style="text-align: left; border-bottom: 2px solid black; width: 100%;">&nbsp;&nbsp;Bounding Box {{ forloop.counter }}</h2>
 
                          <div style="width: 100%;">
                             <div style="display: flex;">
                                 <div style="border: 1px solid black; margin: 10px; width: 33%;">
                                     <text style="border-bottom: 1px solid black;"><b>Preview Image</b></text>
-                                    <div id="staff-modal-card-{{ bbox.id }}" style="margin: 10px;">
-
+                                    <div id="staff-modal-card-{{ bbox.id }}"
+                                         style="margin: 10px;">
                                     </div>
                                 </div>
                                 <div id="bbox-acceptedby-{{ bbox.id }}" style="border: 1px solid black; margin: 10px; width: 33%">
@@ -118,18 +126,34 @@
                                 </div>
                             </div>
                             <div style="display: flex">
-                                <div id="bbox-category-{{ bbox.id }}" style="border: 1px solid black; margin: 10px; width: 100%">
+                                <div id="bbox-category-{{ bbox.id }}"
+                                     style="border: 1px solid black; margin: 10px; width: 100%">
                                     <text style="border-bottom: 1px solid black;"><b>Category Annotations</b></text><br>
                                     {% for info in bbox_all_annotations %}
                                         {% if bbox.id == info.id %}
                                             {% if info.categories.exists %}
                                                 {% for category in info.categories.all %}
-                                                    <div id="category-{{ bbox.id }}-{{ category.name }}" style="border: 1px solid gray; margin: 10px">
+                                                    <div id="category-{{ bbox.id }}-{{ category.name }}"
+                                                         style="border: 1px solid gray; margin: 10px">
                                                         <div style="display: flex;">
                                                             <div style="border-bottom: 1px solid gray; width: 100%" >
-                                                                <text style="font-size: 16px; width: 80%">{{ category.name }}</text>
-                                                                <button type="button" style="width: 10%; color: red; border: none; background-color: transparent"
-                                                                    onclick="staffDeleteAnnotation('category', '{{ bbox.id }}', '{{ category.name }}'); deleteAnnotationEntry('category-{{ bbox.id }}-{{ category.name }}', `{{ category.name }}`);">
+                                                                <select id="category-list-{{ bbox.id }}"
+                                                                        style="border: none; font-size: 18px; width: 70%"
+                                                                        onchange="staffChangeAnnotation('category', '{{ bbox.id }}', '{{ category.name }}', this.value, this.parentNode);
+                                                                                  deleteAnnotationEntry('category-{{ bbox.id }}-{{ category.name }}', `{{ category.name }}`);">
+                                                                    <option
+                                                                        value=""
+                                                                        disabled
+                                                                        selected
+                                                                    ></option>
+                                                                    <option value="animal" {% if category.name == 'animal' %}selected{% endif %}>animal</option>
+                                                                    <option value="person" {% if category.name == 'person' %}selected{% endif %}>person</option>
+                                                                    <option value="vehicle" {% if category.name == 'vehicle' %}selected{% endif %}>vehicle</option>
+                                                                    <hr>
+                                                                </select>
+                                                                <button type="button" style="width: 20%; color: red; border: none; background-color: transparent"
+                                                                    onclick="staffDeleteAnnotation('category', '{{ bbox.id }}', '{{ category.name }}');
+                                                                             deleteAnnotationEntry('category-{{ bbox.id }}-{{ category.name }}', `{{ category.name }}`);">
                                                                     (Delete)
                                                                 </button>
                                                             </div>
@@ -162,18 +186,30 @@
                                         {% endif %}
                                     {% endfor %}
                                 </div>
-                                <div id="bbox-species-{{ bbox.id }}" style="border: 1px solid black; margin: 10px; width: 100%">
+                                <div id="bbox-species-{{ bbox.id }}"
+                                     style="border: 1px solid black; margin: 10px; width: 100%">
                                     <text style="border-bottom: 1px solid black;"><b>Species Annotations</b></text><br>
                                     {% for info in bbox_all_annotations %}
                                         {% if bbox.id == info.id %}
                                             {% if info.species.exists %}
                                                 {% for species in info.species.all %}
-                                                    <div id="species-{{ bbox.id }}-{{ species.name }}" style="border: 1px solid gray; margin: 10px">
+                                                    <div id="species-{{ bbox.id }}-{{ species.name }}"
+                                                         style="border: 1px solid gray; margin: 10px">
                                                         <div style="display: flex;">
-                                                            <div style="border-bottom: 1px solid gray; width: 100%" >
-                                                                <text style="font-size: 16px; width: 90%">{{ species }}</text>
-                                                                <button type="button" style="width: 10%; color: red; border: none; background-color: transparent"
-                                                                    onclick="staffDeleteAnnotation('species', '{{ bbox.id }}', '{{ species.name }}'); deleteAnnotationEntry('species-{{ bbox.id }}-{{ species.name }}', `{{ species.name }}`);">
+                                                            <div style="border-bottom: 1px solid gray; width: 100%">
+                                                                <select id="species-list-{{ bbox.id }}"
+                                                                        style="border: none; font-size: 18px; width: 70%"
+                                                                        onchange="staffChangeAnnotation('species', '{{ bbox.id }}', '{{ species.name }}', this.value, this.parentNode);
+                                                                                  deleteAnnotationEntry('species-{{ bbox.id }}-{{ species.name }}', `{{ species.name }}`);">
+                                                                    <option value="" disabled></option>
+                                                                    {% for species_name in species_list %}
+                                                                    <option value="{{ species_name }}" {% if species_name == species.name %}selected{% endif %}>{{ species_name }}</option>
+                                                                    {% endfor %}
+                                                                    <hr>
+                                                                </select>
+                                                                <button type="button" style="width: 20%; color: red; border: none; background-color: transparent"
+                                                                    onclick="staffDeleteAnnotation('species', '{{ bbox.id }}', '{{ species.name }}');
+                                                                             deleteAnnotationEntry('species-{{ bbox.id }}-{{ species.name }}', `{{ species.name }}`);">
                                                                     (Delete)
                                                                 </button>
                                                             </div>
@@ -206,18 +242,31 @@
                                         {% endif %}
                                     {% endfor %}
                                 </div>
-                                 <div id="bbox-activity-{{ bbox.id }}" style="border: 1px solid black; margin: 10px; width: 100%">
+                                 <div id="bbox-activity-{{ bbox.id }}"
+                                      style="border: 1px solid black; margin: 10px; width: 100%">
                                     <text style="border-bottom: 1px solid black;"><b>Activity Annotations</b></text><br>
                                     {% for info in bbox_all_annotations %}
                                         {% if bbox.id == info.id %}
                                             {% if info.activities.exists %}
                                                 {% for activity in info.activities.all %}
-                                                    <div id="activity-{{ bbox.id }}-{{ activity.name }}" style="border: 1px solid gray; margin: 10px">
+                                                    <div id="activity-{{ bbox.id }}-{{ activity.name }}"
+                                                         style="border: 1px solid gray; margin: 10px">
                                                         <div style="display: flex;">
                                                             <div style="border-bottom: 1px solid gray; width: 100%" >
-                                                                <text style="font-size: 16px; width: 90%">{{ activity.name }}</text>
-                                                                <button type="button" style="width: 10%; color: red; border: none; background-color: transparent"
-                                                                    onclick="staffDeleteAnnotation('activity', '{{ bbox.id }}', '{{ activity.name }}'); deleteAnnotationEntry('activity-{{ bbox.id }}-{{ activity.name }}', `{{ activity.name }}`);">
+                                                                <select id="activity-list-{{ bbox.id }}"
+                                                                        style="border: none; font-size: 18px; width: 70%"
+                                                                        onchange="staffChangeAnnotation('activity', '{{ bbox.id }}', '{{ activity.name }}', this.value, this.parentNode);
+                                                                                  deleteAnnotationEntry('activity-{{ bbox.id }}-{{ activity.name }}', `{{ activity.name }}`);">
+                                                                    <option value="" disabled></option>
+                                                                    {% for activity_name in activity_list %}
+                                                                    <option value="{{ activity_name }}" {% if activity_name == activity.name %}selected{% endif %}>{{ activity_name }}</option>
+                                                                    {% endfor %}
+                                                                    <hr>
+                                                                </select>
+                                                                <button type="button"
+                                                                        style="width: 20%; color: red; border: none; background-color: transparent"
+                                                                    onclick="staffDeleteAnnotation('activity', '{{ bbox.id }}', '{{ activity.name }}');
+                                                                             deleteAnnotationEntry('activity-{{ bbox.id }}-{{ activity.name }}', `{{ activity.name }}`);">
                                                                     (Delete)
                                                                 </button>
                                                             </div>
@@ -260,7 +309,6 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-primary me-2 close" data-dismiss="modal" aria-label="Close">Close</button>
-        <button type="button" class="btn btn-primary">Save changes</button>
       </div>
     </div>
   </div>
@@ -273,13 +321,14 @@
             const annotationEntry = document.getElementById(parentId);
             annotationEntry.innerHTML = "";
 
-            const deletionText = document.createElement("text");
-            deletionText.id = `deletion-text-${annotationName}`;
+            const notifyText = document.createElement("text");
+            notifyText.id = `notify-text-${annotationName}`;
 
-            annotationEntry.appendChild(deletionText);
+            annotationEntry.appendChild(notifyText);
         }
         catch {
             console.log("Annotation entry element couldn't be found.");
         }
     }
+
 </script>

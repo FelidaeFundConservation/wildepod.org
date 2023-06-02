@@ -5,6 +5,7 @@ from .views import (
     AnnotateActivityView,
     AnnotateObjectsView,
     AnnotateSpeciesView,
+    ChangeAnnotationView,
     CustomAnnotationView,
     DeleteAnnotationView,
     ImageDetailView,
@@ -65,6 +66,11 @@ urlpatterns = [
         "activity-annotation-processor/",
         ActivityAnnotationProcessorView.as_view(),
         name="activity_annotation_processor",
+    ),
+    path(
+        "staff-change-annotation/",
+        ChangeAnnotationView.as_view(),
+        name="staff_change_annotation",
     ),
     path(
         "staff-delete-annotation/",

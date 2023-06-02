@@ -99,6 +99,7 @@ INSTALLED_APPS = [
     "siteapps.inventory",
     "siteapps.locations",
     "siteapps.images",
+    "siteapps.vote_results",
     "simple_history",
 ]
 

@@ -48,6 +48,14 @@ function createCategoryWidget(categories){
           // Add an event listener to update the class on click
           button.addEventListener('click', addTag);
 
+          // Focus the ok button if a selection is made.
+          button.addEventListener('click', function () {
+              const okButton = $('button.r6o-btn:contains("Ok")');
+              if (okButton.length) {
+                  okButton['0'].focus();
+              }
+          });
+
           if(categories.length > 5){
             let col = document.createElement("div")
             col.className = 'col-3 p-0 m-0 d-flex';

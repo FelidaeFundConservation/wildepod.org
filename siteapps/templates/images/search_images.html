@@ -1,0 +1,101 @@
+{% extends '_base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %} Search Images {% endblock %}
+<!-- Set corresponding nav pill to active -->
+{% block nav_explore %}active{% endblock nav_explore %}
+
+{% block header_includes %}
+<link
+    href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+    rel="stylesheet"
+/>
+{% endblock header_includes %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-evenly mt-3 pt-3">
+        <div class="col-12 col-md-10 col-lg-8">
+            {% if form.errors %}
+            <div
+                class="alert alert-danger"
+                role="alert"
+            >
+                Server error! Please try again or contact admin.
+            </div>
+            {% endif %}
+            <form method="post">
+                {% crispy form %}
+            </form>
+        </div>
+    </div>
+
+    <div class="row justify-content-evenly mt-3 pt-3">
+
+        {% if form.is_valid %}
+            {% if results %}
+                <div class="alert alert-info" role="alert">
+                    There are {{ count }} result(s) for this query.
+                </div>
+                <table class="table mt-2 mt-md-4 align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col">Image ID</th>
+                            <th scope="col">Macrosite</th>
+                            <th scope="col">Camera Station</th>
+                            <th scope="col">Trigger Time</th>
+                            <th scope="col">Last Annotated</th>
+                            <th scope="col">Image</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for image in results %}
+                        <tr>
+                            <td><a href="{% url 'images:image' image.id %}">{{image.id}}</a></td>
+                            <td>{{ image.upload.camera_station.micro_site.macro_site }}</td>
+                            <td>{{ image.upload.camera_station.station_id }}</td>
+                            <td>{{image.trigger_timestamp}}</td>
+                            <td>placeholder</td>
+                            <td>
+                                <a href="{% url 'images:image' image.id %}">
+                                    <img id="{{image.id}}"
+                                         class="img-fluid m-0 p-0"
+                                         src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}"
+                                    >
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                {% if count == 0 %}
+                    <div class="alert alert-danger" role="alert">
+                        No results found for this query.
+                    </div>
+                {% else %}
+                    <div class="alert alert-danger" role="alert">
+                        There are {{ count }} results for this query, which may be unmanagable. Please narrow your search.
+                    </div>
+                {% endif %}
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endblock content %}
+
+{% block footer_includes %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    $('#id_volunteers').select2({
+        placeholder: '(optional) Only these volunteers will be included',
+    });
+    $('#id_macrosites').select2({
+        placeholder: '(optional) Only these macrosites will be included',
+    });
+    $('#id_camera_stations').select2({
+        placeholder: '(optional) Only these camera stations will be included',
+    });
+</script>
+{% endblock footer_includes %}

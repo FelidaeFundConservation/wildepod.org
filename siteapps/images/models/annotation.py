@@ -3,10 +3,13 @@ import uuid
 from django.conf import settings
 from django.db import models
 from django.db.models import Case, Count, Exists, ExpressionWrapper, F, OuterRef, Q, Value, When
+from django.contrib.contenttypes.fields import GenericRelation
 from django.db.models.functions import Coalesce
 from django.forms import BooleanField
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
+from vote_results.models import VoteResults
+
 
 from .image import Annotator, Image
 
@@ -176,6 +179,9 @@ class BoundingBox(TimeStampedModel):
     accepted_by = models.ManyToManyField(Annotator, related_name="accepted_annotation", blank=True)
     rejected_by = models.ManyToManyField(Annotator, related_name="rejected_annotation", blank=True)
 
+    # To get all disputes (VoteResults()) for a bounding box instance
+    vote_result = GenericRelation(VoteResults, related_query_name='dispute_vote_results')
+
     objects = BoundingBoxManager()
 
     def __str__(self):
@@ -231,6 +237,9 @@ class Category(TimeStampedModel):
     accepted_by = models.ManyToManyField(Annotator, related_name="accepted_category_annotation", blank=True)
     rejected_by = models.ManyToManyField(Annotator, related_name="rejected_category_annotation", blank=True)
 
+    # To get all disputes (VoteResults()) for a category instance.
+    vote_result = GenericRelation(VoteResults, related_query_name='dispute_vote_results')
+
     objects = CategoryManager()
 
     def __str__(self):
@@ -266,6 +275,9 @@ class Species(TimeStampedModel):
     # List of accept/rejects for this annotation
     accepted_by = models.ManyToManyField(Annotator, related_name="accepted_species_annotation", blank=True)
     rejected_by = models.ManyToManyField(Annotator, related_name="rejected_species_annotation", blank=True)
+
+    # To get all disputes (VoteResults()) for a species instance
+    vote_result = GenericRelation(VoteResults, related_query_name='dispute_vote_results')
 
     objects = CategoryManager()
 
@@ -343,6 +355,9 @@ class Activity(TimeStampedModel):
     # List of accept/rejects for this annotation
     accepted_by = models.ManyToManyField(Annotator, related_name="accepted_activity_annotation", blank=True)
     rejected_by = models.ManyToManyField(Annotator, related_name="rejected_activity_annotation", blank=True)
+
+    # To get all disputes (VoteResults()) for a activity instance
+    vote_result = GenericRelation(VoteResults, related_query_name='dispute_vote_results')
 
     objects = ActivityManager()
 

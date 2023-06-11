@@ -6,11 +6,14 @@ from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count, Exists, F, OuterRef, Q, QuerySet, Subquery, Value
 from django.shortcuts import render
+from django.utils import timezone
 from django.views.generic import FormView
-from images.models import Annotator, BoundingBox, Image, Species
+from images.models import Annotator, BoundingBox, Image, Category, Species, Activity
 from locations.models import CameraStation, MacroSite
+from functools import reduce
+from operator import and_
 
-MAX_IMAGE_SEARCH_RESULTS = 100
+MAX_IMAGE_SEARCH_RESULTS = 200
 
 
 class SearchImagesForm(forms.Form):
@@ -93,41 +96,62 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
 
             # Apply the filters specified on the form on to the queryset
             filterset = {}
+            compoundfilters = []
+
             if camera_timestamp_start:
                 filterset["trigger_timestamp__gte"] = camera_timestamp_start
             if camera_timestamp_end:
                 filterset["trigger_timestamp__lte"] = camera_timestamp_end
+            if volunteers:
+                # Check if volunteer made a new annotation.
+                compoundfilters.append(
+                    Q(boundingbox__category__created_by__in=volunteers) | 
+                    Q(boundingbox__species__created_by__in=volunteers) | 
+                    Q(boundingbox__activity__created_by__in=volunteers)
+                )
             if annotation_timestamp_start:
-                filterset["trigger_timestamp__gte"] = annotation_timestamp_start
+                compoundfilters.append(
+                    Q(boundingbox__category__created__gte=annotation_timestamp_start) |
+                    Q(boundingbox__species__created__gte=annotation_timestamp_start) |
+                    Q(boundingbox__activity__created__gte=annotation_timestamp_start)
+                )
             if annotation_timestamp_end:
-                filterset["trigger_timestamp__lte"] = annotation_timestamp_end
+                compoundfilters.append(
+                    Q(boundingbox__category__created__lte=annotation_timestamp_end) |
+                    Q(boundingbox__species__created__lte=annotation_timestamp_end) |
+                    Q(boundingbox__activity__created__lte=annotation_timestamp_end)
+                )
             if macrosites:
                 filterset["upload__camera_station__micro_site__macro_site__in"] = macrosites
             if camera_stations:
                 filterset["upload__camera_station__in"] = camera_stations
 
-            volunteer_filter = None
-            if volunteers:
-                # Check if volunteer exists in any annotation type.
-                volunteer_filter = (
-                    Q(bbox_checked_by__in=volunteers)
-                    | Q(species_checked_by__in=volunteers)
-                    | Q(activity_checked_by__in=volunteers)
-                )
-
-            if volunteer_filter:
-                query_result_count = Image.objects.annotated().filter(volunteer_filter, **filterset).count()
-            else:
-                query_result_count = Image.objects.annotated().filter(**filterset).count()
+            query_result_count = Image.objects.filter(*compoundfilters, **filterset).count()
 
             # If query result amount exceeds limit, don't get results.
             if query_result_count <= MAX_IMAGE_SEARCH_RESULTS:
-                if volunteer_filter:
-                    queryset_all = Image.objects.annotated().filter(volunteer_filter, **filterset)
-                else:
-                    queryset_all = Image.objects.annotated().filter(**filterset)
+                queryset_all = Image.objects.filter(*compoundfilters, **filterset)
                 results = list(queryset_all)
             else:
                 results = None
 
-        return render(request, self.template_name, {"form": form, "results": results, "count": query_result_count})
+            # Get more detailed information from the results.
+            annotations = {}
+
+            if results:
+                for image in results:
+                    bboxes = BoundingBox.objects.filter(image=image)
+
+                    category = []
+                    species = []
+                    activity = []
+
+                    for bbox in bboxes:
+                        category.append(Category.objects.filter(bounding_box=bbox))
+                        species.append(Species.objects.filter(bounding_box=bbox))
+                        activity.append(Activity.objects.filter(bounding_box=bbox))
+
+                    annotations[image.id] = {"category": category, "species": species, "activity": activity}
+
+
+        return render(request, self.template_name, {"form": form, "results": results, "count": query_result_count, "annotations": annotations })

@@ -45,7 +45,10 @@
                             <th scope="col">Macrosite</th>
                             <th scope="col">Camera Station</th>
                             <th scope="col">Trigger Time</th>
-                            <th scope="col">Last Annotated</th>
+                            <th scope="col">Created Category Annotations</th>
+                            <th scope="col">Created Species Annotations</th>
+                            <th scope="col">Created Activity Annotations</th>
+                            <th scope="col">Annotators</th>
                             <th scope="col">Image</th>
                         </tr>
                     </thead>
@@ -55,8 +58,37 @@
                             <td><a href="{% url 'images:image' image.id %}">{{image.id}}</a></td>
                             <td>{{ image.upload.camera_station.micro_site.macro_site }}</td>
                             <td>{{ image.upload.camera_station.station_id }}</td>
-                            <td>{{image.trigger_timestamp}}</td>
-                            <td>placeholder</td>
+                            <td>{{ image.trigger_timestamp }}</td>
+                            {% load tz %}
+                            {% for key, value in annotations.items %}
+                                {% if key == image.id %}
+                                <td>
+                                    {% for item in value.category %}
+                                        {% for annotation in item.all %}
+                                            <span style="font-size: 14px;"><u>{{ annotation.name }}</u></span> by {{ annotation.created_by }}, <i>{{ annotation.created|localtime }}</i><br><br>
+                                        {% endfor %}
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    {% for item in value.species %}
+                                        {% for annotation in item.all %}
+                                            <span style="font-size: 14px;"><u>{{ annotation.name }}</u></span> by {{ annotation.created_by }}, <i>{{ annotation.created|localtime }}</i><br><br>
+                                        {% endfor %}
+                                    {% endfor %}
+                                </td>
+                                 <td>
+                                    {% for item in value.activity %}
+                                        {% for annotation in item.all %}
+                                            <span style="font-size: 14px;"><u>{{ annotation.name }}</u></span> by {{ annotation.created_by }}, <i>{{ annotation.created|localtime }}</i><br><br>
+                                        {% endfor %}
+                                    {% endfor %}
+                                </td>
+                                {% endif %}
+                            {% endfor %}
+                            <th scope="col">
+                            {% for annotator in image.bbox_checked_by.all %}{{ annotator }}, {% endfor %}<br>
+                            {% for annotator in image.species_checked_by.all %}{{ annotator }}, {% endfor %}
+                            </th>
                             <td>
                                 <a href="{% url 'images:image' image.id %}">
                                     <img id="{{image.id}}"

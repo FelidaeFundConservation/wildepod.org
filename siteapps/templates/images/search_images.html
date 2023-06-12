@@ -45,9 +45,9 @@
                             <th scope="col">Macrosite</th>
                             <th scope="col">Camera Station</th>
                             <th scope="col">Trigger Time</th>
-                            <th scope="col">Created Category Annotations</th>
-                            <th scope="col">Created Species Annotations</th>
-                            <th scope="col">Created Activity Annotations</th>
+                            <th scope="col">Created Categories</th>
+                            <th scope="col">Created Species</th>
+                            <th scope="col">Created Activities</th>
                             <th scope="col">Annotators</th>
                             <th scope="col">Image</th>
                         </tr>
@@ -85,10 +85,11 @@
                                 </td>
                                 {% endif %}
                             {% endfor %}
-                            <th scope="col">
+                            <td scope="col">
                             {% for annotator in image.bbox_checked_by.all %}{{ annotator }}, {% endfor %}<br>
                             {% for annotator in image.species_checked_by.all %}{{ annotator }}, {% endfor %}
-                            </th>
+                            {% for annotator in image.activity_checked_by.all %}{{ annotator }}, {% endfor %}
+                            </td>
                             <td>
                                 <a href="{% url 'images:image' image.id %}">
                                     <img id="{{image.id}}"
@@ -108,7 +109,7 @@
                     </div>
                 {% else %}
                     <div class="alert alert-danger" role="alert">
-                        There are {{ count }} results for this query, which may be unmanagable. Please narrow your search.
+                        There are {{ count }} results for this query, which may be unmanagable. Please narrow your search criteria.
                     </div>
                 {% endif %}
             {% endif %}

@@ -8,10 +8,8 @@ from django.db.models import Count, Exists, F, OuterRef, Q, QuerySet, Subquery, 
 from django.shortcuts import render
 from django.utils import timezone
 from django.views.generic import FormView
-from images.models import Annotator, BoundingBox, Image, Category, Species, Activity
+from images.models import Activity, Annotator, BoundingBox, Category, Image, Species
 from locations.models import CameraStation, MacroSite
-from functools import reduce
-from operator import and_
 
 MAX_IMAGE_SEARCH_RESULTS = 200
 
@@ -96,41 +94,65 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
 
             # Apply the filters specified on the form on to the queryset
             filterset = {}
-            compoundfilters = []
+            compoundfilter = []
 
             if camera_timestamp_start:
                 filterset["trigger_timestamp__gte"] = camera_timestamp_start
             if camera_timestamp_end:
                 filterset["trigger_timestamp__lte"] = camera_timestamp_end
+
+            """
+            Logic to combine compound boundingbox filters.
+
+            Filters by images with the existence of at least one category, species, or activity
+            created by any specified volunteers within the given timestamp criteria.
+            """
+
+            q_filter_category = Q()
+            q_filter_species = Q()
+            q_filter_activity = Q()
+
             if volunteers:
-                # Check if volunteer made a new annotation.
-                compoundfilters.append(
-                    Q(boundingbox__category__created_by__in=volunteers) | 
-                    Q(boundingbox__species__created_by__in=volunteers) | 
-                    Q(boundingbox__activity__created_by__in=volunteers)
-                )
+                if not q_filter_category.children:
+                    q_filter_category |= Q(boundingbox__category__created_by__in=volunteers)
+                    q_filter_species |= Q(boundingbox__species__created_by__in=volunteers)
+                    q_filter_activity |= Q(boundingbox__activity__created_by__in=volunteers)
+                else:
+                    q_filter_category &= Q(boundingbox__category__created_by__in=volunteers)
+                    q_filter_species &= Q(boundingbox__species__created_by__in=volunteers)
+                    q_filter_activity &= Q(boundingbox__activity__created_by__in=volunteers)
+
             if annotation_timestamp_start:
-                compoundfilters.append(
-                    Q(boundingbox__category__created__gte=annotation_timestamp_start) |
-                    Q(boundingbox__species__created__gte=annotation_timestamp_start) |
-                    Q(boundingbox__activity__created__gte=annotation_timestamp_start)
-                )
+                if not q_filter_category.children:
+                    q_filter_category |= Q(boundingbox__category__created__gte=annotation_timestamp_start)
+                    q_filter_species |= Q(boundingbox__species__created__gte=annotation_timestamp_start)
+                    q_filter_activity |= Q(boundingbox__activity__created__gte=annotation_timestamp_start)
+                else:
+                    q_filter_category &= Q(boundingbox__category__created__gte=annotation_timestamp_start)
+                    q_filter_species &= Q(boundingbox__species__created__gte=annotation_timestamp_start)
+                    q_filter_activity &= Q(boundingbox__activity__created__gte=annotation_timestamp_start)
             if annotation_timestamp_end:
-                compoundfilters.append(
-                    Q(boundingbox__category__created__lte=annotation_timestamp_end) |
-                    Q(boundingbox__species__created__lte=annotation_timestamp_end) |
-                    Q(boundingbox__activity__created__lte=annotation_timestamp_end)
-                )
+                if not q_filter_category.children:
+                    q_filter_category |= Q(boundingbox__category__created__lte=annotation_timestamp_end)
+                    q_filter_species |= Q(boundingbox__species__created__lte=annotation_timestamp_end)
+                    q_filter_activity |= Q(boundingbox__activity__created__lte=annotation_timestamp_end)
+                else:
+                    q_filter_category &= Q(boundingbox__category__created__lte=annotation_timestamp_end)
+                    q_filter_species &= Q(boundingbox__species__created__lte=annotation_timestamp_end)
+                    q_filter_activity &= Q(boundingbox__activity__created__lte=annotation_timestamp_end)
+
+            compoundfilter.append(q_filter_category | q_filter_species | q_filter_activity)
+
             if macrosites:
                 filterset["upload__camera_station__micro_site__macro_site__in"] = macrosites
             if camera_stations:
                 filterset["upload__camera_station__in"] = camera_stations
 
-            query_result_count = Image.objects.filter(*compoundfilters, **filterset).count()
+            query_result_count = Image.objects.filter(*compoundfilter, **filterset).count()
 
             # If query result amount exceeds limit, don't get results.
             if query_result_count <= MAX_IMAGE_SEARCH_RESULTS:
-                queryset_all = Image.objects.filter(*compoundfilters, **filterset)
+                queryset_all = Image.objects.filter(*compoundfilter, **filterset)
                 results = list(queryset_all)
             else:
                 results = None
@@ -153,5 +175,8 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
 
                     annotations[image.id] = {"category": category, "species": species, "activity": activity}
 
-
-        return render(request, self.template_name, {"form": form, "results": results, "count": query_result_count, "annotations": annotations })
+        return render(
+            request,
+            self.template_name,
+            {"form": form, "results": results, "count": query_result_count, "annotations": annotations},
+        )

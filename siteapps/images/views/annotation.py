@@ -106,6 +106,7 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
         if image_id:
             image = Image.objects.get(id=image_id)
             context["image"] = image
+            context["social_media_worthy"] = image.social_media_worthy
             bounding_boxes = BoundingBox.objects.valid_or_uncertain().filter(image=image)
             context["bounding_boxes"] = bounding_boxes
             context["queue_index"] = queue["index"]
@@ -272,8 +273,8 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
         # If there is a valid image, add bounding box information
         if image_id:
             image = Image.objects.get(id=image_id)
-
             context["image"] = image
+            context["social_media_worthy"] = image.social_media_worthy
             bounding_boxes = BoundingBox.objects.valid().filter(image=image)
             context["bounding_boxes"] = bounding_boxes
         else:

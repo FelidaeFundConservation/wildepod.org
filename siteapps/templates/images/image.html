@@ -65,6 +65,13 @@
             ><s>Next</s>
             </button>
             {% endif %}
+            {% if user.is_staff %}
+            <button type="button"
+                    class="btn btn-primary me-2"
+                    style="background-color: orange" data-toggle="modal" data-target="#staffEditModal"
+            >Admin View</button>
+            {% include './annotate/staff-edit-annotations.html' %}
+            {% endif %}
         </p>
     </div>
     <div class="row px-2 justify-content-center">
@@ -139,6 +146,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@recogito/annotorious-shape-labels@latest/dist/annotorious-shape-labels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@recogito/annotorious@2.6.1/dist/annotorious.min.js"></script>
 
+<!-- Bootstrap -->
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"></script>
+
 <script>
         // TODO: Move all this code to separate functions housed in separate files
         {% comment %} Create a javascript variable holding all the annotations and render annotations{% endcomment %}
@@ -201,5 +211,64 @@
                 })
             });
         });
+
+        {% if user.is_staff %}
+            window.staffDeleteAnnotation = function () {
+                const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+                let data = {
+                    'model': arguments[0],
+                    'boxId': arguments[1],
+                    'annotationName': arguments[2],
+                    'csrfmiddlewaretoken': csrftoken
+                }
+
+                $.ajax({
+                    url: `{% url 'images:staff_delete_annotation'%}`,
+                    method: 'POST',
+                    data: data,
+                    dataType: 'json',
+                    success: function (data) {
+                        let notifyText = document.getElementById(`notify-text-${data.name}`);
+
+                        if (data.success) {
+                            notifyText.innerHTML = `<i>Annotation "<b>${data.name}</b>" has been deleted.</i>`;
+                        }
+                        else {
+                            notifyText.innerHTML = `There was a problem deleting <i>annotation "<b>${data.name}</b>".</i>`;
+                        }
+                    }
+                });
+            }
+
+            window.staffChangeAnnotation = function () {
+                const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+                let data = {
+                    'model': arguments[0],
+                    'boxId': arguments[1],
+                    'annotationName': arguments[2],
+                    'newAnnotationName': arguments[3],
+                    'csrfmiddlewaretoken': csrftoken
+                }
+
+                $.ajax({
+                    url: `{% url 'images:staff_change_annotation'%}`,
+                    method: 'POST',
+                    data: data,
+                    dataType: 'json',
+                    success: function (data) {
+                        let notifyText = document.getElementById(`notify-text-${data.oldName}`);
+
+                        if (data.success) {
+                            notifyText.innerHTML = `<i>Annotation "${data.oldName}" has been changed to "<b>${data.newName}</b>".<br>(Refresh page to change again.)</i>`;
+                        }
+                        else {
+                            notifyText.innerHTML = `There was a problem changing <i>annotation "<b>${data.oldName}</b>".</i>`;
+                        }
+                    }
+                });
+            }
+        {% endif %}
     </script>
 {% endblock %}

@@ -2,7 +2,7 @@ from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
 from django.views.generic import DetailView
-from images.models import BoundingBox, Image
+from images.models import Activity, ActivityType, BoundingBox, Category, Image, Species, SpeciesName
 
 
 class ImageDetailView(LoginRequiredMixin, DetailView):
@@ -29,5 +29,32 @@ class ImageDetailView(LoginRequiredMixin, DetailView):
         # Get valid annotations for this image
         bounding_boxes = BoundingBox.objects.valid_or_uncertain().filter(image=img_obj)
         context["bounding_boxes"] = bounding_boxes
+
+        class BboxAnnotationInfo:
+            def __init__(self, id, categories, species, activities):
+                self.id = id
+                self.categories = categories
+                self.species = species
+                self.activities = activities
+
+        context["species_list"] = SpeciesName.objects.all()
+        context["activity_list"] = ActivityType.objects.all()
+
+        # Gather all annotations for bounding boxes.
+        try:
+            bboxes = BoundingBox.objects.filter(image=img_obj)
+        except (ObjectDoesNotExist, IndexError):
+            bboxes = []
+
+        infoList = []
+
+        for bbox in bboxes:
+            categories = Category.objects.filter(bounding_box=bbox)
+            species = Species.objects.filter(bounding_box=bbox)
+            activities = Activity.objects.filter(bounding_box=bbox)
+
+            infoList.append(BboxAnnotationInfo(bbox.id, categories, species, activities))
+
+        context["bbox_all_annotations"] = infoList
 
         return context

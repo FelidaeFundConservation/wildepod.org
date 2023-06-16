@@ -140,11 +140,10 @@ class AnnotationForm(forms.Form):
         ("species", "Annotate Species"),
         ("human", "Annotate Human Activity"),
         ("animal", "Annotate Animal Activity"),
+        ("blank", "Annotate Blanks"),
     ]
 
-    annotation_choices = forms.ChoiceField(
-        choices=criteria, widget=forms.RadioSelect, label="Annotation Criteria", required=False
-    )
+    annotation_choices = forms.ChoiceField(choices=criteria, widget=forms.RadioSelect, label="Annotation Criteria")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -164,7 +163,7 @@ class AnnotationForm(forms.Form):
                 Column("annotation_choices", css_class="form-group col-12"),
             ),
             Row(
-                Column(Submit("submit", "Blank Annotates", css_class="form-group btn-primary")),
+                Column(Submit("submit", "Annotate", css_class="form-group btn-primary")),
                 css_class="text-center",
             ),
         )

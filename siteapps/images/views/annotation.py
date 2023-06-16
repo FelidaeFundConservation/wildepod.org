@@ -169,15 +169,14 @@ class CustomAnnotationView(LoginRequiredMixin, FormView, TemplateView):
             else:
                 camera_id = "None"
 
-            if annotation_choices:
-                if annotation_choices == "species":
-                    url = (
-                        reverse("images:annotate_species")
-                        + f"?start_date={start_date}&end_date={end_date}&macrosite_name={macrosite_name}&camera_id={camera_id}"
-                    )
-                else:
-                    url = reverse("images:annotate_activity", kwargs={"category": annotation_choices})
-                    url += f"?start_date={start_date}&end_date={end_date}&macrosite_name={macrosite_name}&camera_id={camera_id}"
+            if annotation_choices == "species":
+                url = (
+                    reverse("images:annotate_species")
+                    + f"?start_date={start_date}&end_date={end_date}&macrosite_name={macrosite_name}&camera_id={camera_id}"
+                )
+            elif annotation_choices == "human" or annotation_choices == "animal":
+                url = reverse("images:annotate_activity", kwargs={"category": annotation_choices})
+                url += f"?start_date={start_date}&end_date={end_date}&macrosite_name={macrosite_name}&camera_id={camera_id}"
             else:
                 url = (
                     reverse("images:annotate_objects")

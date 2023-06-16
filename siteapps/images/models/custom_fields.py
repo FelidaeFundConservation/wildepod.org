@@ -17,7 +17,7 @@ def get_filter_params(start_date, end_date, macrosite_name, camera_id):
     if macrosite_name:
         filters["upload__camera_station__micro_site__macro_site__name"] = macrosite_name
 
-    if camera_id != "None":
+    if camera_id and camera_id != "None":
         filters["upload__camera_station__station_id"] = camera_id
 
     return filters

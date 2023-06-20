@@ -52,7 +52,7 @@
                 <input
                     class="form-check-input"
                     type="checkbox"
-                    value=""
+                    {% if social_media_worthy %}checked="checked"{% endif %}
                     id="social-media-worthy"
                 >
                 <label
@@ -240,33 +240,62 @@
             }
 
             {% if user.is_staff %}
-            window.staffDeleteAnnotation = function () {
-                const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                window.staffDeleteAnnotation = function () {
+                    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-                let data = {
-                    'model': arguments[0],
-                    'boxId': arguments[1],
-                    'annotationName': arguments[2],
-                    'csrfmiddlewaretoken': csrftoken
+                    let data = {
+                        'model': arguments[0],
+                        'boxId': arguments[1],
+                        'annotationName': arguments[2],
+                        'csrfmiddlewaretoken': csrftoken
+                    }
+
+                    $.ajax({
+                        url: `{% url 'images:staff_delete_annotation'%}`,
+                        method: 'POST',
+                        data: data,
+                        dataType: 'json',
+                        success: function (data) {
+                            let notifyText = document.getElementById(`notify-text-${data.name}`);
+
+                            if (data.success) {
+                                notifyText.innerHTML = `<i>Annotation "<b>${data.name}</b>" has been deleted.</i>`;
+                            }
+                            else {
+                                notifyText.innerHTML = `There was a problem deleting <i>annotation "<b>${data.name}</b>".</i>`;
+                            }
+                        }
+                    });
                 }
 
-                $.ajax({
-                    url: `{% url 'images:staff_delete_annotation'%}`,
-                    method: 'POST',
-                    data: data,
-                    dataType: 'json',
-                    success: function (data) {
-                        let deletionText = document.getElementById(`deletion-text-${data.name}`);
+                window.staffChangeAnnotation = function () {
+                    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-                        if (data.success) {
-                            deletionText.innerHTML = `<i>Annotation "<b>${data.name}</b>" has been deleted.</i>`;
-                        }
-                        else {
-                            deletionText.innerHTML = `There was a problem deleting <i>annotation "<b>${data.name}</b>".</i>`;
-                        }
+                    let data = {
+                        'model': arguments[0],
+                        'boxId': arguments[1],
+                        'annotationName': arguments[2],
+                        'newAnnotationName': arguments[3],
+                        'csrfmiddlewaretoken': csrftoken
                     }
-                });
-            }
+
+                    $.ajax({
+                        url: `{% url 'images:staff_change_annotation'%}`,
+                        method: 'POST',
+                        data: data,
+                        dataType: 'json',
+                        success: function (data) {
+                            let notifyText = document.getElementById(`notify-text-${data.oldName}`);
+
+                            if (data.success) {
+                                notifyText.innerHTML = `<i>Annotation "${data.oldName}" has been changed to "<b>${data.newName}</b>".<br>(Refresh page to change again.)</i>`;
+                            }
+                            else {
+                                notifyText.innerHTML = `There was a problem changing <i>annotation "<b>${data.oldName}</b>".</i>`;
+                            }
+                        }
+                    });
+                }
             {% endif %}
 
             // Submit annotations to the server

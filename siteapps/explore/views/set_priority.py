@@ -78,16 +78,16 @@ class PriorityView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
 
             filterset = {}
             if start_date:
-                filterset["image__trigger_timestamp__gte"] = start_date
+                filterset["images__trigger_timestamp__gte"] = start_date
             if end_date:
                 # to make the end_date inclusive as its conflicting because of datetimefield and datefield comparison
                 end_date_inclusive = end_date + timedelta(days=1) - timedelta(seconds=1)
-                filterset["image__trigger_timestamp__lte"] = end_date_inclusive
+                filterset["images__trigger_timestamp__lte"] = end_date_inclusive
             if macrosites:
                 filterset["camera_station__micro_site__macro_site__in"] = macrosites
             if camera_stations:
                 filterset["camera_station__in"] = camera_stations
-            search_set = Upload.objects.filter(**filterset)
+            search_set = Upload.objects.filter(**filterset).distinct()
 
             num_records_to_update = search_set.count()
 
@@ -96,7 +96,9 @@ class PriorityView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                 messages.info(request, message)
                 return redirect("explore:set_priority")
             else:
-                message = f"{num_records_to_update} records will be updated. Are you sure you want to continue?"
+                total_image_count = Upload.objects.filter(**filterset).aggregate(total_images=Count('images'))
+
+                message = f"{num_records_to_update} Upload Sets will be updated (with {total_image_count['total_images']} images). Are you sure you want to continue?"
                 # to serialize the model
                 model_list = serializers.serialize("json", search_set)
 
@@ -120,6 +122,6 @@ class ConfirmUpdateView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             obj.save()
             count += 1
 
-        message = f"{count} records updated."
+        message = f"{count} Upload Sets updated."
         messages.info(request, message)
         return redirect("explore:set_priority")

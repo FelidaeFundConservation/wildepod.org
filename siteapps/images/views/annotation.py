@@ -14,12 +14,19 @@ from django.urls import reverse
 from django.views.generic import FormView
 from django.views.generic.base import TemplateView, View
 from images.forms import AnnotationForm
-from images.models import (Activity, ActivityType, Annotator, BoundingBox,
-                           Category, Image, Species, SpeciesName,
-                           get_object_annotation_images)
-from images.processors import (process_activity_annotations,
-                               process_md_annotations,
-                               process_species_annotations)
+from images.models import (
+    Activity,
+    ActivityType,
+    Annotator,
+    BoundingBox,
+    Category,
+    Image,
+    Species,
+    SpeciesName,
+    get_object_annotation_images,
+)
+from images.models.custom_fields import get_filter_params
+from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
 from locations.models import CameraStation, MacroSite, MicroSite
 
 MAX_VOTES_PER_IMAGE = 2
@@ -100,6 +107,7 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
         if image_id:
             image = Image.objects.get(id=image_id)
             context["image"] = image
+            context["social_media_worthy"] = image.social_media_worthy
             bounding_boxes = BoundingBox.objects.valid_or_uncertain().filter(image=image)
             context["bounding_boxes"] = bounding_boxes
             context["queue_index"] = queue["index"]
@@ -155,15 +163,25 @@ class CustomAnnotationView(LoginRequiredMixin, FormView, TemplateView):
             macrosites = form.cleaned_data["macrosites"]
             macrosite_name = macrosites.name
             camera_stations = form.cleaned_data["camera_stations"]
+            annotation_choices = form.cleaned_data["annotation_choices"]
             if camera_stations:
                 camera_id = camera_stations.station_id
             else:
                 camera_id = "None"
 
-            url = (
-                reverse("images:annotate_objects")
-                + f"?start_date={start_date}&end_date={end_date}&macrosite_name={macrosite_name}&camera_id={camera_id}"
-            )
+            if annotation_choices == "species":
+                url = (
+                    reverse("images:annotate_species")
+                    + f"?start_date={start_date}&end_date={end_date}&macrosite_name={macrosite_name}&camera_id={camera_id}"
+                )
+            elif annotation_choices == "human" or annotation_choices == "animal":
+                url = reverse("images:annotate_activity", kwargs={"category": annotation_choices})
+                url += f"?start_date={start_date}&end_date={end_date}&macrosite_name={macrosite_name}&camera_id={camera_id}"
+            else:
+                url = (
+                    reverse("images:annotate_objects")
+                    + f"?start_date={start_date}&end_date={end_date}&macrosite_name={macrosite_name}&camera_id={camera_id}"
+                )
             return redirect(url)
 
 
@@ -171,6 +189,16 @@ class CustomAnnotationView(LoginRequiredMixin, FormView, TemplateView):
 class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
     login_url = settings.LOGIN_URL
     template_name = "images/annotate/species.html"
+
+    def get(self, request, *args, **kwargs):
+        start_date = self.request.GET.get("start_date")
+        end_date = self.request.GET.get("end_date")
+        camera_id = None if self.request.GET.get("camera_id") == "None" else self.request.GET.get("camera_id")
+        macrosite_name = self.request.GET.get("macrosite_name")
+
+        self.filterset = get_filter_params(start_date, end_date, macrosite_name, camera_id)
+
+        return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -183,7 +211,7 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
         queue = settings.DATASTORE_CLIENT.get(queue_key)
 
         # If a valid object exists and if it is not expired and if the index points to a valid image, serve it
-        if (
+        if (not hasattr(self, "macrosite_name") or self.macrosite_name is None) and (
             queue
             and datetime.datetime.fromisoformat(queue["expires_at"]) > datetime.datetime.now()
             and queue["index"] < len(queue["images"])
@@ -192,50 +220,48 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
             image_id = queue["images"][queue["index"]]
         else:
             # Get images based on the following set of filters
-            images = (
-                Image.objects.annotated()
-                .filter(
-                    # It must not be checked or skipped by the current annotator
-                    ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
-                    # There must be at least one or more "valid" bounding boxes
-                    Exists(BoundingBox.objects.valid().filter(image=OuterRef("pk"))),
-                    # There must be no uncertain bounding boxes for the image
-                    ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
-                    # TODO: Fix the line below
-                    # This is a quick and dirty hack to only ever show an image if there is at least
-                    # one bounding box that has at least one category tagged as an animal linked to it
-                    # It should work for most of the time but is not always accurate and will generate false positives
-                    # Must be fixed
-                    Exists(BoundingBox.objects.is_animal().filter(image=OuterRef("pk"))),
-                    # If a staff vote exists for the species, we'll no longer show it
-                    ~Exists(
-                        BoundingBox.objects.filter(
-                            Exists(
-                                Species.objects.filter(
-                                    Exists(
-                                        Annotator.objects.filter(
-                                            Q(human__is_staff=True) | Q(human__is_expert=True),
-                                            accepted_species_annotation=OuterRef("pk")
-                                        )
-                                    ),
-                                    bounding_box=OuterRef("pk"),
-                                )
-                            ),
-                            image=OuterRef("pk"),
-                        )
-                    ),
-                    # Show image only if checked by fewer people
-                    num_species_checked_by__lt=MAX_VOTES_PER_IMAGE,
-                    # Image must be marked as processed
-                    processed=True,
-                )
-                .order_by(
-                    "-upload__priority",
-                    "upload__camera_station",
-                    "trigger_timestamp",
-                    "num_species_checked_by",
-                    "num_objects",
-                )
+            images = Image.objects.annotated().filter(**self.filterset)
+
+            images = images.filter(
+                # It must not be checked or skipped by the current annotator
+                ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
+                # There must be at least one or more "valid" bounding boxes
+                Exists(BoundingBox.objects.valid().filter(image=OuterRef("pk"))),
+                # There must be no uncertain bounding boxes for the image
+                ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
+                # TODO: Fix the line below
+                # This is a quick and dirty hack to only ever show an image if there is at least
+                # one bounding box that has at least one category tagged as an animal linked to it
+                # It should work for most of the time but is not always accurate and will generate false positives
+                # Must be fixed
+                Exists(BoundingBox.objects.is_animal().filter(image=OuterRef("pk"))),
+                # If a staff vote exists for the species, we'll no longer show it
+                ~Exists(
+                    BoundingBox.objects.filter(
+                        Exists(
+                            Species.objects.filter(
+                                Exists(
+                                    Annotator.objects.filter(
+                                        Q(human__is_staff=True) | Q(human__is_expert=True),
+                                        accepted_species_annotation=OuterRef("pk"),
+                                    )
+                                ),
+                                bounding_box=OuterRef("pk"),
+                            )
+                        ),
+                        image=OuterRef("pk"),
+                    )
+                ),
+                # Show image only if checked by fewer people
+                num_species_checked_by__lt=MAX_VOTES_PER_IMAGE,
+                # Image must be marked as processed
+                processed=True,
+            ).order_by(
+                "-upload__priority",
+                "upload__camera_station",
+                "trigger_timestamp",
+                "num_species_checked_by",
+                "num_objects",
             )
             # Get the image stack based on stack size
             images = images[: settings.ANNOTATION_QUEUE_SIZE]
@@ -266,8 +292,8 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
         # If there is a valid image, add bounding box information
         if image_id:
             image = Image.objects.get(id=image_id)
-
             context["image"] = image
+            context["social_media_worthy"] = image.social_media_worthy
             bounding_boxes = BoundingBox.objects.valid().filter(image=image)
             context["bounding_boxes"] = bounding_boxes
         else:
@@ -314,9 +340,19 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
     login_url = settings.LOGIN_URL
     template_name = "images/annotate/activity.html"
 
+    def get(self, request, *args, **kwargs):
+        start_date = self.request.GET.get("start_date")
+        end_date = self.request.GET.get("end_date")
+        camera_id = None if self.request.GET.get("camera_id") == "None" else self.request.GET.get("camera_id")
+        macrosite_name = self.request.GET.get("macrosite_name")
+        self.filterset = get_filter_params(start_date, end_date, macrosite_name, camera_id)
+
+        return super().get(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["activity_category"] = self.kwargs["category"]
+        activity_category = self.request.GET.get("annotation_choice") or self.kwargs["category"]
+        context["activity_category"] = activity_category
 
         # First get the annotator object for the user
         annotator, _ = Annotator.objects.get_or_create(type="human", human=self.request.user)
@@ -330,7 +366,7 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
         queue = settings.DATASTORE_CLIENT.get(queue_key)
 
         # If a valid object exists and if it is not expired and if the index points to a valid image, serve it
-        if (
+        if (not hasattr(self, "macrosite_name") or self.macrosite_name is None) and (
             queue
             and datetime.datetime.fromisoformat(queue["expires_at"]) > datetime.datetime.now()
             and queue["index"] < len(queue["images"])
@@ -339,7 +375,8 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
             image_id = queue["images"][queue["index"]]
         else:
             # Get images based on the following set of filters
-            images = Image.objects.annotated().filter(
+            images = Image.objects.annotated().filter(**self.filterset)
+            images = images.filter(
                 # It must not be checked or skipped by the current annotator
                 ~Q(activity_checked_by__in=[annotator]) & ~Q(activity_skipped_by__in=[annotator]),
                 # There must be at least one or more "valid" bounding boxes
@@ -354,7 +391,7 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
                                 Exists(
                                     Annotator.objects.filter(
                                         Q(human__is_staff=True) | Q(human__is_expert=True),
-                                        accepted_species_annotation=OuterRef("pk")
+                                        accepted_species_annotation=OuterRef("pk"),
                                     )
                                 ),
                                 bounding_box=OuterRef("pk"),
@@ -422,6 +459,7 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
             context["image"] = None
             context["bounding_boxes"] = []
 
+        context["species_list"] = SpeciesName.objects.all()
         context["activity_list"] = ActivityType.objects.filter(category=context["category"])
 
         # Gather surrounding context images.
@@ -609,3 +647,35 @@ class DeleteAnnotationView(LoginRequiredMixin, View):
         except ObjectDoesNotExist:
             success = False
         return JsonResponse({"success": success, "name": annotationName})
+
+
+class ChangeAnnotationView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        model = request.POST.get("model")
+        boxId = request.POST.get("boxId")
+        annotationName = request.POST.get("annotationName")
+        newAnnotationName = request.POST.get("newAnnotationName")
+
+        success = None
+        bbox = BoundingBox.objects.get(id=boxId)
+
+        try:
+            if model == "category":
+                category = Category.objects.get(bounding_box=bbox, name=annotationName)
+                category.name = newAnnotationName
+                category.save()
+                success = True
+            elif model == "species":
+                species = Species.objects.get(bounding_box=bbox, name__name=annotationName)
+                species.name = SpeciesName.objects.get(name=newAnnotationName)
+                species.save()
+                success = True
+            elif model == "activity":
+                activity = Activity.objects.get(bounding_box=bbox, name__name=annotationName)
+                activity.name = newAnnotationName
+                activity.save()
+                success = True
+        except ObjectDoesNotExist:
+            success = False
+
+        return JsonResponse({"success": success, "oldName": annotationName, "newName": newAnnotationName})

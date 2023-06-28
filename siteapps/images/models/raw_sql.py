@@ -6,14 +6,17 @@ def get_object_annotation_images(
     """
     This function contains the raw SQL query for the Object annotation pipeline.
     """
+    start_date = start_date if start_date != "None" else None
     start_date = (
         "AND images.trigger_timestamp >= '{}'".format(start_date)
-        if start_date
+        if start_date is not None
         else "AND images.trigger_timestamp = images.trigger_timestamp"
     )
+    end_date = end_date if end_date != "None" else None
+
     end_date = (
         "AND images.trigger_timestamp <= '{}'".format(end_date)
-        if end_date
+        if end_date is not None
         else "AND images.trigger_timestamp = images.trigger_timestamp"
     )
     macrosite = (

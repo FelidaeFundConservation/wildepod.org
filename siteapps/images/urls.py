@@ -10,6 +10,7 @@ from .views import (
     DeleteAnnotationView,
     ImageDetailView,
     MDAnnotationProcessorView,
+    SearchImagesView,
     SpeciesAnnotationProcessorView,
     UploadCompleteView,
     UploadCreateView,
@@ -66,6 +67,11 @@ urlpatterns = [
         "activity-annotation-processor/",
         ActivityAnnotationProcessorView.as_view(),
         name="activity_annotation_processor",
+    ),
+    path(
+        "search_images/",
+        SearchImagesView.as_view(),
+        name="search_images",
     ),
     path(
         "staff-change-annotation/",

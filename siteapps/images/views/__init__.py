@@ -12,6 +12,9 @@ from .annotation import (
 from .image import ImageDetailView
 from .search_images import SearchImagesView
 from .upload import (  # UploadExportView,
+    FixUploadSetsView,
+    ModifyUploadSetImagesView,
+    GetUploadSetImageInfo,
     UploadCompleteView,
     UploadCreateView,
     UploadDetailView,

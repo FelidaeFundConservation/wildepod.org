@@ -3,6 +3,7 @@ import logging
 import threading
 
 from braces.views import StaffuserRequiredMixin
+from django import forms
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
@@ -10,7 +11,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http.response import JsonResponse
 from django.urls import reverse
-from django.views.generic import CreateView, DetailView, ListView, UpdateView
+from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
 from django.views.generic.base import TemplateView, View
 from images.forms import UploadCompleteForm, UploadForm
 from images.models import BoundingBox, Image, Upload
@@ -18,7 +19,6 @@ from images.processors import process_upload
 
 # Pagination size for images displayed for the upload detail page
 IMAGE_PAGINATION_LIMIT = 24
-
 
 # Views
 # ------------------------------------------------------------------------------
@@ -170,6 +170,50 @@ class UploadResumeProcessingView(StaffuserRequiredMixin, View):
             logging.info(f"{len(uploads_currently_being_processed)} uploads currently being processed")
 
         return JsonResponse({"success": True})
+
+class FixUploadSetsView(StaffuserRequiredMixin, ListView):
+    # View to see all upload sets, and select fixes.
+    model = Upload
+    login_url = settings.LOGIN_URL
+    template_name = "images/upload/fix.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
+        if self.request.user.is_staff or self.request.user.is_superuser:
+            context["num_uploads"] = Upload.objects.all().count()
+            context["uploads"] = Upload.objects.all()
+            
+        return context
+
+class GetUploadSetImageInfo(StaffuserRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        success = True
+        
+        setImages = {}
+        setIds = request.POST.get("setIds")
+
+        for setId in setIds.split(","):
+            print(setId)
+            imageList = []
+
+            try:
+                for image in Upload.objects.get(id=setId).images.all():
+                    imageList.append({"id": image.id, "triggerTime": image.trigger_timestamp, "newTime": None })
+
+                setImages[setId] = imageList
+            except ObjectDoesNotExist:
+                success = False
+
+        return JsonResponse({"success": success, "setImages": setImages})
+
+class ModifyUploadSetImagesView(StaffuserRequiredMixin, View):
+    # Applies time error fixes according to specified selections.
+    def post(self, request, *args, **kwargs):
+        success = True
+
+        return JsonResponse({"success": success})
+
 
 
 # # TODO: This view is currently implemented purely to "test" the annotation functionality

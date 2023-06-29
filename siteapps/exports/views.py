@@ -12,6 +12,7 @@ from django.conf import settings
 from django.core.cache import cache
 from django.core.files.base import File as DjangoFile
 from django.core.paginator import Paginator
+from django.db import connection
 from django.http import HttpResponse, JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -286,6 +287,131 @@ def create_snapshot(data):
         snapshot.status = "failed"
         logging.error(f"Error while creating snapshot: {e}")
     snapshot.save()
+
+
+def portal_export(macrosite_param=None, station_id_param=None, start_date_param=None, end_date_param=None):
+    """Wrapper function for calling the PostgreSQL stored procedure"""
+    with connection.cursor() as cursor:
+        cursor.callproc("portal_export", (macrosite_param, station_id_param, 
+                                start_date_param, end_date_param))
+        results = cursor.fetchall()
+        return results               
+
+
+def export_image_data_sql(archive_file, images):
+    """Function to export image data to a csv file"""
+    with StringIO() as csv_file:
+        csv_writer = csv.writer(csv_file, delimiter="\t", quoting=csv.QUOTE_MINIMAL)
+        csv_writer.writerow(
+            [
+                "image_id",
+                "content_hash",
+                "filename",
+                "thumbnail",
+                "dropbox_link",
+                "trigger_timestamp",
+                "exif_latitude",
+                "exif_longitude",
+                "is_video",
+                "camera_station_id",
+                "micro_site",
+                "macro_site",
+                "date_retrieved",
+                "volunteer",
+                "upload_folder",
+                "social_media_worthy_vote_count",
+                "blank_checked_by",
+                "detected_objects",
+                "validated_objects",
+                "uncertain_objects",
+                "objects",
+                "species_checked_by",
+                "validated_species",
+                "uncertain_species",
+                "species",
+            ]
+        )
+
+        for image in images:
+            csv_writer.writerow(image)
+
+        logging.info("Finished creating a csv file for images")
+        archive_file.writestr("images.tsv", csv_file.getvalue())
+        logging.info("Finished writing image csv to archive")
+
+
+def create_snapshot_sql(data):
+    """This is a hacky function to create a snapshot inside a thread and update the object when done"""
+    # Fetch the volunteer from the request data using the primary key
+    user_pk = data.get("user")
+    volunteer = None
+    try:
+        volunteer = User.objects.get(pk=user_pk)
+    except User.DoesNotExist:
+        logging.error(f"User with pk {user_pk} does not exist!")
+        return
+
+    # First, use the form data to retrieve a filtered set of images
+    filterset = {}
+    start_date = data.get("start_date")
+    end_date = data.get("end_date")
+
+    # Fetch the macrosites from the request data using the primary keys
+    macrosites_pks = data.get("macrosites", [])
+    macrosites = None
+    macrosites_str = None
+    if macrosites_pks:
+        macrosites = MacroSite.objects.filter(pk__in=macrosites_pks)
+        # Only fetch the first macrosite if multiple are selected. This covers the current
+        # usecase. We can modify this later.
+        macrosites_str = str(macrosites[0])
+
+    # Next, create a snapshot object
+    snapshot = Snapshot.objects.create(
+        volunteer=volunteer,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    if macrosites:
+        snapshot.macrosites.set(macrosites)
+
+    if start_date is not None:
+        start_date += " 00:00:00-08:00"
+    if end_date is not None:
+        end_date += " 00:00:00-08:00"
+
+    images = portal_export(macrosite_param=macrosites_str,
+                           start_date_param=start_date,
+                           end_date_param=end_date)
+
+    try:
+        # Create an archive file to house all the csvs
+        zipped_file = BytesIO()
+        with zipfile.ZipFile(zipped_file, "w") as archive_file:
+            # Export image data
+            export_image_data_sql(archive_file, images)
+
+            # Create a Django file object for this
+            archive_obj = DjangoFile(zipped_file, name=f"{snapshot}.zip")
+
+        logging.info("Finished creating archive file")
+        snapshot.data = archive_obj
+        snapshot.status = "done"
+    except Exception as e:
+        snapshot.status = "failed"
+        logging.error(f"Error while creating snapshot: {e}")
+    snapshot.save()
+
+
+def start_export(data):
+    logging.info("Direct export triggered")
+    logging.info(f"Starting a thread to create a snapshot with filters - {data}")
+    # Create a thread to process the upload
+    thread = threading.Thread(target=create_snapshot_sql, args=[data])
+    # Start running the thread
+    thread.start()
+
+    return JsonResponse({"message": "Success"})
 
 
 # We can't use CSRF token authentication here because this is a different appengine instance.

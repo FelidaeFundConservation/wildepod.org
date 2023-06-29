@@ -175,6 +175,11 @@
 <!-- Bootstrap -->
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"></script>
 <script>
+    document.querySelector('label[for="social-media-worthy-species"]').addEventListener('click', function(event) {
+        event.preventDefault();
+    });
+</script>
+<script>
     // TODO: Move all this code to separate functions housed in separate files
     {% comment %} Create a javascript variable holding all the annotations and render annotations{% endcomment %}
     let bboxes = [

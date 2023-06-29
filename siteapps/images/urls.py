@@ -8,8 +8,11 @@ from .views import (
     ChangeAnnotationView,
     CustomAnnotationView,
     DeleteAnnotationView,
+    FixUploadSetsView,
     ImageDetailView,
+    ModifyUploadSetImagesView,
     MDAnnotationProcessorView,
+    GetUploadSetImageInfo,
     SearchImagesView,
     SpeciesAnnotationProcessorView,
     UploadCompleteView,
@@ -82,5 +85,20 @@ urlpatterns = [
         "staff-delete-annotation/",
         DeleteAnnotationView.as_view(),
         name="staff_delete_annotation",
+    ),
+    path(
+        "uploads/fix/",
+        FixUploadSetsView.as_view(),
+        name="fix_upload_sets",
+    ),
+    path(
+        "get-upload-set-images",
+        GetUploadSetImageInfo.as_view(),
+        name="get_upload_set_images",
+    ),
+    path(
+        "modify-upload-set-images",
+        ModifyUploadSetImagesView.as_view(),
+        name="modify_upload_set_images",
     ),
 ]

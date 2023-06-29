@@ -377,6 +377,15 @@ def create_snapshot_sql(data):
     if macrosites:
         snapshot.macrosites.set(macrosites)
 
+    if start_date is not None:
+        start_date += " 00:00:00-08:00"
+    if end_date is not None:
+        end_date += " 00:00:00-08:00"
+
+    images = portal_export(macrosite_param=macrosites_str,
+                           start_date_param=start_date,
+                           end_date_param=end_date)
+
     try:
         # Create an archive file to house all the csvs
         zipped_file = BytesIO()

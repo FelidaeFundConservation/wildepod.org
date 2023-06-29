@@ -362,12 +362,10 @@ def create_snapshot_sql(data):
     macrosites_str = None
     if macrosites_pks:
         macrosites = MacroSite.objects.filter(pk__in=macrosites_pks)
+        # Only fetch the first macrosite if multiple are selected. This covers the current
+        # usecase. We can modify this later.
         macrosites_str = str(macrosites[0])
 
-    images = portal_export(macrosite_param=macrosites_str, 
-                           start_date_param=start_date,
-                           end_date_param=end_date)
-    
     # Next, create a snapshot object
     snapshot = Snapshot.objects.create(
         volunteer=volunteer,

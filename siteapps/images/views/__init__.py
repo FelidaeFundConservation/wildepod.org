@@ -13,8 +13,8 @@ from .image import ImageDetailView
 from .search_images import SearchImagesView
 from .upload import (  # UploadExportView,
     FixUploadSetsView,
-    ModifyUploadSetImagesView,
     GetUploadSetImageInfo,
+    ModifyUploadSetImageView,
     UploadCompleteView,
     UploadCreateView,
     UploadDetailView,

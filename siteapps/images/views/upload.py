@@ -171,6 +171,7 @@ class UploadResumeProcessingView(StaffuserRequiredMixin, View):
 
         return JsonResponse({"success": True})
 
+
 class FixUploadSetsView(StaffuserRequiredMixin, ListView):
     # View to see all upload sets, and select fixes.
     model = Upload
@@ -183,37 +184,60 @@ class FixUploadSetsView(StaffuserRequiredMixin, ListView):
         if self.request.user.is_staff or self.request.user.is_superuser:
             context["num_uploads"] = Upload.objects.all().count()
             context["uploads"] = Upload.objects.all()
-            
+
         return context
+
 
 class GetUploadSetImageInfo(StaffuserRequiredMixin, View):
     def post(self, request, *args, **kwargs):
-        success = True
-        
-        setImages = {}
-        setIds = request.POST.get("setIds")
+        success = None
 
-        for setId in setIds.split(","):
-            print(setId)
+        set_images = {}
+        set_ids = request.POST.get("setIds")
+        num_results = request.POST.get("maxResults")
+
+        if num_results:
+            max_results = int(num_results)
+        else:
+            max_results = float("inf")
+
+        for set_id in set_ids.split(","):
             imageList = []
 
             try:
-                for image in Upload.objects.get(id=setId).images.all():
-                    imageList.append({"id": image.id, "triggerTime": image.trigger_timestamp, "newTime": None })
+                totalImages = Upload.objects.get(id=set_id).images.all().count()
+                stepValue = max(1, totalImages // max_results)
 
-                setImages[setId] = imageList
+                for image in Upload.objects.get(id=set_id).images.all()[::stepValue]:
+                    imageList.append({"id": image.id, "triggerTime": image.trigger_timestamp, "newTime": None})
+
+                set_images[set_id] = imageList
+
             except ObjectDoesNotExist:
                 success = False
 
-        return JsonResponse({"success": success, "setImages": setImages})
-
-class ModifyUploadSetImagesView(StaffuserRequiredMixin, View):
-    # Applies time error fixes according to specified selections.
-    def post(self, request, *args, **kwargs):
         success = True
 
-        return JsonResponse({"success": success})
+        return JsonResponse({"success": success, "setImages": set_images})
 
+
+class ModifyUploadSetImageView(StaffuserRequiredMixin, View):
+    # Applies time error fixes according to specified selections.
+    def post(self, request, *args, **kwargs):
+        success = None
+
+        image_id = request.POST.get("imageId")
+        new_timestamp = request.POST.get("newTimestamp")
+
+        try:
+            target_image = Image.objects.get(id=image_id)
+            target_image.trigger_timestamp = new_timestamp
+            target_image.save()
+            success = True
+        except ObjectDoesNotExist:
+            success = False
+
+        return JsonResponse({"success": success, "timestampConfirmation": target_image.trigger_timestamp})
 
 
 # # TODO: This view is currently implemented purely to "test" the annotation functionality

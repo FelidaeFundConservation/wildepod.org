@@ -1,3 +1,4 @@
+import datetime as dt
 import json
 import logging
 
@@ -12,6 +13,7 @@ from django.urls.base import reverse_lazy
 from django.views.generic import FormView, ListView, View
 from explore.forms import CreateSnapshotForm
 from explore.models import Snapshot
+from exports.views import start_export
 from google.cloud import tasks_v2
 
 MAX_VOTES_PER_IMAGE = 3
@@ -51,31 +53,33 @@ class SnapshotCreateView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                 for site in macrosites:
                     payload["macrosites"].append(site.pk)
 
-            payload_json = json.dumps(payload, cls=DjangoJSONEncoder)
+            start_export(payload)
+            # payload_json = json.dumps(payload, cls=DjangoJSONEncoder)
+
 
             # The API expects a payload of type bytes.
-            converted_payload = payload_json.encode()
+            # converted_payload = payload_json.encode()
 
-            # Construct the request body.
-            task = {
-                "app_engine_http_request": {  # Specify the type of request.
-                    "http_method": tasks_v2.HttpMethod.POST,
-                    "relative_uri": f"/exports/start/{settings.EXPORT_URL_SUFFIX}/",
-                    "app_engine_routing": {
-                        "service": settings.EXPORT_SERVICE_NAME,
-                    },
-                    "headers": {
-                        "Content-Type": "application/json",
-                    },
-                    "body": converted_payload,
-                }
-            }
+            # # Construct the request body.
+            # task = {
+            #     "app_engine_http_request": {  # Specify the type of request.
+            #         "http_method": tasks_v2.HttpMethod.POST,
+            #         "relative_uri": f"/exports/start/{settings.EXPORT_URL_SUFFIX}/",
+            #         "app_engine_routing": {
+            #             "service": settings.EXPORT_SERVICE_NAME,
+            #         },
+            #         "headers": {
+            #             "Content-Type": "application/json",
+            #         },
+            #         "body": converted_payload,
+            #     }
+            # }
 
-            logging.info(f"Task details {task}")
+            # logging.info(f"Task details {task}")
 
-            # Use the client to build and send the task.
-            response = client.create_task(parent=parent, task=task)
-            logging.info("Created task {}".format(response.name))
+            # # Use the client to build and send the task.
+            # response = client.create_task(parent=parent, task=task)
+            # logging.info("Created task {}".format(response.name))
 
         return redirect("explore:data_snapshots")
 

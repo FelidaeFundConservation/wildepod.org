@@ -46,7 +46,7 @@ class Upload(TimeStampedModel):
     volunteer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
     # Details of any time errors in the set.
-    #time_error_details = models.TextField(blank=True, null=True)
+    time_error_details = models.TextField(blank=True, null=True)
 
     # Any uploader comments associated with the SD card
     comments = models.TextField(blank=True, null=True)

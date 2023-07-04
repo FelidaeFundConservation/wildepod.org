@@ -27,7 +27,11 @@ class UploadForm(forms.ModelForm):
                 Column("last_action", css_class="form-group col-md-4"),
                 css_class="form-row mb-3",
             ),
-            Row(Column("comments", css_class="form-group"), css_class="form-row mb-3"),
+            Row(
+                Column("time_error_details", css_class="form-group"), 
+                Column("comments", css_class="form-group"),
+                css_class="form-row mb-3"
+            ),
             Row(
                 Column(
                     Submit("submit", "Submit", css_class="btn-primary"),
@@ -45,6 +49,7 @@ class UploadForm(forms.ModelForm):
             "date_retrieved",
             "volunteer",
             "last_action",
+            "time_error_details",
             "comments",
         ]
 

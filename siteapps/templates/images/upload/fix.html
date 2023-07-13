@@ -33,7 +33,7 @@
             <br>
             <div id="cam-modification-options">
                 <div>
-                    <text><b>Camera Date/Time Correction Settings</b></text>
+                    <text><b>Camera Date/Time Correction Settings (at least 1 time unit required)</b></text>
                 </div>
                 <table>
                     <tbody>
@@ -56,6 +56,14 @@
                         <tr>
                             <td><label for="minutes">Minutes:</label></td>
                             <td><input type="number" id="minutes" name="minutes"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="start_date">Start Date</label></td>
+                            <td><input type="datetime-local" id="start_date" name="start_date"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="end_date">End Date</label></td>
+                            <td><input type="datetime-local" id="end_date" name="end_date"></td>
                         </tr>
                     </tbody>
                 </table>
@@ -81,7 +89,7 @@
             <hr>
         </div>
         <div class="alert alert-info" role="alert">
-            There are 0 of {{ num_uploads }} upload(s) which are flagged with time errors.
+            There are 0 of {{ num_uploads }} upload(s) flagged with time errors.
         </div>
         <div>
             <input type="checkbox" id="show-errors-checkbox" name="showErrorsOnly" checked>
@@ -96,7 +104,7 @@
                     <th scope="col">Station ID</th>
                     <th scope="col">Microsite</th>
                     <th scope="col">Macrosite</th>
-                    <th scope="col">Date Retrieved </th>
+                    <th scope="col">First Image Timestamp </th>
                     <th scope="col"># Images</th>
                     <th scope="col">Processed</th>
                     {% if user.is_staff %}
@@ -107,17 +115,17 @@
                 </tr>
             </thead>
             <tbody>
-                {% for object in uploads %}
+                {% for object, first_timestamp in zipped_data %}
                 <tr>
                     <td><input type="checkbox"></td>
                     <td>{{ object.id }}</td>
                     <td>{{ object.time_error }}</td>
-                    <td>{{object.camera_station.station_id}}</td>
-                    <td>{{object.camera_station.micro_site}}</td>
-                    <td>{{object.camera_station.micro_site.macro_site}}</td>
-                    <td>{{object.date_retrieved}}</td>
+                    <td>{{ object.camera_station.station_id }}</td>
+                    <td>{{ object.camera_station.micro_site }}</td>
+                    <td>{{ object.camera_station.micro_site.macro_site }}</td>
+                    <td>{{ first_timestamp }}</td>
                     {% if object.processed %}
-                    <td>{{object.images.all.count}}</td>
+                    <td>{{ object.images.all.count }}</td>
                     {% else %}
                     <td>-</td>
                     {% endif %}
@@ -182,7 +190,6 @@
                 }
             });
         } else {
-
             const tableRows = document.querySelectorAll('.table tbody tr');
             tableRows.forEach(function(row) {
                 row.style.display = '';
@@ -232,22 +239,42 @@
                     .reduce((acc, list) => acc + list.length, 0);
 
                 for (let setId in setImages) {
+                    // Set up table for each set.
+                    let tableDiv = $("<div>")
+                        .appendTo(previewDiv)
+                        .css({
+                            "max-height": "300px",
+                            "overflow-y": "scroll",
+                            "display": "block",
+                        });
+
                     $("<label>")
                         .html("<b>Upload Set " + setId + "</b>")
-                        .appendTo(previewDiv);
+                        .appendTo(tableDiv);
 
-                    let changeTable = $("<table>").addClass("table mt-2 mt-md-4 align-middle text-center");
+                    let changeTable = $("<table>")
+                        .addClass("table mt-2 mt-md-4 align-middle text-center")
                     let tableHeader = $("<thead>").appendTo(changeTable);
                     let headerRow = $("<tr>").appendTo(tableHeader);
 
-                    $("<th>").text("Image ID").appendTo(headerRow);
-                    $("<th>").text("Original Timestamp").appendTo(headerRow);
-                    $("<th>").text("Timestamp After Fix").appendTo(headerRow);
-                    $("<th>").text("Status").appendTo(headerRow);
+                    $("<th>")
+                        .text("Image ID")
+                        .appendTo(headerRow);
+                    $("<th>")
+                        .text("Original Timestamp")
+                        .appendTo(headerRow);
+                    $("<th>")
+                        .text("Timestamp After Fix")
+                        .appendTo(headerRow);
+                    $("<th>")
+                        .text("Status")
+                        .appendTo(headerRow);
 
-                    changeTable.appendTo(previewDiv);
+                    changeTable.appendTo(tableDiv);
+                    tableDiv.appendTo(previewDiv);
                     $("<hr>").appendTo(previewDiv);
 
+                    // Populate table with images.
                     for (let index in setImages[setId]) {
                         let imageData = setImages[setId][index];
                         let originalTimestamp = new Date(imageData.triggerTime);
@@ -277,11 +304,14 @@
                           </tr>
                         `);
 
+                        // Only call modification function for differences.
                         if (newTimestamp.getTime() !== originalTimestamp.getTime()) {
                             modifyImageTimestamp(imageData.id, newTimestamp)
                                 .then(function () {
-                                    $("#spinner-" + imageData.id).replaceWith('<i class="fas fa-check-circle"></i>');
-                                    $("#row-" + imageData.id).css("background-color", "lightgreen");
+                                    $("#spinner-" + imageData.id).replaceWith('<i class="bi bi-check-circle"></i>');
+                                    $("#row-" + imageData.id)
+                                        .css("background-color", "lightgreen")
+                                        .appendTo(changeTable);
 
                                     numImages--;
                                     $("#previewFixesModalLabel").text(`Applying Fixes (${numImages} checks remaining)`);
@@ -292,7 +322,9 @@
                                 })
                                 .catch(function (error) {
                                     $("#spinner-" + imageData.id).remove();
-                                    $("#row-" + imageData.id).css("background-color", "lightred").prependTo(changeTable);
+                                    $("#row-" + imageData.id)
+                                        .css("background-color", "lightred")
+                                        .prependTo(changeTable);
 
                                     numImages--;
                                     $("#previewFixesModalLabel").text(`Applying Fixes (${numImages} checks remaining)`);
@@ -304,7 +336,11 @@
                         }
                         else {
                             $("#spinner-" + imageData.id).replaceWith('<i class="fas fa-check-circle"></i>');
-                            $("#row-" + imageData.id).css("background-color", "lightgray");
+                            $("#row-" + imageData.id)
+                                .css("background-color", "lightgray")
+                                .appendTo(changeTable);;
+
+                            numImages--;
                         }
                     }
                 }
@@ -330,14 +366,17 @@
                         throw new Error("No error type was selected.");
                     }
 
-                    let transitionTime = new Date($('#dls-input').val());
-                    transitionTime.setDate(
-                        transitionTime.getDate() + 1
-                    );
-                    transitionTime.setHours(2);
+                    // Check for valid date (must be day in March or November)
+                    if ($('#select-dls-radio').is(':checked')) {
+                        let transitionTime = new Date($('#dls-input').val());
+                            transitionTime.setDate(
+                                transitionTime.getDate() + 1
+                            );
+                        transitionTime.setHours(2);
 
-                    if (transitionTime.getMonth() + 1 != 3 && transitionTime.getMonth() + 1 != 11) {
-                        throw new Error("Invalid date for Daylight Savings. Must be in March or November.");
+                        if (transitionTime.getMonth() + 1 != 3 && transitionTime.getMonth() + 1 != 11) {
+                            throw new Error("Invalid date for Daylight Savings. Must be in March or November.");
+                        }
                     }
 
                     // Get an even distribution of sample changes from each set.
@@ -414,6 +453,25 @@
         let hours = $('#hours').val();
         let minutes = $('#minutes').val();
 
+        let startDate = $('#start_date').val() ? new Date($('#start_date').val()) : null;
+        let endDate = $('#end_date').val() ? new Date($('#end_date').val()) : null;
+
+        // Don't modify if timestamp is outside given date bounds.
+        if (startDate && endDate) {
+            if (!(timestamp.getTime() >= startDate.getTime() && timestamp.getTime() <= endDate.getTime())) {
+                return;
+            }
+        } else if (startDate) {
+            if (!(timestamp.getTime()  >= startDate.getTime() )) {
+                return;
+            }
+        } else if (endDate) {
+            if (!(timestamp.getTime()  <= endDate.getTime() )) {
+                return;
+            }
+        }
+
+        // Make modification if timestamp within bounds.
         if (years) {
             timestamp.setFullYear(
                 timestamp.getFullYear() + parseInt(years)
@@ -468,7 +526,7 @@
         }
     }
 
-    function getSetImageInfo(setIds, maxResults=null) {
+    function getSetImageInfo(setIds, maxResults = null) {
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
         let data = {
@@ -499,7 +557,7 @@
 
     function modifyImageTimestamp(id, newTimestamp) {
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-        console.log(newTimestamp);
+
         let data = {
             'imageId': id,
             'newTimestamp': newTimestamp.toISOString(),
@@ -525,6 +583,12 @@
             });
         });
     }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        $('#show-errors-checkbox')
+            .prop('checked', true)
+            .trigger('change');
+    });
 
 </script>
 {% endblock %}

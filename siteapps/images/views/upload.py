@@ -184,6 +184,12 @@ class FixUploadSetsView(StaffuserRequiredMixin, ListView):
         if self.request.user.is_staff or self.request.user.is_superuser:
             context["num_uploads"] = Upload.objects.all().count()
             context["uploads"] = Upload.objects.all()
+            context["first_timestamps"] = [
+                upload.images.first().trigger_timestamp if upload.images.first() else None
+                for upload in context["uploads"]
+            ]
+
+            context["zipped_data"] = zip(context["uploads"], context["first_timestamps"])
 
         return context
 

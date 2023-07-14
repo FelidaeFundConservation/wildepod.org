@@ -21,6 +21,16 @@
             >
                 Create +
             </a>
+            {% if user.is_staff %}
+            <a
+                class="btn btn-primary cta"
+                role="button"
+                href="{% url 'images:fix_upload_sets' %}"
+                style="background-color: orange"
+            >
+                Fix Time Errors
+            </a>
+            {% endif %}
         </div>
     </div>
     <div class="row pt-3 mt-3">

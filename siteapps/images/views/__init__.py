@@ -13,8 +13,9 @@ from .image import ImageDetailView
 from .search_images import SearchImagesView
 from .upload import (  # UploadExportView,
     FixUploadSetsView,
-    GetUploadSetImageInfo,
+    GetUploadSetImageInfoView,
     ModifyUploadSetImageView,
+    SetUploadSetTimeFixDetailsView,
     UploadCompleteView,
     UploadCreateView,
     UploadDetailView,

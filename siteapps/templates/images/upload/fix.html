@@ -88,7 +88,7 @@
             </div>
             <hr>
         </div>
-        <div class="alert alert-info" role="alert">
+        <div id="upload-count-text" class="alert alert-info" role="alert">
             There are 0 of {{ num_uploads }} upload(s) flagged with time errors.
         </div>
         <div>
@@ -101,6 +101,7 @@
                     <th scope="col">Select</th>
                     <th scope="col">Set ID</th>
                     <th scope="col">Time Error Notes</th>
+                    <th scope="col">Time Fix Details</th>
                     <th scope="col">Station ID</th>
                     <th scope="col">Microsite</th>
                     <th scope="col">Macrosite</th>
@@ -119,7 +120,8 @@
                 <tr>
                     <td><input type="checkbox"></td>
                     <td>{{ object.id }}</td>
-                    <td>{{ object.time_error }}</td>
+                    <td>{{ object.time_error_details }}</td>
+                    <td>{{ object.time_fix_details }}</td>
                     <td>{{ object.camera_station.station_id }}</td>
                     <td>{{ object.camera_station.micro_site }}</td>
                     <td>{{ object.camera_station.micro_site.macro_site }}</td>
@@ -179,22 +181,38 @@
         {% endfor %}
     ];
 
-    // Checkbox to filter upload sets based on existence of a time error.
-    $('#show-errors-checkbox').on('change', function () {
-        if (this.checked) {
-            tableRows.forEach(function(row) {
-                if (row.classList.contains('time-error-row')) {
+    $(document).ready(function() {
+        // Checkbox to filter upload sets based on existence of a time error.
+        $('#show-errors-checkbox').on('change', function() {
+            if (this.checked) {
+                const tableRows = document.querySelectorAll('.table tbody tr');
+                let errorCount = 0;
+
+                tableRows.forEach(function(row) {
+                    const timeErrorNotes = row.querySelector('td:nth-child(3)').textContent;
+
+                    if (timeErrorNotes !== 'None') {
+                        row.style.display = '';
+                        errorCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                var numUploads = {{ num_uploads }}; // Assign the value of the template variable
+                $("#upload-count-text").text(`There are ${errorCount} of ${numUploads} upload(s) flagged with time errors.`);
+            } else {
+                const tableRows = document.querySelectorAll('.table tbody tr');
+
+                tableRows.forEach(function (row) {
                     row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-        } else {
-            const tableRows = document.querySelectorAll('.table tbody tr');
-            tableRows.forEach(function(row) {
-                row.style.display = '';
-            });
-        }
+                });
+            }
+        });
+
+        $('#show-errors-checkbox')
+            .prop('checked', true)
+            .trigger('change');
     });
 
     // Logic to show and hide selections based on the error type selected.
@@ -239,6 +257,11 @@
                     .reduce((acc, list) => acc + list.length, 0);
 
                 for (let setId in setImages) {
+                    setUploadSetTimeFixDetails(
+                        setId,
+                        generateTimeFixDetails()
+                    );
+
                     // Set up table for each set.
                     let tableDiv = $("<div>")
                         .appendTo(previewDiv)
@@ -352,6 +375,85 @@
             });
     });
 
+    function generateTimeFixDetails() {
+        let fixType;
+        let timeShiftDetails = "Shifted by ";
+        let dateDetails;
+
+        if ($('#select-cam-radio').is(':checked')) {
+            fixType = "camera settings"
+
+            let years = $('#years').val();
+            let months = $('#months').val();
+            let days = $('#days').val();
+            let hours = $('#hours').val();
+            let minutes = $('#minutes').val();
+
+            if (years) {
+                timeShiftDetails += (years >= 0 ? `+${years} years, ` : `${years} years, `);
+            }
+            if (months) {
+                timeShiftDetails += (months >= 0 ? `+${months} months, ` : `${months} months, `);
+            }
+            if (days) {
+                timeShiftDetails += (days >= 0 ? `+${days} days, ` : `${days} days, `);
+            }
+            if (hours) {
+                timeShiftDetails += (hours >= 0 ? `+${hours} hours, ` : `${hours} hours, `);
+            }
+            if (minutes) {
+                timeShiftDetails += (minutes >= 0 ? `+${minutes} minutes, ` : `${minutes} minutes, `);
+            }
+
+            timeShiftDetails = timeShiftDetails.slice(0, -2) + '.\n';
+
+            let startDate = $('#start_date').val() ? new Date($('#start_date').val()) : null;
+            let endDate = $('#end_date').val() ? new Date($('#end_date').val()) : null;
+
+            if (startDate || endDate) {
+                if (startDate && endDate) {
+                    dateDetails = `For all timestamps between  ${startDate} to ${endDate}`;
+                }
+                else if (startDate) {
+                    dateDetails = `For all timestamps after ${startDate}.`;
+                }
+                else {
+                    dateDetails = `For all timestamps before ${endDate}.`;
+                }
+            }
+
+        } else if ($('#select-dls-radio').is(':checked')) {
+            fixType = "daylight savings";
+
+            let transitionTime = new Date($('#dls-input').val());
+
+            transitionTime.setDate(
+                transitionTime.getDate() + 1
+            );
+            transitionTime.setHours(2);
+
+            dateDetails = `For all timestamps after ${transitionTime}.`;
+
+            if (transitionTime.getMonth() + 1 == 3) {
+                timeShiftDetails = `Shifted forward by 1 hour.\n`;
+            }
+            else {
+                timeShiftDetails = `Shifted back by 1 hour.\n`;
+            }
+        }
+
+        let finalDetailsString = `Initiated application of ${fixType} time fix at ${new Date().toLocaleString()}.\n`;
+        finalDetailsString += timeShiftDetails;
+
+        if (dateDetails) {
+            finalDetailsString += dateDetails;
+        }
+
+        return finalDetailsString;
+    }
+
+
+
     function updatePreviewModal() {
         const previewDiv = $(".preview-content");
         previewDiv.empty();
@@ -424,8 +526,7 @@
                         .text("There was a problem retrieving data. (" + error + ")")
                         .appendTo(previewDiv);
                 });
-        }
-        else {
+        } else {
             $("<label>")
                 .text("No upload sets were selected. Please select upload sets to modify.")
                 .appendTo(previewDiv);
@@ -584,11 +685,34 @@
         });
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
-        $('#show-errors-checkbox')
-            .prop('checked', true)
-            .trigger('change');
-    });
+    function setUploadSetTimeFixDetails(setId, details) {
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        let data = {
+            'setId': setId,
+            'timeFixDetails': details,
+            'csrfmiddlewaretoken': csrftoken,
+        }
+
+        return new Promise(function (resolve, reject) {
+            $.ajax({
+                url: `{% url 'images:set_upload_set_time_fix_details'%}`,
+                method: 'POST',
+                data: data,
+                dataType: 'json',
+                success: function (data) {
+                    if (data.success) {
+                        resolve();
+                    } else {
+                        reject(-1);
+                    }
+                },
+                error: function () {
+                    reject(-1);
+                }
+            });
+        });
+    }
 
 </script>
 {% endblock %}

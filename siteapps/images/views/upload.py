@@ -194,7 +194,7 @@ class FixUploadSetsView(StaffuserRequiredMixin, ListView):
         return context
 
 
-class GetUploadSetImageInfo(StaffuserRequiredMixin, View):
+class GetUploadSetImageInfoView(StaffuserRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         success = None
 
@@ -225,6 +225,24 @@ class GetUploadSetImageInfo(StaffuserRequiredMixin, View):
         success = True
 
         return JsonResponse({"success": success, "setImages": set_images})
+
+
+class SetUploadSetTimeFixDetailsView(StaffuserRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        success = None
+
+        set_id = request.POST.get("setId")
+        time_fix_details = request.POST.get("timeFixDetails")
+
+        try:
+            upload_set = Upload.objects.get(id=set_id)
+            upload_set.time_fix_details = time_fix_details
+            upload_set.save()
+            success = True
+        except ObjectDoesNotExist:
+            success = False
+
+        return JsonResponse({"success": success})
 
 
 class ModifyUploadSetImageView(StaffuserRequiredMixin, View):

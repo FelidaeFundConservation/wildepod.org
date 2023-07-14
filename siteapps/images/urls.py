@@ -9,11 +9,12 @@ from .views import (
     CustomAnnotationView,
     DeleteAnnotationView,
     FixUploadSetsView,
-    GetUploadSetImageInfo,
+    GetUploadSetImageInfoView,
     ImageDetailView,
     MDAnnotationProcessorView,
     ModifyUploadSetImageView,
     SearchImagesView,
+    SetUploadSetTimeFixDetailsView,
     SpeciesAnnotationProcessorView,
     UploadCompleteView,
     UploadCreateView,
@@ -93,8 +94,13 @@ urlpatterns = [
     ),
     path(
         "get-upload-set-images",
-        GetUploadSetImageInfo.as_view(),
+        GetUploadSetImageInfoView.as_view(),
         name="get_upload_set_images",
+    ),
+    path(
+        "set-upload-set-time-fix-details",
+        SetUploadSetTimeFixDetailsView.as_view(),
+        name="set_upload_set_time_fix_details",
     ),
     path(
         "modify-upload-set-image",

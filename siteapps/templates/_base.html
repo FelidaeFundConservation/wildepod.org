@@ -202,15 +202,15 @@
                                             class="dropdown-item"
                                             href="{% url 'images:annotate_activity' category='human' %}"
                                         >Human Behavior</a></li>
-                                    <li><a
-                                            class="dropdown-item"
-                                            href="{% url 'images:custom_annotation' %}"
-                                        >Custom Annotations</a></li>
                                      <li><a
                                             class="dropdown-item"
                                             href="{% url 'images:search_images' %}"
                                         >Search Images</a></li>
                                     {% endif %}
+                                    <li><a
+                                            class="dropdown-item"
+                                            href="{% url 'images:custom_annotation' %}"
+                                        >Custom Annotations</a></li>
                                 </ul>
                             </li>
                             <li class="nav-item mx-1 {% block nav_upload %}{% endblock nav_upload %}">

@@ -3,6 +3,7 @@ import logging
 import threading
 
 from braces.views import StaffuserRequiredMixin
+from django import forms
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
@@ -10,7 +11,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http.response import JsonResponse
 from django.urls import reverse
-from django.views.generic import CreateView, DetailView, ListView, UpdateView
+from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
 from django.views.generic.base import TemplateView, View
 from images.forms import UploadCompleteForm, UploadForm
 from images.models import BoundingBox, Image, Upload
@@ -18,7 +19,6 @@ from images.processors import process_upload
 
 # Pagination size for images displayed for the upload detail page
 IMAGE_PAGINATION_LIMIT = 24
-
 
 # Views
 # ------------------------------------------------------------------------------
@@ -170,6 +170,98 @@ class UploadResumeProcessingView(StaffuserRequiredMixin, View):
             logging.info(f"{len(uploads_currently_being_processed)} uploads currently being processed")
 
         return JsonResponse({"success": True})
+
+
+class FixUploadSetsView(StaffuserRequiredMixin, ListView):
+    # View to see all upload sets, and select fixes.
+    model = Upload
+    login_url = settings.LOGIN_URL
+    template_name = "images/upload/fix.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
+        if self.request.user.is_staff or self.request.user.is_superuser:
+            context["num_uploads"] = Upload.objects.all().count()
+            context["uploads"] = Upload.objects.all()
+            context["first_timestamps"] = [
+                upload.images.first().trigger_timestamp if upload.images.first() else None
+                for upload in context["uploads"]
+            ]
+
+            context["zipped_data"] = zip(context["uploads"], context["first_timestamps"])
+
+        return context
+
+
+class GetUploadSetImageInfoView(StaffuserRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        success = None
+
+        set_images = {}
+        set_ids = request.POST.get("setIds")
+        num_results = request.POST.get("maxResults")
+
+        if num_results:
+            max_results = int(num_results)
+        else:
+            max_results = float("inf")
+
+        for set_id in set_ids.split(","):
+            imageList = []
+
+            try:
+                totalImages = Upload.objects.get(id=set_id).images.all().count()
+                stepValue = max(1, totalImages // max_results)
+
+                for image in Upload.objects.get(id=set_id).images.all()[::stepValue]:
+                    imageList.append({"id": image.id, "triggerTime": image.trigger_timestamp, "newTime": None})
+
+                set_images[set_id] = imageList
+
+            except ObjectDoesNotExist:
+                success = False
+
+        success = True
+
+        return JsonResponse({"success": success, "setImages": set_images})
+
+
+class SetUploadSetTimeFixDetailsView(StaffuserRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        success = None
+
+        set_id = request.POST.get("setId")
+        time_fix_details = request.POST.get("timeFixDetails")
+
+        try:
+            upload_set = Upload.objects.get(id=set_id)
+            upload_set.time_fix_details = time_fix_details
+            upload_set.save()
+            success = True
+        except ObjectDoesNotExist:
+            success = False
+
+        return JsonResponse({"success": success})
+
+
+class ModifyUploadSetImageView(StaffuserRequiredMixin, View):
+    # Applies time error fixes according to specified selections.
+    def post(self, request, *args, **kwargs):
+        success = None
+
+        image_id = request.POST.get("imageId")
+        new_timestamp = request.POST.get("newTimestamp")
+
+        try:
+            target_image = Image.objects.get(id=image_id)
+            target_image.trigger_timestamp = new_timestamp
+            target_image.save()
+            success = True
+        except ObjectDoesNotExist:
+            success = False
+
+        return JsonResponse({"success": success, "timestampConfirmation": target_image.trigger_timestamp})
 
 
 # # TODO: This view is currently implemented purely to "test" the annotation functionality

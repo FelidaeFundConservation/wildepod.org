@@ -1,0 +1,718 @@
+{% extends '_base.html' %}
+{% load static %}
+
+{% block title %} Fix Time Errors | {% endblock %}
+<!-- Set corresponding nav pill to active -->
+{% block nav_upload %}active{% endblock %}
+
+{% block content %}
+<div class="container uploads">
+    <div class="row mt-2 mt-md-5">
+        <h2>Fix Time Errors</h2>
+        <div>
+            {% csrf_token %}
+
+            <!-- Form fields and inputs go here -->
+            <div>
+                <div>
+                    <text><b>Error Type</b></text>
+                </div>
+                <div>
+                    <label>
+                        <input id="select-cam-radio" type="radio" name="error-option" value="cam">
+                        Incorrect Camera Date/Time
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        <input id="select-dls-radio" type="radio" name="error-option" value="dls">
+                        Daylight Savings Rollover
+                    </label>
+                </div>
+            </div>
+            <br>
+            <div id="cam-modification-options">
+                <div>
+                    <text><b>Camera Date/Time Correction Settings (at least 1 time unit required)</b></text>
+                </div>
+                <table>
+                    <tbody>
+                        <tr>
+                            <td><label for="years">Years:</label></td>
+                            <td><input type="number" id="years" name="years"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="months">Months:</label></td>
+                            <td><input type="number" id="months" name="months"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="days">Days:</label></td>
+                            <td><input type="number" id="days" name="days"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="hours">Hours:</label></td>
+                            <td><input type="number" id="hours" name="hours"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="minutes">Minutes:</label></td>
+                            <td><input type="number" id="minutes" name="minutes"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="start_date">Start Date</label></td>
+                            <td><input type="datetime-local" id="start_date" name="start_date"></td>
+                        </tr>
+                        <tr>
+                            <td><label for="end_date">End Date</label></td>
+                            <td><input type="datetime-local" id="end_date" name="end_date"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="dls-modification-options">
+                <div>
+                    <text><b>Daylight Savings Correction Settings</b></text>
+                </div>
+                <div>
+                    <label for="dls_date">When did the Daylight Savings shift occur?</label>
+                    <input type="date" name="dls_date" id="dls-input">
+                </div>
+            </div><br>
+            <div>
+                <button id="open-preview-button"
+                        type="button"
+                        class="btn btn-primary me-2"
+                        data-toggle="modal"
+                        data-target="#previewFixesModal"
+                >Preview Fixes</button>
+                {% include './preview-fixes.html' %}
+            </div>
+            <hr>
+        </div>
+        <div id="upload-count-text" class="alert alert-info" role="alert">
+            There are 0 of {{ num_uploads }} upload(s) flagged with time errors.
+        </div>
+        <div>
+            <input type="checkbox" id="show-errors-checkbox" name="showErrorsOnly" checked>
+            <label for="showErrorsOnly">Show Time Errors Only</label>
+        </div>
+        <table class="table mt-2 mt-md-4 align-middle text-center" id="upload-list">
+            <thead>
+                <tr>
+                    <th scope="col">Select</th>
+                    <th scope="col">Set ID</th>
+                    <th scope="col">Time Error Notes</th>
+                    <th scope="col">Time Fix Details</th>
+                    <th scope="col">Station ID</th>
+                    <th scope="col">Microsite</th>
+                    <th scope="col">Macrosite</th>
+                    <th scope="col">First Image Timestamp </th>
+                    <th scope="col"># Images</th>
+                    <th scope="col">Processed</th>
+                    {% if user.is_staff %}
+                    <th scope="col">Volunteer</th>
+
+                    {% comment %} <th scope="col">Data</th> {% endcomment %}
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for object, first_timestamp in zipped_data %}
+                <tr>
+                    <td><input type="checkbox"></td>
+                    <td>{{ object.id }}</td>
+                    <td>{{ object.time_error_details }}</td>
+                    <td>{{ object.time_fix_details }}</td>
+                    <td>{{ object.camera_station.station_id }}</td>
+                    <td>{{ object.camera_station.micro_site }}</td>
+                    <td>{{ object.camera_station.micro_site.macro_site }}</td>
+                    <td>{{ first_timestamp }}</td>
+                    {% if object.processed %}
+                    <td>{{ object.images.all.count }}</td>
+                    {% else %}
+                    <td>-</td>
+                    {% endif %}
+                    <td>
+                        {% if object.processed %}
+                        <a href="{% url 'images:view_upload' object.id %}"><button
+                                type="button"
+                                class="btn btn-light"
+                            >View</button></a>
+                        {% else %}
+                        <a
+                            href="{% url 'images:view_upload' object.id %}"
+                            id="view-{{object.id}}"
+                            class="d-none"
+                        ><button
+                                type="button"
+                                class="btn btn-light"
+                            >View</button></a>
+                        <span
+                            id="status-{{object.id}}"
+                            class="text-center"
+                        >?/? (..checking)</span></th>
+                        {% endif %}
+                    </td>
+                    {% if user.is_staff %}
+                    <td>{{object.volunteer.name}}</td>
+                    {% comment %} <td>
+                        {% if object.processed %}
+                        <a href="{% url 'images:export_upload' object.id %}"><button
+                                type="button"
+                                class="btn btn-light"
+                            >View</button></a>
+                        {% endif %}
+                    </td> {% endcomment %}
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"></script>
+<script>
+    const tableRows = document.querySelectorAll('.table tbody tr');
+    let markedSetIds = [];
+    const uploadSetIds = [
+        {% for object in uploads %}
+            "{{ object.id }}",
+        {% endfor %}
+    ];
+
+    $(document).ready(function() {
+        // Checkbox to filter upload sets based on existence of a time error.
+        $('#show-errors-checkbox').on('change', function() {
+            if (this.checked) {
+                const tableRows = document.querySelectorAll('.table tbody tr');
+                let errorCount = 0;
+
+                tableRows.forEach(function(row) {
+                    const timeErrorNotes = row.querySelector('td:nth-child(3)').textContent;
+
+                    if (timeErrorNotes !== 'None') {
+                        row.style.display = '';
+                        errorCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+
+                var numUploads = {{ num_uploads }}; // Assign the value of the template variable
+                $("#upload-count-text").text(`There are ${errorCount} of ${numUploads} upload(s) flagged with time errors.`);
+            } else {
+                const tableRows = document.querySelectorAll('.table tbody tr');
+
+                tableRows.forEach(function (row) {
+                    row.style.display = '';
+                });
+            }
+        });
+
+        $('#show-errors-checkbox')
+            .prop('checked', true)
+            .trigger('change');
+    });
+
+    // Logic to show and hide selections based on the error type selected.
+    $('#dls-modification-options').hide();
+    $('#cam-modification-options').hide();
+
+    $('#select-cam-radio').on('change', function () {
+        if ($('#select-cam-radio').is(':checked')) {
+            $('#cam-modification-options').show()
+            $('#dls-modification-options').hide();
+        }
+    });
+
+    $('#select-dls-radio').on('change', function () {
+        if ($('#select-dls-radio').is(':checked')) {
+            $('#dls-modification-options').show();
+            $('#cam-modification-options').hide();
+        }
+    });
+
+    // Update the preview modal when its opened.
+    $('#open-preview-button').on('click', function () {
+        $("#previewFixesModalLabel").text("Preview Fixes");
+        updatePreviewModal();
+        $("#apply-fixes-button").show();
+
+    });
+
+    // Apply changes displayed in preview.
+    $('#apply-fixes-button').on('click', function () {
+        let numImages = 0;
+        $("#apply-fixes-button").hide();
+
+
+        $("#previewFixesModalLabel").text(`Applying Fixes... (${numImages} checks remaining)`);
+        const previewDiv = $(".preview-content");
+        previewDiv.empty();
+        getSetImageInfo(markedSetIds)
+            .then(function (setImages) {
+                numImages = Object.values(setImages)
+                    .filter(Array.isArray)
+                    .reduce((acc, list) => acc + list.length, 0);
+
+                for (let setId in setImages) {
+                    setUploadSetTimeFixDetails(
+                        setId,
+                        generateTimeFixDetails()
+                    );
+
+                    // Set up table for each set.
+                    let tableDiv = $("<div>")
+                        .appendTo(previewDiv)
+                        .css({
+                            "max-height": "300px",
+                            "overflow-y": "scroll",
+                            "display": "block",
+                        });
+
+                    $("<label>")
+                        .html("<b>Upload Set " + setId + "</b>")
+                        .appendTo(tableDiv);
+
+                    let changeTable = $("<table>")
+                        .addClass("table mt-2 mt-md-4 align-middle text-center")
+                    let tableHeader = $("<thead>").appendTo(changeTable);
+                    let headerRow = $("<tr>").appendTo(tableHeader);
+
+                    $("<th>")
+                        .text("Image ID")
+                        .appendTo(headerRow);
+                    $("<th>")
+                        .text("Original Timestamp")
+                        .appendTo(headerRow);
+                    $("<th>")
+                        .text("Timestamp After Fix")
+                        .appendTo(headerRow);
+                    $("<th>")
+                        .text("Status")
+                        .appendTo(headerRow);
+
+                    changeTable.appendTo(tableDiv);
+                    tableDiv.appendTo(previewDiv);
+                    $("<hr>").appendTo(previewDiv);
+
+                    // Populate table with images.
+                    for (let index in setImages[setId]) {
+                        let imageData = setImages[setId][index];
+                        let originalTimestamp = new Date(imageData.triggerTime);
+                        let newTimestamp = new Date(imageData.triggerTime);
+
+                        if ($('#select-cam-radio').is(':checked')) {
+                            calculateCamFix(newTimestamp);
+                        }
+
+                        else if ($('#select-dls-radio').is(':checked')) {
+                            calculateDLSFix(newTimestamp);
+                        }
+
+                        let rowColor = newTimestamp.getTime() !== originalTimestamp.getTime() ? 'green' : 'gray';
+                        setImages[setId][index].newTime = newTimestamp.getTime() !== originalTimestamp.getTime() ? newTimestamp : null;
+
+                        changeTable.append(`
+                          <tr id="row-${imageData.id}" style="border-top: 1px solid #dee2e6; background-color: lightyellow;">
+                            <td>${imageData.id}</td>
+                            <td>${originalTimestamp.toLocaleString()}</td>
+                            <td style="color: ${rowColor};"><b>${newTimestamp.toLocaleString()}</b></td>
+                            <td>
+                              <div class="spinner-border spinner" id="spinner-${imageData.id}" role="status">
+                                <span class="visually-hidden"></span>
+                              </div>
+                            </td>
+                          </tr>
+                        `);
+
+                        // Only call modification function for differences.
+                        if (newTimestamp.getTime() !== originalTimestamp.getTime()) {
+                            modifyImageTimestamp(imageData.id, newTimestamp)
+                                .then(function () {
+                                    $("#spinner-" + imageData.id).replaceWith('<i class="bi bi-check-circle"></i>');
+                                    $("#row-" + imageData.id)
+                                        .css("background-color", "lightgreen")
+                                        .appendTo(changeTable);
+
+                                    numImages--;
+                                    $("#previewFixesModalLabel").text(`Applying Fixes (${numImages} checks remaining)`);
+
+                                    if (numImages == 0) {
+                                        $("#previewFixesModalLabel").text(`Fixes Applied`);
+                                    }
+                                })
+                                .catch(function (error) {
+                                    $("#spinner-" + imageData.id).remove();
+                                    $("#row-" + imageData.id)
+                                        .css("background-color", "lightred")
+                                        .prependTo(changeTable);
+
+                                    numImages--;
+                                    $("#previewFixesModalLabel").text(`Applying Fixes (${numImages} checks remaining)`);
+
+                                    if (numImages == 0) {
+                                        $("#previewFixesModalLabel").text(`Fixes Applied`);
+                                    }
+                                });
+                        }
+                        else {
+                            $("#spinner-" + imageData.id).replaceWith('<i class="fas fa-check-circle"></i>');
+                            $("#row-" + imageData.id)
+                                .css("background-color", "lightgray")
+                                .appendTo(changeTable);;
+
+                            numImages--;
+                        }
+                    }
+                }
+            })
+            .catch(function (error) {
+                $("<label>")
+                    .text("There was a problem applying fixes. (" + error + ")")
+                    .appendTo(previewDiv);
+            });
+    });
+
+    function generateTimeFixDetails() {
+        let fixType;
+        let timeShiftDetails = "Shifted by ";
+        let dateDetails;
+
+        if ($('#select-cam-radio').is(':checked')) {
+            fixType = "camera settings"
+
+            let years = $('#years').val();
+            let months = $('#months').val();
+            let days = $('#days').val();
+            let hours = $('#hours').val();
+            let minutes = $('#minutes').val();
+
+            if (years) {
+                timeShiftDetails += (years >= 0 ? `+${years} years, ` : `${years} years, `);
+            }
+            if (months) {
+                timeShiftDetails += (months >= 0 ? `+${months} months, ` : `${months} months, `);
+            }
+            if (days) {
+                timeShiftDetails += (days >= 0 ? `+${days} days, ` : `${days} days, `);
+            }
+            if (hours) {
+                timeShiftDetails += (hours >= 0 ? `+${hours} hours, ` : `${hours} hours, `);
+            }
+            if (minutes) {
+                timeShiftDetails += (minutes >= 0 ? `+${minutes} minutes, ` : `${minutes} minutes, `);
+            }
+
+            timeShiftDetails = timeShiftDetails.slice(0, -2) + '.\n';
+
+            let startDate = $('#start_date').val() ? new Date($('#start_date').val()) : null;
+            let endDate = $('#end_date').val() ? new Date($('#end_date').val()) : null;
+
+            if (startDate || endDate) {
+                if (startDate && endDate) {
+                    dateDetails = `For all timestamps between  ${startDate} to ${endDate}`;
+                }
+                else if (startDate) {
+                    dateDetails = `For all timestamps after ${startDate}.`;
+                }
+                else {
+                    dateDetails = `For all timestamps before ${endDate}.`;
+                }
+            }
+
+        } else if ($('#select-dls-radio').is(':checked')) {
+            fixType = "daylight savings";
+
+            let transitionTime = new Date($('#dls-input').val());
+
+            transitionTime.setDate(
+                transitionTime.getDate() + 1
+            );
+            transitionTime.setHours(2);
+
+            dateDetails = `For all timestamps after ${transitionTime}.`;
+
+            if (transitionTime.getMonth() + 1 == 3) {
+                timeShiftDetails = `Shifted forward by 1 hour.\n`;
+            }
+            else {
+                timeShiftDetails = `Shifted back by 1 hour.\n`;
+            }
+        }
+
+        let finalDetailsString = `Initiated application of ${fixType} time fix at ${new Date().toLocaleString()}.\n`;
+        finalDetailsString += timeShiftDetails;
+
+        if (dateDetails) {
+            finalDetailsString += dateDetails;
+        }
+
+        return finalDetailsString;
+    }
+
+
+
+    function updatePreviewModal() {
+        const previewDiv = $(".preview-content");
+        previewDiv.empty();
+
+        getMarkedRows();
+
+        if (markedSetIds.length > 0) {
+            getSetImageInfo(markedSetIds, maxResults=20)
+                .then(function (setImages) {
+                    // Input validation.
+                    if (!$('#select-cam-radio').is(':checked') && !$('#select-dls-radio').is(':checked')) {
+                        throw new Error("No error type was selected.");
+                    }
+
+                    // Check for valid date (must be day in March or November)
+                    if ($('#select-dls-radio').is(':checked')) {
+                        let transitionTime = new Date($('#dls-input').val());
+                            transitionTime.setDate(
+                                transitionTime.getDate() + 1
+                            );
+                        transitionTime.setHours(2);
+
+                        if (transitionTime.getMonth() + 1 != 3 && transitionTime.getMonth() + 1 != 11) {
+                            throw new Error("Invalid date for Daylight Savings. Must be in March or November.");
+                        }
+                    }
+
+                    // Get an even distribution of sample changes from each set.
+                    for (let setId in setImages) {
+                        $("<label>")
+                            .html("<b>Samples From Upload Set " + setId + "</b>")
+                            .appendTo(previewDiv);
+
+                        let changeTable = $("<table>").addClass("table mt-2 mt-md-4 align-middle text-center");
+                        let tableHeader = $("<thead>").appendTo(changeTable);
+                        let headerRow = $("<tr>").appendTo(tableHeader);
+
+                        $("<th>").text("Image ID").appendTo(headerRow);
+                        $("<th>").text("Original Timestamp").appendTo(headerRow);
+                        $("<th>").text("Timestamp After Fix").appendTo(headerRow);
+
+                        changeTable.appendTo(previewDiv);
+                        $("<hr>").appendTo(previewDiv);
+
+                        for (let index in setImages[setId]) {
+                            let imageData = setImages[setId][index];
+                            let originalTimestamp = new Date(imageData.triggerTime);
+                            let newTimestamp = new Date(imageData.triggerTime);
+
+                            if ($('#select-cam-radio').is(':checked')) {
+                                calculateCamFix(newTimestamp);
+                            }
+
+                            else if ($('#select-dls-radio').is(':checked')) {
+                                calculateDLSFix(newTimestamp);
+                            }
+
+                            let rowColor = newTimestamp.getTime() !== originalTimestamp.getTime() ? 'green' : 'gray';
+                            setImages[setId][index].newTime = newTimestamp.getTime() !== originalTimestamp.getTime() ? newTimestamp : null;
+
+                            changeTable.append("<tr style='border-top: 1px solid #dee2e6;'><td>" + imageData.id +
+                              "</td><td>" + originalTimestamp.toLocaleString() +
+                              "</td><td style='color: " + rowColor + ";'><b>" + newTimestamp.toLocaleString() +
+                              "</b></td></tr>");
+                        }
+                    }
+                })
+                .catch(function (error) {
+                    $("<label>")
+                        .text("There was a problem retrieving data. (" + error + ")")
+                        .appendTo(previewDiv);
+                });
+        } else {
+            $("<label>")
+                .text("No upload sets were selected. Please select upload sets to modify.")
+                .appendTo(previewDiv);
+        }
+    }
+
+    // Get all checked sets.
+    function getMarkedRows() {
+        markedSetIds = []
+
+        tableRows.forEach(function(row) {
+            let checkbox = row.querySelector('input[type="checkbox"]');
+
+            if (checkbox.checked) {
+                markedSetIds.push(uploadSetIds[row.rowIndex - 1]);
+            }
+        });
+    }
+
+    // Get the result of applying the camera time offsets.
+    function calculateCamFix(timestamp) {
+        let years = $('#years').val();
+        let months = $('#months').val();
+        let days = $('#days').val();
+        let hours = $('#hours').val();
+        let minutes = $('#minutes').val();
+
+        let startDate = $('#start_date').val() ? new Date($('#start_date').val()) : null;
+        let endDate = $('#end_date').val() ? new Date($('#end_date').val()) : null;
+
+        // Don't modify if timestamp is outside given date bounds.
+        if (startDate && endDate) {
+            if (!(timestamp.getTime() >= startDate.getTime() && timestamp.getTime() <= endDate.getTime())) {
+                return;
+            }
+        } else if (startDate) {
+            if (!(timestamp.getTime()  >= startDate.getTime() )) {
+                return;
+            }
+        } else if (endDate) {
+            if (!(timestamp.getTime()  <= endDate.getTime() )) {
+                return;
+            }
+        }
+
+        // Make modification if timestamp within bounds.
+        if (years) {
+            timestamp.setFullYear(
+                timestamp.getFullYear() + parseInt(years)
+            );
+        }
+        if (months) {
+            timestamp.setMonth(
+                timestamp.getMonth() + parseInt(months)
+            );
+        }
+        if (days) {
+            timestamp.setDate(
+                timestamp.getDate() + parseInt(days)
+            );
+        }
+        if (hours) {
+            timestamp.setHours(
+                timestamp.getHours() + parseInt(hours)
+            );
+        }
+        if (minutes) {
+            timestamp.setMinutes(
+                timestamp.getMinutes() + parseInt(minutes)
+            );
+        }
+    }
+
+    // Get the result of applying Daylight Savings correction (if any change).
+    function calculateDLSFix(timestamp) {
+        let transitionTime = new Date($('#dls-input').val());
+
+        // Date always a day behind what was input, quick fix.
+        transitionTime.setDate(
+            transitionTime.getDate() + 1
+        );
+        transitionTime.setHours(2);
+
+        if (timestamp.getTime() > transitionTime.getTime()) {
+            if (transitionTime.getMonth() + 1 == 3) {
+                timestamp.setHours(
+                    timestamp.getHours() + 1
+                );
+            }
+            else if (transitionTime.getMonth() + 1 == 11) {
+                timestamp.setHours(
+                    timestamp.getHours() - 1
+                );
+            }
+            else {
+                throw new Error("Invalid date for Daylight Savings. Must be in March or November.");
+            }
+        }
+    }
+
+    function getSetImageInfo(setIds, maxResults = null) {
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        let data = {
+            'setIds': setIds.join(','),
+            'maxResults': maxResults,
+            'csrfmiddlewaretoken': csrftoken,
+        }
+
+        return new Promise(function (resolve, reject) {
+            $.ajax({
+                url: `{% url 'images:get_upload_set_images'%}`,
+                method: 'POST',
+                data: data,
+                dataType: 'json',
+                success: function (data) {
+                    if (data.success) {
+                        resolve(data.setImages);
+                    } else {
+                        reject(-1);
+                    }
+                },
+                error: function () {
+                    reject(-1);
+                }
+            });
+        });
+    }
+
+    function modifyImageTimestamp(id, newTimestamp) {
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        let data = {
+            'imageId': id,
+            'newTimestamp': newTimestamp.toISOString(),
+            'csrfmiddlewaretoken': csrftoken,
+        }
+
+        return new Promise(function (resolve, reject) {
+            $.ajax({
+                url: `{% url 'images:modify_upload_set_image'%}`,
+                method: 'POST',
+                data: data,
+                dataType: 'json',
+                success: function (data) {
+                    if (data.success) {
+                        resolve(data.newTimestamp);
+                    } else {
+                        reject(-1);
+                    }
+                },
+                error: function () {
+                    reject(-1);
+                }
+            });
+        });
+    }
+
+    function setUploadSetTimeFixDetails(setId, details) {
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        let data = {
+            'setId': setId,
+            'timeFixDetails': details,
+            'csrfmiddlewaretoken': csrftoken,
+        }
+
+        return new Promise(function (resolve, reject) {
+            $.ajax({
+                url: `{% url 'images:set_upload_set_time_fix_details'%}`,
+                method: 'POST',
+                data: data,
+                dataType: 'json',
+                success: function (data) {
+                    if (data.success) {
+                        resolve();
+                    } else {
+                        reject(-1);
+                    }
+                },
+                error: function () {
+                    reject(-1);
+                }
+            });
+        });
+    }
+
+</script>
+{% endblock %}

@@ -173,6 +173,9 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"></script>
 <script>
+    // Number of AJAX calls created to modify images in batches.
+    const NUM_CONCURRENT_CALLS = 10;
+
     const tableRows = document.querySelectorAll('.table tbody tr');
     let markedSetIds = [];
     const uploadSetIds = [
@@ -243,26 +246,21 @@
 
     // Apply changes displayed in preview.
     $('#apply-fixes-button').on('click', function () {
-        let numImages = 0;
+        let imagesToChange = []
+
         $("#apply-fixes-button").hide();
-
-
-        $("#previewFixesModalLabel").text(`Applying Fixes... (${numImages} checks remaining)`);
         const previewDiv = $(".preview-content");
         previewDiv.empty();
         getSetImageInfo(markedSetIds)
             .then(function (setImages) {
-                numImages = Object.values(setImages)
-                    .filter(Array.isArray)
-                    .reduce((acc, list) => acc + list.length, 0);
-
+                // Generate and set time fix details for each set.
                 for (let setId in setImages) {
                     setUploadSetTimeFixDetails(
                         setId,
                         generateTimeFixDetails()
                     );
 
-                    // Set up table for each set.
+                    // Set up image table for each set.
                     let tableDiv = $("<div>")
                         .appendTo(previewDiv)
                         .css({
@@ -327,46 +325,51 @@
                           </tr>
                         `);
 
-                        // Only call modification function for differences.
+                        // Add image to to-be-changed list only if new timestamp differs.
                         if (newTimestamp.getTime() !== originalTimestamp.getTime()) {
-                            modifyImageTimestamp(imageData.id, newTimestamp)
-                                .then(function () {
-                                    $("#spinner-" + imageData.id).replaceWith('<i class="bi bi-check-circle"></i>');
-                                    $("#row-" + imageData.id)
-                                        .css("background-color", "lightgreen")
-                                        .appendTo(changeTable);
-
-                                    numImages--;
-                                    $("#previewFixesModalLabel").text(`Applying Fixes (${numImages} checks remaining)`);
-
-                                    if (numImages == 0) {
-                                        $("#previewFixesModalLabel").text(`Fixes Applied`);
-                                    }
-                                })
-                                .catch(function (error) {
-                                    $("#spinner-" + imageData.id).remove();
-                                    $("#row-" + imageData.id)
-                                        .css("background-color", "lightred")
-                                        .prependTo(changeTable);
-
-                                    numImages--;
-                                    $("#previewFixesModalLabel").text(`Applying Fixes (${numImages} checks remaining)`);
-
-                                    if (numImages == 0) {
-                                        $("#previewFixesModalLabel").text(`Fixes Applied`);
-                                    }
-                                });
+                            imagesToChange.push(
+                                [imageData.id, newTimestamp]
+                            );
                         }
                         else {
                             $("#spinner-" + imageData.id).replaceWith('<i class="fas fa-check-circle"></i>');
                             $("#row-" + imageData.id)
                                 .css("background-color", "lightgray")
                                 .appendTo(changeTable);;
-
-                            numImages--;
                         }
                     }
                 }
+
+                // Finally, send list of images-to-be-changed to backend via helper functions,
+                // and update GUI when done.
+                $("#previewFixesModalLabel").text(`Applying Fixes To ${imagesToChange.length} Images...`);
+
+                const displayResults = (labelText, errors) => {
+                    $("#previewFixesModalLabel").text(labelText);
+
+                    $("tr:has(.spinner)")
+                        .css("background-color", "lightgreen")
+                        .find(".spinner")
+                        .replaceWith('<i class="bi bi-check-circle text-success"></i>');
+
+                    for (error of errors) {
+                        let imageId = error[0];
+                        let errorInfo = error[1];
+
+                        $("#spinner-" + imageId).remove();
+                        $("#row-" + imageId)
+                            .css("background-color", "lightred")
+                            .prependTo(changeTable);
+                    }
+                }
+
+                modifyImageTimestamps(imagesToChange)
+                  .then((errors) => {
+                    displayResults("All Fixes Applied Successfully", errors);
+                  })
+                  .catch((errors) => {
+                    displayResults("Error(s) Occurred While Applying Fixes, Please Check", errors);
+                  });
             })
             .catch(function (error) {
                 $("<label>")
@@ -381,7 +384,7 @@
         let dateDetails;
 
         if ($('#select-cam-radio').is(':checked')) {
-            fixType = "camera settings"
+            fixType = "camera settings";
 
             let years = $('#years').val();
             let months = $('#months').val();
@@ -451,8 +454,6 @@
 
         return finalDetailsString;
     }
-
-
 
     function updatePreviewModal() {
         const previewDiv = $(".preview-content");
@@ -656,34 +657,53 @@
         });
     }
 
-    function modifyImageTimestamp(id, newTimestamp) {
+    // Splits the list of images-to-be-changed into batches to be processed.
+    function modifyImageTimestamps(imagesToChange) {
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const batchSize = Math.ceil(imagesToChange.length / NUM_CONCURRENT_CALLS);
+        const imageBatches = [];
 
-        let data = {
-            'imageId': id,
-            'newTimestamp': newTimestamp.toISOString(),
-            'csrfmiddlewaretoken': csrftoken,
+        for (let i = 0; i < imagesToChange.length; i += batchSize) {
+            const batch = imagesToChange.slice(i, i + batchSize);
+            imageBatches.push(batch);
         }
+
+        const promises = imageBatches.map((batch) => processImageBatch(batch, csrftoken));
+
+        return Promise.all(promises)
+            .then((results) => {
+                const allErrors = results.reduce((acc, current) => acc.concat(current), []);
+                return allErrors;
+            });
+    }
+
+    function processImageBatch(imageBatch, csrfToken) {
+        const data = {
+            imagesToChange: JSON.stringify(imageBatch),
+            csrfmiddlewaretoken: csrfToken,
+        };
 
         return new Promise(function (resolve, reject) {
             $.ajax({
-                url: `{% url 'images:modify_upload_set_image'%}`,
+                url: `{% url 'images:modify_upload_set_images'%}`,
                 method: 'POST',
                 data: data,
                 dataType: 'json',
                 success: function (data) {
-                    if (data.success) {
-                        resolve(data.newTimestamp);
-                    } else {
-                        reject(-1);
-                    }
+                if (data.success) {
+                    resolve(data.errors);
+                } else {
+                    reject(data.errors);
+                }
                 },
-                error: function () {
-                    reject(-1);
+                error: function (error) {
+                reject(error);
                 }
             });
         });
     }
+
+
 
     function setUploadSetTimeFixDetails(setId, details) {
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -713,6 +733,5 @@
             });
         });
     }
-
 </script>
 {% endblock %}

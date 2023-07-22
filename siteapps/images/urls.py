@@ -12,7 +12,7 @@ from .views import (
     GetUploadSetImageInfoView,
     ImageDetailView,
     MDAnnotationProcessorView,
-    ModifyUploadSetImageView,
+    ModifyUploadSetImagesView,
     SearchImagesView,
     SetUploadSetTimeFixDetailsView,
     SpeciesAnnotationProcessorView,
@@ -103,8 +103,8 @@ urlpatterns = [
         name="set_upload_set_time_fix_details",
     ),
     path(
-        "modify-upload-set-image",
-        ModifyUploadSetImageView.as_view(),
-        name="modify_upload_set_image",
+        "modify-upload-set-images",
+        ModifyUploadSetImagesView.as_view(),
+        name="modify_upload_set_images",
     ),
 ]

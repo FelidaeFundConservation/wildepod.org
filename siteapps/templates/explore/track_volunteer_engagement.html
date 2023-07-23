@@ -1,0 +1,102 @@
+{% extends "_base.html" %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}Track Volunteer Engagement | {% endblock %}
+
+{% block content %}
+<div class="container mt-3 pt-3 mt-md-4 pt-md-4">
+    <div class="row text-center">
+        <h2>Volunteer Engagement</h2>
+        <text>(Click rows to view detailed annotation breakdowns.)</text>
+    </div>
+    <div class="row">
+        <table id="volunteer-engagement-table" class="table mt-2 mt-md-4 align-middle text-center">
+            <thead>
+                <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Last Login</th>
+                    <th scope="col"># Of Annotations (Past Month)</th>
+                    <th scope="col"># Of Annotations (Past Week)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for volunteer in volunteer_info %}
+                    {% if volunteer.name != 'MegaDetector' %}
+                        <tr id="row-{{ volunteer.name_no_spaces }}"
+                            onclick="toggleRowDetailedBreakdown('{{ volunteer.name_no_spaces }}')"
+                        >
+                            <td>{{ volunteer.name }}</td>
+                            <td>{{ volunteer.last_login }}</td>
+                            <td>{{ volunteer.annotations_past_month }}</td>
+                            <td>{{ volunteer.annotations_past_week }}</td>
+                        </tr>
+                        <tr id="detailedBreakdown-{{ volunteer.name_no_spaces }}" hidden>
+                            <td colspan="4" style="text-align: center">
+                                <div style="display: flex;">
+                                    <div style="flex: 1; padding: 10px; border: 1px solid #ccc;">
+                                        <p><b>{{ volunteer.name }}'s Activity</b></p>
+                                    </div>
+                                    <div style="flex: 1; padding: 10px; border: 1px solid #ccc;">
+                                        <h5>Category Annotations</h5>
+                                        <hr>
+                                        <p><b>Past Week</b></p>
+                                        <p>{{ volunteer.annotations_past_week_category }}</p>
+                                        <br>
+                                        <p><b>Past Month</b></p>
+                                        <p>{{ volunteer.annotations_past_month_category }}</p>
+                                    </div>
+                                    <div style="flex: 1; padding: 10px; border: 1px solid #ccc;">
+                                        <h5>Species Annotations</h5>
+                                        <hr>
+                                        <p><b>Past Week</b></p>
+                                        <p>{{ volunteer.annotations_past_week_species }}</p>
+                                        <br>
+                                        <p><b>Past Month</b></p>
+                                        <p>{{ volunteer.annotations_past_month_species }}</p>
+                                    </div>
+                                    <div style="flex: 1; padding: 10px; border: 1px solid #ccc;">
+                                        <h5>Activity Annotations</h5>
+                                        <hr>
+                                        <p><b>Past Week</b></p>
+                                        <p>{{ volunteer.annotations_past_week_activity }}</p>
+                                        <br>
+                                        <p><b>Past Month</b></p>
+                                        <p>{{ volunteer.annotations_past_month_activity }}</p>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $(document).ready(function () {
+        $('tr[id^="row-"]').css('border-left', '10px solid transparent');
+
+        $('tr[id^="row-"]').hover(function () {
+            $(this).css('border-left', '10px solid lightgreen');
+        }, function () {
+            $(this).css('border-left', '10px solid transparent');
+        });
+    });
+
+    function toggleRowDetailedBreakdown(name) {
+        let rowElement = $(`#row-${name}`);
+        let detailsElement = $(`#detailedBreakdown-${name}`);
+
+        if (detailsElement.is(':hidden')) {
+            detailsElement.removeAttr('hidden');
+            rowElement.css('background-color', 'yellow');
+        } else {
+            detailsElement.attr('hidden', 'true');
+            rowElement.css('background-color', '');
+        }
+    }
+</script>
+{% endblock content %}

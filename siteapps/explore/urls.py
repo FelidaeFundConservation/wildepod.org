@@ -12,6 +12,7 @@ from .views import (
     SnapshotListView,
     SpeciesSightingImagesView,
     SpeciesSightingTimeseriesView,
+    TrackVolunteerEngagementView,
     WorkflowStateView,
 )
 
@@ -30,6 +31,7 @@ urlpatterns = [
     path("query_data/", SearchDataView.as_view(), name="query_data"),
     path("set_priority/", PriorityView.as_view(), name="set_priority"),
     path("set_priority_confirm/", ConfirmUpdateView.as_view(), name="confirm_update"),
+    path("track-volunteer-engagement/", TrackVolunteerEngagementView.as_view(), name="track_volunteer_engagement"),
     path("workflow-state/", WorkflowStateView.as_view(), name="workflow_state"),
     re_path("species/sighting/images/$", SpeciesSightingImagesView.as_view(), name="species_sighting_images"),
     re_path(

@@ -245,23 +245,25 @@ class SetUploadSetTimeFixDetailsView(StaffuserRequiredMixin, View):
         return JsonResponse({"success": success})
 
 
-class ModifyUploadSetImageView(StaffuserRequiredMixin, View):
+class ModifyUploadSetImagesView(StaffuserRequiredMixin, View):
     # Applies time error fixes according to specified selections.
     def post(self, request, *args, **kwargs):
-        success = None
+        images_to_change = request.POST.get("imagesToChange")
 
-        image_id = request.POST.get("imageId")
-        new_timestamp = request.POST.get("newTimestamp")
+        errors = []
 
-        try:
-            target_image = Image.objects.get(id=image_id)
-            target_image.trigger_timestamp = new_timestamp
-            target_image.save()
-            success = True
-        except ObjectDoesNotExist:
-            success = False
+        success = True
 
-        return JsonResponse({"success": success, "timestampConfirmation": target_image.trigger_timestamp})
+        for image_id, new_timestamp in json.loads(images_to_change):
+            try:
+                target_image = Image.objects.get(id=image_id)
+                target_image.trigger_timestamp = new_timestamp
+                target_image.save()
+            except Exception as error:
+                errors.append([image_id, error])
+                success = False
+
+        return JsonResponse({"success": success, "errors": errors})
 
 
 # # TODO: This view is currently implemented purely to "test" the annotation functionality

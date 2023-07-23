@@ -71,48 +71,36 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
 
         # Calculuate cutoff date for past week and month.
         now = timezone.now()
-        last_month_start = now - relativedelta(months=1)
-        last_week_start = now - relativedelta(weeks=1)
+        past_month_start_time = now - relativedelta(months=1)
+        past_week_start_time = now - relativedelta(weeks=1)
 
         for volunteer in volunteers:
             volunteer = [volunteer]
 
+            past_week_q_filter = (
+                Q(created_by__in=volunteer, created__gte=past_week_start_time)
+                | Q(accepted_by__in=volunteer, created__gte=past_week_start_time)
+                | Q(rejected_by__in=volunteer, created__gte=past_week_start_time)
+            )
+
+            past_month_q_filter = (
+                Q(created_by__in=volunteer, created__gte=past_month_start_time)
+                | Q(accepted_by__in=volunteer, created__gte=past_month_start_time)
+                | Q(rejected_by__in=volunteer, created__gte=past_month_start_time)
+            )
+
             # Get the annotation counts for category, species, and activity.
-            annotations_past_week_category = Category.objects.filter(
-                Q(created_by__in=volunteer, created__gte=last_week_start)
-                | Q(accepted_by__in=volunteer, created__gte=last_week_start)
-                | Q(rejected_by__in=volunteer, created__gte=last_week_start)
-            ).count()
+            annotations_past_week_category = Category.objects.filter(past_week_q_filter).count()
 
-            annotations_past_week_species = Species.objects.filter(
-                Q(created_by__in=volunteer, created__gte=last_week_start)
-                | Q(accepted_by__in=volunteer, created__gte=last_week_start)
-                | Q(rejected_by__in=volunteer, created__gte=last_week_start)
-            ).count()
+            annotations_past_week_species = Species.objects.filter(past_week_q_filter).count()
 
-            annotations_past_week_activity = Activity.objects.filter(
-                Q(created_by__in=volunteer, created__gte=last_week_start)
-                | Q(accepted_by__in=volunteer, created__gte=last_week_start)
-                | Q(rejected_by__in=volunteer, created__gte=last_week_start)
-            ).count()
+            annotations_past_week_activity = Activity.objects.filter(past_week_q_filter).count()
 
-            annotations_past_month_category = Category.objects.filter(
-                Q(created_by__in=volunteer, created__gte=last_month_start)
-                | Q(accepted_by__in=volunteer, created__gte=last_month_start)
-                | Q(rejected_by__in=volunteer, created__gte=last_month_start)
-            ).count()
+            annotations_past_month_category = Category.objects.filter(past_month_q_filter).count()
 
-            annotations_past_month_species = Species.objects.filter(
-                Q(created_by__in=volunteer, created__gte=last_month_start)
-                | Q(accepted_by__in=volunteer, created__gte=last_month_start)
-                | Q(rejected_by__in=volunteer, created__gte=last_month_start)
-            ).count()
+            annotations_past_month_species = Species.objects.filter(past_month_q_filter).count()
 
-            annotations_past_month_activity = Activity.objects.filter(
-                Q(created_by__in=volunteer, created__gte=last_month_start)
-                | Q(accepted_by__in=volunteer, created__gte=last_month_start)
-                | Q(rejected_by__in=volunteer, created__gte=last_month_start)
-            ).count()
+            annotations_past_month_activity = Activity.objects.filter(past_month_q_filter).count()
 
             # Calculate total annotations across all types.
             annotations_past_month = (

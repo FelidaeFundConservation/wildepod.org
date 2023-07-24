@@ -3,8 +3,10 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
+from django.db.models import Q
 from django.urls import reverse
 from django.views.generic import FormView, ListView, TemplateView, UpdateView
+from images.models import Activity, Annotator, Category, Species
 
 from .forms import RegisterVolunteerForm
 
@@ -23,6 +25,29 @@ class UserUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
 
     def get_object(self):
         return self.request.user
+
+    # Gets the user annotation count data to show on the profile page.
+    # Unrelated to update functions.
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        volunteer = [Annotator.objects.get(human=self.request.user)]
+
+        user_annotations_q_filter = (
+            Q(created_by__in=volunteer) | Q(accepted_by__in=volunteer) | Q(rejected_by__in=volunteer)
+        )
+
+        context["user_category_annotation_count"] = Category.objects.filter(user_annotations_q_filter).count()
+        context["user_species_annotation_count"] = Species.objects.filter(user_annotations_q_filter).count()
+        context["user_activity_annotation_count"] = Activity.objects.filter(user_annotations_q_filter).count()
+
+        context["user_total_annotation_count"] = (
+            context["user_category_annotation_count"]
+            + context["user_species_annotation_count"]
+            + context["user_activity_annotation_count"]
+        )
+
+        return context
 
 
 class VolunteerListView(LoginRequiredMixin, StaffuserRequiredMixin, ListView):

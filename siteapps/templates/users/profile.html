@@ -9,11 +9,30 @@
     <div class="row justify-content-center pb-3">
         <div class="col-11 col-md-8 col-lg-6 text-center">
             <h1>Hi, {{ object.name }}!</h1>
-            <hr />
+            <br>
+            <div style="border: 1px solid black; border-radius: 10px">
+                <text style="font-size: 24px; margin: 5px;">You've made <b>{{ user_total_annotation_count }}</b> annotation(s) so far.</text>
+                <div style="white-space: nowrap; margin: 10px">
+                    <div style="display: inline-block; padding: 10px; border: 1px solid gray; ">
+                        <text>Category Annotations</text><br>
+                        <text>{{ user_category_annotation_count }}</text>
+                    </div>
+                    <div style="display: inline-block; padding: 10px; border: 1px solid gray; ">
+                        <text>Species Annotations</text><br>
+                        <text>{{ user_species_annotation_count }}</text>
+                    </div>
+                    <div style="display: inline-block; padding: 10px; border: 1px solid gray; ">
+                        <text>Activity Annotations</text><br>
+                        <text>{{ user_activity_annotation_count }}</text>
+                    </div>
+                </div>
+            </div>
+            <br><hr>
         </div>
     </div>
     <div class="row justify-content-center pb-5">
         <div class="col-11 col-md-8 col-lg-6">
+            <h1>Your Profile</h1>
             <p>
                 Update your information if it is out of date.
             </p>

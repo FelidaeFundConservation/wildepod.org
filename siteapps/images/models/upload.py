@@ -86,6 +86,7 @@ class Upload(TimeStampedModel):
             ("1", "Low"),
             ("2", "Medium"),
             ("3", "High"),
+            ("4", "Highest"),
         ),
         default="1",
     )

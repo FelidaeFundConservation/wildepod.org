@@ -170,10 +170,12 @@ class Image(TimeStampedModel):
         pri_1 = priorities.filter(priority=1)
         pri_2 = priorities.filter(priority=2)
         pri_3 = priorities.filter(priority=3)
+        pri_4 = priorities.filter(priority=4)
         return {
             "priority_1": sum(pr.total for pr in pri_1),
             "priority_2": sum(pr.total for pr in pri_2),
             "priority_3": sum(pr.total for pr in pri_3),
+            "priority_4": sum(pr.total for pr in pri_4),
         }
 
     @staticmethod

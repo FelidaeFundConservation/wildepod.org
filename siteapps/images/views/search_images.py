@@ -4,11 +4,13 @@ from crispy_forms.layout import HTML, Column, Fieldset, Layout, Row, Submit
 from django import forms
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Count, Exists, F, OuterRef, Q, QuerySet, Subquery, Value
+from django.db.models import (Count, Exists, F, OuterRef, Q, QuerySet,
+                              Subquery, Value)
 from django.shortcuts import render
 from django.utils import timezone
 from django.views.generic import FormView
-from images.models import Activity, Annotator, BoundingBox, Category, Image, Species
+from images.models import (Activity, Annotator, BoundingBox, Category, Image,
+                           Species)
 from locations.models import CameraStation, MacroSite
 
 MAX_IMAGE_SEARCH_RESULTS = 200
@@ -37,6 +39,7 @@ class SearchImagesForm(forms.Form):
     annotation_timestamp_end = forms.DateTimeField(
         widget=forms.widgets.DateTimeInput(attrs={"type": "datetime-local"}), required=False
     )
+    staff_review_needed = forms.BooleanField(label="Flagged for Staff?", required=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -61,6 +64,9 @@ class SearchImagesForm(forms.Form):
             ),
             Row(
                 Column("camera_stations", css_class="form-group col-12"),
+            ),
+            Row(
+                Column("staff_review_needed", css_class="form-group col-12"),
             ),
             Row(
                 Column(Submit("submit", "Query Images", css_class="form-group btn-primary")),
@@ -92,6 +98,8 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
 
             volunteers = form.cleaned_data["volunteers"]
 
+            staff_review_needed = form.cleaned_data["staff_review_needed"]
+
             # Apply the filters specified on the form on to the queryset
             filterset = {}
             compoundfilter = []
@@ -100,6 +108,8 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                 filterset["trigger_timestamp__gte"] = camera_timestamp_start
             if camera_timestamp_end:
                 filterset["trigger_timestamp__lte"] = camera_timestamp_end
+            if staff_review_needed:
+                filterset["staff_review_needed"] = True
 
             """
             Logic to combine compound boundingbox filters.

@@ -16,6 +16,7 @@
                 <tr>
                     <th scope="col">Name</th>
                     <th scope="col">Last Login</th>
+                    <th scope="col"># Of Annotations (All Time)</th>
                     <th scope="col"># Of Annotations (Past Month)</th>
                     <th scope="col"># Of Annotations (Past Week)</th>
                 </tr>
@@ -28,11 +29,12 @@
                         >
                             <td>{{ volunteer.name }}</td>
                             <td>{{ volunteer.last_login }}</td>
+                            <td>{{ volunteer.annotations_all_time }}</td>
                             <td>{{ volunteer.annotations_past_month }}</td>
                             <td>{{ volunteer.annotations_past_week }}</td>
                         </tr>
                         <tr id="detailedBreakdown-{{ volunteer.name_no_spaces }}" hidden>
-                            <td colspan="4" style="text-align: center">
+                            <td colspan="5" style="text-align: center">
                                 <div style="display: flex;">
                                     <div style="flex: 1; padding: 10px; border: 1px solid #ccc;">
                                         <p><b>{{ volunteer.name }}'s Activity</b></p>
@@ -45,6 +47,9 @@
                                         <br>
                                         <p><b>Past Month</b></p>
                                         <p>{{ volunteer.annotations_past_month_category }}</p>
+                                        <br>
+                                        <p><b>All Time</b></p>
+                                        <p>{{ volunteer.annotations_all_time_category }}</p>
                                     </div>
                                     <div style="flex: 1; padding: 10px; border: 1px solid #ccc;">
                                         <h5>Species Annotations</h5>
@@ -54,6 +59,9 @@
                                         <br>
                                         <p><b>Past Month</b></p>
                                         <p>{{ volunteer.annotations_past_month_species }}</p>
+                                        <br>
+                                        <p><b>All Time</b></p>
+                                        <p>{{ volunteer.annotations_all_time_species }}</p>
                                     </div>
                                     <div style="flex: 1; padding: 10px; border: 1px solid #ccc;">
                                         <h5>Activity Annotations</h5>
@@ -63,6 +71,9 @@
                                         <br>
                                         <p><b>Past Month</b></p>
                                         <p>{{ volunteer.annotations_past_month_activity }}</p>
+                                        <br>
+                                        <p><b>All Time</b></p>
+                                        <p>{{ volunteer.annotations_all_time_activity }}</p>
                                     </div>
                                 </div>
                             </td>

@@ -18,8 +18,10 @@ class VolunteerEngagementInfo:
     name = None
     name_no_spaces = None
     last_login = None
+
     annotations_past_week = None
     annotations_past_month = None
+    annotations_all_time = None
 
     annotations_past_week_category = None
     annotations_past_week_species = None
@@ -29,6 +31,10 @@ class VolunteerEngagementInfo:
     annotations_past_month_species = None
     annotations_past_month_activity = None
 
+    annotations_all_time_category = None
+    annotations_all_time_species = None
+    annotations_all_time_activity = None
+
     def __init__(
         self,
         name,
@@ -36,18 +42,24 @@ class VolunteerEngagementInfo:
         last_login,
         annotations_past_week,
         annotations_past_month,
+        annotations_all_time,
         annotations_past_week_category,
         annotations_past_week_species,
         annotations_past_week_activity,
         annotations_past_month_category,
         annotations_past_month_species,
         annotations_past_month_activity,
+        annotations_all_time_category,
+        annotations_all_time_species,
+        annotations_all_time_activity,
     ):
         self.name = name
         self.name_no_spaces = name_no_spaces
         self.last_login = last_login
+
         self.annotations_past_week = annotations_past_week
         self.annotations_past_month = annotations_past_month
+        self.annotations_all_time = annotations_all_time
 
         self.annotations_past_week_category = annotations_past_week_category
         self.annotations_past_week_species = annotations_past_week_species
@@ -56,6 +68,10 @@ class VolunteerEngagementInfo:
         self.annotations_past_month_category = annotations_past_month_category
         self.annotations_past_month_species = annotations_past_month_species
         self.annotations_past_month_activity = annotations_past_month_activity
+
+        self.annotations_all_time_category = annotations_all_time_category
+        self.annotations_all_time_species = annotations_all_time_species
+        self.annotations_all_time_activity = annotations_all_time_activity
 
 
 class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, ListView):
@@ -89,6 +105,10 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
                 | Q(rejected_by__in=volunteer, created__gte=past_month_start_time)
             )
 
+            all_time_q_filter = (
+                Q(created_by__in=volunteer) | Q(accepted_by__in=volunteer) | Q(rejected_by__in=volunteer)
+            )
+
             # Get the annotation counts for category, species, and activity.
             annotations_past_week_category = Category.objects.filter(past_week_q_filter).count()
 
@@ -102,6 +122,12 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
 
             annotations_past_month_activity = Activity.objects.filter(past_month_q_filter).count()
 
+            annotations_all_time_category = Category.objects.filter(all_time_q_filter).count()
+
+            annotations_all_time_species = Species.objects.filter(all_time_q_filter).count()
+
+            annotations_all_time_activity = Activity.objects.filter(all_time_q_filter).count()
+
             # Calculate total annotations across all types.
             annotations_past_month = (
                 annotations_past_month_category + annotations_past_month_species + annotations_past_month_activity
@@ -109,6 +135,10 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
 
             annotations_past_week = (
                 annotations_past_week_category + annotations_past_week_species + annotations_past_week_activity
+            )
+
+            annotations_all_time = (
+                annotations_all_time_category + annotations_all_time_species + annotations_all_time_activity
             )
 
             try:
@@ -123,17 +153,21 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
                     last_login=last_login,
                     annotations_past_week=annotations_past_week,
                     annotations_past_month=annotations_past_month,
+                    annotations_all_time=annotations_all_time,
                     annotations_past_week_category=annotations_past_week_category,
                     annotations_past_week_species=annotations_past_week_species,
                     annotations_past_week_activity=annotations_past_week_activity,
                     annotations_past_month_category=annotations_past_month_category,
                     annotations_past_month_species=annotations_past_month_species,
                     annotations_past_month_activity=annotations_past_month_activity,
+                    annotations_all_time_category=annotations_all_time_category,
+                    annotations_all_time_species=annotations_all_time_species,
+                    annotations_all_time_activity=annotations_all_time_activity,
                 )
             )
 
             # Sort by annotation counts in descending order.
-            volunteer_info.sort(key=lambda volunteer_info: volunteer_info.annotations_past_month, reverse=True)
+            volunteer_info.sort(key=lambda volunteer_info: volunteer_info.annotations_all_time, reverse=True)
 
             context["volunteer_info"] = volunteer_info
 

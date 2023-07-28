@@ -159,7 +159,6 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                 filterset["upload__camera_station__in"] = camera_stations
 
             query_result_count = Image.objects.filter(*compoundfilter, **filterset).count()
-            print(Image.objects.filter(*compoundfilter, **filterset).query)
 
             # If query result amount exceeds limit, don't get results.
             if query_result_count <= MAX_IMAGE_SEARCH_RESULTS:

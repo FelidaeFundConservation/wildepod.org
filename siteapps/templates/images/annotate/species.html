@@ -85,6 +85,19 @@
                 >
                     &nbsp; Social Media Worthy?
                 </label>
+                &emsp;&emsp;&emsp;&emsp;&emsp;              
+                <input
+                    class="form-check-input"
+                    type="checkbox"
+                    {% if staff_review_needed %}checked="checked"{% endif %}
+                    id="staff-review-needed"                    
+                >
+                <label
+                    class="form-check-label"
+                    for="staff-review-needed"
+                >
+                    &nbsp; Flag for Staff Review?
+                </label>                
             </div>
         </form>
     </div>
@@ -178,6 +191,9 @@
     document.querySelector('label[for="social-media-worthy-species"]').addEventListener('click', function(event) {
         event.preventDefault();
     });
+    document.querySelector('label[for="staff-review-needed"]').addEventListener('click', function(event) {
+        event.preventDefault();
+    });
 </script>
 <script>
     // TODO: Move all this code to separate functions housed in separate files
@@ -246,7 +262,8 @@
                 'species': species,
                 'initial_bboxes': JSON.stringify(bboxes),
                 'annotations': JSON.stringify(anno.getAnnotations()),
-                'social_media_worthy': document.getElementById('social-media-worthy-species').checked
+                'social_media_worthy': document.getElementById('social-media-worthy-species').checked,
+                'staff_review_needed': document.getElementById('staff-review-needed').checked,
             }
 
             // Send back all the bbox ids back to the server to log bbox deletions

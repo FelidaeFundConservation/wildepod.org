@@ -170,8 +170,6 @@ class ConfirmUpdateView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             obj.save()
             count += 1
 
-
-
         message = f"{count} Upload Sets updated."
         messages.info(request, message)
         return redirect("explore:set_priority")

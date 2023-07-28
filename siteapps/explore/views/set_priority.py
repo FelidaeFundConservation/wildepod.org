@@ -13,6 +13,7 @@ from django.shortcuts import redirect, render
 from django.views.generic import FormView
 from images.models import Upload
 from locations.models import CameraStation, MacroSite
+from model_utils.managers import ObjectDoesNotExist
 
 
 class SetPriorityForm(forms.Form):
@@ -90,15 +91,38 @@ class PriorityView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             search_set = Upload.objects.filter(**filterset).distinct()
 
             num_records_to_update = search_set.count()
+            num_records_to_downgrade = None
+            new_priority_display = form.fields["priority_by"].choices[int(priority_by) - 1][1]
+
+            # Get existing Highest priority sets to replace.
+            downgrade_set = None
+            downgrade_sets_image_count = None
+
+            if priority_by == "4":
+                downgrade_set = Upload.objects.filter(priority=priority_by)
+                num_records_to_downgrade = Upload.objects.filter(priority=priority_by).count()
 
             if num_records_to_update == 0:
                 message = "No records found matching the search criteria."
                 messages.info(request, message)
                 return redirect("explore:set_priority")
             else:
-                total_image_count = Upload.objects.filter(**filterset).aggregate(total_images=Count('images'))
+                total_image_count = Upload.objects.filter(**filterset).aggregate(total_images=Count("images"))[
+                    "total_images"
+                ]
 
-                message = f"{num_records_to_update} Upload Sets will be updated (with {total_image_count['total_images']} images). Are you sure you want to continue?"
+                # Preview sets to downgrade if they exist.
+                try:
+                    downgrade_sets_image_count = Upload.objects.filter(priority=4).aggregate(
+                        total_downgrade_images=Count("images")
+                    )["total_downgrade_images"]
+
+                    downgrade_list = serializers.serialize("json", downgrade_set)
+                    request.session["downgrade_list"] = downgrade_list
+                except BaseException:
+                    pass
+
+                message = "Are you sure you want to continue?"
                 # to serialize the model
                 model_list = serializers.serialize("json", search_set)
 
@@ -106,7 +130,21 @@ class PriorityView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                 request.session["priority_form_data"] = model_list
                 request.session["priority_val"] = priority_by
 
-                return render(request, "explore/set_priority_confirm.html", {"message": message})
+                return render(
+                    request,
+                    "explore/set_priority_confirm.html",
+                    {
+                        "message": message,
+                        "search_set": search_set,
+                        "downgrade_set": downgrade_set,
+                        "new_priority": priority_by,
+                        "new_priority_display": new_priority_display,
+                        "num_records_to_downgrade": num_records_to_downgrade,
+                        "num_records_to_update": num_records_to_update,
+                        "update_sets_image_count": total_image_count,
+                        "downgrade_sets_image_count": downgrade_sets_image_count,
+                    },
+                )
 
 
 class ConfirmUpdateView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
@@ -117,10 +155,22 @@ class ConfirmUpdateView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
         model_data = self.request.session.pop("priority_form_data")
         priority_val = self.request.session.pop("priority_val")
         count = 0
+
+        # Push down previous Highest priority sets if setting new ones.
+        if priority_val == "4":
+            downgrade_list = self.request.session.pop("downgrade_list")
+
+            for obj in serializers.deserialize("json", downgrade_list):
+                obj.object.priority = "3"
+                obj.save()
+                count += 1
+
         for obj in serializers.deserialize("json", model_data):
             obj.object.priority = priority_val
             obj.save()
             count += 1
+
+
 
         message = f"{count} Upload Sets updated."
         messages.info(request, message)

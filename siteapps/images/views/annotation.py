@@ -14,19 +14,13 @@ from django.urls import reverse
 from django.views.generic import FormView
 from django.views.generic.base import TemplateView, View
 from images.forms import AnnotationForm
-from images.models import (
-    Activity,
-    ActivityType,
-    Annotator,
-    BoundingBox,
-    Category,
-    Image,
-    Species,
-    SpeciesName,
-    get_object_annotation_images,
-)
+from images.models import (Activity, ActivityType, Annotator, BoundingBox,
+                           Category, Image, Species, SpeciesName,
+                           get_object_annotation_images)
 from images.models.custom_fields import get_filter_params
-from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
+from images.processors import (process_activity_annotations,
+                               process_md_annotations,
+                               process_species_annotations)
 from locations.models import CameraStation, MacroSite, MicroSite
 
 MAX_VOTES_PER_IMAGE = 2
@@ -108,6 +102,7 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
             image = Image.objects.get(id=image_id)
             context["image"] = image
             context["social_media_worthy"] = image.social_media_worthy
+            context["staff_review_needed"] = image.staff_review_needed
             bounding_boxes = BoundingBox.objects.valid_or_uncertain().filter(image=image)
             context["bounding_boxes"] = bounding_boxes
             context["queue_index"] = queue["index"]
@@ -294,6 +289,7 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
             image = Image.objects.get(id=image_id)
             context["image"] = image
             context["social_media_worthy"] = image.social_media_worthy
+            context["staff_review_needed"] = image.staff_review_needed
             bounding_boxes = BoundingBox.objects.valid().filter(image=image)
             context["bounding_boxes"] = bounding_boxes
         else:
@@ -507,8 +503,11 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
             initial_bboxes = []
             annotations = []
             logging.info(f"Bounding box annotations for image '{image_id}' was skipped by user - '{request.user.name}'")
+            # Check if the image was tagged as needing staff review
+            staff_review_needed = request.POST.get("staff_review_needed")
+            staff_review_needed = bool(staff_review_needed and staff_review_needed == "true")
             # Process the annotations
-            success = process_md_annotations(image_id, annotations, initial_bboxes, request.user, False, skip)
+            success = process_md_annotations(image_id, annotations, initial_bboxes, request.user, False, staff_review_needed, skip)
         else:
             # Get bounding box ids that were sent to infer deleted annotations
             initial_bboxes = request.POST.get("initial_bboxes")
@@ -522,10 +521,14 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
             social_media_worthy = request.POST.get("social_media_worthy")
             social_media_worthy = bool(social_media_worthy and social_media_worthy == "true")
 
+            # Check if the image was tagged as needing staff review
+            staff_review_needed = request.POST.get("staff_review_needed")
+            staff_review_needed = bool(staff_review_needed and staff_review_needed == "true")
+
             logging.info(f"Processing bounding box annotations for image '{image_id}' by user - '{request.user.name}'")
             # Process the annotations
             success = process_md_annotations(
-                image_id, annotations, initial_bboxes, request.user, social_media_worthy, False
+                image_id, annotations, initial_bboxes, request.user, social_media_worthy, staff_review_needed, False
             )
 
         # If success, update image index in the datastore
@@ -562,10 +565,14 @@ class SpeciesAnnotationProcessorView(LoginRequiredMixin, View):
         social_media_worthy = request.POST.get("social_media_worthy")
         social_media_worthy = True if social_media_worthy and social_media_worthy == "true" else False
 
+        # Check if the image was tagged as needing staff review
+        staff_review_needed = request.POST.get("staff_review_needed")
+        staff_review_needed = bool(staff_review_needed and staff_review_needed == "true")
+
         # # Process the annotations
         # logging.info(f"Processing species for Image '{image_id}' by user - '{request.user.name}'")
         success = process_species_annotations(
-            image_id, annotations, initial_bboxes, request.user, social_media_worthy, skip=skip
+            image_id, annotations, initial_bboxes, request.user, social_media_worthy, staff_review_needed, skip=skip
         )
 
         # If success, update image index in the datastore

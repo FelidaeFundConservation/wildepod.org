@@ -13,7 +13,7 @@
             Time Taken: {% if image.trigger_timestamp %}{{image.trigger_timestamp}}{% else %}N/A{% endif %}
         </p>
 
-        <p class="p-1 m-1">
+        <p class="p-1 mt-1 mb-0">
             {% if previous_image %}
             <a
                 href="{% url 'images:image' previous_image.id%}"
@@ -73,6 +73,33 @@
             {% include './annotate/staff-edit-annotations.html' %}
             {% endif %}
         </p>
+        <div class="mt-0 mb-3">
+            <input
+                class="form-check-input"
+                type="checkbox"
+                {% if social_media_worthy %}checked="checked"{% endif %}
+                id="social-media-worthy"                    
+            >
+            <label
+                class="form-check-label"
+                for="social-media-worthy"
+            >
+                &nbsp; Social Media Worthy?
+            </label>  
+            &emsp;&emsp;&emsp;&emsp;&emsp;              
+            <input
+                class="form-check-input"
+                type="checkbox"
+                {% if staff_review_needed %}checked="checked"{% endif %}
+                id="staff-review-needed"                    
+            >
+            <label
+                class="form-check-label"
+                for="staff-review-needed"
+            >
+                &nbsp; Flag for Staff Review?
+            </label>                
+        </div>
     </div>
     <div class="row px-2 justify-content-center">
         <div class="col-12 col-md-10 text-center">
@@ -191,6 +218,8 @@
                         'image_id': '{{image.id}}',
                         'initial_bboxes': JSON.stringify(bboxes),
                         'annotations': JSON.stringify(anno.getAnnotations()),
+                        'social_media_worthy': document.getElementById('social-media-worthy').checked,
+                        'staff_review_needed': document.getElementById('staff-review-needed').checked,
                         'csrfmiddlewaretoken': csrftoken,
                     },
                     dataType: 'json',

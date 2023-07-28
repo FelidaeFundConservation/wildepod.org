@@ -3,7 +3,8 @@ from typing import Any, Dict
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
-from images.models import Activity, ActivityType, Annotator, BoundingBox, Category, Image, Species, SpeciesName
+from images.models import (Activity, ActivityType, Annotator, BoundingBox,
+                           Category, Image, Species, SpeciesName)
 
 # TODO: This entire module is very hacky and needs to be refactored
 
@@ -83,6 +84,7 @@ def process_md_annotations(
     initial_bboxes: list,
     user: settings.AUTH_USER_MODEL,
     social_media_worthy: bool = False,
+    staff_review_needed: bool= False,
     skip: bool = False,
 ):
     """Function to process a list of annotations for MegaDetector's Object Detection model
@@ -100,6 +102,12 @@ def process_md_annotations(
     image = Image.objects.get(id=image_id)
     logging.info("Successfully retrieved image object")
 
+    # Update the staff review flag
+    if staff_review_needed:
+        image.staff_review_needed = True
+    else:
+        image.staff_review_needed = False
+    
     # If the user skipped this, add the user to the image skipped list & move on
     if skip:
         logging.info("User skipped this image. Adding to skipped list")
@@ -221,6 +229,7 @@ def process_species_annotations(
     initial_bboxes: list,
     user: settings.AUTH_USER_MODEL,
     social_media_worthy: bool = False,
+    staff_review_needed: bool= False,
     skip: bool = False,
 ) -> bool:
     """Function to process a list of annotations for MegaDetector's Object Detection model
@@ -237,6 +246,12 @@ def process_species_annotations(
     image = Image.objects.get(id=image_id)
     logging.info("Successfully retrieved image object")
 
+    # Update the staff review flag
+    if staff_review_needed:
+        image.staff_review_needed = True
+    else:
+        image.staff_review_needed = False
+    
     # If the user skipped this, add the user to the image skipped list & move on
     if skip:
         logging.info("User skipped this image. Adding to skipped list")

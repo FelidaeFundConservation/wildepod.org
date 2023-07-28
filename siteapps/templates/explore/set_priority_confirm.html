@@ -28,7 +28,74 @@
             </div>
             {% endif %}
             <h2>Confirm Update</h2>
-            <p>{{ message }}</p>
+            <br>
+            <div id="upload-count-text" class="alert alert-warning" role="alert">
+                {{ message }}
+            </div>
+            <br>
+            {% if downgrade_set %}
+                <text style="font-size: 24px"><b>Downgrade Priority To 'High'</b></text><br>
+                <text><i>({{ num_records_to_downgrade }} sets with {{ downgrade_sets_image_count }} images total)</i></text>
+                <br>
+                <text style="font-size: 12px;"><i>*Only one group of sets can be Highest priority at once. The old sets will be pushed down to High priority.</i></text>
+                <table style="margin-top: 15px">
+                    <thead>
+                        <tr>
+                            <th scope="col">Set ID</th>
+                            <th scope="col">Station ID</th>
+                            <th scope="col">Microsite</th>
+                            <th scope="col">Macrosite</th>
+                            <th scope="col">Old Priority</th>
+                            <th scope="col">New Priority</th>
+                            <th scope="col">Image Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for set in downgrade_set %}
+                            <tr>
+                                <td>{{ set.id }}</td>
+                                <td>{{ set.camera_station.station_id }}</td>
+                                <td>{{ set.camera_station.micro_site }}</td>
+                                <td>{{ set.camera_station.micro_site.macro_site }}</td>
+                                <td>{{ set.get_priority_display }}</td>
+                                <td style="color: red"><b>High</b></td>
+                                <td>{{ set.images.all.count }}</td>
+                            </tr>
+                        {% endfor %}
+                    <tbody>
+                </table>
+                <hr>
+            {% endif %}
+            <text style="font-size: 24px"><b>Change Priority To '{{ new_priority_display }}'</b></text><br>
+            <text><i>({{ num_records_to_update }} sets with {{ update_sets_image_count }} images total)</i></text>
+            <table>
+                <thead>
+                    <tr>
+                        <th scope="col">Set ID</th>
+                        <th scope="col">Station ID</th>
+                        <th scope="col">Microsite</th>
+                        <th scope="col">Macrosite</th>
+                        <th scope="col">Old Priority</th>
+                        <th scope="col">New Priority</th>
+                        <th scope="col">Image Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for set in search_set %}
+                        <tr>
+                            <td>{{ set.id }}</td>
+                            <td>{{ set.camera_station.station_id }}</td>
+                            <td>{{ set.camera_station.micro_site }}</td>
+                            <td>{{ set.camera_station.micro_site.macro_site }}</td>
+                            <td>{{ set.get_priority_display }}</td>
+                            <td style="color: {% if new_priority < set.priority %}red{% elif new_priority > set.priority %}green{% endif %}">
+                                <b>{{ new_priority_display }}</b>
+                            </td>
+                            <td>{{ set.images.all.count }}</td>
+                        </tr>
+                    {% endfor %}
+                <tbody>
+            </table>
             <div class="row justify-content-center">
             <form id="my-form" method="post" action="{% url 'explore:confirm_update' %}">
                 {% csrf_token %}

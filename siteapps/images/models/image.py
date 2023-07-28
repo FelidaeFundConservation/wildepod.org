@@ -105,6 +105,9 @@ class Image(TimeStampedModel):
     activity_checked_by = models.ManyToManyField(Annotator, related_name="checked_bbox_for_activity", blank=True)
     activity_skipped_by = models.ManyToManyField(Annotator, related_name="skipped_bbox_for_activity", blank=True)
 
+    # Flag for Staff Review. This field is used to indicate images that should be reviewed later by staff users.
+    staff_review_needed = models.BooleanField(default=False)
+
     # Custom manager
     objects = ImageManager()
 

@@ -60,6 +60,19 @@
                     for="social-media-worthy"
                 >
                     &nbsp; Social Media Worthy?
+                </label>
+                &emsp;&emsp;&emsp;&emsp;&emsp;              
+                <input
+                    class="form-check-input"
+                    type="checkbox"
+                    {% if staff_review_needed %}checked="checked"{% endif %}
+                    id="staff-review-needed"                    
+                >
+                <label
+                    class="form-check-label"
+                    for="staff-review-needed"
+                >
+                    &nbsp; Flag for Staff Review?
                 </label>                
             </div>
         </form>
@@ -166,10 +179,12 @@
 <!-- Bootstrap -->
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"></script>
 <script>
-    
     document.querySelector('label[for="social-media-worthy"]').addEventListener('click', function(event) {
-event.preventDefault();
-});
+        event.preventDefault();
+    });
+    document.querySelector('label[for="staff-review-needed"]').addEventListener('click', function(event) {
+        event.preventDefault();
+    });
 </script>
 
 
@@ -219,12 +234,14 @@ event.preventDefault();
                 }
 
                 if (skip) {
+                    data['staff_review_needed'] = document.getElementById('staff-review-needed').checked;
                     data['skip'] = true;
                 }
                 else {
                     data['initial_bboxes'] = JSON.stringify(bboxes);
                     data['annotations'] = JSON.stringify(anno.getAnnotations());
                     data['social_media_worthy'] = document.getElementById('social-media-worthy').checked;
+                    data['staff_review_needed'] = document.getElementById('staff-review-needed').checked;
                 }
 
                 // Send back all the bbox ids back to the server to log bbox deletions

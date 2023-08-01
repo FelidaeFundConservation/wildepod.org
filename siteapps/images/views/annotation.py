@@ -535,7 +535,6 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
             has_vehicles = any(
                 annotation.get("value") == "vehicle" for item in annotations for annotation in item.get("body", [])
             )
-            category_pipeline_complete = False
 
             # Check if the image was tagged as social media worthy
             social_media_worthy = request.POST.get("social_media_worthy")
@@ -559,7 +558,6 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
                     "has_humans": has_humans,
                     "has_animals": has_animals,
                     "has_vehicles": has_vehicles,
-                    "category_pipeline_complete": category_pipeline_complete,
                 },
             )
 

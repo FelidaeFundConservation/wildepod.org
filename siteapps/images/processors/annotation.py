@@ -3,9 +3,11 @@ from typing import Any, Dict
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import Count, Sum
 from images.models import Activity, ActivityType, Annotator, BoundingBox, Category, Image, Species, SpeciesName
 
 # TODO: This entire module is very hacky and needs to be refactored
+VOTE_DIFF_THRESHOLD = 1
 
 
 def flatten_annotorious_annotations(annotations: list) -> dict:
@@ -107,7 +109,6 @@ def process_md_annotations(
         image.has_humans = precomputed_flags["has_humans"]
         image.has_animals = precomputed_flags["has_animals"]
         image.has_vehicles = precomputed_flags["has_vehicles"]
-        image.category_pipeline_complete = precomputed_flags["category_pipeline_complete"]
 
     # Update the staff review flag
     if staff_review_needed:
@@ -222,6 +223,24 @@ def process_md_annotations(
 
     # Set image to "checked" by the annotator
     image.bbox_checked_by.add(annotator)
+
+    # Compute and update pipeline completion flag
+    total_accepted_by_count = Category.objects.filter(
+        bounding_box__in=BoundingBox.objects.filter(image=image)
+    ).aggregate(total_accepted_by_count=Count("accepted_by", distinct=True))["total_accepted_by_count"]
+
+    total_rejected_by_count = Category.objects.filter(
+        bounding_box__in=BoundingBox.objects.filter(image=image)
+    ).aggregate(total_rejected_by_count=Count("rejected_by", distinct=True))["total_rejected_by_count"]
+
+    # Get the difference between accepted/rejected votes.
+    vote_diff = abs(total_accepted_by_count - total_rejected_by_count)
+
+    # Mark as completed if threshold met, or staff/expert user has voted.
+    image.category_pipeline_complete = bool(
+        vote_diff > VOTE_DIFF_THRESHOLD or annotator.human.is_staff or user.is_expert
+    )
+
     image.save()
 
     logging.info("Successfully updated all bounding boxes")

@@ -671,7 +671,7 @@ class ActivityAnnotationProcessorView(LoginRequiredMixin, View):
         if success:
             # Get the annotation queue cached in the datastore
             if activity_category == CATEGORY_HUMAN:
-                query_name = ACTIVITY_HUMAN_QUEUE_NAME
+                queue_name = ACTIVITY_HUMAN_QUEUE_NAME
             else:
                 queue_name = ACTIVITY_ANIMAL_QUEUE_NAME
             

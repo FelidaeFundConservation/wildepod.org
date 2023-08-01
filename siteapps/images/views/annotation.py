@@ -14,13 +14,19 @@ from django.urls import reverse
 from django.views.generic import FormView
 from django.views.generic.base import TemplateView, View
 from images.forms import AnnotationForm
-from images.models import (Activity, ActivityType, Annotator, BoundingBox,
-                           Category, Image, Species, SpeciesName,
-                           get_object_annotation_images)
+from images.models import (
+    Activity,
+    ActivityType,
+    Annotator,
+    BoundingBox,
+    Category,
+    Image,
+    Species,
+    SpeciesName,
+    get_object_annotation_images,
+)
 from images.models.custom_fields import get_filter_params
-from images.processors import (process_activity_annotations,
-                               process_md_annotations,
-                               process_species_annotations)
+from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
 from locations.models import CameraStation, MacroSite, MicroSite
 
 MAX_VOTES_PER_IMAGE = 2
@@ -507,7 +513,9 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
             staff_review_needed = request.POST.get("staff_review_needed")
             staff_review_needed = bool(staff_review_needed and staff_review_needed == "true")
             # Process the annotations
-            success = process_md_annotations(image_id, annotations, initial_bboxes, request.user, False, staff_review_needed, skip)
+            success = process_md_annotations(
+                image_id, annotations, initial_bboxes, request.user, False, staff_review_needed, skip
+            )
         else:
             # Get bounding box ids that were sent to infer deleted annotations
             initial_bboxes = request.POST.get("initial_bboxes")
@@ -516,6 +524,18 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
             # Get the annotation paylaod from the request and convert it to a dict
             annotations = request.POST.get("annotations")
             annotations = json.loads(annotations)
+
+            # Compute pipeline stage related flags for category annotations.
+            has_humans = any(
+                annotation.get("value") == "person" for item in annotations for annotation in item.get("body", [])
+            )
+            has_animals = any(
+                annotation.get("value") == "animal" for item in annotations for annotation in item.get("body", [])
+            )
+            has_vehicles = any(
+                annotation.get("value") == "vehicle" for item in annotations for annotation in item.get("body", [])
+            )
+            category_pipeline_complete = False
 
             # Check if the image was tagged as social media worthy
             social_media_worthy = request.POST.get("social_media_worthy")
@@ -528,7 +548,19 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
             logging.info(f"Processing bounding box annotations for image '{image_id}' by user - '{request.user.name}'")
             # Process the annotations
             success = process_md_annotations(
-                image_id, annotations, initial_bboxes, request.user, social_media_worthy, staff_review_needed, False
+                image_id,
+                annotations,
+                initial_bboxes,
+                request.user,
+                social_media_worthy,
+                staff_review_needed,
+                skip=False,
+                precomputed_flags={
+                    "has_humans": has_humans,
+                    "has_animals": has_animals,
+                    "has_vehicles": has_vehicles,
+                    "category_pipeline_complete": category_pipeline_complete,
+                },
             )
 
         # If success, update image index in the datastore

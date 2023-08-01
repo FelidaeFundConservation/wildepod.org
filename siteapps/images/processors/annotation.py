@@ -3,8 +3,7 @@ from typing import Any, Dict
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
-from images.models import (Activity, ActivityType, Annotator, BoundingBox,
-                           Category, Image, Species, SpeciesName)
+from images.models import Activity, ActivityType, Annotator, BoundingBox, Category, Image, Species, SpeciesName
 
 # TODO: This entire module is very hacky and needs to be refactored
 
@@ -84,8 +83,9 @@ def process_md_annotations(
     initial_bboxes: list,
     user: settings.AUTH_USER_MODEL,
     social_media_worthy: bool = False,
-    staff_review_needed: bool= False,
+    staff_review_needed: bool = False,
     skip: bool = False,
+    precomputed_flags: dict = None,
 ):
     """Function to process a list of annotations for MegaDetector's Object Detection model
 
@@ -102,12 +102,19 @@ def process_md_annotations(
     image = Image.objects.get(id=image_id)
     logging.info("Successfully retrieved image object")
 
+    # Update pipeline stage-related flags
+    if precomputed_flags:
+        image.has_humans = precomputed_flags["has_humans"]
+        image.has_animals = precomputed_flags["has_animals"]
+        image.has_vehicles = precomputed_flags["has_vehicles"]
+        image.category_pipeline_complete = precomputed_flags["category_pipeline_complete"]
+
     # Update the staff review flag
     if staff_review_needed:
         image.staff_review_needed = True
     else:
         image.staff_review_needed = False
-    
+
     # If the user skipped this, add the user to the image skipped list & move on
     if skip:
         logging.info("User skipped this image. Adding to skipped list")
@@ -229,7 +236,7 @@ def process_species_annotations(
     initial_bboxes: list,
     user: settings.AUTH_USER_MODEL,
     social_media_worthy: bool = False,
-    staff_review_needed: bool= False,
+    staff_review_needed: bool = False,
     skip: bool = False,
 ) -> bool:
     """Function to process a list of annotations for MegaDetector's Object Detection model
@@ -251,7 +258,7 @@ def process_species_annotations(
         image.staff_review_needed = True
     else:
         image.staff_review_needed = False
-    
+
     # If the user skipped this, add the user to the image skipped list & move on
     if skip:
         logging.info("User skipped this image. Adding to skipped list")

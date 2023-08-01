@@ -591,6 +591,27 @@ class SpeciesAnnotationProcessorView(LoginRequiredMixin, View):
         annotations = request.POST.get("annotations")
         annotations = json.loads(annotations)
 
+        # Compute pipeline stage related flags for species annotations.
+        NON_WILD_SPECIES = [
+            "Cyclist",
+            "Domestic cat",
+            "Domestic dog",
+            "Domestic horse",
+            "Goat (domestic)",
+            "Horse rider",
+            "Human",
+            "Motorized vehicle",
+            "Non motorized vehicle (bike)",
+            "Sheep (domestic)",
+            "Unknown",
+        ]  # Hard-coded non-wild species list for now.
+
+        has_wild_animals = any(
+            annotation.get("value") not in NON_WILD_SPECIES
+            for item in annotations
+            for annotation in item.get("body", [])
+        )
+
         # Check if the image was tagged as social media worthy
         social_media_worthy = request.POST.get("social_media_worthy")
         social_media_worthy = True if social_media_worthy and social_media_worthy == "true" else False
@@ -602,7 +623,16 @@ class SpeciesAnnotationProcessorView(LoginRequiredMixin, View):
         # # Process the annotations
         # logging.info(f"Processing species for Image '{image_id}' by user - '{request.user.name}'")
         success = process_species_annotations(
-            image_id, annotations, initial_bboxes, request.user, social_media_worthy, staff_review_needed, skip=skip
+            image_id,
+            annotations,
+            initial_bboxes,
+            request.user,
+            social_media_worthy,
+            staff_review_needed,
+            skip=skip,
+            precomputed_flags={
+                "has_wild_animals": has_wild_animals,
+            },
         )
 
         # If success, update image index in the datastore

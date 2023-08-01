@@ -7,7 +7,7 @@ from django.db.models import Count, Sum
 from images.models import Activity, ActivityType, Annotator, BoundingBox, Category, Image, Species, SpeciesName
 
 # TODO: This entire module is very hacky and needs to be refactored
-VOTE_DIFF_THRESHOLD = 1
+VOTE_DIFFERENCE_THRESHOLD = 1
 
 
 def flatten_annotorious_annotations(annotations: list) -> dict:
@@ -224,7 +224,7 @@ def process_md_annotations(
     # Set image to "checked" by the annotator
     image.bbox_checked_by.add(annotator)
 
-    # Compute and update pipeline completion flag
+    # Compute and update category pipeline completion flag
     total_accepted_by_count = Category.objects.filter(
         bounding_box__in=BoundingBox.objects.filter(image=image)
     ).aggregate(total_accepted_by_count=Count("accepted_by", distinct=True))["total_accepted_by_count"]
@@ -233,16 +233,14 @@ def process_md_annotations(
         bounding_box__in=BoundingBox.objects.filter(image=image)
     ).aggregate(total_rejected_by_count=Count("rejected_by", distinct=True))["total_rejected_by_count"]
 
-    # Get the difference between accepted/rejected votes.
-    vote_diff = abs(total_accepted_by_count - total_rejected_by_count)
+    vote_difference = abs(total_accepted_by_count - total_rejected_by_count)
 
     # Mark as completed if threshold met, or staff/expert user has voted.
     image.category_pipeline_complete = bool(
-        vote_diff > VOTE_DIFF_THRESHOLD or annotator.human.is_staff or user.is_expert
+        vote_difference > VOTE_DIFFERENCE_THRESHOLD or annotator.human.is_staff or user.is_expert
     )
 
     image.save()
-
     logging.info("Successfully updated all bounding boxes")
     return True
 
@@ -257,6 +255,7 @@ def process_species_annotations(
     social_media_worthy: bool = False,
     staff_review_needed: bool = False,
     skip: bool = False,
+    precomputed_flags: dict = None,
 ) -> bool:
     """Function to process a list of annotations for MegaDetector's Object Detection model
 
@@ -271,6 +270,10 @@ def process_species_annotations(
     # Add the annotator to the image's viewed by list
     image = Image.objects.get(id=image_id)
     logging.info("Successfully retrieved image object")
+
+    # Update pipeline stage-related flags
+    if precomputed_flags:
+        image.has_wild_animals = precomputed_flags["has_wild_animals"]
 
     # Update the staff review flag
     if staff_review_needed:
@@ -325,8 +328,24 @@ def process_species_annotations(
 
     # Set image to "checked" by the annotator
     image.species_checked_by.add(annotator)
-    image.save()
 
+    # Compute and update species pipeline completion flag
+    total_accepted_by_count = Species.objects.filter(
+        bounding_box__in=BoundingBox.objects.filter(image=image)
+    ).aggregate(total_accepted_by_count=Count("accepted_by", distinct=True))["total_accepted_by_count"]
+
+    total_rejected_by_count = Species.objects.filter(
+        bounding_box__in=BoundingBox.objects.filter(image=image)
+    ).aggregate(total_rejected_by_count=Count("rejected_by", distinct=True))["total_rejected_by_count"]
+
+    vote_difference = abs(total_accepted_by_count - total_rejected_by_count)
+
+    # Mark as completed if threshold met, or staff/expert user has voted.
+    image.species_pipeline_complete = bool(
+        vote_difference > VOTE_DIFFERENCE_THRESHOLD or annotator.human.is_staff or user.is_expert
+    )
+
+    image.save()
     logging.info("Successfully updated all bounding boxes")
     return True
 
@@ -396,7 +415,23 @@ def process_activity_annotations(
 
     # Set image to "checked" by the annotator
     image.activity_checked_by.add(annotator)
-    image.save()
 
+    # Compute and update activity pipeline completion flag
+    total_accepted_by_count = Activity.objects.filter(
+        bounding_box__in=BoundingBox.objects.filter(image=image)
+    ).aggregate(total_accepted_by_count=Count("accepted_by", distinct=True))["total_accepted_by_count"]
+
+    total_rejected_by_count = Activity.objects.filter(
+        bounding_box__in=BoundingBox.objects.filter(image=image)
+    ).aggregate(total_rejected_by_count=Count("rejected_by", distinct=True))["total_rejected_by_count"]
+
+    vote_difference = abs(total_accepted_by_count - total_rejected_by_count)
+
+    # Mark as completed if threshold met, or staff/expert user has voted.
+    image.activity_pipeline_complete = bool(
+        vote_difference > VOTE_DIFFERENCE_THRESHOLD or annotator.human.is_staff or user.is_expert
+    )
+
+    image.save()
     logging.info("Successfully updated all bounding boxes")
     return True

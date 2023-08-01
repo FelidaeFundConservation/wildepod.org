@@ -148,7 +148,7 @@ class AnnotationForm(forms.Form):
         ("blank", "Annotate Blanks"),
     ]
 
-    annotation_choices = forms.ChoiceField(choices=criteria, widget=forms.RadioSelect, label="Annotation Criteria")
+    annotation_choices = forms.ChoiceField(choices=criteria, widget=forms.RadioSelect, label="Annotation Criteria", initial="blank")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

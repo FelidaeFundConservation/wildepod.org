@@ -26,7 +26,11 @@ from locations.models import CameraStation, MacroSite, MicroSite
 MAX_VOTES_PER_IMAGE = 2
 CATEGORY_ANIMAL = "animal"
 CATEGORY_HUMAN = "human"
-
+CUSTOM_PREFIX = "Custom"
+OBJECTS_QUEUE_NAME = "AnnotateObjectsQueue"
+SPECIES_QUEUE_NAME = "AnnotateSpeciesQueue"
+ACTIVITY_HUMAN_QUEUE_NAME = "AnnotateHumanBehaviorQueue"
+ACTIVITY_ANIMAL_QUEUE_NAME = "AnnotateAnimalActivityQueue"
 
 class BboxAnnotationInfo:
     def __init__(self, id, categories, species, activities):
@@ -58,16 +62,25 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         # First get the annotator object for the user
         annotator, _ = Annotator.objects.get_or_create(type="human", human=self.request.user)
-        # Get the annotation queue cached in the datastore
-        queue_key = settings.DATASTORE_CLIENT.key("AnnotateObjectsQueue", str(self.request.user.id))
-        queue = settings.DATASTORE_CLIENT.get(queue_key)
+        
+        # Check if we're doing custom annotations
+        custom_annotations = self.request.GET.get("custom", None) == "true"
 
-        if not self.filterset["macrosite"] and (
+        # Get the annotation queue cached in the datastore
+        queue_name = OBJECTS_QUEUE_NAME
+        if custom_annotations:
+            queue_name = CUSTOM_PREFIX + queue_name
+        queue_key = settings.DATASTORE_CLIENT.key(queue_name, str(self.request.user.id))
+        queue = settings.DATASTORE_CLIENT.get(queue_key)
+        # Check if we have a valid cached queue of images
+        queue_available = (
             queue
             and datetime.datetime.fromisoformat(queue["expires_at"]) > datetime.datetime.now()
             and queue["index"] < len(queue["images"])
-        ):
-            # Get the image id
+        )
+
+        if queue_available:
+            # Get the next image_id from the existing queue
             image_id = queue["images"][queue["index"]]
         else:
             # Get the images to annotate. Check raw sql to see how this is done
@@ -140,6 +153,7 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
             infoList.append(BboxAnnotationInfo(bbox.id, categories, species, activities))
 
         context["bbox_all_annotations"] = infoList
+        context["custom_annotations"] = custom_annotations
 
         return context
 
@@ -167,16 +181,27 @@ class CustomAnnotationView(LoginRequiredMixin, FormView, TemplateView):
             if annotation_choices == "species":
                 url = (
                     reverse("images:annotate_species")
-                    + f"?start_date={start_date}&end_date={end_date}&macrosite_name={macrosite_name}&camera_id={camera_id}"
+                    + f"?custom=true&start_date={start_date}&end_date={end_date}&macrosite_name={macrosite_name}&camera_id={camera_id}"
                 )
+                queue_name = CUSTOM_PREFIX + SPECIES_QUEUE_NAME
             elif annotation_choices == "human" or annotation_choices == "animal":
                 url = reverse("images:annotate_activity", kwargs={"category": annotation_choices})
-                url += f"?start_date={start_date}&end_date={end_date}&macrosite_name={macrosite_name}&camera_id={camera_id}"
+                url += f"?custom=true&start_date={start_date}&end_date={end_date}&macrosite_name={macrosite_name}&camera_id={camera_id}"
+                if annotation_choices == "human":
+                    queue_name = CUSTOM_PREFIX + ACTIVITY_HUMAN_QUEUE_NAME
+                else:
+                    queue_name = CUSTOM_PREFIX + ACTIVITY_ANIMAL_QUEUE_NAME
             else:
+                queue_name = CUSTOM_PREFIX + OBJECTS_QUEUE_NAME
                 url = (
                     reverse("images:annotate_objects")
-                    + f"?start_date={start_date}&end_date={end_date}&macrosite_name={macrosite_name}&camera_id={camera_id}"
+                    + f"?custom=true&start_date={start_date}&end_date={end_date}&macrosite_name={macrosite_name}&camera_id={camera_id}"
                 )
+            
+            # Clear the queue since we're starting a new Custom Annotation set
+            queue_key = settings.DATASTORE_CLIENT.key(queue_name, str(self.request.user.id))
+            settings.DATASTORE_CLIENT.delete(queue_key)
+
             return redirect(url)
 
 
@@ -201,16 +226,23 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
         # First get the annotator object for the user
         annotator, _ = Annotator.objects.get_or_create(type="human", human=self.request.user)
 
-        # Get the annotation queue cached in the datastore
-        queue_key = settings.DATASTORE_CLIENT.key("AnnotateSpeciesQueue", str(self.request.user.id))
-        queue = settings.DATASTORE_CLIENT.get(queue_key)
+        # Check if we're doing custom annotations
+        custom_annotations = self.request.GET.get("custom", None) == "true"
 
-        # If a valid object exists and if it is not expired and if the index points to a valid image, serve it
-        if (not hasattr(self, "macrosite_name") or self.macrosite_name is None) and (
+        # Get the annotation queue cached in the datastore
+        queue_name = SPECIES_QUEUE_NAME
+        if custom_annotations:
+            queue_name = CUSTOM_PREFIX + queue_name
+        queue_key = settings.DATASTORE_CLIENT.key(queue_name, str(self.request.user.id))
+        queue = settings.DATASTORE_CLIENT.get(queue_key)
+        # Check if we have a valid cached queue of images
+        queue_available = (
             queue
             and datetime.datetime.fromisoformat(queue["expires_at"]) > datetime.datetime.now()
             and queue["index"] < len(queue["images"])
-        ):
+        )
+
+        if queue_available:
             # Get the image id
             image_id = queue["images"][queue["index"]]
         else:
@@ -327,6 +359,7 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
             infoList.append(BboxAnnotationInfo(bbox.id, categories, species, activities))
 
         context["bbox_all_annotations"] = infoList
+        context["custom_annotations"] = custom_annotations
 
         return context
 
@@ -353,20 +386,28 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
         # First get the annotator object for the user
         annotator, _ = Annotator.objects.get_or_create(type="human", human=self.request.user)
 
-        # Get the annotation queue cached in the datastore
+        # Check if we're doing custom annotations
+        custom_annotations = self.request.GET.get("custom", None) == "true"
+
+        # Get the annotation queue based on the selections
         if context["activity_category"] == CATEGORY_HUMAN:
-            queue_key = settings.DATASTORE_CLIENT.key("AnnotateHumanBehaviorQueue", str(self.request.user.id))
+            queue_name = ACTIVITY_HUMAN_QUEUE_NAME
         else:
-            queue_key = settings.DATASTORE_CLIENT.key("AnnotateAnimalActivityQueue", str(self.request.user.id))
+            queue_name = ACTIVITY_ANIMAL_QUEUE_NAME
 
+        if custom_annotations:
+            queue_name = CUSTOM_PREFIX + queue_name
+        queue_key = settings.DATASTORE_CLIENT.key(queue_name, str(self.request.user.id))
         queue = settings.DATASTORE_CLIENT.get(queue_key)
-
-        # If a valid object exists and if it is not expired and if the index points to a valid image, serve it
-        if (not hasattr(self, "macrosite_name") or self.macrosite_name is None) and (
+        # Check if we have a valid cached queue of images
+        queue_available = (
             queue
             and datetime.datetime.fromisoformat(queue["expires_at"]) > datetime.datetime.now()
             and queue["index"] < len(queue["images"])
-        ):
+        )
+
+        # If a valid object exists and if it is not expired and if the index points to a valid image, serve it
+        if queue_available:
             # Get the image id
             image_id = queue["images"][queue["index"]]
         else:
@@ -487,6 +528,7 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
             infoList.append(BboxAnnotationInfo(bbox.id, categories, species, activities))
 
         context["bbox_all_annotations"] = infoList
+        context["custom_annotations"] = custom_annotations
 
         return context
 
@@ -533,9 +575,15 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
 
         # If success, update image index in the datastore
         if success:
-            # Get the queue entity
+            # Check if we're doing custom annotations
+            custom_annotations = request.POST.get("custom_annotations", False) == "True"
+
+            # Get the annotation queue cached in the datastore
+            queue_name = OBJECTS_QUEUE_NAME
+            if custom_annotations:
+                queue_name = CUSTOM_PREFIX + queue_name
             queue = settings.DATASTORE_CLIENT.get(
-                settings.DATASTORE_CLIENT.key("AnnotateObjectsQueue", str(request.user.id))
+                settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id))
             )
             # Update the index
             queue["index"] += 1
@@ -577,10 +625,17 @@ class SpeciesAnnotationProcessorView(LoginRequiredMixin, View):
 
         # If success, update image index in the datastore
         if success:
-            # Get the queue entity
+            # Check if we're doing custom annotations
+            custom_annotations = request.POST.get("custom_annotations", False) == "True"
+
+            # Get the annotation queue cached in the datastore
+            queue_name = SPECIES_QUEUE_NAME
+            if custom_annotations:
+                queue_name = CUSTOM_PREFIX + queue_name
             queue = settings.DATASTORE_CLIENT.get(
-                settings.DATASTORE_CLIENT.key("AnnotateSpeciesQueue", str(request.user.id))
+                settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id))
             )
+
             # Update the index
             queue["index"] += 1
             # Update the datastore
@@ -614,12 +669,21 @@ class ActivityAnnotationProcessorView(LoginRequiredMixin, View):
 
         # If success, update image index in the datastore
         if success:
+            # Get the annotation queue cached in the datastore
             if activity_category == CATEGORY_HUMAN:
-                queue_key = settings.DATASTORE_CLIENT.key("AnnotateHumanBehaviorQueue", str(self.request.user.id))
+                query_name = ACTIVITY_HUMAN_QUEUE_NAME
             else:
-                queue_key = settings.DATASTORE_CLIENT.key("AnnotateAnimalActivityQueue", str(self.request.user.id))
-            # Get the queue entity
-            queue = settings.DATASTORE_CLIENT.get(queue_key)
+                queue_name = ACTIVITY_ANIMAL_QUEUE_NAME
+            
+            # Check if we're doing custom annotations
+            custom_annotations = request.POST.get("custom_annotations", False) == "True"
+            if custom_annotations:
+                queue_name = CUSTOM_PREFIX + queue_name
+
+            queue = settings.DATASTORE_CLIENT.get(
+                settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id))
+            )
+
             # Update the index
             queue["index"] += 1
             # Update the datastore

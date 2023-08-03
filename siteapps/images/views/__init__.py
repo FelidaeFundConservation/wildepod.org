@@ -5,6 +5,7 @@ from .annotation import (
     AnnotateSpeciesView,
     ChangeAnnotationView,
     CustomAnnotationView,
+    DebugAnnotationsPipelineView,
     DeleteAnnotationView,
     MDAnnotationProcessorView,
     SpeciesAnnotationProcessorView,

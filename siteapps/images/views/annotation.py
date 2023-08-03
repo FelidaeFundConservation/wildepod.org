@@ -7,7 +7,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import Exists, OuterRef, Q
+from django.db.models import Count, Exists, OuterRef, Q
 from django.http.response import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -30,6 +30,8 @@ from images.processors import process_activity_annotations, process_md_annotatio
 from locations.models import CameraStation, MacroSite, MicroSite
 
 MAX_VOTES_PER_IMAGE = 2
+VOTE_THRESHOLD = 1
+
 CATEGORY_ANIMAL = "animal"
 CATEGORY_HUMAN = "human"
 
@@ -706,3 +708,204 @@ class ChangeAnnotationView(LoginRequiredMixin, View):
             success = False
 
         return JsonResponse({"success": success, "oldName": annotationName, "newName": newAnnotationName})
+
+
+class DebugAnnotationsPipelineView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        image_id = request.POST.get("image_id")
+        annotator = request.POST.get("annotator")
+
+        image = Image.objects.get(id=image_id)
+        user = request.user
+        annotator = Annotator.objects.get(type="human", human=user)
+
+        ###########################
+        # Category Flag Checks
+        ###########################
+        category_annotations = Category.objects.filter(
+            bounding_box__in=BoundingBox.objects.filter(image=image)
+        ).annotate(
+            accepted_count=Count("accepted_by"),
+            rejected_count=Count("rejected_by"),
+            vote_difference=Count("accepted_by") - Count("rejected_by"),
+        )
+
+        category_has_uncertain_annotation = category_annotations.filter(
+            vote_difference__gt=-VOTE_THRESHOLD, vote_difference__lt=VOTE_THRESHOLD
+        ).exists()
+
+        if (
+            (not category_has_uncertain_annotation or annotator.human.is_staff or user.is_expert)
+            and image.processed
+            and BoundingBox.objects.filter(image=image).count() > 0
+        ):
+            image.has_humans = category_annotations.filter(name="person").exists()
+            image.has_animals = category_annotations.filter(name="animal").exists()
+            image.has_vehicles = category_annotations.filter(name="vehicle").exists()
+
+            image.category_pipeline_complete = True
+
+        category_annotations_info = []
+        for category in list(category_annotations):
+            category_annotations_info.append(
+                {
+                    "name": category.name,
+                    "accepted_count": category.accepted_count,
+                    "rejected_count": category.rejected_count,
+                }
+            )
+
+        category_debug_data = {
+            "category_annotations": category_annotations_info,
+            "flag_checks": {
+                "or_checks": {
+                    "category_has_uncertain": category_has_uncertain_annotation,
+                    "is_staff": annotator.human.is_staff,
+                    "is_expert": user.is_expert,
+                },
+                "processed": image.processed,
+                "bounding_boxes_gte_zero": BoundingBox.objects.filter(image=image).count() > 0,
+            },
+            "pipeline_flags": {
+                "has_humans": image.has_humans,
+                "has_animals": image.has_animals,
+                "has_vehicles": image.has_vehicles,
+                "category_pipeline_complete": image.category_pipeline_complete,
+            },
+        }
+
+        ###########################
+        # Species Flag Checks
+        ###########################
+        species_annotations = Species.objects.filter(bounding_box__in=BoundingBox.objects.filter(image=image)).annotate(
+            accepted_count=Count("accepted_by"),
+            rejected_count=Count("rejected_by"),
+            vote_difference=Count("accepted_by") - Count("rejected_by"),
+        )
+
+        species_has_uncertain_annotation = species_annotations.filter(
+            vote_difference__gt=-VOTE_THRESHOLD, vote_difference__lt=VOTE_THRESHOLD
+        ).exists()
+
+        species_has_valid_annotation = species_annotations.filter(vote_difference__gte=VOTE_THRESHOLD).exists()
+
+        NON_WILD_SPECIES = [
+            "Cyclist",
+            "Domestic cat",
+            "Domestic dog",
+            "Domestic horse",
+            "Goat (domestic)",
+            "Horse rider",
+            "Human",
+            "Motorized vehicle",
+            "Non motorized vehicle (bike)",
+            "Sheep (domestic)",
+            "Unknown",
+        ]
+
+        if (
+            not species_has_uncertain_annotation
+            and species_has_valid_annotation
+            and image.has_animals
+            and (
+                annotator.human.is_staff
+                or user.is_expert
+                or image.species_checked_by.all().count() >= MAX_VOTES_PER_IMAGE
+            )
+            and image.processed
+        ):
+            image.has_wild_animals = species_annotations.filter(~Q(name__name__in=NON_WILD_SPECIES)).exists()
+            image.species_pipeline_complete = True
+
+        species_annotations_info = []
+        for species in list(species_annotations):
+            species_annotations_info.append(
+                {
+                    "name": species.name.name,
+                    "accepted_count": species.accepted_count,
+                    "rejected_count": species.rejected_count,
+                }
+            )
+
+        species_debug_data = {
+            "species_annotations": species_annotations_info,
+            "flag_checks": {
+                "species_has_uncertain": species_has_uncertain_annotation,
+                "species_has_valid": species_has_valid_annotation,
+                "image_has_animals": image.has_animals,
+                "or_checks": {
+                    "checked_by": image.species_checked_by.all().count() >= MAX_VOTES_PER_IMAGE,
+                    "is_staff": annotator.human.is_staff,
+                    "is_expert": user.is_expert,
+                },
+                "processed": image.processed,
+            },
+            "pipeline_flags": {
+                "has_wild_animals": image.has_wild_animals,
+                "species_pipeline_complete": image.species_pipeline_complete,
+            },
+        }
+
+        ###########################
+        # Activity Flag Checks
+        ###########################
+        activity_annotations = Activity.objects.filter(
+            bounding_box__in=BoundingBox.objects.filter(image=image)
+        ).annotate(
+            accepted_count=Count("accepted_by"),
+            rejected_count=Count("rejected_by"),
+            vote_difference=Count("accepted_by") - Count("rejected_by"),
+        )
+
+        activity_has_uncertain_annotation = activity_annotations.filter(
+            vote_difference__gt=-VOTE_THRESHOLD, vote_difference__lt=VOTE_THRESHOLD
+        ).exists()
+
+        activity_has_valid_annotation = activity_annotations.filter(vote_difference__gte=VOTE_THRESHOLD).exists()
+
+        if (
+            not activity_has_uncertain_annotation
+            and activity_has_valid_annotation
+            and image.has_wild_animals
+            and (
+                annotator.human.is_staff
+                or user.is_expert
+                or image.activity_checked_by.all().count() >= MAX_VOTES_PER_IMAGE
+            )
+            and image.processed
+        ):
+            image.activity_pipeline_complete = True
+
+        activity_annotations_info = []
+        for activity in list(activity_annotations):
+            activity_annotations_info.append(
+                {
+                    "name": activity.name.name,
+                    "accepted_count": activity.accepted_count,
+                    "rejected_count": activity.rejected_count,
+                }
+            )
+
+        activity_debug_data = {
+            "activity_annotations": activity_annotations_info,
+            "flag_checks": {
+                "activity_has_uncertain": activity_has_uncertain_annotation,
+                "activity_has_valid": activity_has_valid_annotation,
+                "image_has_wild_animals": image.has_wild_animals,
+                "or_checks": {
+                    "is_staff": annotator.human.is_staff,
+                    "is_expert": user.is_expert,
+                    "checked_by": image.activity_checked_by.all().count() >= MAX_VOTES_PER_IMAGE,
+                },
+                "processed": image.processed,
+            },
+            "pipeline_flags": {"activity_pipeline_complete": image.activity_pipeline_complete},
+        }
+
+        return JsonResponse(
+            {
+                "category_debug_data": category_debug_data,
+                "species_debug_data": species_debug_data,
+                "activity_debug_data": activity_debug_data,
+            }
+        )

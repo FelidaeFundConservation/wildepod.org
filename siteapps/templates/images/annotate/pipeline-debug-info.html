@@ -1,0 +1,340 @@
+<div id="pipeline-debug-info" style="text-align: center; border-spacing: 30px;">
+        <div id=category-pipeline-info style="border: 1px solid black; padding: 10px">
+            <text style="font-size: 32px; padding: 10px;"><b>Category Stage</b></text>
+            <br>
+            <text><i>(Submit in debug mode to populate or update data.)</i></text>
+            <div style="margin: 10px">
+                <div style="border: 1px solid black; border-radius: 5px; text-align: center; padding: 10px">
+                    <div style="border: 1px solid black; border-radius: 5px; padding: 10px; margin: 10px">
+                        <text><b>Annotations</b></text>
+                        <div id="category-annotations">
+                        </div>
+                    </div>
+                    <div id="category-flag-checks" style="padding: 10px; border: 1px solid black; margin: 10px; border-radius: 5px;">
+                        <text><b>Completion Prerequisites</b></text>
+                        <div style="display: flex; justify-content: center">
+                            <div id="category-or-checks" style="border: 1px solid black; border-radius: 5px; padding: 10px; text-align: left; margin: 10px; width: 40%">
+                                <div><b><i><u>At least 1 of the following...</u></i></b></div>
+                                <div >
+                                    <i id="category-no-uncertain" class="bi bi-circle"></i>
+                                    No Uncertain Bounding Boxes
+                                </div>
+                                <div>
+                                    <i id="category-is-staff" class="bi bi-circle"></i>
+                                    Vote By Staff User
+                                </div>
+                                <div>
+                                    <i id="category-is-expert" class="bi bi-circle"></i>
+                                    Vote By Expert User
+                                </div>
+                            </div>
+                            <text style="font-size: 20px; margin: 30px;"><b>And...</b></text>
+                            <div id="category-and-checks" style="border: 1px solid black; border-radius: 5px; padding: 10px; text-align: left; margin: 10px; width: 40%">
+                                <div><b><i><u>All of the following...</u></i></b></div>
+                                <div>
+                                    <i id="category-processed" class="bi bi-circle"></i>
+                                    Image Processed By MegaDetector
+                                </div>
+                                <div>
+                                    <i id="category-bbox-gte" class="bi bi-circle"></i>
+                                    Image Has 1+ Bounding Boxes
+                                </div>
+                            </div>
+                        </div>
+                        <hr>
+                        <text><b>Flags</b></text>
+                        <br>
+                        <text style="font-size: 10px;"><i>(Flags should be only set once the above prerequisites are satisfied. Discrepancies may indicate incorrect pipeline movement.)</i></text>
+                        <div id="category-pipeline-flags" style="padding: 10px; text-align: left; margin: 10px; display: flex; justify-content: space-between">
+                            <div style="font-size: 20px">
+                                <i id="category-has-humans" class="bi bi-circle"></i>
+                                Has Humans
+                            </div>
+                            <div style="font-size: 20px">
+                                <i id="category-has-animals" class="bi bi-circle"></i>
+                                Has Animals
+                            </div>
+                            <div style="font-size: 20px">
+                                <i id="category-has-vehicles" class="bi bi-circle"></i>
+                                Has Vehicles
+                            </div>
+                            <div style="font-size: 20px">
+                                <i id="category-complete" class="bi bi-circle"></i>
+                                <b>Category Complete</b>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id=species-pipeline-info style="border: 1px solid black; padding: 10px">
+            <text style="font-size: 32px; padding: 10px;"><b>Species Stage</b></text>
+            <br>
+            <text><i>(Submit in debug mode to populate or update data.)</i></text>
+            <div style="margin: 10px">
+                <div style="border: 1px solid black; border-radius: 5px; text-align: center; padding: 10px">
+                    <div style="border: 1px solid black; border-radius: 5px; padding: 10px; margin: 10px">
+                        <text><b>Annotations</b></text>
+                        <div id="species-annotations">
+                        </div>
+                    </div>
+                    <div id="species-flag-checks" style="padding: 10px; border: 1px solid black; margin: 10px; border-radius: 5px;">
+                        <text><b>Completion Prerequisites</b></text>
+                        <div style="display: flex; justify-content: center">
+                            <div id="species-or-checks" style="border: 1px solid black; border-radius: 5px; padding: 10px; text-align: left; margin: 10px; width: 40%">
+                                <div><b><i><u>At least 1 of the following...</u></i></b></div>
+                                <div>
+                                    <i id="species-checked-by" class="bi bi-circle"></i>
+                                    Checked By Annotators - Max Votes
+                                </div>
+                                <div>
+                                    <i id="species-is-staff" class="bi bi-circle"></i>
+                                    Vote By Staff User
+                                </div>
+                                <div>
+                                    <i id="species-is-expert" class="bi bi-circle"></i>
+                                    Vote By Expert User
+                                </div>
+                            </div>
+                            <text style="font-size: 20px; margin: 30px;"><b>And...</b></text>
+                            <div id="species-and-checks" style="border: 1px solid black; border-radius: 5px; padding: 10px; text-align: left; margin: 10px; width: 40%">
+                                <div><b><i><u>All of the following...</u></i></b></div>
+                                <div>
+                                    <i id="species-no-uncertain" class="bi bi-circle"></i>
+                                    No Uncertain Bounding Boxes
+                                </div>
+                                <div>
+                                    <i id="species-has-valid" class="bi bi-circle"></i>
+                                    Has 1+ Valid Bounding Boxes
+                                </div>
+                                <div>
+                                    <i id="species-processed" class="bi bi-circle"></i>
+                                    Image Processed By MegaDetector
+                                </div>
+                            </div>
+                        </div>
+                        <hr>
+                        <text><b>Flags</b></text>
+                        <br>
+                        <text style="font-size: 10px;"><i>(Flags should be only set once the above prerequisites are satisfied. Discrepancies may indicate incorrect pipeline movement.)</i></text>
+                        <div id="species-pipeline-flags" style="padding: 10px; text-align: left; margin: 10px; display: flex; justify-content: space-between">
+                            <div style="font-size: 20px">
+                                <i id="species-has-wild-animals" class="bi bi-circle"></i>
+                                Has Wild Animals
+                            </div>
+                            <div style="font-size: 20px">
+                                <i id="species-complete" class="bi bi-circle"></i>
+                                <b>Species Complete</b>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id=activity-pipeline-info style="border: 1px solid black; padding: 10px">
+            <text style="font-size: 32px; padding: 10px;"><b>Activity Stage</b></text>
+            <br>
+            <text><i>(Submit in debug mode to populate or update data.)</i></text>
+            <div style="margin: 10px">
+                <div style="border: 1px solid black; border-radius: 5px; text-align: center; padding: 10px">
+                    <div style="border: 1px solid black; border-radius: 5px; padding: 10px; margin: 10px">
+                        <text><b>Annotations</b></text>
+                        <div id="activity-annotations">
+                        </div>
+                    </div>
+                    <div id="activity-flag-checks" style="padding: 10px; border: 1px solid black; margin: 10px; border-radius: 5px;">
+                        <text><b>Completion Prerequisites</b></text>
+                        <div style="display: flex; justify-content: center">
+                            <div id="activity-or-checks" style="border: 1px solid black; border-radius: 5px; padding: 10px; text-align: left; margin: 10px; width: 40%">
+                                <div><b><i><u>At least 1 of the following...</u></i></b></div>
+                                <div>
+                                    <i id="activity-checked-by" class="bi bi-circle"></i>
+                                    Checked By Annotators - Max Votes
+                                </div>
+                                <div>
+                                    <i id="activity-is-staff" class="bi bi-circle"></i>
+                                    Vote By Staff User
+                                </div>
+                                <div>
+                                    <i id="activity-is-expert" class="bi bi-circle"></i>
+                                    Vote By Expert User
+                                </div>
+                            </div>
+                            <text style="font-size: 20px; margin: 30px;"><b>And...</b></text>
+                            <div id="activity-and-checks" style="border: 1px solid black; border-radius: 5px; padding: 10px; text-align: left; margin: 10px; width: 40%">
+                                <div><b><i><u>All of the following...</u></i></b></div>
+                                <div>
+                                    <i id="activity-no-uncertain" class="bi bi-circle"></i>
+                                    No Uncertain Bounding Boxes
+                                </div>
+                                <div>
+                                    <i id="activity-has-valid" class="bi bi-circle"></i>
+                                    Has 1+ Valid Bounding Boxes
+                                </div>
+                                <div>
+                                    <i id="activity-has-wild-animals" class="bi bi-circle"></i>
+                                    Has Wild Animals
+                                </div>
+                                <div>
+                                    <i id="activity-processed" class="bi bi-circle"></i>
+                                    Image Processed By MegaDetector
+                                </div>
+                            </div>
+                        </div>
+                        <hr>
+                        <text><b>Flags</b></text>
+                        <br>
+                        <text style="font-size: 10px;"><i>(Flags should be only set once the above prerequisites are satisfied. Discrepancies may indicate incorrect pipeline movement.)</i></text>
+                        <div id="activity-pipeline-flags" style="padding: 10px; text-align: left; margin: 10px; display: flex; justify-content: space-between">
+                            <div style="font-size: 20px">
+                                <i id="activity-complete" class="bi bi-circle"></i>
+                                <b>Activity Complete</b>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+<script>
+    function getPipelineDebugDetails() {
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        let data = {
+            'image_id': '{{image.id}}',
+            'csrfmiddlewaretoken': csrftoken,
+        }
+
+        // Send back all the bbox ids back to the server to log bbox deletions
+        // Make an AJAX request
+        $.ajax({
+            url: '{% url 'images:debug_annotations_pipeline'%}',
+            method: 'POST',
+            data: data,
+            dataType: 'json',
+            success: function (data){
+                updatePipelineDebugInfo(data.category_debug_data, data.species_debug_data, data.activity_debug_data)
+            },
+        })
+    }
+
+    function updatePipelineDebugInfo(categoryDebugData, speciesDebugData, activityDebugData) {
+
+        // This shows the results of precomputing pipeline stage-related flags.
+        // Any changes in criteria will not be reflected until manually duplicated in DebugAnnotationsPipelineView.
+
+        function createAnnotationsTableRows(annotations) {
+            var tableRowsHtml = '';
+            var VOTE_THRESHOLD = 1;
+
+            annotations.forEach(function (category) {
+                var voteDifference = category.accepted_count - category.rejected_count;
+                var status;
+                if (voteDifference < -VOTE_THRESHOLD) {
+                    status = "Invalid";
+                } else if (voteDifference > VOTE_THRESHOLD) {
+                    status = "Valid";
+                } else {
+                    status = "Uncertain";
+                }
+
+                tableRowsHtml += `<tr>
+                    <td>${category.name}</td>
+                    <td>${category.accepted_count}</td>
+                    <td>${category.rejected_count}</td>
+                    <td>${voteDifference}</td>
+                    <td>${status}</td>
+                </tr>`;
+            });
+
+            return tableRowsHtml;
+        }
+
+        function createAnnotationsTable(type, annotations) {
+            var tableHtml = `
+                <table id="${type}-annotations-table">
+                    <thead>
+                        <tr>
+                            <th>Category Name</th>
+                            <th>Accepted Count</th>
+                            <th>Rejected Count</th>
+                            <th>Vote Difference</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${createAnnotationsTableRows(annotations)}
+                    </tbody>
+                </table>
+            `;
+            return tableHtml;
+        }
+
+        // Category debug info
+        $('#category-annotations').html(
+            createAnnotationsTable(
+                "category",
+                categoryDebugData.category_annotations
+            )
+        );
+
+        $('#category-annotations-table').DataTable();
+
+        $("#category-no-uncertain").attr("class", !categoryDebugData.flag_checks.or_checks.category_has_uncertain ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#category-is-staff").attr("class", categoryDebugData.flag_checks.or_checks.is_staff ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#category-is-expert").attr("class", categoryDebugData.flag_checks.or_checks.is_expert ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+
+        $("#category-processed").attr("class", categoryDebugData.flag_checks.processed ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#category-bbox-gte").attr("class", categoryDebugData.flag_checks.bounding_boxes_gte_zero ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+
+        $("#category-has-animals").attr("class", categoryDebugData.pipeline_flags.has_animals ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#category-has-humans").attr("class", categoryDebugData.pipeline_flags.has_humans ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#category-has-vehicles").attr("class", categoryDebugData.pipeline_flags.has_vehicles ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+
+        $("#category-complete").attr("class", categoryDebugData.pipeline_flags.category_pipeline_complete ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+
+        // Species debug info
+        $('#species-annotations').html(
+            createAnnotationsTable(
+                "species",
+                speciesDebugData.species_annotations
+            )
+        );
+        $('#species-annotations-table').DataTable();
+
+        $("#species-checked-by").attr("class", speciesDebugData.flag_checks.or_checks.checked_by ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#species-is-staff").attr("class", speciesDebugData.flag_checks.or_checks.is_staff ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#species-is-expert").attr("class", speciesDebugData.flag_checks.or_checks.is_expert ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+
+        $("#species-has-valid").attr("class", speciesDebugData.flag_checks.species_has_valid ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#species-no-uncertain").attr("class", !speciesDebugData.flag_checks.species_has_uncertain ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#species-processed").attr("class", speciesDebugData.flag_checks.processed ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+
+        $("#species-has-wild-animals").attr("class", speciesDebugData.pipeline_flags.has_wild_animals ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+
+        $("#species-complete").attr("class", speciesDebugData.pipeline_flags.species_pipeline_complete ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+
+        // Activity debug info
+        $('#activity-annotations').html(
+            createAnnotationsTable(
+                "activity",
+                activityDebugData.activity_annotations
+            )
+        );
+        $('#activity-annotations-table').DataTable();
+
+        $("#activity-checked-by").attr("class", activityDebugData.flag_checks.or_checks.checked_by ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#activity-is-staff").attr("class", activityDebugData.flag_checks.or_checks.is_staff ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#activity-is-expert").attr("class", activityDebugData.flag_checks.or_checks.is_expert ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+
+        $("#activity-has-valid").attr("class", activityDebugData.flag_checks.activity_has_valid ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#activity-no-uncertain").attr("class", !activityDebugData.flag_checks.activity_has_uncertain ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#activity-processed").attr("class", activityDebugData.flag_checks.processed ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#activity-has-wild-animals").attr("class", activityDebugData.flag_checks.image_has_wild_animals ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+
+        $("#activity-complete").attr("class", activityDebugData.pipeline_flags.activity_pipeline_complete ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+    }
+</script>

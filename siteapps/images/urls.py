@@ -7,6 +7,7 @@ from .views import (
     AnnotateSpeciesView,
     ChangeAnnotationView,
     CustomAnnotationView,
+    DebugAnnotationsPipelineView,
     DeleteAnnotationView,
     FixUploadSetsView,
     GetUploadSetImageInfoView,
@@ -56,6 +57,11 @@ urlpatterns = [
         "annotate/activity/<str:category>",
         AnnotateActivityView.as_view(),
         name="annotate_activity",
+    ),
+    path(
+        "debug-annotations-pipeline/",
+        DebugAnnotationsPipelineView.as_view(),
+        name="debug_annotations_pipeline",
     ),
     path(
         "md-annotation-processor/",

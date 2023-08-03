@@ -8,6 +8,7 @@ from images.models import Activity, ActivityType, Annotator, BoundingBox, Catego
 
 # TODO: This entire module is very hacky and needs to be refactored
 MAX_VOTES_PER_IMAGE = 2
+VOTE_THRESHOLD = 1
 
 
 def flatten_annotorious_annotations(annotations: list) -> dict:
@@ -223,7 +224,7 @@ def process_md_annotations(
     )
 
     has_uncertain_annotation = category_annotations.filter(
-        vote_difference__gt=-settings.NUM_ACCEPTS_OVER_REJECTS, vote_difference__lt=settings.NUM_ACCEPTS_OVER_REJECTS
+        vote_difference__gt=-VOTE_THRESHOLD, vote_difference__lt=VOTE_THRESHOLD
     ).exists()
 
     # Update pipeline stage-related flags
@@ -328,10 +329,10 @@ def process_species_annotations(
     )
 
     has_uncertain_annotation = species_annotations.filter(
-        vote_difference__gt=-settings.NUM_ACCEPTS_OVER_REJECTS, vote_difference__lt=settings.NUM_ACCEPTS_OVER_REJECTS
+        vote_difference__gt=-VOTE_THRESHOLD, vote_difference__lt=VOTE_THRESHOLD
     ).exists()
 
-    has_valid_annotation = species_annotations.filter(vote_difference__gte=settings.NUM_ACCEPTS_OVER_REJECTS).exists()
+    has_valid_annotation = species_annotations.filter(vote_difference__gte=VOTE_THRESHOLD).exists()
 
     # Update pipeline stage-related flags
     NON_WILD_SPECIES = [
@@ -437,10 +438,10 @@ def process_activity_annotations(
     )
 
     has_uncertain_annotation = activity_annotations.filter(
-        vote_difference__gt=-settings.NUM_ACCEPTS_OVER_REJECTS, vote_difference__lt=settings.NUM_ACCEPTS_OVER_REJECTS
+        vote_difference__gt=-VOTE_THRESHOLD, vote_difference__lt=VOTE_THRESHOLD
     ).exists()
 
-    has_valid_annotation = activity_annotations.filter(vote_difference__gte=settings.NUM_ACCEPTS_OVER_REJECTS).exists()
+    has_valid_annotation = activity_annotations.filter(vote_difference__gte=VOTE_THRESHOLD).exists()
 
     if (
         not has_uncertain_annotation

@@ -272,7 +272,8 @@
                 'activity': activity,
                 'initial_bboxes': JSON.stringify(bboxes),
                 'annotations': JSON.stringify(anno.getAnnotations()),
-                'activity_category': '{{activity_category}}'
+                'activity_category': '{{activity_category}}',
+                'custom_annotations': '{{custom_annotations}}',
             }
 
             // Send back all the bbox ids back to the server to log bbox deletions

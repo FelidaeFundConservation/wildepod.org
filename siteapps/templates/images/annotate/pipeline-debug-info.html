@@ -2,7 +2,7 @@
         <div id=category-pipeline-info style="border: 1px solid black; padding: 10px">
             <text style="font-size: 32px; padding: 10px;"><b>Category Stage</b></text>
             <br>
-            <text><i>(Submit in debug mode to populate or update data.)</i></text>
+            <text><i>(Submit in debug mode to populate data.)</i></text>
             <div style="margin: 10px">
                 <div style="border: 1px solid black; border-radius: 5px; text-align: center; padding: 10px">
                     <div style="border: 1px solid black; border-radius: 5px; padding: 10px; margin: 10px">
@@ -44,7 +44,7 @@
                         <hr>
                         <text><b>Flags</b></text>
                         <br>
-                        <text style="font-size: 10px;"><i>(Flags should be only set once the above prerequisites are satisfied. Discrepancies may indicate incorrect pipeline movement.)</i></text>
+                        <text style="font-size: 10px;"><i>(Flags should be only set once the above prerequisites are satisfied.)</i></text>
                         <div id="category-pipeline-flags" style="padding: 10px; text-align: left; margin: 10px; display: flex; justify-content: space-between">
                             <div style="font-size: 20px">
                                 <i id="category-has-humans" class="bi bi-circle"></i>
@@ -71,7 +71,7 @@
         <div id=species-pipeline-info style="border: 1px solid black; padding: 10px">
             <text style="font-size: 32px; padding: 10px;"><b>Species Stage</b></text>
             <br>
-            <text><i>(Submit in debug mode to populate or update data.)</i></text>
+            <text><i>(Submit in debug mode to populate data.)</i></text>
             <div style="margin: 10px">
                 <div style="border: 1px solid black; border-radius: 5px; text-align: center; padding: 10px">
                     <div style="border: 1px solid black; border-radius: 5px; padding: 10px; margin: 10px">
@@ -117,7 +117,7 @@
                         <hr>
                         <text><b>Flags</b></text>
                         <br>
-                        <text style="font-size: 10px;"><i>(Flags should be only set once the above prerequisites are satisfied. Discrepancies may indicate incorrect pipeline movement.)</i></text>
+                        <text style="font-size: 10px;"><i>(Flags should be only set once the above prerequisites are satisfied.)</i></text>
                         <div id="species-pipeline-flags" style="padding: 10px; text-align: left; margin: 10px; display: flex; justify-content: space-between">
                             <div style="font-size: 20px">
                                 <i id="species-has-wild-animals" class="bi bi-circle"></i>
@@ -136,7 +136,7 @@
         <div id=activity-pipeline-info style="border: 1px solid black; padding: 10px">
             <text style="font-size: 32px; padding: 10px;"><b>Activity Stage</b></text>
             <br>
-            <text><i>(Submit in debug mode to populate or update data.)</i></text>
+            <text><i>(Submit in debug mode to populate data.)</i></text>
             <div style="margin: 10px">
                 <div style="border: 1px solid black; border-radius: 5px; text-align: center; padding: 10px">
                     <div style="border: 1px solid black; border-radius: 5px; padding: 10px; margin: 10px">
@@ -186,7 +186,7 @@
                         <hr>
                         <text><b>Flags</b></text>
                         <br>
-                        <text style="font-size: 10px;"><i>(Flags should be only set once the above prerequisites are satisfied. Discrepancies may indicate incorrect pipeline movement.)</i></text>
+                        <text style="font-size: 10px;"><i>(Flags should be only set once the above prerequisites are satisfied.)</i></text>
                         <div id="activity-pipeline-flags" style="padding: 10px; text-align: left; margin: 10px; display: flex; justify-content: space-between">
                             <div style="font-size: 20px">
                                 <i id="activity-complete" class="bi bi-circle"></i>
@@ -204,7 +204,7 @@
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
         let data = {
-            'image_id': '{{image.id}}',
+            'image_ids': JSON.stringify(['{{ image.id }}']),
             'csrfmiddlewaretoken': csrftoken,
         }
 
@@ -215,16 +215,14 @@
             method: 'POST',
             data: data,
             dataType: 'json',
-            success: function (data){
+            success: function (data) {
                 updatePipelineDebugInfo(data.category_debug_data, data.species_debug_data, data.activity_debug_data)
             },
         })
     }
 
     function updatePipelineDebugInfo(categoryDebugData, speciesDebugData, activityDebugData) {
-
         // This shows the results of precomputing pipeline stage-related flags.
-        // Any changes in criteria will not be reflected until manually duplicated in DebugAnnotationsPipelineView.
 
         function createAnnotationsTableRows(annotations) {
             var tableRowsHtml = '';
@@ -273,6 +271,9 @@
             return tableHtml;
         }
 
+        const checkedIcon = "bi-check-circle text-success checked-icon";
+        const xedIcon = "bi bi-x-circle text-danger checked-icon";
+
         // Category debug info
         $('#category-annotations').html(
             createAnnotationsTable(
@@ -283,18 +284,18 @@
 
         $('#category-annotations-table').DataTable();
 
-        $("#category-no-uncertain").attr("class", !categoryDebugData.flag_checks.or_checks.category_has_uncertain ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
-        $("#category-is-staff").attr("class", categoryDebugData.flag_checks.or_checks.is_staff ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
-        $("#category-is-expert").attr("class", categoryDebugData.flag_checks.or_checks.is_expert ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#category-no-uncertain").attr("class", !categoryDebugData.flag_checks.or_checks.category_has_uncertain ? checkedIcon : xedIcon);
+        $("#category-is-staff").attr("class", categoryDebugData.flag_checks.or_checks.is_staff ? checkedIcon : xedIcon);
+        $("#category-is-expert").attr("class", categoryDebugData.flag_checks.or_checks.is_expert ? checkedIcon : xedIcon);
 
-        $("#category-processed").attr("class", categoryDebugData.flag_checks.processed ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
-        $("#category-bbox-gte").attr("class", categoryDebugData.flag_checks.bounding_boxes_gte_zero ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#category-processed").attr("class", categoryDebugData.flag_checks.processed ? checkedIcon : xedIcon);
+        $("#category-bbox-gte").attr("class", categoryDebugData.flag_checks.bounding_boxes_gte_zero ? checkedIcon : xedIcon);
 
-        $("#category-has-animals").attr("class", categoryDebugData.pipeline_flags.has_animals ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
-        $("#category-has-humans").attr("class", categoryDebugData.pipeline_flags.has_humans ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
-        $("#category-has-vehicles").attr("class", categoryDebugData.pipeline_flags.has_vehicles ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#category-has-animals").attr("class", categoryDebugData.pipeline_flags.has_animals ? checkedIcon : xedIcon);
+        $("#category-has-humans").attr("class", categoryDebugData.pipeline_flags.has_humans ? checkedIcon : xedIcon);
+        $("#category-has-vehicles").attr("class", categoryDebugData.pipeline_flags.has_vehicles ? checkedIcon : xedIcon);
 
-        $("#category-complete").attr("class", categoryDebugData.pipeline_flags.category_pipeline_complete ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#category-complete").attr("class", categoryDebugData.pipeline_flags.category_pipeline_complete ? checkedIcon : xedIcon);
 
         // Species debug info
         $('#species-annotations').html(
@@ -305,17 +306,17 @@
         );
         $('#species-annotations-table').DataTable();
 
-        $("#species-checked-by").attr("class", speciesDebugData.flag_checks.or_checks.checked_by ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
-        $("#species-is-staff").attr("class", speciesDebugData.flag_checks.or_checks.is_staff ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
-        $("#species-is-expert").attr("class", speciesDebugData.flag_checks.or_checks.is_expert ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#species-checked-by").attr("class", speciesDebugData.flag_checks.or_checks.checked_by ? checkedIcon : xedIcon);
+        $("#species-is-staff").attr("class", speciesDebugData.flag_checks.or_checks.is_staff ? checkedIcon : xedIcon);
+        $("#species-is-expert").attr("class", speciesDebugData.flag_checks.or_checks.is_expert ? checkedIcon : xedIcon);
 
-        $("#species-has-valid").attr("class", speciesDebugData.flag_checks.species_has_valid ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
-        $("#species-no-uncertain").attr("class", !speciesDebugData.flag_checks.species_has_uncertain ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
-        $("#species-processed").attr("class", speciesDebugData.flag_checks.processed ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#species-has-valid").attr("class", speciesDebugData.flag_checks.species_has_valid ? checkedIcon : xedIcon);
+        $("#species-no-uncertain").attr("class", !speciesDebugData.flag_checks.species_has_uncertain ? checkedIcon : xedIcon);
+        $("#species-processed").attr("class", speciesDebugData.flag_checks.processed ? checkedIcon : xedIcon);
 
-        $("#species-has-wild-animals").attr("class", speciesDebugData.pipeline_flags.has_wild_animals ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#species-has-wild-animals").attr("class", speciesDebugData.pipeline_flags.has_wild_animals ? checkedIcon : xedIcon);
 
-        $("#species-complete").attr("class", speciesDebugData.pipeline_flags.species_pipeline_complete ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#species-complete").attr("class", speciesDebugData.pipeline_flags.species_pipeline_complete ? checkedIcon : xedIcon);
 
         // Activity debug info
         $('#activity-annotations').html(
@@ -326,15 +327,15 @@
         );
         $('#activity-annotations-table').DataTable();
 
-        $("#activity-checked-by").attr("class", activityDebugData.flag_checks.or_checks.checked_by ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
-        $("#activity-is-staff").attr("class", activityDebugData.flag_checks.or_checks.is_staff ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
-        $("#activity-is-expert").attr("class", activityDebugData.flag_checks.or_checks.is_expert ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#activity-checked-by").attr("class", activityDebugData.flag_checks.or_checks.checked_by ? checkedIcon : xedIcon);
+        $("#activity-is-staff").attr("class", activityDebugData.flag_checks.or_checks.is_staff ? checkedIcon : xedIcon);
+        $("#activity-is-expert").attr("class", activityDebugData.flag_checks.or_checks.is_expert ? checkedIcon : xedIcon);
 
-        $("#activity-has-valid").attr("class", activityDebugData.flag_checks.activity_has_valid ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
-        $("#activity-no-uncertain").attr("class", !activityDebugData.flag_checks.activity_has_uncertain ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
-        $("#activity-processed").attr("class", activityDebugData.flag_checks.processed ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
-        $("#activity-has-wild-animals").attr("class", activityDebugData.flag_checks.image_has_wild_animals ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#activity-has-valid").attr("class", activityDebugData.flag_checks.activity_has_valid ? checkedIcon : xedIcon);
+        $("#activity-no-uncertain").attr("class", !activityDebugData.flag_checks.activity_has_uncertain ? checkedIcon : xedIcon);
+        $("#activity-processed").attr("class", activityDebugData.flag_checks.processed ? checkedIcon : xedIcon);
+        $("#activity-has-wild-animals").attr("class", activityDebugData.flag_checks.image_has_wild_animals ? checkedIcon : xedIcon);
 
-        $("#activity-complete").attr("class", activityDebugData.pipeline_flags.activity_pipeline_complete ? "bi-check-circle text-success checked-icon" : "bi bi-x-circle text-danger checked-icon");
+        $("#activity-complete").attr("class", activityDebugData.pipeline_flags.activity_pipeline_complete ? checkedIcon : xedIcon);
     }
 </script>

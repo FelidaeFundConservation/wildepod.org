@@ -311,7 +311,7 @@
                 dataType: 'json',
                 success: function (data){
                     if (data.success){
-                        getPipelineDebugDetails();
+                        setPipelineFlagsAndGetDebugDetails();
 
                         let staffDebugCheckbox = $('#staff-debug-mode');
                         if (staffDebugCheckbox.length > 0 && !staffDebugCheckbox.prop('checked')) {

@@ -200,7 +200,7 @@
 
     </div>
 <script>
-    function getPipelineDebugDetails() {
+    function setPipelineFlagsAndGetDebugDetails() {
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
         let data = {
@@ -211,7 +211,7 @@
         // Send back all the bbox ids back to the server to log bbox deletions
         // Make an AJAX request
         $.ajax({
-            url: '{% url 'images:debug_annotations_pipeline'%}',
+            url: '{% url 'images:set_pipeline_flags'%}',
             method: 'POST',
             data: data,
             dataType: 'json',

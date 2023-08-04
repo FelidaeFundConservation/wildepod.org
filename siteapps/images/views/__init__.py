@@ -5,9 +5,9 @@ from .annotation import (
     AnnotateSpeciesView,
     ChangeAnnotationView,
     CustomAnnotationView,
-    DebugAnnotationsPipelineView,
     DeleteAnnotationView,
     MDAnnotationProcessorView,
+    PrecomputePipelineFlagsView,
     SpeciesAnnotationProcessorView,
 )
 from .image import ImageDetailView

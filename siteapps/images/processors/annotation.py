@@ -217,29 +217,8 @@ def process_md_annotations(
 
     # Set image to "checked" by the annotator
     image.bbox_checked_by.add(annotator)
-
-    # Compute uncertain annotations.
-    category_annotations = Category.objects.filter(bounding_box__in=BoundingBox.objects.filter(image=image)).annotate(
-        vote_difference=Count("accepted_by") - Count("rejected_by")
-    )
-
-    has_uncertain_annotation = category_annotations.filter(
-        vote_difference__gt=-VOTE_THRESHOLD, vote_difference__lt=VOTE_THRESHOLD
-    ).exists()
-
-    # Update pipeline stage-related flags
-    if (
-        (not has_uncertain_annotation or annotator.human.is_staff or user.is_expert)
-        and image.processed
-        and BoundingBox.objects.filter(image=image).count() > 0
-    ):
-        image.has_humans = category_annotations.filter(name="person").exists()
-        image.has_animals = category_annotations.filter(name="animal").exists()
-        image.has_vehicles = category_annotations.filter(name="vehicle").exists()
-
-        image.category_pipeline_complete = True
-
     image.save()
+
     logging.info("Successfully updated all bounding boxes")
     return True
 
@@ -322,46 +301,8 @@ def process_species_annotations(
 
     # Set image to "checked" by the annotator
     image.species_checked_by.add(annotator)
-
-    # Compute annotation statuses.
-    species_annotations = Species.objects.filter(bounding_box__in=BoundingBox.objects.filter(image=image)).annotate(
-        vote_difference=Count("accepted_by") - Count("rejected_by")
-    )
-
-    has_uncertain_annotation = species_annotations.filter(
-        vote_difference__gt=-VOTE_THRESHOLD, vote_difference__lt=VOTE_THRESHOLD
-    ).exists()
-
-    has_valid_annotation = species_annotations.filter(vote_difference__gte=VOTE_THRESHOLD).exists()
-
-    # Update pipeline stage-related flags
-    NON_WILD_SPECIES = [
-        "Cyclist",
-        "Domestic cat",
-        "Domestic dog",
-        "Domestic horse",
-        "Goat (domestic)",
-        "Horse rider",
-        "Human",
-        "Motorized vehicle",
-        "Non motorized vehicle (bike)",
-        "Sheep (domestic)",
-        "Unknown",
-    ]  # Hard-coded non-wild species list for now.
-
-    if (
-        not has_uncertain_annotation
-        and has_valid_annotation
-        and image.has_animals
-        and (
-            annotator.human.is_staff or user.is_expert or image.species_checked_by.all().count() >= MAX_VOTES_PER_IMAGE
-        )
-        and image.processed
-    ):
-        image.has_wild_animals = species_annotations.filter(~Q(name__in=NON_WILD_SPECIES)).exists()
-        image.species_pipeline_complete = True
-
     image.save()
+
     logging.info("Successfully updated all bounding boxes")
     return True
 
@@ -431,29 +372,7 @@ def process_activity_annotations(
 
     # Set image to "checked" by the annotator
     image.activity_checked_by.add(annotator)
-
-    # Compute annotation statuses.
-    activity_annotations = Activity.objects.filter(bounding_box__in=BoundingBox.objects.filter(image=image)).annotate(
-        vote_difference=Count("accepted_by") - Count("rejected_by")
-    )
-
-    has_uncertain_annotation = activity_annotations.filter(
-        vote_difference__gt=-VOTE_THRESHOLD, vote_difference__lt=VOTE_THRESHOLD
-    ).exists()
-
-    has_valid_annotation = activity_annotations.filter(vote_difference__gte=VOTE_THRESHOLD).exists()
-
-    if (
-        not has_uncertain_annotation
-        and has_valid_annotation
-        and image.has_wild_animals
-        and (
-            annotator.human.is_staff or user.is_expert or image.activity_checked_by.all().count() >= MAX_VOTES_PER_IMAGE
-        )
-        and image.processed
-    ):
-        image.activity_pipeline_complete = True
-
     image.save()
+
     logging.info("Successfully updated all bounding boxes")
     return True

@@ -710,7 +710,7 @@ class ChangeAnnotationView(LoginRequiredMixin, View):
         return JsonResponse({"success": success, "oldName": annotationName, "newName": newAnnotationName})
 
 
-class DebugAnnotationsPipelineView(LoginRequiredMixin, View):
+class PrecomputePipelineFlagsView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
 
         # Category Flag Checks
@@ -922,6 +922,8 @@ class DebugAnnotationsPipelineView(LoginRequiredMixin, View):
                 category_debug_data = calculateCategoryAnnotationFlags(image)
                 species_debug_data = calculateSpeciesAnnotationFlags(image)
                 activity_debug_data = calculateActivityAnnotationFlags(image)
+
+                image.save()
 
                 # Set debug data only for the first image
                 if index == 0:

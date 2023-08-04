@@ -284,11 +284,15 @@
                 dataType: 'json',
                 success: function (data){
                     if (data.success){
+                        getPipelineDebugDetails();
+
                         let staffDebugCheckbox = $('#staff-debug-mode');
                         if (staffDebugCheckbox.length > 0 && !staffDebugCheckbox.prop('checked')) {
                             window.location.reload();
                         }
-                        getPipelineDebugDetails();
+                        else {
+                            alert("Pipeline debug information has been populated.");
+                        }
                     }
                     else {
                         $("#status-failure").removeClass("d-none");

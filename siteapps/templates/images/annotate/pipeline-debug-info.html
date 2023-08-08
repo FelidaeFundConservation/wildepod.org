@@ -224,26 +224,18 @@
         // This shows the results of precomputing pipeline stage-related flags.
 
         function createAnnotationsTableRows(annotations) {
-            var tableRowsHtml = '';
-            var VOTE_THRESHOLD = 1;
+            let tableRowsHtml = '';
 
-            annotations.forEach(function (category) {
-                var voteDifference = category.accepted_count - category.rejected_count;
-                var status;
-                if (voteDifference < -VOTE_THRESHOLD) {
-                    status = "Invalid";
-                } else if (voteDifference > VOTE_THRESHOLD) {
-                    status = "Valid";
-                } else {
-                    status = "Uncertain";
-                }
+            annotations.forEach(function (anno) {
 
                 tableRowsHtml += `<tr>
-                    <td>${category.name}</td>
-                    <td>${category.accepted_count}</td>
-                    <td>${category.rejected_count}</td>
-                    <td>${voteDifference}</td>
-                    <td>${status}</td>
+                    <td>${anno.name}</td>
+                    <td>${anno.accepted_count}</td>
+                    <td>${anno.rejected_count}</td>
+                    <td>${anno.accepted_count - anno.rejected_count}</td>
+                    <td>${anno.has_staff_vote}</td>
+                    <td>${anno.has_expert_vote}</td>
+                    <td>${anno.status}</td>
                 </tr>`;
             });
 
@@ -251,14 +243,16 @@
         }
 
         function createAnnotationsTable(type, annotations) {
-            var tableHtml = `
+            let tableHtml = `
                 <table id="${type}-annotations-table">
                     <thead>
                         <tr>
-                            <th>Category Name</th>
+                            <th>Annotation Name</th>
                             <th>Accepted Count</th>
                             <th>Rejected Count</th>
                             <th>Vote Difference</th>
+                            <th>Has Staff Vote</th>
+                            <th>Has Expert Vote</th>
                             <th>Status</th>
                         </tr>
                     </thead>

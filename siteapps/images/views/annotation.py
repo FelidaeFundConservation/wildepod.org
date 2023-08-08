@@ -7,7 +7,9 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import models
 from django.db.models import Count, Exists, OuterRef, Q
+from django.db.models.expressions import Case, Value, When
 from django.http.response import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -40,6 +42,7 @@ SPECIES_QUEUE_NAME = "AnnotateSpeciesQueue"
 ACTIVITY_HUMAN_QUEUE_NAME = "AnnotateHumanBehaviorQueue"
 ACTIVITY_ANIMAL_QUEUE_NAME = "AnnotateAnimalActivityQueue"
 
+
 class BboxAnnotationInfo:
     def __init__(self, id, categories, species, activities):
         self.id = id
@@ -70,7 +73,7 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         # First get the annotator object for the user
         annotator, _ = Annotator.objects.get_or_create(type="human", human=self.request.user)
-        
+
         # Check if we're doing custom annotations
         custom_annotations = self.request.GET.get("custom", None) == "true"
 
@@ -205,7 +208,7 @@ class CustomAnnotationView(LoginRequiredMixin, FormView, TemplateView):
                     reverse("images:annotate_objects")
                     + f"?custom=true&start_date={start_date}&end_date={end_date}&macrosite_name={macrosite_name}&camera_id={camera_id}"
                 )
-            
+
             # Clear the queue since we're starting a new Custom Annotation set
             queue_key = settings.DATASTORE_CLIENT.key(queue_name, str(self.request.user.id))
             settings.DATASTORE_CLIENT.delete(queue_key)
@@ -598,9 +601,7 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
             queue_name = OBJECTS_QUEUE_NAME
             if custom_annotations:
                 queue_name = CUSTOM_PREFIX + queue_name
-            queue = settings.DATASTORE_CLIENT.get(
-                settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id))
-            )
+            queue = settings.DATASTORE_CLIENT.get(settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id)))
             # Update the index
             queue["index"] += 1
             # Update the datastore
@@ -648,9 +649,7 @@ class SpeciesAnnotationProcessorView(LoginRequiredMixin, View):
             queue_name = SPECIES_QUEUE_NAME
             if custom_annotations:
                 queue_name = CUSTOM_PREFIX + queue_name
-            queue = settings.DATASTORE_CLIENT.get(
-                settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id))
-            )
+            queue = settings.DATASTORE_CLIENT.get(settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id)))
 
             # Update the index
             queue["index"] += 1
@@ -690,15 +689,13 @@ class ActivityAnnotationProcessorView(LoginRequiredMixin, View):
                 queue_name = ACTIVITY_HUMAN_QUEUE_NAME
             else:
                 queue_name = ACTIVITY_ANIMAL_QUEUE_NAME
-            
+
             # Check if we're doing custom annotations
             custom_annotations = request.POST.get("custom_annotations", False) == "True"
             if custom_annotations:
                 queue_name = CUSTOM_PREFIX + queue_name
 
-            queue = settings.DATASTORE_CLIENT.get(
-                settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id))
-            )
+            queue = settings.DATASTORE_CLIENT.get(settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id)))
 
             # Update the index
             queue["index"] += 1
@@ -779,20 +776,43 @@ class PrecomputePipelineFlagsView(LoginRequiredMixin, View):
                 accepted_count=Count("accepted_by"),
                 rejected_count=Count("rejected_by"),
                 vote_difference=Count("accepted_by") - Count("rejected_by"),
+                has_staff_vote=Case(
+                    When(Q(created_by__human__is_staff=True) | Q(accepted_by__human__is_staff=True), then=Value(True)),
+                    default=False,
+                ),
+                has_expert_vote=Case(
+                    When(
+                        Q(created_by__human__is_expert=True) | Q(accepted_by__human__is_expert=True), then=Value(True)
+                    ),
+                    default=False,
+                ),
+                status=Case(
+                    When(
+                        Q(vote_difference__gt=VOTE_THRESHOLD)
+                        | Q(created_by__human__is_staff=True)
+                        | Q(accepted_by__human__is_staff=True)
+                        | Q(created_by__human__is_expert=True)
+                        | Q(accepted_by__human__is_expert=True),
+                        then=Value("Valid"),
+                    ),
+                    When(vote_difference__lt=-VOTE_THRESHOLD, then=Value("Invalid")),
+                    default=Value("Uncertain"),
+                    output_field=models.CharField(),
+                ),
             )
 
-            category_has_uncertain_annotation = category_annotations.filter(
-                vote_difference__gt=-VOTE_THRESHOLD, vote_difference__lt=VOTE_THRESHOLD
-            ).exists()
+            category_has_uncertain_annotation = category_annotations.filter(status="Uncertain").exists()
 
-            has_staff_vote = category_annotations.filter(accepted_by__human__is_staff=True).exists()
+            has_staff_vote = category_annotations.filter(has_staff_vote=True).exists()
 
-            has_expert_vote = category_annotations.filter(accepted_by__human__is_expert=True).exists()
+            has_expert_vote = category_annotations.filter(has_expert_vote=True).exists()
+
+            bbox_count_gt = BoundingBox.objects.filter(image=image).count() > 0
 
             if (
                 (not category_has_uncertain_annotation or has_staff_vote or has_expert_vote)
                 and image.processed
-                and BoundingBox.objects.filter(image=image).count() > 0
+                and bbox_count_gt
             ):
                 image.has_humans = category_annotations.filter(name="person").exists()
                 image.has_animals = category_annotations.filter(name="animal").exists()
@@ -807,6 +827,9 @@ class PrecomputePipelineFlagsView(LoginRequiredMixin, View):
                         "name": category.name,
                         "accepted_count": category.accepted_count,
                         "rejected_count": category.rejected_count,
+                        "status": category.status,
+                        "has_staff_vote": category.has_staff_vote,
+                        "has_expert_vote": category.has_expert_vote,
                     }
                 )
 
@@ -819,7 +842,7 @@ class PrecomputePipelineFlagsView(LoginRequiredMixin, View):
                         "is_expert": has_expert_vote,
                     },
                     "processed": image.processed,
-                    "bounding_boxes_gte_zero": BoundingBox.objects.filter(image=image).count() > 0,
+                    "bounding_boxes_gte_zero": bbox_count_gt,
                 },
                 "pipeline_flags": {
                     "has_humans": image.has_humans,
@@ -839,17 +862,40 @@ class PrecomputePipelineFlagsView(LoginRequiredMixin, View):
                 accepted_count=Count("accepted_by"),
                 rejected_count=Count("rejected_by"),
                 vote_difference=Count("accepted_by") - Count("rejected_by"),
+                has_staff_vote=Case(
+                    When(Q(created_by__human__is_staff=True) | Q(accepted_by__human__is_staff=True), then=Value(True)),
+                    default=False,
+                ),
+                has_expert_vote=Case(
+                    When(
+                        Q(created_by__human__is_expert=True) | Q(accepted_by__human__is_expert=True), then=Value(True)
+                    ),
+                    default=False,
+                ),
+                status=Case(
+                    When(
+                        Q(vote_difference__gt=VOTE_THRESHOLD)
+                        | Q(created_by__human__is_staff=True)
+                        | Q(accepted_by__human__is_staff=True)
+                        | Q(created_by__human__is_expert=True)
+                        | Q(accepted_by__human__is_expert=True),
+                        then=Value("Valid"),
+                    ),
+                    When(vote_difference__lt=-VOTE_THRESHOLD, then=Value("Invalid")),
+                    default=Value("Uncertain"),
+                    output_field=models.CharField(),
+                ),
             )
 
-            species_has_uncertain_annotation = species_annotations.filter(
-                vote_difference__gt=-VOTE_THRESHOLD, vote_difference__lt=VOTE_THRESHOLD
-            ).exists()
+            species_has_uncertain_annotation = species_annotations.filter(status="Uncertain").exists()
 
-            species_has_valid_annotation = species_annotations.filter(vote_difference__gte=VOTE_THRESHOLD).exists()
+            species_has_valid_annotation = species_annotations.filter(status="Valid").exists()
 
-            has_staff_vote = species_annotations.filter(accepted_by__human__is_staff=True).exists()
+            has_staff_vote = species_annotations.filter(has_staff_vote=True).exists()
 
-            has_expert_vote = species_annotations.filter(accepted_by__human__is_expert=True).exists()
+            has_expert_vote = species_annotations.filter(has_expert_vote=True).exists()
+
+            annotation_checked_by_gte = image.species_checked_by.all().count() >= MAX_VOTES_PER_IMAGE
 
             NON_WILD_SPECIES = [
                 "Cyclist",
@@ -869,7 +915,7 @@ class PrecomputePipelineFlagsView(LoginRequiredMixin, View):
                 not species_has_uncertain_annotation
                 and species_has_valid_annotation
                 and image.has_animals
-                and (has_staff_vote or has_expert_vote or image.species_checked_by.all().count() >= MAX_VOTES_PER_IMAGE)
+                and (has_staff_vote or has_expert_vote or annotation_checked_by_gte)
                 and image.processed
             ):
                 image.has_wild_animals = species_annotations.filter(~Q(name__name__in=NON_WILD_SPECIES)).exists()
@@ -882,6 +928,9 @@ class PrecomputePipelineFlagsView(LoginRequiredMixin, View):
                         "name": species.name.name,
                         "accepted_count": species.accepted_count,
                         "rejected_count": species.rejected_count,
+                        "status": species.status,
+                        "has_staff_vote": species.has_staff_vote,
+                        "has_expert_vote": species.has_expert_vote,
                     }
                 )
 
@@ -892,7 +941,7 @@ class PrecomputePipelineFlagsView(LoginRequiredMixin, View):
                     "species_has_valid": species_has_valid_annotation,
                     "image_has_animals": image.has_animals,
                     "or_checks": {
-                        "checked_by": image.species_checked_by.all().count() >= MAX_VOTES_PER_IMAGE,
+                        "checked_by": annotation_checked_by_gte,
                         "is_staff": has_staff_vote,
                         "is_expert": has_expert_vote,
                     },
@@ -914,25 +963,46 @@ class PrecomputePipelineFlagsView(LoginRequiredMixin, View):
                 accepted_count=Count("accepted_by"),
                 rejected_count=Count("rejected_by"),
                 vote_difference=Count("accepted_by") - Count("rejected_by"),
+                has_staff_vote=Case(
+                    When(Q(created_by__human__is_staff=True) | Q(accepted_by__human__is_staff=True), then=Value(True)),
+                    default=False,
+                ),
+                has_expert_vote=Case(
+                    When(
+                        Q(created_by__human__is_expert=True) | Q(accepted_by__human__is_expert=True), then=Value(True)
+                    ),
+                    default=False,
+                ),
+                status=Case(
+                    When(
+                        Q(vote_difference__gt=VOTE_THRESHOLD)
+                        | Q(created_by__human__is_staff=True)
+                        | Q(accepted_by__human__is_staff=True)
+                        | Q(created_by__human__is_expert=True)
+                        | Q(accepted_by__human__is_expert=True),
+                        then=Value("Valid"),
+                    ),
+                    When(vote_difference__lt=-VOTE_THRESHOLD, then=Value("Invalid")),
+                    default=Value("Uncertain"),
+                    output_field=models.CharField(),
+                ),
             )
 
-            activity_has_uncertain_annotation = activity_annotations.filter(
-                vote_difference__gt=-VOTE_THRESHOLD, vote_difference__lt=VOTE_THRESHOLD
-            ).exists()
+            activity_has_uncertain_annotation = activity_annotations.filter(status="Uncertain").exists()
 
-            activity_has_valid_annotation = activity_annotations.filter(vote_difference__gte=VOTE_THRESHOLD).exists()
+            activity_has_valid_annotation = activity_annotations.filter(status="Valid").exists()
 
-            has_staff_vote = activity_annotations.filter(accepted_by__human__is_staff=True).exists()
+            has_staff_vote = activity_annotations.filter(has_staff_vote=True).exists()
 
-            has_expert_vote = activity_annotations.filter(accepted_by__human__is_expert=True).exists()
+            has_expert_vote = activity_annotations.filter(has_expert_vote=True).exists()
+
+            annotation_checked_by_gte = image.activity_checked_by.all().count() >= MAX_VOTES_PER_IMAGE
 
             if (
                 not activity_has_uncertain_annotation
                 and activity_has_valid_annotation
                 and image.has_wild_animals
-                and (
-                    has_staff_vote or has_expert_vote or image.activity_checked_by.all().count() >= MAX_VOTES_PER_IMAGE
-                )
+                and (has_staff_vote or has_expert_vote or annotation_checked_by_gte)
                 and image.processed
             ):
                 image.activity_pipeline_complete = True
@@ -944,6 +1014,9 @@ class PrecomputePipelineFlagsView(LoginRequiredMixin, View):
                         "name": activity.name.name,
                         "accepted_count": activity.accepted_count,
                         "rejected_count": activity.rejected_count,
+                        "status": activity.status,
+                        "has_staff_vote": activity.has_staff_vote,
+                        "has_expert_vote": activity.has_expert_vote,
                     }
                 )
 
@@ -956,7 +1029,7 @@ class PrecomputePipelineFlagsView(LoginRequiredMixin, View):
                     "or_checks": {
                         "is_staff": has_staff_vote,
                         "is_expert": has_expert_vote,
-                        "checked_by": image.activity_checked_by.all().count() >= MAX_VOTES_PER_IMAGE,
+                        "checked_by": annotation_checked_by_gte,
                     },
                     "processed": image.processed,
                 },

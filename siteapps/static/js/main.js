@@ -180,6 +180,7 @@ function renderBoundingBoxes(imageElementID, annotations, widgets, config) {
       // Create the label element & add to the column
       let label = document.createElement('div');
       label.className = 'preview-label py-2';
+      label.id = 'preview-label-' + annotation.id;
       let confidence = annotation.body[0].confidence ? annotation.body[0].confidence : 1.0;
       label.innerHTML = `<p class="my-0 py-0"><b>${annotation.body[0].value}</b> |  <em>conf: ${confidence}</em></p>`;
       if (annotation.body[0].value){

@@ -348,7 +348,12 @@
                     dataType: 'json',
                     success: function(data) {
                         if (data.success) {
-                            resolve(JSON.parse(data.recent_tags));
+                            if (data.recent_tags.length > 0) {
+                                resolve(JSON.parse(data.recent_tags));
+                            }
+                            else {
+                                resolve([]);
+                            }
                         } else {
                             reject(new Error('Failed to fetch recent tags.'));
                         }

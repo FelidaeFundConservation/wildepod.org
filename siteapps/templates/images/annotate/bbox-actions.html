@@ -237,22 +237,22 @@
 
                 const anno = getAnno();
 
-                if (!document.querySelector(".preview-label.py-2")) {
-                    for (const annotation of anno.getAnnotations()) {
-                        const annoText = document.getElementById(`annotation-text-${annotation.id}`);
-                        const newAnnotation = annotation.body[0].value;
-                        if (newAnnotation) {
-                            annoText.innerText = newAnnotation.length > 17 ? newAnnotation.slice(0, 17) + "..." : newAnnotation;
-                            annoText.style.backgroundColor = 'transparent';
-                        }
-                        else {
-                            annoText.innerText = "(No Annotation)";
-                            annoText.style.backgroundColor = 'rgb(255, 216, 204)';
-                        }
-
-                        assignEntryListeners(annotation.id);
+                for (const annotation of anno.getAnnotations()) {
+                    const annoText = document.getElementById(`annotation-text-${annotation.id}`);
+                    const newAnnotation = annotation.body[0].value;
+                    annoText.style.fontWeight = 'bold';
+                    if (newAnnotation) {
+                        annoText.innerText = newAnnotation.length > 22 ? newAnnotation.slice(0, 22) + "..." : newAnnotation;
+                        annoText.style.backgroundColor = 'transparent';
                     }
+                    else {
+                        annoText.innerText = "(No Annotation)";
+                        annoText.style.backgroundColor = 'rgb(255, 216, 204)';
+                    }
+
+                    assignEntryListeners(annotation.id);
                 }
+
             });
 
             // Recreate menus on new box creation. (same reason as above)
@@ -326,14 +326,19 @@
                     annotationPreview['previewCol'].classList.add("center-justify");
                     annotationPreview['previewCol'].maxWidth = "100%";
 
-                    if (!document.querySelector(".preview-label.py-2")) {
+                    if (!document.getElementById(`annotation-text-${id}`)) {
+                        let label = document.createElement('div');
+                        label.className = 'preview-label py-2';
+                        label.id = 'preview-label-' + id;
                         let annotationText = document.createElement('text');
                         annotationText.setAttribute("id", `annotation-text-${id}`);
                         annotationText.style.fontWeight = 'bold';
                         annotationText.style.backgroundColor = 'rgb(255, 216, 204)';
                         annotationText.innerText = '(No Annotation)';
 
-                        annotationPreview['previewCol'].insertBefore(annotationText, annotationPreview.canvas);
+                        label.appendChild(annotationText);
+                        label.style.borderBottom = '1px solid black';
+                        annotationPreview['previewCol'].insertBefore(label, annotationPreview.canvas);
                     }
 
                     annotationPreview['previewCol'].appendChild(

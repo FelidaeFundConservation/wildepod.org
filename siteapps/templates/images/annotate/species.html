@@ -227,23 +227,39 @@
         anno = renderBoundingBoxes("{{image.id}}", bboxes = bboxes, widgets = [SpeciesClassSelectorWidget]);
 
         // Set initial tag values based on previous image's tags
-        let recentTags = getRecentTags().then(function(recentTags) {
+        let recentTags = getRecentTags().then(function (recentTags) {
             if (recentTags) {
                 let tags = anno.getAnnotations();
-                console.log(tags);
                 tags.forEach(function (annotation, index) {
                     if (index < Math.min(tags.length, recentTags.length)) {
                         annotation.body[0].value = recentTags[index];
+
+                        // A confidence value is required to be given to set annotations.
+                        // Set to 0.0 just to satisfy the requirement.
                         annotation.body[0].confidence = "0.0";
                     }
                 });
 
                 anno.setAnnotations(tags);
-                console.log(tags);
+
+                renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno);
+
+                for (let index = 0; index < recentTags.length; index++) {
+                    let annoText = $(`#annotation-text-${tags[index].id}`);
+
+                    let currentText = annoText.text();
+                    let newText = currentText.split('|')[0];
+
+                    let boldText = `<strong>${newText} <i>(Recent Tag)</i></strong>`;
+                    annoText.html(boldText);
+                    annoText.css('background-color', 'lightyellow');
+                }
+            }
+            else {
+                // Render bounding box previews
+                renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
             }
 
-            // Render bounding box previews
-            renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
         }).catch(function(error) {
 
         });
@@ -348,7 +364,6 @@
                 'csrfmiddlewaretoken': csrftoken,
                 'annotations': annotations,
             }
-            console.log(annotations);
 
             $.ajax({
                 url: '{% url 'images:save_recent_tags'%}',
@@ -464,7 +479,9 @@
             annotationTexts = document.querySelectorAll("[id^='annotation-text-']");
 
             for (let annoText of annotationTexts) {
-                annoText.innerText = selectedOption.length > 17 ? selectedOption.slice(0, 17) + "..." : selectedOption;
+                annoText.innerHTML = selectedOption.length > 17
+                  ? `<strong>${selectedOption.slice(0, 17)}...</strong>`
+                  : `<strong>${selectedOption}</strong>`;
                 annoText.style.backgroundColor = 'transparent';
             }
         });

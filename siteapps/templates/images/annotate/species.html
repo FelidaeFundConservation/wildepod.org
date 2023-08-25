@@ -261,7 +261,7 @@
             }
 
         }).catch(function(error) {
-
+            console.log(`An error occured setting default values: ${error}`);
         });
 
         // Submit buttons disabled until all elements have loaded
@@ -375,14 +375,11 @@
                 method: 'POST',
                 data: data,
                 dataType: 'json',
-                success: function (data){
-                    if (data.success) {
-
+                success: function (data) {
+                    if (!data.success) {
+                        console.log("There was a problem saving recent tags.");
                     }
-                    else {
-
-                    }
-                },
+                }
             });
         }
 

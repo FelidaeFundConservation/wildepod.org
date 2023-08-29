@@ -13,7 +13,6 @@ from .views import (
     ImageDetailView,
     MDAnnotationProcessorView,
     ModifyUploadSetImagesView,
-    PrecomputePipelineFlagsView,
     SearchImagesView,
     SetUploadSetTimeFixDetailsView,
     SpeciesAnnotationProcessorView,
@@ -57,11 +56,6 @@ urlpatterns = [
         "annotate/activity/<str:category>",
         AnnotateActivityView.as_view(),
         name="annotate_activity",
-    ),
-    path(
-        "set-pipeline-flags/",
-        PrecomputePipelineFlagsView.as_view(),
-        name="set_pipeline_flags",
     ),
     path(
         "md-annotation-processor/",

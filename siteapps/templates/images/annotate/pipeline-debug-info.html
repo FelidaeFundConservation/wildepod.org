@@ -199,27 +199,6 @@
         </div>
     </div>
 <script>
-    function setPipelineFlagsAndGetDebugDetails() {
-        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-        let data = {
-            'image_ids': JSON.stringify(['{{ image.id }}']),
-            'csrfmiddlewaretoken': csrftoken,
-        }
-
-        // Send back all the bbox ids back to the server to log bbox deletions
-        // Make an AJAX request
-        $.ajax({
-            url: '{% url 'images:set_pipeline_flags'%}',
-            method: 'POST',
-            data: data,
-            dataType: 'json',
-            success: function (data) {
-                updatePipelineDebugInfo(data.category_debug_data, data.species_debug_data, data.activity_debug_data)
-            },
-        })
-    }
-
     function updatePipelineDebugInfo(categoryDebugData, speciesDebugData, activityDebugData) {
         // This shows the results of precomputing pipeline stage-related flags.
 

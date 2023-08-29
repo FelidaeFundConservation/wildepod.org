@@ -7,7 +7,6 @@ from .annotation import (
     CustomAnnotationView,
     DeleteAnnotationView,
     MDAnnotationProcessorView,
-    PrecomputePipelineFlagsView,
     SpeciesAnnotationProcessorView,
 )
 from .image import ImageDetailView

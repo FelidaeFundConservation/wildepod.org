@@ -604,6 +604,8 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
             species_debug_data = calculateSpeciesAnnotationFlags(image)
             activity_debug_data = calculateActivityAnnotationFlags(image)
 
+            image.save()
+
             # Check if we're doing custom annotations
             custom_annotations = request.POST.get("custom_annotations", False) == "True"
 
@@ -669,6 +671,8 @@ class SpeciesAnnotationProcessorView(LoginRequiredMixin, View):
             species_debug_data = calculateSpeciesAnnotationFlags(image)
             activity_debug_data = calculateActivityAnnotationFlags(image)
 
+            image.save()
+
             # Check if we're doing custom annotations
             custom_annotations = request.POST.get("custom_annotations", False) == "True"
 
@@ -727,6 +731,8 @@ class ActivityAnnotationProcessorView(LoginRequiredMixin, View):
             category_debug_data = calculateCategoryAnnotationFlags(image)
             species_debug_data = calculateSpeciesAnnotationFlags(image)
             activity_debug_data = calculateActivityAnnotationFlags(image)
+
+            image.save()
 
             # Get the annotation queue cached in the datastore
             if activity_category == CATEGORY_HUMAN:

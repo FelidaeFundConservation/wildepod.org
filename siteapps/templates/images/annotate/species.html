@@ -211,10 +211,6 @@
             },
         {% endfor %}
     ];
-    let categories = [
-        {% for species in species_list %}"{{species}}",{% endfor%}
-    ]
-    let SpeciesClassSelectorWidget = createCategoryWidget(categories);
 
     let anno;
 
@@ -223,46 +219,50 @@
     }
 
     // Set up annotations, rendering and submit hooks after the window has fully loaded
-    window.addEventListener('load', function() {
-        anno = renderBoundingBoxes("{{image.id}}", bboxes = bboxes, widgets = [SpeciesClassSelectorWidget]);
+    window.addEventListener('load', function () {
+        let categories = [
+            {% for species in species_list %}"{{species}}", {% endfor %}
+        ];
 
-        // Set initial tag values based on previous image's tags
-        let recentTags = getRecentTags().then(function (recentTags) {
-            if (recentTags) {
-                let tags = anno.getAnnotations();
-                tags.forEach(function (annotation, index) {
-                    if (index < Math.min(tags.length, recentTags.length)) {
-                        annotation.body[0].value = recentTags[index];
+        // Retrieve recent tags
+        (async () => {
+            try {
+                window.recentTags = await getRecentTags();
+            } catch (error) {
+                console.log(`An error occurred getting recent tags: ${error}`);
+            }
+        })();
 
-                        // A confidence value is required to be given to set annotations.
-                        // Set to 0.0 just to satisfy the requirement.
-                        annotation.body[0].confidence = "0.0";
+        window.observer = new MutationObserver(function (mutations) {
+            if (mutations.some(mutation => mutation.target.matches('button'))) {
+                return;
+            }
+
+            const categoryWidget = document.querySelector('.category-widget.m-2.p-2.row');
+            const hasSelectedButton = categoryWidget && categoryWidget.querySelector('button.selected') !== null;
+
+            if (!hasSelectedButton) {
+                const targetDiv = document.querySelector('#recent-tag-div');
+
+                if (targetDiv) {
+                    const targetButton = targetDiv.querySelector('button');
+
+                    if (targetButton) {
+                        observer.disconnect();
+                        targetButton.click();
                     }
-                });
-
-                anno.setAnnotations(tags);
-
-                renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno);
-
-                for (let index = 0; index < recentTags.length; index++) {
-                    let annoText = $(`#annotation-text-${tags[index].id}`);
-
-                    let currentText = annoText.text();
-                    let newText = currentText.split('|')[0];
-
-                    let boldText = `<strong>${newText} <i>(Recent Tag)</i></strong>`;
-                    annoText.html(boldText);
-                    annoText.css('background-color', 'lightyellow');
                 }
             }
-            else {
-                // Render bounding box previews
-                renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
-            }
-
-        }).catch(function(error) {
-            console.log(`An error occured setting default values: ${error}`);
         });
+
+        observer.observe(document, {attributes: false, childList: true, characterData: false, subtree:true});
+
+        let SpeciesClassSelectorWidget = createCategoryWidget(categories);
+
+        anno = renderBoundingBoxes("{{image.id}}", bboxes = bboxes, widgets = [SpeciesClassSelectorWidget]);
+
+        // Render bounding boxes
+        renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
 
         // Submit buttons disabled until all elements have loaded
         document.getElementById("save_annotations").disabled = false;

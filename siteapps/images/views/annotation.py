@@ -14,13 +14,19 @@ from django.urls import reverse
 from django.views.generic import FormView
 from django.views.generic.base import TemplateView, View
 from images.forms import AnnotationForm
-from images.models import (Activity, ActivityType, Annotator, BoundingBox,
-                           Category, Image, Species, SpeciesName,
-                           get_object_annotation_images)
+from images.models import (
+    Activity,
+    ActivityType,
+    Annotator,
+    BoundingBox,
+    Category,
+    Image,
+    Species,
+    SpeciesName,
+    get_object_annotation_images,
+)
 from images.models.custom_fields import get_filter_params
-from images.processors import (process_activity_annotations,
-                               process_md_annotations,
-                               process_species_annotations)
+from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
 from locations.models import CameraStation, MacroSite, MicroSite
 
 MAX_VOTES_PER_IMAGE = 2
@@ -31,6 +37,7 @@ OBJECTS_QUEUE_NAME = "AnnotateObjectsQueue"
 SPECIES_QUEUE_NAME = "AnnotateSpeciesQueue"
 ACTIVITY_HUMAN_QUEUE_NAME = "AnnotateHumanBehaviorQueue"
 ACTIVITY_ANIMAL_QUEUE_NAME = "AnnotateAnimalActivityQueue"
+
 
 class BboxAnnotationInfo:
     def __init__(self, id, categories, species, activities):
@@ -62,7 +69,7 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         # First get the annotator object for the user
         annotator, _ = Annotator.objects.get_or_create(type="human", human=self.request.user)
-        
+
         # Check if we're doing custom annotations
         custom_annotations = self.request.GET.get("custom", None) == "true"
 
@@ -197,7 +204,7 @@ class CustomAnnotationView(LoginRequiredMixin, FormView, TemplateView):
                     reverse("images:annotate_objects")
                     + f"?custom=true&start_date={start_date}&end_date={end_date}&macrosite_name={macrosite_name}&camera_id={camera_id}"
                 )
-            
+
             # Clear the queue since we're starting a new Custom Annotation set
             queue_key = settings.DATASTORE_CLIENT.key(queue_name, str(self.request.user.id))
             settings.DATASTORE_CLIENT.delete(queue_key)
@@ -549,7 +556,9 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
             staff_review_needed = request.POST.get("staff_review_needed")
             staff_review_needed = bool(staff_review_needed and staff_review_needed == "true")
             # Process the annotations
-            success = process_md_annotations(image_id, annotations, initial_bboxes, request.user, False, staff_review_needed, skip)
+            success = process_md_annotations(
+                image_id, annotations, initial_bboxes, request.user, False, staff_review_needed, skip
+            )
         else:
             # Get bounding box ids that were sent to infer deleted annotations
             initial_bboxes = request.POST.get("initial_bboxes")
@@ -582,9 +591,7 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
             queue_name = OBJECTS_QUEUE_NAME
             if custom_annotations:
                 queue_name = CUSTOM_PREFIX + queue_name
-            queue = settings.DATASTORE_CLIENT.get(
-                settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id))
-            )
+            queue = settings.DATASTORE_CLIENT.get(settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id)))
             # Update the index
             queue["index"] += 1
             # Update the datastore
@@ -632,9 +639,7 @@ class SpeciesAnnotationProcessorView(LoginRequiredMixin, View):
             queue_name = SPECIES_QUEUE_NAME
             if custom_annotations:
                 queue_name = CUSTOM_PREFIX + queue_name
-            queue = settings.DATASTORE_CLIENT.get(
-                settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id))
-            )
+            queue = settings.DATASTORE_CLIENT.get(settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id)))
 
             # Update the index
             queue["index"] += 1
@@ -674,15 +679,13 @@ class ActivityAnnotationProcessorView(LoginRequiredMixin, View):
                 queue_name = ACTIVITY_HUMAN_QUEUE_NAME
             else:
                 queue_name = ACTIVITY_ANIMAL_QUEUE_NAME
-            
+
             # Check if we're doing custom annotations
             custom_annotations = request.POST.get("custom_annotations", False) == "True"
             if custom_annotations:
                 queue_name = CUSTOM_PREFIX + queue_name
 
-            queue = settings.DATASTORE_CLIENT.get(
-                settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id))
-            )
+            queue = settings.DATASTORE_CLIENT.get(settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id)))
 
             # Update the index
             queue["index"] += 1
@@ -750,3 +753,28 @@ class ChangeAnnotationView(LoginRequiredMixin, View):
             success = False
 
         return JsonResponse({"success": success, "oldName": annotationName, "newName": newAnnotationName})
+
+
+class SaveRecentTagsView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        annotations = request.POST.get("annotations")
+        success = True
+
+        try:
+            request.session["recent_tags"] = annotations
+        except BaseException as e:
+            success = False
+
+        return JsonResponse({"success": success})
+
+
+class GetRecentTagsView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        success = True
+
+        try:
+            recent_tags = self.request.session.get("recent_tags", [])
+        except BaseException as e:
+            success = False
+
+        return JsonResponse({"success": success, "recent_tags": recent_tags})

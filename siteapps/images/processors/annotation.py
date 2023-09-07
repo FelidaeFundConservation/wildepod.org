@@ -3,10 +3,12 @@ from typing import Any, Dict
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
-from images.models import (Activity, ActivityType, Annotator, BoundingBox,
-                           Category, Image, Species, SpeciesName)
+from django.db.models import Count, Q, Sum
+from images.models import Activity, ActivityType, Annotator, BoundingBox, Category, Image, Species, SpeciesName
 
 # TODO: This entire module is very hacky and needs to be refactored
+MAX_VOTES_PER_IMAGE = 2
+VOTE_THRESHOLD = 1
 
 
 def flatten_annotorious_annotations(annotations: list) -> dict:
@@ -84,7 +86,7 @@ def process_md_annotations(
     initial_bboxes: list,
     user: settings.AUTH_USER_MODEL,
     social_media_worthy: bool = False,
-    staff_review_needed: bool= False,
+    staff_review_needed: bool = False,
     skip: bool = False,
 ):
     """Function to process a list of annotations for MegaDetector's Object Detection model
@@ -107,7 +109,7 @@ def process_md_annotations(
         image.staff_review_needed = True
     else:
         image.staff_review_needed = False
-    
+
     # If the user skipped this, add the user to the image skipped list & move on
     if skip:
         logging.info("User skipped this image. Adding to skipped list")
@@ -229,7 +231,7 @@ def process_species_annotations(
     initial_bboxes: list,
     user: settings.AUTH_USER_MODEL,
     social_media_worthy: bool = False,
-    staff_review_needed: bool= False,
+    staff_review_needed: bool = False,
     skip: bool = False,
 ) -> bool:
     """Function to process a list of annotations for MegaDetector's Object Detection model
@@ -251,7 +253,7 @@ def process_species_annotations(
         image.staff_review_needed = True
     else:
         image.staff_review_needed = False
-    
+
     # If the user skipped this, add the user to the image skipped list & move on
     if skip:
         logging.info("User skipped this image. Adding to skipped list")

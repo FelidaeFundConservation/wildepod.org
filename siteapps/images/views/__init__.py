@@ -6,7 +6,9 @@ from .annotation import (
     ChangeAnnotationView,
     CustomAnnotationView,
     DeleteAnnotationView,
+    GetRecentTagsView,
     MDAnnotationProcessorView,
+    SaveRecentTagsView,
     SpeciesAnnotationProcessorView,
 )
 from .image import ImageDetailView

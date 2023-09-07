@@ -1084,3 +1084,27 @@ def calculateActivityAnnotationFlags(image):
     }
 
     return activity_debug_data
+
+class SaveRecentTagsView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        annotations = request.POST.get("annotations")
+        success = True
+
+        try:
+            request.session["recent_tags"] = annotations
+        except BaseException as e:
+            success = False
+
+        return JsonResponse({"success": success})
+
+
+class GetRecentTagsView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        success = True
+
+        try:
+            recent_tags = self.request.session.get("recent_tags", [])
+        except BaseException as e:
+            success = False
+
+        return JsonResponse({"success": success, "recent_tags": recent_tags})

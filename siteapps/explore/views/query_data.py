@@ -181,7 +181,8 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                                 Species.objects.filter(
                                     Exists(
                                         Annotator.objects.filter(
-                                            accepted_species_annotation=OuterRef("pk"), human__is_staff=True
+                                            Q(human__is_staff=True) | Q(human__is_expert=True),
+                                            accepted_species_annotation=OuterRef("pk")
                                         )
                                     ),
                                     bounding_box=OuterRef("pk"),

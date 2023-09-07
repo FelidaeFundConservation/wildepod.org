@@ -85,19 +85,19 @@
                 >
                     &nbsp; Social Media Worthy?
                 </label>
-                &emsp;&emsp;&emsp;&emsp;&emsp;              
+                &emsp;&emsp;&emsp;&emsp;&emsp;
                 <input
                     class="form-check-input"
                     type="checkbox"
                     {% if staff_review_needed %}checked="checked"{% endif %}
-                    id="staff-review-needed"                    
+                    id="staff-review-needed"
                 >
                 <label
                     class="form-check-label"
                     for="staff-review-needed"
                 >
                     &nbsp; Flag for Staff Review?
-                </label>                
+                </label>
             </div>
         </form>
     </div>
@@ -211,10 +211,6 @@
             },
         {% endfor %}
     ];
-    let categories = [
-        {% for species in species_list %}"{{species}}",{% endfor%}
-    ]
-    let SpeciesClassSelectorWidget = createCategoryWidget(categories);
 
     let anno;
 
@@ -223,10 +219,52 @@
     }
 
     // Set up annotations, rendering and submit hooks after the window has fully loaded
-    window.addEventListener('load', function() {
-        anno = renderBoundingBoxes("{{image.id}}", bboxes=bboxes, widgets=[SpeciesClassSelectorWidget]);
+    window.addEventListener('load', function () {
+        let categories = [
+            {% for species in species_list %}"{{species}}", {% endfor %}
+        ];
+
+        // Retrieve recent tags
+        (async () => {
+            try {
+                window.recentTags = await getRecentTags();
+            } catch (error) {
+                console.log(`An error occurred getting recent tags: ${error}`);
+            }
+        })();
+
+        window.observer = new MutationObserver(function (mutations) {
+            if (mutations.some(mutation => mutation.target.matches('button'))) {
+                return;
+            }
+
+            const categoryWidget = document.querySelector('.category-widget.m-2.p-2.row');
+            const hasSelectedButton = categoryWidget && categoryWidget.querySelector('button.selected') !== null;
+
+            if (!hasSelectedButton) {
+                const targetDiv = document.querySelector('#recent-tag-div');
+
+                if (targetDiv) {
+                    const targetButton = targetDiv.querySelector('button');
+
+                    if (targetButton) {
+                        observer.disconnect();
+                        targetButton.click();
+                    }
+                }
+            }
+        });
+
+        observer.observe(document, {attributes: false, childList: true, characterData: false, subtree:true});
+
+        let SpeciesClassSelectorWidget = createCategoryWidget(categories);
+
+        anno = renderBoundingBoxes("{{image.id}}", bboxes = bboxes, widgets = [SpeciesClassSelectorWidget]);
+
+        // Render bounding boxes
         renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
 
+        // Submit buttons disabled until all elements have loaded
         document.getElementById("save_annotations").disabled = false;
         document.getElementById("skip_annotations").disabled = false;
 
@@ -275,7 +313,14 @@
                 data: data,
                 dataType: 'json',
                 success: function (data){
-                    if (data.success){
+                    if (data.success) {
+                        saveRecentTags(
+                            JSON.stringify(
+                                anno.getAnnotations().map(function (annotation) {
+                                    return annotation.body[0].value;
+                                })
+                            )
+                        );
                         window.location.reload();
                     }
                     else {
@@ -285,6 +330,56 @@
                         }, 10000);
                     }
                 },
+            });
+        }
+
+        // Get the recent tags from the last image.
+        function getRecentTags() {
+            return new Promise(function(resolve, reject) {
+                const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                let data = {
+                    'csrfmiddlewaretoken': csrftoken,
+                }
+
+                $.ajax({
+                    url: '{% url 'images:get_recent_tags'%}',
+                    method: 'POST',
+                    data: data,
+                    dataType: 'json',
+                    success: function(data) {
+                        if (data.success) {
+                            if (data.recent_tags.length > 0) {
+                                resolve(JSON.parse(data.recent_tags));
+                            }
+                            else {
+                                resolve([]);
+                            }
+                        } else {
+                            reject(new Error('Failed to fetch recent tags.'));
+                        }
+                    },
+                });
+            });
+        }
+
+        // Set the tags used to pre-populate the next image's annotations.
+        function saveRecentTags(annotations) {
+            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            let data = {
+                'csrfmiddlewaretoken': csrftoken,
+                'annotations': annotations,
+            }
+
+            $.ajax({
+                url: '{% url 'images:save_recent_tags'%}',
+                method: 'POST',
+                data: data,
+                dataType: 'json',
+                success: function (data) {
+                    if (!data.success) {
+                        console.log("There was a problem saving recent tags.");
+                    }
+                }
             });
         }
 
@@ -386,7 +481,9 @@
             annotationTexts = document.querySelectorAll("[id^='annotation-text-']");
 
             for (let annoText of annotationTexts) {
-                annoText.innerText = selectedOption.length > 17 ? selectedOption.slice(0, 17) + "..." : selectedOption;
+                annoText.innerHTML = selectedOption.length > 17
+                  ? `<strong>${selectedOption.slice(0, 17)}...</strong>`
+                  : `<strong>${selectedOption}</strong>`;
                 annoText.style.backgroundColor = 'transparent';
             }
         });

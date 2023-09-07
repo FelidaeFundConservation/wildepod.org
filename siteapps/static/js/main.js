@@ -48,11 +48,24 @@ function createCategoryWidget(categories){
           // Add an event listener to update the class on click
           button.addEventListener('click', addTag);
 
-          // Focus the ok button if a selection is made.
+
           button.addEventListener('click', function () {
+                // Focus the ok button if a selection is made.
               const okButton = $('button.r6o-btn:contains("Ok")');
               if (okButton.length) {
                   okButton['0'].focus();
+              }
+
+              // Restart the observer when menu is closed (for handling recent tags auto-selection)
+              if (typeof observer !== "undefined") {
+                  okButton.on('click', function () {
+                      observer.observe(document, { attributes: false, childList: true, characterData: false, subtree: true });
+                  });
+
+                  const cancelButton = $('button.r6o-btn:contains("Cancel")');
+                  cancelButton.on('click', function () {
+                      observer.observe(document, { attributes: false, childList: true, characterData: false, subtree: true });
+                  });
               }
           });
 
@@ -88,18 +101,49 @@ function createCategoryWidget(categories){
 
         // Render the entire widget
         let container = document.createElement('div');
-        if(categories.length > 5) {
+        if (categories.length > 5) {
             container.className = 'category-widget m-2 p-2 row';
         }
         else {
             container.className = 'category-widget m-2 p-2';
         }
 
-        for(const category of categories){
+        for (const category of categories) {
             let categoryButton = createButton(category);
-            container.appendChild(categoryButton);
-        }
 
+            container.appendChild(categoryButton);
+
+            // Get button for recent tag for this bbox
+            if (typeof bboxes !== "undefined" && typeof recentTags !== "undefined") {
+                const index = bboxes.findIndex(bbox => bbox.id == args.annotation.id);
+
+                if (index != -1) {
+                    let tag = recentTags[index];
+
+                    if (category == tag) {
+                        let recentTagDiv = document.createElement('div');
+                        recentTagDiv.setAttribute("id", "recent-tag-div");
+                        let recentTagLabel = document.createElement('h5');
+
+                        recentTagLabel.textContent = "Recent Tag"
+
+                        Object.assign(recentTagDiv.style, {
+                            display: 'flex',
+                            justifyContent: 'center',
+                        });
+
+                        recentTagDiv.append(categoryButton);
+
+                        let hr = document.createElement('hr');
+                        hr.style.margin = '10px';
+
+                        container.prepend(hr);
+                        container.prepend(recentTagDiv);
+                        container.prepend(recentTagLabel);
+                    }
+                }
+            }
+        }
         container.appendChild(createStatusElement())
 
         return container;
@@ -180,8 +224,9 @@ function renderBoundingBoxes(imageElementID, annotations, widgets, config) {
       // Create the label element & add to the column
       let label = document.createElement('div');
       label.className = 'preview-label py-2';
+      label.id = 'preview-label-' + annotation.id;
       let confidence = annotation.body[0].confidence ? annotation.body[0].confidence : 1.0;
-      label.innerHTML = `<p class="my-0 py-0"><b>${annotation.body[0].value}</b> |  <em>conf: ${confidence}</em></p>`;
+      label.innerHTML = `<text id="annotation-text-${annotation.id}" class="my-0 py-0"><b>${annotation.body[0].value}</b> |  <em>conf: ${confidence}</em></text>`;
       if (annotation.body[0].value){
         col.appendChild(label);
       }

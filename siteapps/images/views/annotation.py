@@ -7,7 +7,9 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import Exists, OuterRef, Q
+from django.db import models
+from django.db.models import Count, Exists, OuterRef, Q
+from django.db.models.expressions import Case, Value, When
 from django.http.response import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -30,6 +32,8 @@ from images.processors import process_activity_annotations, process_md_annotatio
 from locations.models import CameraStation, MacroSite, MicroSite
 
 MAX_VOTES_PER_IMAGE = 2
+VOTE_THRESHOLD = 1
+
 CATEGORY_ANIMAL = "animal"
 CATEGORY_HUMAN = "human"
 CUSTOM_PREFIX = "Custom"
@@ -579,11 +583,29 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
             logging.info(f"Processing bounding box annotations for image '{image_id}' by user - '{request.user.name}'")
             # Process the annotations
             success = process_md_annotations(
-                image_id, annotations, initial_bboxes, request.user, social_media_worthy, staff_review_needed, False
+                image_id,
+                annotations,
+                initial_bboxes,
+                request.user,
+                social_media_worthy,
+                staff_review_needed,
+                skip=False,
             )
+
+        category_debug_data = None
+        species_debug_data = None
+        activity_debug_data = None
 
         # If success, update image index in the datastore
         if success:
+            # Calculate and set the flags
+            image = Image.objects.get(id=image_id)
+            category_debug_data = calculateCategoryAnnotationFlags(image)
+            species_debug_data = calculateSpeciesAnnotationFlags(image)
+            activity_debug_data = calculateActivityAnnotationFlags(image)
+
+            image.save()
+
             # Check if we're doing custom annotations
             custom_annotations = request.POST.get("custom_annotations", False) == "True"
 
@@ -597,7 +619,14 @@ class MDAnnotationProcessorView(LoginRequiredMixin, View):
             # Update the datastore
             settings.DATASTORE_CLIENT.put(queue)
 
-        return JsonResponse({"success": success})
+        return JsonResponse(
+            {
+                "success": success,
+                "category_debug_data": category_debug_data,
+                "species_debug_data": species_debug_data,
+                "activity_debug_data": activity_debug_data,
+            }
+        )
 
 
 # TODO: Clean up this code
@@ -630,8 +659,20 @@ class SpeciesAnnotationProcessorView(LoginRequiredMixin, View):
             image_id, annotations, initial_bboxes, request.user, social_media_worthy, staff_review_needed, skip=skip
         )
 
+        category_debug_data = None
+        species_debug_data = None
+        activity_debug_data = None
+
         # If success, update image index in the datastore
         if success:
+            # Calculate and set the flags
+            image = Image.objects.get(id=image_id)
+            category_debug_data = calculateCategoryAnnotationFlags(image)
+            species_debug_data = calculateSpeciesAnnotationFlags(image)
+            activity_debug_data = calculateActivityAnnotationFlags(image)
+
+            image.save()
+
             # Check if we're doing custom annotations
             custom_annotations = request.POST.get("custom_annotations", False) == "True"
 
@@ -647,7 +688,14 @@ class SpeciesAnnotationProcessorView(LoginRequiredMixin, View):
             settings.DATASTORE_CLIENT.put(queue)
 
         # # TODO: Send and render a meaningful response
-        return JsonResponse({"success": success})
+        return JsonResponse(
+            {
+                "success": success,
+                "category_debug_data": category_debug_data,
+                "species_debug_data": species_debug_data,
+                "activity_debug_data": activity_debug_data,
+            }
+        )
 
 
 # TODO: Clean up this code
@@ -672,8 +720,20 @@ class ActivityAnnotationProcessorView(LoginRequiredMixin, View):
         # logging.info(f"Processing activity for Image '{image_id}' by user - '{request.user.name}'")
         success = process_activity_annotations(image_id, annotations, initial_bboxes, request.user, skip=skip)
 
+        category_debug_data = None
+        species_debug_data = None
+        activity_debug_data = None
+
         # If success, update image index in the datastore
         if success:
+            # Calculate and set the flags
+            image = Image.objects.get(id=image_id)
+            category_debug_data = calculateCategoryAnnotationFlags(image)
+            species_debug_data = calculateSpeciesAnnotationFlags(image)
+            activity_debug_data = calculateActivityAnnotationFlags(image)
+
+            image.save()
+
             # Get the annotation queue cached in the datastore
             if activity_category == CATEGORY_HUMAN:
                 queue_name = ACTIVITY_HUMAN_QUEUE_NAME
@@ -693,7 +753,14 @@ class ActivityAnnotationProcessorView(LoginRequiredMixin, View):
             settings.DATASTORE_CLIENT.put(queue)
 
         # # TODO: Send and render a meaningful response
-        return JsonResponse({"success": success})
+        return JsonResponse(
+            {
+                "success": success,
+                "category_debug_data": category_debug_data,
+                "species_debug_data": species_debug_data,
+                "activity_debug_data": activity_debug_data,
+            }
+        )
 
 
 class DeleteAnnotationView(LoginRequiredMixin, View):
@@ -754,6 +821,269 @@ class ChangeAnnotationView(LoginRequiredMixin, View):
 
         return JsonResponse({"success": success, "oldName": annotationName, "newName": newAnnotationName})
 
+
+"""
+Pipeline flag calculations.
+"""
+# Category Flag Checks
+def calculateCategoryAnnotationFlags(image):
+    category_annotations = Category.objects.filter(bounding_box__in=BoundingBox.objects.filter(image=image)).annotate(
+        accepted_count=Count("accepted_by"),
+        rejected_count=Count("rejected_by"),
+        vote_difference=Count("accepted_by") - Count("rejected_by"),
+        has_staff_vote=Case(
+            When(Q(created_by__human__is_staff=True) | Q(accepted_by__human__is_staff=True), then=Value(True)),
+            default=False,
+        ),
+        has_expert_vote=Case(
+            When(Q(created_by__human__is_expert=True) | Q(accepted_by__human__is_expert=True), then=Value(True)),
+            default=False,
+        ),
+        status=Case(
+            When(
+                Q(vote_difference__gt=VOTE_THRESHOLD)
+                | Q(created_by__human__is_staff=True)
+                | Q(accepted_by__human__is_staff=True)
+                | Q(created_by__human__is_expert=True)
+                | Q(accepted_by__human__is_expert=True),
+                then=Value("Valid"),
+            ),
+            When(vote_difference__lt=-VOTE_THRESHOLD, then=Value("Invalid")),
+            default=Value("Uncertain"),
+            output_field=models.CharField(),
+        ),
+    )
+
+    category_has_uncertain_annotation = category_annotations.filter(status="Uncertain").exists()
+
+    has_staff_vote = category_annotations.filter(has_staff_vote=True).exists()
+
+    has_expert_vote = category_annotations.filter(has_expert_vote=True).exists()
+
+    bbox_count_gt = BoundingBox.objects.filter(image=image).count() > 0
+
+    if (
+        (not category_has_uncertain_annotation or has_staff_vote or has_expert_vote)
+        and image.processed
+        and bbox_count_gt
+    ):
+        image.has_humans = category_annotations.filter(name="person").exists()
+        image.has_animals = category_annotations.filter(name="animal").exists()
+        image.has_vehicles = category_annotations.filter(name="vehicle").exists()
+
+        image.category_pipeline_complete = True
+
+    category_annotations_info = []
+    for category in list(category_annotations):
+        category_annotations_info.append(
+            {
+                "name": category.name,
+                "accepted_count": category.accepted_count,
+                "rejected_count": category.rejected_count,
+                "status": category.status,
+                "has_staff_vote": category.has_staff_vote,
+                "has_expert_vote": category.has_expert_vote,
+            }
+        )
+
+    category_debug_data = {
+        "category_annotations": category_annotations_info,
+        "flag_checks": {
+            "or_checks": {
+                "category_has_uncertain": category_has_uncertain_annotation,
+                "is_staff": has_staff_vote,
+                "is_expert": has_expert_vote,
+            },
+            "processed": image.processed,
+            "bounding_boxes_gte_zero": bbox_count_gt,
+        },
+        "pipeline_flags": {
+            "has_humans": image.has_humans,
+            "has_animals": image.has_animals,
+            "has_vehicles": image.has_vehicles,
+            "category_pipeline_complete": image.category_pipeline_complete,
+        },
+    }
+
+    return category_debug_data
+
+
+# Species Flag Checks
+def calculateSpeciesAnnotationFlags(image):
+    species_annotations = Species.objects.filter(bounding_box__in=BoundingBox.objects.filter(image=image)).annotate(
+        accepted_count=Count("accepted_by"),
+        rejected_count=Count("rejected_by"),
+        vote_difference=Count("accepted_by") - Count("rejected_by"),
+        has_staff_vote=Case(
+            When(Q(created_by__human__is_staff=True) | Q(accepted_by__human__is_staff=True), then=Value(True)),
+            default=False,
+        ),
+        has_expert_vote=Case(
+            When(Q(created_by__human__is_expert=True) | Q(accepted_by__human__is_expert=True), then=Value(True)),
+            default=False,
+        ),
+        status=Case(
+            When(
+                Q(vote_difference__gt=VOTE_THRESHOLD)
+                | Q(created_by__human__is_staff=True)
+                | Q(accepted_by__human__is_staff=True)
+                | Q(created_by__human__is_expert=True)
+                | Q(accepted_by__human__is_expert=True),
+                then=Value("Valid"),
+            ),
+            When(vote_difference__lt=-VOTE_THRESHOLD, then=Value("Invalid")),
+            default=Value("Uncertain"),
+            output_field=models.CharField(),
+        ),
+    )
+
+    species_has_uncertain_annotation = species_annotations.filter(status="Uncertain").exists()
+
+    species_has_valid_annotation = species_annotations.filter(status="Valid").exists()
+
+    has_staff_vote = species_annotations.filter(has_staff_vote=True).exists()
+
+    has_expert_vote = species_annotations.filter(has_expert_vote=True).exists()
+
+    annotation_checked_by_gte = image.species_checked_by.all().count() >= MAX_VOTES_PER_IMAGE
+
+    NON_WILD_SPECIES = [
+        "Cyclist",
+        "Domestic cat",
+        "Domestic dog",
+        "Domestic horse",
+        "Goat (domestic)",
+        "Horse rider",
+        "Human",
+        "Motorized vehicle",
+        "Non motorized vehicle (bike)",
+        "Sheep (domestic)",
+        "Unknown",
+    ]
+
+    if (
+        not species_has_uncertain_annotation
+        and species_has_valid_annotation
+        and image.has_animals
+        and (has_staff_vote or has_expert_vote or annotation_checked_by_gte)
+        and image.processed
+    ):
+        image.has_wild_animals = species_annotations.filter(~Q(name__name__in=NON_WILD_SPECIES)).exists()
+        image.species_pipeline_complete = True
+
+    species_annotations_info = []
+    for species in list(species_annotations):
+        species_annotations_info.append(
+            {
+                "name": species.name.name,
+                "accepted_count": species.accepted_count,
+                "rejected_count": species.rejected_count,
+                "status": species.status,
+                "has_staff_vote": species.has_staff_vote,
+                "has_expert_vote": species.has_expert_vote,
+            }
+        )
+
+    species_debug_data = {
+        "species_annotations": species_annotations_info,
+        "flag_checks": {
+            "species_has_uncertain": species_has_uncertain_annotation,
+            "species_has_valid": species_has_valid_annotation,
+            "image_has_animals": image.has_animals,
+            "or_checks": {
+                "checked_by": annotation_checked_by_gte,
+                "is_staff": has_staff_vote,
+                "is_expert": has_expert_vote,
+            },
+            "processed": image.processed,
+        },
+        "pipeline_flags": {
+            "has_wild_animals": image.has_wild_animals,
+            "species_pipeline_complete": image.species_pipeline_complete,
+        },
+    }
+
+    return species_debug_data
+
+
+# Activity Flag Checks
+def calculateActivityAnnotationFlags(image):
+    activity_annotations = Activity.objects.filter(bounding_box__in=BoundingBox.objects.filter(image=image)).annotate(
+        accepted_count=Count("accepted_by"),
+        rejected_count=Count("rejected_by"),
+        vote_difference=Count("accepted_by") - Count("rejected_by"),
+        has_staff_vote=Case(
+            When(Q(created_by__human__is_staff=True) | Q(accepted_by__human__is_staff=True), then=Value(True)),
+            default=False,
+        ),
+        has_expert_vote=Case(
+            When(Q(created_by__human__is_expert=True) | Q(accepted_by__human__is_expert=True), then=Value(True)),
+            default=False,
+        ),
+        status=Case(
+            When(
+                Q(vote_difference__gt=VOTE_THRESHOLD)
+                | Q(created_by__human__is_staff=True)
+                | Q(accepted_by__human__is_staff=True)
+                | Q(created_by__human__is_expert=True)
+                | Q(accepted_by__human__is_expert=True),
+                then=Value("Valid"),
+            ),
+            When(vote_difference__lt=-VOTE_THRESHOLD, then=Value("Invalid")),
+            default=Value("Uncertain"),
+            output_field=models.CharField(),
+        ),
+    )
+
+    activity_has_uncertain_annotation = activity_annotations.filter(status="Uncertain").exists()
+
+    activity_has_valid_annotation = activity_annotations.filter(status="Valid").exists()
+
+    has_staff_vote = activity_annotations.filter(has_staff_vote=True).exists()
+
+    has_expert_vote = activity_annotations.filter(has_expert_vote=True).exists()
+
+    annotation_checked_by_gte = image.activity_checked_by.all().count() >= MAX_VOTES_PER_IMAGE
+
+    if (
+        not activity_has_uncertain_annotation
+        and activity_has_valid_annotation
+        and image.has_wild_animals
+        and (has_staff_vote or has_expert_vote or annotation_checked_by_gte)
+        and image.processed
+    ):
+        image.activity_pipeline_complete = True
+
+    activity_annotations_info = []
+    for activity in list(activity_annotations):
+        activity_annotations_info.append(
+            {
+                "name": activity.name.name,
+                "accepted_count": activity.accepted_count,
+                "rejected_count": activity.rejected_count,
+                "status": activity.status,
+                "has_staff_vote": activity.has_staff_vote,
+                "has_expert_vote": activity.has_expert_vote,
+            }
+        )
+
+    activity_debug_data = {
+        "activity_annotations": activity_annotations_info,
+        "flag_checks": {
+            "activity_has_uncertain": activity_has_uncertain_annotation,
+            "activity_has_valid": activity_has_valid_annotation,
+            "image_has_wild_animals": image.has_wild_animals,
+            "or_checks": {
+                "is_staff": has_staff_vote,
+                "is_expert": has_expert_vote,
+                "checked_by": annotation_checked_by_gte,
+            },
+            "processed": image.processed,
+        },
+        "pipeline_flags": {"activity_pipeline_complete": image.activity_pipeline_complete},
+    }
+
+    return activity_debug_data
 
 class SaveRecentTagsView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):

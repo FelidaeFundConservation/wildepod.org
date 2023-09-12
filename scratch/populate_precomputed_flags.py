@@ -20,8 +20,6 @@ images = Image.objects.filter(
     Q(has_wild_animals=False)
 )
 
-initial_queries = len(connection.queries)
-
 image_count = 0
 total_image_count = images.count()
 

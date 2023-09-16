@@ -52,6 +52,14 @@ class Annotator(TimeStampedModel):
     bot = models.ForeignKey(Bot, on_delete=models.PROTECT, blank=True, null=True)
     human = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, blank=True, null=True)
 
+    # The annotator's annotation count on volunteer engagement page current up to this date
+    engagement_info_last_update = models.DateTimeField(blank=True, null=True)
+
+    # Last saved totals
+    total_category_annotations = models.IntegerField(default=0)
+    total_species_annotations = models.IntegerField(default=0)
+    total_activity_annotations = models.IntegerField(default=0)
+
     def __str__(self):
         if self.type == "human":
             return self.human.name

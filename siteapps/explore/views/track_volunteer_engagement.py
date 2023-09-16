@@ -138,8 +138,11 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
             annotations_all_time_species = volunteer[0].total_species_annotations
             annotations_all_time_activity = volunteer[0].total_activity_annotations
 
+            logged_in_past_week = last_login and last_login > past_week_start_time
+            logged_in_past_month = last_login and last_login > past_month_start_time
+
             # Don't count weekly if not logged in within the last week
-            if last_login and last_login > past_week_start_time:
+            if logged_in_past_week:
                 annotations_past_week_category = Category.objects.filter(past_week_q_filter).count()
 
                 annotations_past_week_species = Species.objects.filter(past_week_q_filter).count()
@@ -150,8 +153,8 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
                     annotations_past_week_category + annotations_past_week_species + annotations_past_week_activity
                 )
 
-            # Don't count month if not logged in within the last month
-            if last_login and last_login > past_month_start_time:
+            # Don't count monthly if not logged in within the last month
+            if logged_in_past_month:
                 annotations_past_month_category = (
                     annotations_past_week_category + Category.objects.filter(past_month_partial_q_filter).count()
                 )
@@ -168,15 +171,17 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
                     annotations_past_month_category + annotations_past_month_species + annotations_past_month_activity
                 )
 
-            # Check all-time again only after a certain period and if active
+            # Calculate all-time counts only when conditions are met
             if (
                 last_update_time
-                and (now - last_update_time > timedelta(minutes=30))
-                and (last_login and last_login >= past_month_start_time)
+                and (now - last_update_time > timedelta(minutes=30))  # 30 minute cooldown over
+                and logged_in_past_month
+                and (annotations_past_month > 0)  # Made an annotation within the past month
             ) or (
-                last_login
-                and last_login < past_month_start_time
-                and (annotations_all_time_category + annotations_all_time_species + annotations_all_time_activity == 0)
+                not logged_in_past_month  # Last login more than 1 month ago
+                and (
+                    annotations_all_time_category + annotations_all_time_species + annotations_all_time_activity == 0
+                )  # No saved total annotation count yet
             ):
                 annotations_all_time_category = (
                     annotations_past_month_category + Category.objects.filter(all_time_partial_q_filter).count()

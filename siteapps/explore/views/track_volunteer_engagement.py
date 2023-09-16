@@ -92,7 +92,6 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
         past_month_start_time = now - relativedelta(months=1)
         past_week_start_time = now - relativedelta(weeks=1)
 
-        # Only include annotators who logged in recently
         volunteers = list(Annotator.objects.all())
         volunteer_info = []
 

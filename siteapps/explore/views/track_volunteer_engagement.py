@@ -99,7 +99,7 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
         for volunteer in volunteers:
             try:
                 last_login = volunteer.human.last_login
-            except Exception as e:
+            except Exception:
                 last_login = None
 
             volunteer = [volunteer]
@@ -178,10 +178,9 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
                 and logged_in_past_month
                 and (annotations_past_month > 0)  # Made an annotation within the past month
             ) or (
-                not logged_in_past_month  # Last login more than 1 month ago
-                and (
-                    annotations_all_time_category + annotations_all_time_species + annotations_all_time_activity == 0
-                )  # No saved total annotation count yet
+                annotations_all_time_category is None
+                and annotations_all_time_species is None
+                and annotations_all_time_activity is None  # Annotation counts in Annotator object not set
             ):
                 annotations_all_time_category = (
                     annotations_past_month_category + Category.objects.filter(all_time_partial_q_filter).count()

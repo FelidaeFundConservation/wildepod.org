@@ -169,7 +169,11 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
                 )
 
             # Check all-time again only after a certain period and if active
-            if (last_update_time and (now - last_update_time > timedelta(minutes=30))) or (
+            if (
+                last_update_time
+                and (now - last_update_time > timedelta(minutes=30))
+                and (last_login and last_login >= past_month_start_time)
+            ) or (
                 last_login
                 and last_login < past_month_start_time
                 and (annotations_all_time_category + annotations_all_time_species + annotations_all_time_activity == 0)

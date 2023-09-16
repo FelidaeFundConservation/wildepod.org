@@ -56,9 +56,9 @@ class Annotator(TimeStampedModel):
     engagement_info_last_update = models.DateTimeField(blank=True, null=True)
 
     # Last saved totals
-    total_category_annotations = models.IntegerField(default=0)
-    total_species_annotations = models.IntegerField(default=0)
-    total_activity_annotations = models.IntegerField(default=0)
+    total_category_annotations = models.IntegerField(null=True)
+    total_species_annotations = models.IntegerField(null=True)
+    total_activity_annotations = models.IntegerField(null=True)
 
     def __str__(self):
         if self.type == "human":

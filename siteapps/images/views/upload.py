@@ -135,7 +135,7 @@ class UploadStatusView(LoginRequiredMixin, View):
 # TODO: This view is a hack to manually retrigger the processing of an upload
 # Upload processing threads can get killed when GCP decides to kill and instance when it gets no active http requests
 # Ideally, move this to a cloud run instead of a thread within app engine
-class UploadResumeProcessingView(StaffuserRequiredMixin, View):
+class UploadResumeProcessingView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         logging.info("Manually triggered to process crashed uploads")
         # First get all uploads that are already being processed by threads

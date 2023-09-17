@@ -19,6 +19,7 @@
                     <th scope="col"># Of Annotations (All Time)</th>
                     <th scope="col"># Of Annotations (Past Month)</th>
                     <th scope="col"># Of Annotations (Past Week)</th>
+                    <th scope="col">All-Time Data Updated At</th>
                 </tr>
             </thead>
             <tbody>
@@ -32,9 +33,10 @@
                             <td>{{ volunteer.annotations_all_time }}</td>
                             <td>{{ volunteer.annotations_past_month }}</td>
                             <td>{{ volunteer.annotations_past_week }}</td>
+                            <td>{{ volunteer.last_update_time }}</td>
                         </tr>
                         <tr id="detailedBreakdown-{{ volunteer.name_no_spaces }}" hidden>
-                            <td colspan="5" style="text-align: center">
+                            <td colspan="6" style="text-align: center">
                                 <div style="display: flex;">
                                     <div style="flex: 1; padding: 10px; border: 1px solid #ccc;">
                                         <p><b>{{ volunteer.name }}'s Activity</b></p>

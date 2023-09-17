@@ -16,6 +16,7 @@ from django.views.generic.base import TemplateView, View
 from images.forms import UploadCompleteForm, UploadForm
 from images.models import BoundingBox, Image, Upload
 from images.processors import process_upload
+from images.processors.upload import get_dropbox_item_count
 
 # Pagination size for images displayed for the upload detail page
 IMAGE_PAGINATION_LIMIT = 24
@@ -116,7 +117,7 @@ class UploadStatusView(LoginRequiredMixin, View):
         for upload_id in upload_ids:
             try:
                 upload = Upload.objects.get(id=upload_id)
-                total_images = upload.images.count()
+                total_images = get_dropbox_item_count(upload_id)
                 processed_images = upload.images.filter(processed=True).count()
                 upload_statuses[upload_id] = {
                     "valid": True,

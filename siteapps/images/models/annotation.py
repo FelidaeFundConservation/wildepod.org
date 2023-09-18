@@ -2,7 +2,7 @@ import uuid
 
 from django.conf import settings
 from django.db import models
-from django.db.models import Case, Count, Exists, ExpressionWrapper, F, OuterRef, Q, Subquery, Value, When
+from django.db.models import Case, Count, Exists, ExpressionWrapper, F, OuterRef, Q, Value, When
 from django.db.models.functions import Coalesce
 from django.forms import BooleanField
 from model_utils.models import TimeStampedModel
@@ -19,7 +19,6 @@ class BaseAnnotationManager(models.Manager):
     def annotated(self):
         # Combining multiple aggregations with annotate() will yield the wrong results because joins are used instead of subqueries
         # https://docs.djangoproject.com/en/4.0/topics/db/aggregation/#combining-multiple-aggregations
-
         return self.annotate(
             confidence_threshold=Case(
                 When(created_by__type="bot", then="created_by__bot__threshold"),

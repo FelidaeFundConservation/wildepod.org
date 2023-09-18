@@ -75,4 +75,4 @@ LOGGING = {
 # CUSTOM VARIABLES
 # ------------------------------------------------------------------------------
 # Annotation configuration
-NUM_ACCEPTS_OVER_REJECTS = 0
+NUM_ACCEPTS_OVER_REJECTS = 2

@@ -1006,7 +1006,7 @@ def calculateSpeciesAnnotationFlags(image):
         # Replace the category based on the valid species annotated
         if category and category.name == "person" and species.name.name not in NON_ANIMAL_SPECIES:
             category.name = "animal"
-        elif category and category.name == "animal" and species.name.name == "Human":
+        elif category and category.name == "animal" and species.name.name in ["Human", "Cyclist", "Horse rider"]:
             category.name = "person"
 
         category.save()

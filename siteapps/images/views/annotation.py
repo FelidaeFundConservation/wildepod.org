@@ -281,7 +281,8 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
                                 Exists(
                                     Annotator.objects.filter(
                                         Q(human__is_staff=True) | Q(human__is_expert=True),
-                                        accepted_species_annotation=OuterRef("pk"),
+                                        Q(accepted_species_annotation=OuterRef("pk"))
+                                        | Q(created_species_annotation=OuterRef("pk")),
                                     )
                                 ),
                                 bounding_box=OuterRef("pk"),
@@ -439,7 +440,8 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
                                 Exists(
                                     Annotator.objects.filter(
                                         Q(human__is_staff=True) | Q(human__is_expert=True),
-                                        accepted_species_annotation=OuterRef("pk"),
+                                        Q(accepted_activity_annotation=OuterRef("pk"))
+                                        | Q(created_activity_annotation=OuterRef("pk")),
                                     )
                                 ),
                                 bounding_box=OuterRef("pk"),
@@ -1084,6 +1086,7 @@ def calculateActivityAnnotationFlags(image):
     }
 
     return activity_debug_data
+
 
 class SaveRecentTagsView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):

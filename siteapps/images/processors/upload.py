@@ -181,6 +181,9 @@ def process_upload(upload_id: uuid.UUID):
     # Get the list of file entries in the dropbox directory
     entries = get_dropbox_file_listing(upload.dropbox_folder_path)
 
+    # Save the item count in a global dict
+    dropbox_item_counts[f"{upload_id}"] = len(entries)
+
     # Process each dropbox entry inside a thread. Throttle the number of threads as needed
     # NOTE: This is a thread safe operation since image objects are independent functions over a dropbox entry & the upload
     # Even in case of multiple threads processing the same upload, at the very worst, it'll result in re-processing the
@@ -263,3 +266,15 @@ def process_upload(upload_id: uuid.UUID):
         logging.info("Upload saved successfully.")
     else:
         logging.error("Processing failed for one or more images. Upload not marked as processed.")
+
+    # Remove the item count from dict when processing complete
+    dropbox_item_counts.pop(upload_id, None)
+
+
+# For uploads still processing,
+# save total item count to accurately show progress in upload list.
+dropbox_item_counts = {}
+
+
+def get_dropbox_item_count(upload_id: str):
+    return dropbox_item_counts.get(upload_id, "?")

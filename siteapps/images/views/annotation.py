@@ -15,19 +15,13 @@ from django.urls import reverse
 from django.views.generic import FormView
 from django.views.generic.base import TemplateView, View
 from images.forms import AnnotationForm
-from images.models import (
-    Activity,
-    ActivityType,
-    Annotator,
-    BoundingBox,
-    Category,
-    Image,
-    Species,
-    SpeciesName,
-    get_object_annotation_images
-)
+from images.models import (Activity, ActivityType, Annotator, BoundingBox,
+                           Category, Image, Species, SpeciesName,
+                           get_object_annotation_images)
 from images.models.custom_fields import get_filter_params
-from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
+from images.processors import (process_activity_annotations,
+                               process_md_annotations,
+                               process_species_annotations)
 from locations.models import CameraStation, MacroSite, MicroSite
 
 MAX_VOTES_PER_IMAGE = 2
@@ -57,13 +51,15 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
     template_name = "images/annotate/objects.html"
 
     def get(self, request, *args, **kwargs):
-        start_date = self.request.GET.get("start_date")
-        end_date = self.request.GET.get("end_date")
-        camera_id = None if self.request.GET.get("camera_id") == "None" else self.request.GET.get("camera_id")
-        macrosite_name = self.request.GET.get("macrosite_name")
+        station = None if self.request.GET.get("camera_id") == "None" else self.request.GET.get("camera_id")
 
-        self.filterset = get_filter_params(start_date, end_date, macrosite_name, camera_id)
-
+        self.filterset = {
+            "start_date": self.request.GET.get("start_date"),
+            "end_date": self.request.GET.get("end_date"),
+            "station": station,
+            "macrosite": self.request.GET.get("macrosite_name"),
+            "annotator": self.request.user,
+        }
         return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
@@ -91,9 +87,9 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
             # Get the next image_id from the existing queue
             image_id = queue["images"][queue["index"]]
         else:
-            # Get images based on the following set of filters
+            # Get the images to annotate. Check raw sql to see how this is done
             images = get_object_annotation_images(**self.filterset, queue_size=settings.ANNOTATION_QUEUE_SIZE)
-            
+
             # Get the image ids & convert to string
             image_ids = [str(image.id) for image in images]
 

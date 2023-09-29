@@ -47,7 +47,14 @@ def get_dropbox_file_listing(dropbox_folder_path: str) -> list:
     return entries
 
 
-def process_dropbox_file(upload: Upload, entry: dropbox.files.FileMetadata):
+def process_dropbox_file(
+    upload: Upload,
+    entry: dropbox.files.FileMetadata,
+    file_content_hashes: list,
+    content_hashes_lock: threading.Lock,
+    duplicate_files: list,
+    duplicate_files_lock: threading.Lock,
+):
     """Process each file in the dropbox directory."""
     logging.info(
         f"Processing metadata for entry - '{entry.path_lower}' inside thread with id - '{threading.get_ident()}' & name - '{threading.current_thread().name}'"
@@ -62,12 +69,27 @@ def process_dropbox_file(upload: Upload, entry: dropbox.files.FileMetadata):
         # "include_media_info" is deprecated in the files_list_folder API requiring a call for each file again
         # TODO: Maybe this can be offloaded to an on-demand functionality that retrieves data only if needed
         response = dbx.files_get_metadata(entry.path_lower, include_media_info=True)
+
+        # Check if the file's content matches another checked file
+        # Don't create an object and stage the file for deletion if so
+        with content_hashes_lock:
+            if response.content_hash in file_content_hashes:
+                with duplicate_files_lock:
+                    duplicate_files.append(dropbox.files.DeleteArg(path=entry.path_lower))
+                    logging.info(f"Duplicate file content found in file {response.name}. Staged for deletion.")
+
+                    return processed
+            else:
+                file_content_hashes.append(response.content_hash)
+
+        # Get media info
         media_info = response.media_info.get_metadata()
         logging.info(f"Retrieved media info for entry - '{entry.path_lower}'")
 
         # Next, only process image or video content
         if isinstance(media_info, (dropbox.files.PhotoMetadata, dropbox.files.VideoMetadata)):
             logging.info("Entry is an image or video. Processing..")
+
             img_obj, created = Image.objects.get_or_create(
                 upload=upload,
                 dropbox_file_name=response.name,
@@ -159,6 +181,9 @@ def process_upload(upload_id: uuid.UUID):
     # Get the list of file entries in the dropbox directory
     entries = get_dropbox_file_listing(upload.dropbox_folder_path)
 
+    # Save the item count in a global dict
+    dropbox_item_counts[f"{upload_id}"] = len(entries)
+
     # Process each dropbox entry inside a thread. Throttle the number of threads as needed
     # NOTE: This is a thread safe operation since image objects are independent functions over a dropbox entry & the upload
     # Even in case of multiple threads processing the same upload, at the very worst, it'll result in re-processing the
@@ -167,9 +192,28 @@ def process_upload(upload_id: uuid.UUID):
 
     # This multithreaded operation is run inside a thread pool instead of manual thread creation
     processed_status = []
+
+    # Store content hashes shared between threads to check duplicates.
+    file_content_hashes = []
+    duplicate_files = []
+    content_hashes_lock = threading.Lock()
+    duplicate_files_lock = threading.Lock()
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS_FOR_IMAGE_PROCESSING) as executor:
         # Process each entry in the dropbox directory
-        futures = [executor.submit(process_dropbox_file, upload, entry) for entry in entries]
+        futures = [
+            executor.submit(
+                process_dropbox_file,
+                upload=upload,
+                entry=entry,
+                file_content_hashes=file_content_hashes,
+                content_hashes_lock=content_hashes_lock,
+                duplicate_files=duplicate_files,
+                duplicate_files_lock=duplicate_files_lock,
+            )
+            for entry in entries
+        ]
+
         for i, processed in enumerate(concurrent.futures.as_completed(futures)):
             try:
                 processed = processed.result()
@@ -179,9 +223,41 @@ def process_upload(upload_id: uuid.UUID):
                 logging.error(f"Error processing entry {i+1}/{len(entries)} - {e}")
                 continue
 
+    # Delete files with duplicate content from dropbox directory
+    if len(duplicate_files) > 0:
+        logging.info("Attempting to delete duplicate files...")
+
+        delete_job_id = dbx.files_delete_batch(duplicate_files).get_async_job_id()
+        delete_job_status = dbx.files_delete_batch_check(delete_job_id)
+
+        # Keep checking status until deletion job finishes or fails.
+        while not delete_job_status.is_complete():
+            delete_job_status = dbx.files_delete_batch_check(delete_job_id)
+
+            if delete_job_status.is_complete():
+                deleted_entries_count = len(delete_job_status.get_complete().entries)
+                logging.info(
+                    f"{deleted_entries_count} of {len(entries)} file(s) were found to have duplicate content, and were deleted from the dropbox directory.\n"
+                    f"The {len(entries) - deleted_entries_count} remaining file(s) are unique."
+                )
+                break
+            elif delete_job_status.is_failed():
+                logging.error(
+                    f"Error deleting files with duplicate content from dropbox directory: {delete_job_status.get_failed()}"
+                )
+                break
+            else:
+                pass
+
+            time.sleep(3)
+
+    else:
+        logging.info("No duplicate files to delete found.")
+
     # Only if all files are successfully processed, mark the upload as processed
     if all(processed_status):
         # NOTE: Processed is set to True for non-image files by default since they don't require any processing
+        # Deleted duplicate files also return True
         logging.info("All images processed. Marking upload as processed..")
         # Mark the upload as processed.
         upload.processed = True
@@ -190,3 +266,15 @@ def process_upload(upload_id: uuid.UUID):
         logging.info("Upload saved successfully.")
     else:
         logging.error("Processing failed for one or more images. Upload not marked as processed.")
+
+    # Remove the item count from dict when processing complete
+    dropbox_item_counts.pop(upload_id, None)
+
+
+# For uploads still processing,
+# save total item count to accurately show progress in upload list.
+dropbox_item_counts = {}
+
+
+def get_dropbox_item_count(upload_id: str):
+    return dropbox_item_counts.get(upload_id, "?")

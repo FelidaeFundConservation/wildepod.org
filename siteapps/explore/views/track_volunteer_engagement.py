@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from braces.views import StaffuserRequiredMixin
 from dateutil.relativedelta import relativedelta
 from django.conf import settings
@@ -52,6 +54,7 @@ class VolunteerEngagementInfo:
         annotations_all_time_category,
         annotations_all_time_species,
         annotations_all_time_activity,
+        last_update_time,
     ):
         self.name = name
         self.name_no_spaces = name_no_spaces
@@ -73,6 +76,8 @@ class VolunteerEngagementInfo:
         self.annotations_all_time_species = annotations_all_time_species
         self.annotations_all_time_activity = annotations_all_time_activity
 
+        self.last_update_time = last_update_time
+
 
 class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, ListView):
     model = User
@@ -82,69 +87,123 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        volunteers = list(Annotator.objects.all())
-        volunteer_info = []
-
         # Calculuate cutoff date for past week and month.
         now = timezone.now()
         past_month_start_time = now - relativedelta(months=1)
         past_week_start_time = now - relativedelta(weeks=1)
 
+        volunteers = list(Annotator.objects.all())
+        volunteer_info = []
+
         for volunteer in volunteers:
+            try:
+                last_login = volunteer.human.last_login
+            except Exception:
+                last_login = None
+
             volunteer = [volunteer]
 
+            # Currently, there's no way to track what time an individual user's vote is made.
+            # Instead, the creation of the annotation itself is used (regardless of who made the annotation).
+            # Therefore, votes made more than 1 week/month after an annotation's initial creation might not be included in the count.
             past_week_q_filter = (
-                Q(created_by__in=volunteer, created__gte=past_week_start_time)
-                | Q(accepted_by__in=volunteer, created__gte=past_week_start_time)
-                | Q(rejected_by__in=volunteer, created__gte=past_week_start_time)
-            )
-
-            past_month_q_filter = (
-                Q(created_by__in=volunteer, created__gte=past_month_start_time)
-                | Q(accepted_by__in=volunteer, created__gte=past_month_start_time)
-                | Q(rejected_by__in=volunteer, created__gte=past_month_start_time)
-            )
-
-            all_time_q_filter = (
                 Q(created_by__in=volunteer) | Q(accepted_by__in=volunteer) | Q(rejected_by__in=volunteer)
-            )
+            ) & Q(created__gte=past_week_start_time)
 
-            # Get the annotation counts for category, species, and activity.
-            annotations_past_week_category = Category.objects.filter(past_week_q_filter).count()
+            # Queries annotations between -1 month and -1 week
+            past_month_partial_q_filter = (
+                Q(created_by__in=volunteer) | Q(accepted_by__in=volunteer) | Q(rejected_by__in=volunteer)
+            ) & Q(created__gte=past_month_start_time, created__lt=past_week_start_time)
 
-            annotations_past_week_species = Species.objects.filter(past_week_q_filter).count()
+            # Check last update time for all-time count
+            last_update_time = volunteer[0].engagement_info_last_update
+            new_update_time = timezone.now()
 
-            annotations_past_week_activity = Activity.objects.filter(past_week_q_filter).count()
+            # Queries annotations before -1 month
+            all_time_partial_q_filter = (
+                Q(created_by__in=volunteer) | Q(accepted_by__in=volunteer) | Q(rejected_by__in=volunteer)
+            ) & Q(created__lt=past_month_start_time)
 
-            annotations_past_month_category = Category.objects.filter(past_month_q_filter).count()
+            # Get the annotation counts for category, species, and activity within timeframe.
+            annotations_past_week_category = 0
+            annotations_past_week_species = 0
+            annotations_past_week_activity = 0
+            annotations_past_week = 0
+            annotations_past_month_category = 0
+            annotations_past_month_species = 0
+            annotations_past_month_activity = 0
+            annotations_past_month = 0
+            annotations_all_time_category = volunteer[0].total_category_annotations
+            annotations_all_time_species = volunteer[0].total_species_annotations
+            annotations_all_time_activity = volunteer[0].total_activity_annotations
 
-            annotations_past_month_species = Species.objects.filter(past_month_q_filter).count()
+            logged_in_past_week = last_login and last_login > past_week_start_time
+            logged_in_past_month = last_login and last_login > past_month_start_time
 
-            annotations_past_month_activity = Activity.objects.filter(past_month_q_filter).count()
+            # Don't count weekly if not logged in within the last week
+            if logged_in_past_week:
+                annotations_past_week_category = Category.objects.filter(past_week_q_filter).count()
 
-            annotations_all_time_category = Category.objects.filter(all_time_q_filter).count()
+                annotations_past_week_species = Species.objects.filter(past_week_q_filter).count()
 
-            annotations_all_time_species = Species.objects.filter(all_time_q_filter).count()
+                annotations_past_week_activity = Activity.objects.filter(past_week_q_filter).count()
 
-            annotations_all_time_activity = Activity.objects.filter(all_time_q_filter).count()
+                annotations_past_week = (
+                    annotations_past_week_category + annotations_past_week_species + annotations_past_week_activity
+                )
 
-            # Calculate total annotations across all types.
-            annotations_past_month = (
-                annotations_past_month_category + annotations_past_month_species + annotations_past_month_activity
-            )
+            # Don't count monthly if not logged in within the last month
+            if logged_in_past_month:
+                annotations_past_month_category = (
+                    annotations_past_week_category + Category.objects.filter(past_month_partial_q_filter).count()
+                )
 
-            annotations_past_week = (
-                annotations_past_week_category + annotations_past_week_species + annotations_past_week_activity
-            )
+                annotations_past_month_species = (
+                    annotations_past_week_species + Species.objects.filter(past_month_partial_q_filter).count()
+                )
+
+                annotations_past_month_activity = (
+                    annotations_past_week_activity + Activity.objects.filter(past_month_partial_q_filter).count()
+                )
+
+                annotations_past_month = (
+                    annotations_past_month_category + annotations_past_month_species + annotations_past_month_activity
+                )
+
+            # Calculate all-time counts only when conditions are met
+            if (
+                last_update_time
+                and (now - last_update_time > timedelta(minutes=30))  # 30 minute cooldown over
+                and logged_in_past_month
+                and (annotations_past_month > 0)  # Made an annotation within the past month
+            ) or (
+                annotations_all_time_category is None
+                and annotations_all_time_species is None
+                and annotations_all_time_activity is None  # Annotation counts in Annotator object not set
+            ):
+                annotations_all_time_category = (
+                    annotations_past_month_category + Category.objects.filter(all_time_partial_q_filter).count()
+                )
+                volunteer[0].total_category_annotations = annotations_all_time_category
+
+                annotations_all_time_species = (
+                    annotations_past_month_species + Species.objects.filter(all_time_partial_q_filter).count()
+                )
+                volunteer[0].total_species_annotations = annotations_all_time_species
+
+                annotations_all_time_activity = (
+                    annotations_past_month_activity + Activity.objects.filter(all_time_partial_q_filter).count()
+                )
+                volunteer[0].total_activity_annotations = annotations_all_time_activity
+
+                volunteer[0].engagement_info_last_update = new_update_time
+                volunteer[0].save()
+            else:
+                pass
 
             annotations_all_time = (
                 annotations_all_time_category + annotations_all_time_species + annotations_all_time_activity
             )
-
-            try:
-                last_login = volunteer[0].human.last_login
-            except Exception:
-                last_login = None
 
             volunteer_info.append(
                 VolunteerEngagementInfo(
@@ -163,6 +222,7 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
                     annotations_all_time_category=annotations_all_time_category,
                     annotations_all_time_species=annotations_all_time_species,
                     annotations_all_time_activity=annotations_all_time_activity,
+                    last_update_time=volunteer[0].engagement_info_last_update,
                 )
             )
 

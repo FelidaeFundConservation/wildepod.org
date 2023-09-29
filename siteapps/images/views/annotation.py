@@ -23,7 +23,8 @@ from images.models import (
     Category,
     Image,
     Species,
-    SpeciesName
+    SpeciesName,
+    get_object_annotation_images
 )
 from images.models.custom_fields import get_filter_params
 from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
@@ -91,34 +92,8 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
             image_id = queue["images"][queue["index"]]
         else:
             # Get images based on the following set of filters
-            images = Image.objects.filter(**self.filterset)
-
-            images = images.filter(
-                # It must not be checked or skipped by the current annotator
-                ~Q(bbox_checked_by__in=[annotator]) & ~Q(bbox_skipped_by__in=[annotator]),
-                # Image has at least one bounding box tagged by MegaDetector above the predetermined threshold
-                Exists(
-                    BoundingBox.objects.filter(
-                            image=OuterRef("pk")
-                        ).annotate(
-                            confidence_threshold=Case(
-                                When(created_by__type="bot", then="created_by__bot__threshold"),
-                                default=0.0,
-                            )
-                        ).filter(
-                            confidence__gte=F("confidence_threshold")
-                        )
-                ),
-                # Image hasn't completed the Category/Object Pipeline
-                category_pipeline_complete=False
-            ).order_by(
-                "-upload__priority",
-                "upload__camera_station",
-                "trigger_timestamp"
-            )
-            # Get the image stack based on stack size
-            images = images[: settings.ANNOTATION_QUEUE_SIZE]
-
+            images = get_object_annotation_images(**self.filterset, queue_size=settings.ANNOTATION_QUEUE_SIZE)
+            
             # Get the image ids & convert to string
             image_ids = [str(image.id) for image in images]
 
@@ -1049,6 +1024,7 @@ def calculateActivityAnnotationFlags(image):
     }
 
     return activity_debug_data
+
 
 class SaveRecentTagsView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):

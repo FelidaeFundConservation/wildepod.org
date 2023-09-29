@@ -43,8 +43,12 @@ class BaseAnnotationManager(models.Manager):
             is_staff_vote=ExpressionWrapper(
                 Exists(
                     BoundingBox.objects.filter(
-                        Exists(Annotator.objects.filter(accepted_annotation=OuterRef("pk"), human__is_staff=True)),
-                        image=OuterRef("pk"),
+                        Exists(
+                            Annotator.objects.filter(
+                                Q(human__is_staff=True) | Q(human__is_expert=True), accepted_annotation=OuterRef("pk")
+                            )
+                        ),
+                        image=OuterRef("image"),
                     )
                 ),
                 output_field=models.BooleanField(),

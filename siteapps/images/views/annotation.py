@@ -948,7 +948,7 @@ def calculateSpeciesAnnotationFlags(image):
 
     annotation_checked_by_gte = image.species_checked_by.all().count() >= MAX_VOTES_PER_IMAGE
 
-    # TODO: Use the new SpeciesName species_type field instead once they're set for all objects.
+    # TODO: Use the SpeciesName species_group field instead once they're set for all objects.
     NON_WILD_SPECIES = [
         "Cyclist",
         "Domestic cat",
@@ -965,8 +965,8 @@ def calculateSpeciesAnnotationFlags(image):
 
     # Fix the object annotation retroactively if applicable
     # If species is tagged 'human,' but object is marked 'animal,' change to 'person,' and vice versa.
-    ANIMAL_CATEGORY_LIST = list(SpeciesName.objects.filter(species_type__in=["WILD", "DOMESTIC"]))
-    HUMAN_CATEGORY_LIST = list(SpeciesName.objects.filter(species_type="HUMAN"))
+    ANIMAL_CATEGORY_LIST = list(SpeciesName.objects.filter(species_group__in=["WILD", "DOMESTIC"]))
+    HUMAN_CATEGORY_LIST = list(SpeciesName.objects.filter(species_group="HUMAN"))
 
     for species in species_valid_annotations:
         try:

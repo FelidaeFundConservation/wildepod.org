@@ -198,8 +198,10 @@ class SpeciesName(TimeStampedModel):
     name = models.CharField("Common Name", max_length=250, unique=True)
     scientific_name = models.CharField(max_length=250, unique=True)
 
-    species_type = models.CharField(
-        "Species Type",
+    # The categorization of the species type,
+    # not to be confused with the species type itself
+    species_group = models.CharField(
+        "Species Group",
         max_length=250,
         choices=(
             ("HUMAN", "Human"),

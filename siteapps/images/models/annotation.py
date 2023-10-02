@@ -93,7 +93,7 @@ class BoundingBoxManager(BaseAnnotationManager):
                     Q(category__isnull=False) & Q(category__name="animal") & Q(species__isnull=False),
                     output_field=models.BooleanField(),
                 ),
-                # TODO: Identify non-domestic species with a field in the SpeciesName model
+                # TODO: Use the field in the SpeciesName model to identify non-domestic species
                 is_nondomestic_species=ExpressionWrapper(
                     Q(category__isnull=False)
                     & Q(category__name="animal")
@@ -197,6 +197,19 @@ class BoundingBox(TimeStampedModel):
 class SpeciesName(TimeStampedModel):
     name = models.CharField("Common Name", max_length=250, unique=True)
     scientific_name = models.CharField(max_length=250, unique=True)
+
+    species_type = models.CharField(
+        "Species Type",
+        max_length=250,
+        choices=(
+            ("HUMAN", "Human"),
+            ("WILD", "Wild Animal"),
+            ("DOMESTIC", "Domestic Animal"),
+            ("OTHER", "Other"),
+        ),
+        null=True,
+        default=None,
+    )
 
     def __str__(self):
         return self.name

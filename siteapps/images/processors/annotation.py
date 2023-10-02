@@ -132,8 +132,8 @@ def process_md_annotations(
         if bbox_id not in formatted_annotations:
             # First get the bounding box
             bbox_obj = BoundingBox.objects.get(id=bbox_id)
-            # If the annotator is the same as the current user or if it is a staff user, then the object can be deleted
-            if user.is_staff or bbox_obj.created_by == annotator:
+            # If the annotator is the same as the current user or if it is an expert/staff user, then the object can be deleted
+            if user.is_staff or user.is_expert or bbox_obj.created_by == annotator:
                 # Then delete it
                 bbox_obj.delete()
             else:
@@ -173,8 +173,8 @@ def process_md_annotations(
                     ]
                 )
             ):
-                # If the user is staff or annotator, we directly edit the bounding box
-                if user.is_staff or bbox_obj.created_by == annotator:
+                # If the user is expert/staff or annotator, we directly edit the bounding box
+                if user.is_staff or user.is_expert or bbox_obj.created_by == annotator:
                     bbox_obj.x = formatted_annotations[bbox_id]["x"]
                     bbox_obj.y = formatted_annotations[bbox_id]["y"]
                     bbox_obj.w = formatted_annotations[bbox_id]["w"]

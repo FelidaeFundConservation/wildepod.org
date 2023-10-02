@@ -118,6 +118,9 @@ class Image(TimeStampedModel):
     has_vehicles = models.BooleanField(default=False)
     has_wild_animals = models.BooleanField(default=False)
 
+    # Additional field to support incremental migration to the new precomputed flags
+    use_precomputed_flags = models.BooleanField(default=False)
+    
     # Custom manager
     objects = ImageManager()
 

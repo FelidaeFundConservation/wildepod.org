@@ -38,14 +38,30 @@
                 <thead>
                     <tr>
                         <th scope="col">Name</th>
-                        <th scope="col">Image Count</th>
+                        <th scope="col">Total Images</th>
+                        <th scope="col">Objects Detected by MD</th>
+                        <th scope="col">Category Pipeline Complete</th>
+                        <th scope="col">Has Animals</th>
+                        <th scope="col">Has Humans</th>
+                        <th scope="col">Has Vehicles</th>
+                        <th scope="col">Species Pipeline Complete</th>
+                        <th scope="col">Has Wild Animals</th>
+                        <th scope="col">Activity Pipeline Complete</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for object in results %}
                     <tr>
                         <td>{{object.name}}</td>
-                        <td>{{object.all_images}}</td>
+                        <td>{{object.total}}</td>
+                        <td>{{object.objects_detected_md}}</td>
+                        <td>{{object.category_complete}}</td>
+                        <td>{{object.has_animals}}</td>
+                        <td>{{object.has_humans}}</td>
+                        <td>{{object.has_vehicles}}</td>
+                        <td>{{object.species_complete}}</td>
+                        <td>{{object.has_wild_animals}}</td>
+                        <td>{{object.activity_complete}}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

@@ -8,27 +8,20 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
-from django.db.models import Count, Exists, OuterRef, Q
-from django.db.models.expressions import Case, Value, When
+from django.db.models import Case, Count, Exists, F, OuterRef, Q, Value, When
 from django.http.response import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.generic import FormView
 from django.views.generic.base import TemplateView, View
 from images.forms import AnnotationForm
-from images.models import (
-    Activity,
-    ActivityType,
-    Annotator,
-    BoundingBox,
-    Category,
-    Image,
-    Species,
-    SpeciesName,
-    get_object_annotation_images,
-)
+from images.models import (Activity, ActivityType, Annotator, BoundingBox,
+                           Category, Image, Species, SpeciesName,
+                           get_object_annotation_images)
 from images.models.custom_fields import get_filter_params
-from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
+from images.processors import (process_activity_annotations,
+                               process_md_annotations,
+                               process_species_annotations)
 from locations.models import CameraStation, MacroSite, MicroSite
 
 MAX_VOTES_PER_IMAGE = 2
@@ -258,48 +251,19 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
             image_id = queue["images"][queue["index"]]
         else:
             # Get images based on the following set of filters
-            images = Image.objects.annotated().filter(**self.filterset)
+            images = Image.objects.filter(**self.filterset)
 
             images = images.filter(
                 # It must not be checked or skipped by the current annotator
                 ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
-                # There must be at least one or more "valid" bounding boxes
-                Exists(BoundingBox.objects.valid().filter(image=OuterRef("pk"))),
-                # There must be no uncertain bounding boxes for the image
-                ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
-                # TODO: Fix the line below
-                # This is a quick and dirty hack to only ever show an image if there is at least
-                # one bounding box that has at least one category tagged as an animal linked to it
-                # It should work for most of the time but is not always accurate and will generate false positives
-                # Must be fixed
-                Exists(BoundingBox.objects.is_animal().filter(image=OuterRef("pk"))),
-                # If a staff vote exists for the species, we'll no longer show it
-                ~Exists(
-                    BoundingBox.objects.filter(
-                        Exists(
-                            Species.objects.filter(
-                                Exists(
-                                    Annotator.objects.filter(
-                                        Q(human__is_staff=True) | Q(human__is_expert=True),
-                                        accepted_species_annotation=OuterRef("pk"),
-                                    )
-                                ),
-                                bounding_box=OuterRef("pk"),
-                            )
-                        ),
-                        image=OuterRef("pk"),
-                    )
-                ),
-                # Show image only if checked by fewer people
-                num_species_checked_by__lt=MAX_VOTES_PER_IMAGE,
-                # Image must be marked as processed
-                processed=True,
+                # Image hasn't completed the Species Pipeline
+                species_pipeline_complete=False,
+                # Image has animals
+                has_animals=True
             ).order_by(
                 "-upload__priority",
                 "upload__camera_station",
-                "trigger_timestamp",
-                "num_species_checked_by",
-                "num_objects",
+                "trigger_timestamp"
             )
             # Get the image stack based on stack size
             images = images[: settings.ANNOTATION_QUEUE_SIZE]
@@ -423,52 +387,24 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
             image_id = queue["images"][queue["index"]]
         else:
             # Get images based on the following set of filters
-            images = Image.objects.annotated().filter(**self.filterset)
+            images = Image.objects.filter(**self.filterset)
             images = images.filter(
                 # It must not be checked or skipped by the current annotator
                 ~Q(activity_checked_by__in=[annotator]) & ~Q(activity_skipped_by__in=[annotator]),
-                # There must be at least one or more "valid" bounding boxes
-                Exists(BoundingBox.objects.valid().filter(image=OuterRef("pk"))),
-                # There must be no uncertain bounding boxes for the image
-                ~Exists(BoundingBox.objects.uncertain().filter(image=OuterRef("pk"))),
-                # If a staff vote exists for the activity, we'll no longer show it
-                ~Exists(
-                    BoundingBox.objects.filter(
-                        Exists(
-                            Activity.objects.filter(
-                                Exists(
-                                    Annotator.objects.filter(
-                                        Q(human__is_staff=True) | Q(human__is_expert=True),
-                                        accepted_species_annotation=OuterRef("pk"),
-                                    )
-                                ),
-                                bounding_box=OuterRef("pk"),
-                            )
-                        ),
-                        image=OuterRef("pk"),
-                    )
-                ),
-                # Image must be marked as processed
-                processed=True,
-                num_activity_checked_by__lt=MAX_VOTES_PER_IMAGE,
+                # Image hasn't completed the Activity Pipeline
+                activity_pipeline_complete=False
             )
 
             # Filter for animals or humans based on the category passed into the view
-            # TODO: The same issues with the species annotation filter exists here too
-            # We only use one bounding box to determine if an image is tagged as an animal or human
             if context["activity_category"] == CATEGORY_HUMAN:
-                images = images.filter(Exists(BoundingBox.objects.is_person().filter(image=OuterRef("pk"))))
+                images = images.filter(has_humans=True)
             else:
-                images = images.filter(
-                    Exists(BoundingBox.objects.is_nondomestic_species().filter(image=OuterRef("pk")))
-                )
+                images = images.filter(has_wild_animals=True)
 
             images = images.order_by(
                 "-upload__priority",
                 "upload__camera_station",
-                "trigger_timestamp",
-                "num_activity_checked_by",
-                "num_objects",
+                "trigger_timestamp"
             )
 
             # Get the image stack based on stack size.

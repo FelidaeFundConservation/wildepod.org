@@ -8,7 +8,8 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
-from django.db.models import Case, Count, Exists, F, OuterRef, Q, Value, When
+from django.db.models import Case, Count, Exists, F, OuterRef, Q, Value, When, ExpressionWrapper, IntegerField
+from django.db.models.functions import Coalesce
 from django.http.response import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -95,12 +96,44 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
                     BoundingBox.objects.filter(
                             image=OuterRef("pk")
                         ).annotate(
+                            # TODO: This calculation can happen after MegaDetector processing, and we can set a flag.
                             confidence_threshold=Case(
                                 When(created_by__type="bot", then="created_by__bot__threshold"),
                                 default=0.0,
+                            ),
+                            # TODO: These calculations should happen after the annotations are done in the precompute flag methods.
+                            num_accepted=Coalesce(Count("accepted_by", distinct=True), 0),
+                            num_rejected=Coalesce(Count("rejected_by", distinct=True), 0),
+                            num_accepted_expert=Case(
+                                When(
+                                    Exists(
+                                        Annotator.objects.filter(
+                                            Q(human__is_staff=True) | Q(human__is_expert=True), accepted_annotation=OuterRef("pk")
+                                        )
+                                    ), then=Value(1)),
+                                default=Value(0),
+                                output_field=IntegerField()
+                            ),
+                            num_rejected_expert=Case(
+                                When(
+                                    Exists(
+                                        Annotator.objects.filter(
+                                            Q(human__is_staff=True) | Q(human__is_expert=True), rejected_annotation=OuterRef("pk")
+                                        )
+                                    ), then=Value(1)),
+                                default=Value(0),
+                                output_field=IntegerField()
+                            ),
+                            # Expert votes have a multiplier so they override any uncertainity about the bounding box
+                            vote_diff=F("num_accepted") + F("num_accepted_expert") * 2 - F("num_rejected") - F("num_rejected_expert") * 2,
+                            vote_uncertain=ExpressionWrapper(
+                                Q(vote_diff__lt=settings.NUM_ACCEPTS_OVER_REJECTS)
+                                & Q(vote_diff__gt=-settings.NUM_ACCEPTS_OVER_REJECTS),
+                                output_field=models.BooleanField(),
                             )
                         ).filter(
-                            confidence__gte=F("confidence_threshold")
+                            confidence__gte=F("confidence_threshold"),
+                            vote_uncertain=True
                         )
                 ),
                 # Image hasn't completed the Category/Object Pipeline

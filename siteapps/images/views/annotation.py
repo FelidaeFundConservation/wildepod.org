@@ -104,7 +104,9 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
                         )
                 ),
                 # Image hasn't completed the Category/Object Pipeline
-                category_pipeline_complete=False
+                category_pipeline_complete=False,
+                # Image has been preprocessed and we can use precomputed flags
+                use_precomputed_flags=True
             ).order_by(
                 "-upload__priority",
                 "upload__camera_station",
@@ -282,7 +284,9 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
                 # Image hasn't completed the Species Pipeline
                 species_pipeline_complete=False,
                 # Image has animals
-                has_animals=True
+                has_animals=True,
+                # Image has been preprocessed and we can use precomputed flags
+                use_precomputed_flags=True
             ).order_by(
                 "-upload__priority",
                 "upload__camera_station",
@@ -415,7 +419,9 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
                 # It must not be checked or skipped by the current annotator
                 ~Q(activity_checked_by__in=[annotator]) & ~Q(activity_skipped_by__in=[annotator]),
                 # Image hasn't completed the Activity Pipeline
-                activity_pipeline_complete=False
+                activity_pipeline_complete=False,
+                # Image has been preprocessed and we can use precomputed flags
+                use_precomputed_flags=True
             )
 
             # Filter for animals or humans based on the category passed into the view

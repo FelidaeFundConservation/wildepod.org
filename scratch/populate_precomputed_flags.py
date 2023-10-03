@@ -77,6 +77,7 @@ for image in images:
         )
 
     if make_changes:
+        image.use_precomputed_flags = True
         image.save()
     else:
         image = None

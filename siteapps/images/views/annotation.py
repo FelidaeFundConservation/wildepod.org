@@ -898,7 +898,8 @@ def calculateSpeciesAnnotationFlags(image):
 
     species_has_uncertain_annotation = species_annotations.filter(status="Uncertain").exists()
 
-    species_has_valid_annotation = species_annotations.filter(status="Valid").exists()
+    species_valid_annotations = species_annotations.filter(status="Valid")
+    species_has_valid_annotation = species_valid_annotations.exists()
 
     has_staff_vote = species_annotations.filter(has_staff_vote=True).exists()
 
@@ -906,6 +907,7 @@ def calculateSpeciesAnnotationFlags(image):
 
     annotation_checked_by_gte = image.species_checked_by.all().count() >= MAX_VOTES_PER_IMAGE
 
+    # TODO: Use the SpeciesName species_group field instead once they're set for all objects.
     NON_WILD_SPECIES = [
         "Cyclist",
         "Domestic cat",
@@ -919,6 +921,49 @@ def calculateSpeciesAnnotationFlags(image):
         "Sheep (domestic)",
         "Unknown",
     ]
+
+    # Fix the object annotation retroactively if applicable
+    # If species is tagged 'human,' but object is marked 'animal,' change to 'person,' and vice versa.
+    ANIMAL_CATEGORY_LIST = list(SpeciesName.objects.filter(species_group__in=["WILD", "DOMESTIC"]))
+    HUMAN_CATEGORY_LIST = list(SpeciesName.objects.filter(species_group="HUMAN"))
+
+    for species in species_valid_annotations:
+        try:
+            # Get the valid category to replace (assuming there should only ever be 1)
+            category = (
+                Category.objects.filter(bounding_box=species.bounding_box)
+                .annotate(
+                    accepted_count=Count("accepted_by"),
+                    rejected_count=Count("rejected_by"),
+                    vote_difference=Count("accepted_by") - Count("rejected_by"),
+                    status=Case(
+                        When(
+                            Q(vote_difference__gt=VOTE_THRESHOLD)
+                            | Q(created_by__human__is_staff=True)
+                            | Q(accepted_by__human__is_staff=True)
+                            | Q(created_by__human__is_expert=True)
+                            | Q(accepted_by__human__is_expert=True),
+                            then=Value("Valid"),
+                        ),
+                        When(vote_difference__lt=-VOTE_THRESHOLD, then=Value("Invalid")),
+                        default=Value("Uncertain"),
+                        output_field=models.CharField(),
+                    ),
+                )
+                .get(status="Valid")
+            )
+        except Exception:
+            # This should only happen if the category wasn't valid
+            # and shouldn't have been in the species pipeline in the first place
+            continue
+
+        # Replace the category based on the valid species annotated
+        if category and category.name == "person" and species.name in ANIMAL_CATEGORY_LIST:
+            category.name = "animal"
+        elif category and category.name == "animal" and species.name in HUMAN_CATEGORY_LIST:
+            category.name = "person"
+
+        category.save()
 
     if (
         not species_has_uncertain_annotation

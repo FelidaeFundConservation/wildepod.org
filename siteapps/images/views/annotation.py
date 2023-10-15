@@ -848,7 +848,7 @@ def annotate(zipped_querysets):
 
         if annotation.get("vote_difference") > VOTE_THRESHOLD or annotation.get("has_staff_vote"):
             annotation["status"] = "Valid"
-        elif annotation.get("vote_difference") < VOTE_THRESHOLD:
+        elif annotation.get("vote_difference") < -VOTE_THRESHOLD:
             annotation["status"] = "Invalid"
         else:
             annotation["status"] = "Uncertain"
@@ -875,7 +875,11 @@ def calculateCategoryAnnotationFlags(image):
 
         image.category_pipeline_complete = True
     else:
+        # Reset the flags if conditions not met (i.e. retroactively send image back)
         image.category_pipeline_complete = False
+        image.has_humans = False
+        image.has_animals = False
+        image.has_vehicles = False
 
     category_annotations_info = []
     for category in list(category_annotations):
@@ -932,8 +936,6 @@ def calculateSpeciesAnnotationFlags(image):
     species_has_valid_annotation = len(species_valid_annotations) > 0
 
     has_staff_vote = any(species[1].get("has_staff_vote") is True for species in zipped_querysets)
-
-    # has_expert_vote = species_annotations.filter(has_expert_vote=True).exists()
 
     annotation_checked_by_gte = image.species_checked_by.all().count() >= MAX_VOTES_PER_IMAGE
 
@@ -1026,7 +1028,9 @@ def calculateSpeciesAnnotationFlags(image):
         image.has_wild_animals = species_annotations.filter(~Q(name__name__in=NON_WILD_SPECIES)).exists()
         image.species_pipeline_complete = True
     else:
+        # Reset the flags if conditions not met (i.e. retroactively send image back)
         image.species_pipeline_complete = False
+        image.has_wild_animals = False
 
     species_annotations_info = []
     for species in list(species_annotations):
@@ -1052,7 +1056,6 @@ def calculateSpeciesAnnotationFlags(image):
             "or_checks": {
                 "checked_by": annotation_checked_by_gte,
                 "is_staff": has_staff_vote,
-                "is_expert": "FIELD NOT USED",
             },
             "processed": image.processed,
         },
@@ -1078,8 +1081,6 @@ def calculateActivityAnnotationFlags(image):
     activity_has_valid_annotation = any(activity[1].get("status") == "Valid" for activity in zipped_querysets)
 
     has_staff_vote = any(activity[1].get("has_staff_vote") is True for activity in zipped_querysets)
-
-    # has_expert_vote = activity_annotations.filter(has_expert_vote=True).exists()
 
     annotation_checked_by_gte = image.activity_checked_by.all().count() >= MAX_VOTES_PER_IMAGE
 

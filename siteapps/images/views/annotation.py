@@ -85,6 +85,9 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         # Get images based on the following set of filters
         images = Image.objects.filter(**self.filterset)
 
+        ###################
+        # OBJECTS QUERY
+        ###################
         if queue_name == OBJECTS_QUEUE_NAME:
             images = images.filter(
                 # It must not be checked or skipped by the current annotator
@@ -146,6 +149,9 @@ def populate_view_context(queue_name, context, self, activity_category=None):
                 use_precomputed_flags=True,
             ).order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
 
+        ###################
+        # SPECIES QUERY
+        ###################
         elif queue_name == SPECIES_QUEUE_NAME:
             images = images.filter(
                 # It must not be checked or skipped by the current annotator
@@ -158,6 +164,9 @@ def populate_view_context(queue_name, context, self, activity_category=None):
                 use_precomputed_flags=True,
             ).order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
 
+        ###################
+        # ACTIVITY QUERY
+        ###################
         elif queue_name == ACTIVITY_ANIMAL_QUEUE_NAME or ACTIVITY_HUMAN_QUEUE_NAME:
             images = images.filter(
                 # It must not be checked or skipped by the current annotator
@@ -169,14 +178,15 @@ def populate_view_context(queue_name, context, self, activity_category=None):
             )
 
             # Filter for animals or humans based on the category passed into the view
-            if context["activity_category"] == CATEGORY_HUMAN:
+            if activity_category == CATEGORY_HUMAN:
                 images = images.filter(has_humans=True)
             else:
                 images = images.filter(has_wild_animals=True)
 
             images = images.order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
         else:
-            logging.error(f"Invalid queue name provided: {queue_name}")
+            logging.error(f"Invalid queue name provided to query function: {queue_name}")
+
         # Get the image stack based on stack size
         images = images[: settings.ANNOTATION_QUEUE_SIZE]
 
@@ -298,17 +308,22 @@ class CustomAnnotationView(LoginRequiredMixin, FormView, TemplateView):
             return redirect(url)
 
 
+# Sets filterset for the views' GET function
+def set_view_filterset(self):
+    start_date = self.request.GET.get("start_date")
+    end_date = self.request.GET.get("end_date")
+    camera_id = None if self.request.GET.get("camera_id") == "None" else self.request.GET.get("camera_id")
+    macrosite_name = self.request.GET.get("macrosite_name")
+
+    self.filterset = get_filter_params(start_date, end_date, macrosite_name, camera_id)
+
+
 class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
     login_url = settings.LOGIN_URL
     template_name = "images/annotate/objects.html"
 
     def get(self, request, *args, **kwargs):
-        start_date = self.request.GET.get("start_date")
-        end_date = self.request.GET.get("end_date")
-        camera_id = None if self.request.GET.get("camera_id") == "None" else self.request.GET.get("camera_id")
-        macrosite_name = self.request.GET.get("macrosite_name")
-
-        self.filterset = get_filter_params(start_date, end_date, macrosite_name, camera_id)
+        set_view_filterset(self)
 
         return super().get(request, *args, **kwargs)
 
@@ -325,12 +340,7 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
     template_name = "images/annotate/species.html"
 
     def get(self, request, *args, **kwargs):
-        start_date = self.request.GET.get("start_date")
-        end_date = self.request.GET.get("end_date")
-        camera_id = None if self.request.GET.get("camera_id") == "None" else self.request.GET.get("camera_id")
-        macrosite_name = self.request.GET.get("macrosite_name")
-
-        self.filterset = get_filter_params(start_date, end_date, macrosite_name, camera_id)
+        set_view_filterset(self)
 
         return super().get(request, *args, **kwargs)
 
@@ -347,250 +357,140 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
     template_name = "images/annotate/activity.html"
 
     def get(self, request, *args, **kwargs):
-        start_date = self.request.GET.get("start_date")
-        end_date = self.request.GET.get("end_date")
-        camera_id = None if self.request.GET.get("camera_id") == "None" else self.request.GET.get("camera_id")
-        macrosite_name = self.request.GET.get("macrosite_name")
-        self.filterset = get_filter_params(start_date, end_date, macrosite_name, camera_id)
+        set_view_filterset(self)
 
         return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         activity_category = self.request.GET.get("annotation_choice") or self.kwargs["category"]
-        context["activity_category"] = activity_category
-
-        # Check if we're doing custom annotations
-        custom_annotations = self.request.GET.get("custom", None) == "true"
 
         # Get the annotation queue based on the selections
-        if context["activity_category"] == CATEGORY_HUMAN:
+        if activity_category == CATEGORY_HUMAN:
             queue_name = ACTIVITY_HUMAN_QUEUE_NAME
         else:
             queue_name = ACTIVITY_ANIMAL_QUEUE_NAME
 
-        populate_view_context(queue_name, context, self, context["activity_category"])
+        populate_view_context(queue_name, context, self, activity_category)
+
+        context["activity_category"] = activity_category
 
         return context
 
 
-# TODO: Clean up this code
-class MDAnnotationProcessorView(LoginRequiredMixin, View):
-    def post(self, request, *args, **kwargs):
-        # Get the image id
-        image_id = request.POST.get("image_id")
+# Handles annotation processing for each queue type
+def process_annotations(queue_name, request):
+    # Get the image id
+    image_id = request.POST.get("image_id")
+    skip = request.POST.get("skip") == "true"
 
-        # Check if the image needs to be skipped
-        if request.POST.get("skip"):
-            skip = True
-            initial_bboxes = []
-            annotations = []
-            logging.info(f"Bounding box annotations for image '{image_id}' was skipped by user - '{request.user.name}'")
-            # Check if the image was tagged as needing staff review
-            staff_review_needed = request.POST.get("staff_review_needed")
-            staff_review_needed = bool(staff_review_needed and staff_review_needed == "true")
-            # Process the annotations
-            success = process_md_annotations(
-                image_id, annotations, initial_bboxes, request.user, False, staff_review_needed, skip
-            )
-        else:
-            # Get bounding box ids that were sent to infer deleted annotations
-            initial_bboxes = request.POST.get("initial_bboxes")
-            initial_bboxes = json.loads(initial_bboxes)
+    # Get bounding box ids that were sent to infer deleted annotations
+    initial_bboxes = request.POST.get("initial_bboxes")
+    initial_bboxes = json.loads(initial_bboxes)
 
-            # Get the annotation paylaod from the request and convert it to a dict
-            annotations = request.POST.get("annotations")
-            annotations = json.loads(annotations)
+    # Get the annotation payload from the request and convert it to a dict
+    annotations = request.POST.get("annotations")
+    annotations = json.loads(annotations)
 
-            # Check if the image was tagged as social media worthy
-            social_media_worthy = request.POST.get("social_media_worthy")
-            social_media_worthy = bool(social_media_worthy and social_media_worthy == "true")
+    # Check if the image was tagged as social media worthy
+    social_media_worthy = request.POST.get("social_media_worthy")
+    social_media_worthy = True if social_media_worthy and social_media_worthy == "true" else False
 
-            # Check if the image was tagged as needing staff review
-            staff_review_needed = request.POST.get("staff_review_needed")
-            staff_review_needed = bool(staff_review_needed and staff_review_needed == "true")
+    # Check if the image was tagged as needing staff review
+    staff_review_needed = request.POST.get("staff_review_needed")
+    staff_review_needed = bool(staff_review_needed and staff_review_needed == "true")
 
-            logging.info(f"Processing bounding box annotations for image '{image_id}' by user - '{request.user.name}'")
-            # Process the annotations
-            success = process_md_annotations(
-                image_id,
-                annotations,
-                initial_bboxes,
-                request.user,
-                social_media_worthy,
-                staff_review_needed,
-                skip=False,
-            )
+    annotation_description = None
 
-        category_debug_data = None
-        species_debug_data = None
-        activity_debug_data = None
-
-        # If success, update image index in the datastore
-        if success:
-            # Calculate and set the flags
-            image = Image.objects.get(id=image_id)
-            category_debug_data = calculateCategoryAnnotationFlags(image)
-            species_debug_data = calculateSpeciesAnnotationFlags(image)
-            activity_debug_data = calculateActivityAnnotationFlags(image)
-
-            image.save()
-
-            # Check if we're doing custom annotations
-            custom_annotations = request.POST.get("custom_annotations", False) == "True"
-
-            # Get the annotation queue cached in the datastore
-            queue_name = OBJECTS_QUEUE_NAME
-            if custom_annotations:
-                queue_name = CUSTOM_PREFIX + queue_name
-            queue = settings.DATASTORE_CLIENT.get(settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id)))
-            # Update the index
-            queue["index"] += 1
-            # Update the datastore
-            settings.DATASTORE_CLIENT.put(queue)
-
-        return JsonResponse(
-            {
-                "success": success,
-                "category_debug_data": category_debug_data,
-                "species_debug_data": species_debug_data,
-                "activity_debug_data": activity_debug_data,
-            }
+    # Process the annotations
+    if queue_name == OBJECTS_QUEUE_NAME:
+        annotation_description = "Bounding box"
+        success = process_md_annotations(
+            image_id, annotations, initial_bboxes, request.user, False, staff_review_needed, skip
         )
 
-
-# TODO: Clean up this code
-class SpeciesAnnotationProcessorView(LoginRequiredMixin, View):
-    def post(self, request, *args, **kwargs):
-        # Get the image id
-        image_id = request.POST.get("image_id")
-
-        skip = request.POST.get("skip") == "true"
-
-        # Get bounding box ids that were sent to infer deleted annotations
-        initial_bboxes = request.POST.get("initial_bboxes")
-        initial_bboxes = json.loads(initial_bboxes)
-
-        # Get the annotation paylaod from the request and convert it to a dict
-        annotations = request.POST.get("annotations")
-        annotations = json.loads(annotations)
-
-        # Check if the image was tagged as social media worthy
-        social_media_worthy = request.POST.get("social_media_worthy")
-        social_media_worthy = True if social_media_worthy and social_media_worthy == "true" else False
-
-        # Check if the image was tagged as needing staff review
-        staff_review_needed = request.POST.get("staff_review_needed")
-        staff_review_needed = bool(staff_review_needed and staff_review_needed == "true")
-
-        # # Process the annotations
-        # logging.info(f"Processing species for Image '{image_id}' by user - '{request.user.name}'")
+    elif queue_name == SPECIES_QUEUE_NAME:
+        annotation_description = "Species"
         success = process_species_annotations(
             image_id, annotations, initial_bboxes, request.user, social_media_worthy, staff_review_needed, skip=skip
         )
 
-        category_debug_data = None
-        species_debug_data = None
-        activity_debug_data = None
-
-        # If success, update image index in the datastore
-        if success:
-            # Calculate and set the flags
-            image = Image.objects.get(id=image_id)
-            category_debug_data = calculateCategoryAnnotationFlags(image)
-            species_debug_data = calculateSpeciesAnnotationFlags(image)
-            activity_debug_data = calculateActivityAnnotationFlags(image)
-
-            image.save()
-
-            # Check if we're doing custom annotations
-            custom_annotations = request.POST.get("custom_annotations", False) == "True"
-
-            # Get the annotation queue cached in the datastore
-            queue_name = SPECIES_QUEUE_NAME
-            if custom_annotations:
-                queue_name = CUSTOM_PREFIX + queue_name
-            queue = settings.DATASTORE_CLIENT.get(settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id)))
-
-            # Update the index
-            queue["index"] += 1
-            # Update the datastore
-            settings.DATASTORE_CLIENT.put(queue)
-
-        # # TODO: Send and render a meaningful response
-        return JsonResponse(
-            {
-                "success": success,
-                "category_debug_data": category_debug_data,
-                "species_debug_data": species_debug_data,
-                "activity_debug_data": activity_debug_data,
-            }
-        )
-
-
-# TODO: Clean up this code
-class ActivityAnnotationProcessorView(LoginRequiredMixin, View):
-    def post(self, request, *args, **kwargs):
-        # Get the image id
-        image_id = request.POST.get("image_id")
-
-        skip = request.POST.get("skip") == "true"
-
-        activity_category = request.POST.get("activity_category")
-
-        # Get bounding box ids that were sent to infer deleted annotations
-        initial_bboxes = request.POST.get("initial_bboxes")
-        initial_bboxes = json.loads(initial_bboxes)
-
-        # Get the annotation paylaod from the request and convert it to a dict
-        annotations = request.POST.get("annotations")
-        annotations = json.loads(annotations)
-
-        # # Process the annotations
-        # logging.info(f"Processing activity for Image '{image_id}' by user - '{request.user.name}'")
+    elif queue_name == ACTIVITY_ANIMAL_QUEUE_NAME:
+        annotation_description = "Animal activity"
         success = process_activity_annotations(image_id, annotations, initial_bboxes, request.user, skip=skip)
 
-        category_debug_data = None
-        species_debug_data = None
-        activity_debug_data = None
+    elif queue_name == ACTIVITY_HUMAN_QUEUE_NAME:
+        annotation_description = "Human activity"
+        success = process_activity_annotations(image_id, annotations, initial_bboxes, request.user, skip=skip)
 
-        # If success, update image index in the datastore
-        if success:
-            # Calculate and set the flags
-            image = Image.objects.get(id=image_id)
-            category_debug_data = calculateCategoryAnnotationFlags(image)
-            species_debug_data = calculateSpeciesAnnotationFlags(image)
-            activity_debug_data = calculateActivityAnnotationFlags(image)
+    else:
+        logging.error(f"Invalid queue name provided to annotation processor function: {queue_name}")
+        success = False
 
-            image.save()
-
-            # Get the annotation queue cached in the datastore
-            if activity_category == CATEGORY_HUMAN:
-                queue_name = ACTIVITY_HUMAN_QUEUE_NAME
-            else:
-                queue_name = ACTIVITY_ANIMAL_QUEUE_NAME
-
-            # Check if we're doing custom annotations
-            custom_annotations = request.POST.get("custom_annotations", False) == "True"
-            if custom_annotations:
-                queue_name = CUSTOM_PREFIX + queue_name
-
-            queue = settings.DATASTORE_CLIENT.get(settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id)))
-
-            # Update the index
-            queue["index"] += 1
-            # Update the datastore
-            settings.DATASTORE_CLIENT.put(queue)
-
-        # # TODO: Send and render a meaningful response
-        return JsonResponse(
-            {
-                "success": success,
-                "category_debug_data": category_debug_data,
-                "species_debug_data": species_debug_data,
-                "activity_debug_data": activity_debug_data,
-            }
+    if skip:
+        logging.info(
+            f"{annotation_description} annotations for image '{image_id}' was skipped by user - '{request.user.name}'"
         )
+
+    category_debug_data = None
+    species_debug_data = None
+    activity_debug_data = None
+
+    # If success, update image index in the datastore
+    if success:
+        # Calculate and set the flags
+        image = Image.objects.get(id=image_id)
+        category_debug_data = calculateCategoryAnnotationFlags(image)
+        species_debug_data = calculateSpeciesAnnotationFlags(image)
+        activity_debug_data = calculateActivityAnnotationFlags(image)
+
+        image.save()
+
+        # Check if we're doing custom annotations
+        custom_annotations = request.POST.get("custom_annotations", False) == "True"
+
+        # Get the annotation queue cached in the datastore
+        if custom_annotations:
+            queue_name = CUSTOM_PREFIX + queue_name
+        queue = settings.DATASTORE_CLIENT.get(settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id)))
+
+        # Update the index
+        queue["index"] += 1
+
+        # Update the datastore
+        settings.DATASTORE_CLIENT.put(queue)
+
+    return JsonResponse(
+        {
+            "success": success,
+            "category_debug_data": category_debug_data,
+            "species_debug_data": species_debug_data,
+            "activity_debug_data": activity_debug_data,
+        }
+    )
+
+
+class MDAnnotationProcessorView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        return process_annotations(OBJECTS_QUEUE_NAME, request)
+
+
+class SpeciesAnnotationProcessorView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        return process_annotations(SPECIES_QUEUE_NAME, request)
+
+
+class ActivityAnnotationProcessorView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        activity_category = request.POST.get("activity_category")
+
+        # Get the annotation queue cached in the datastore
+        if activity_category == CATEGORY_HUMAN:
+            queue_name = ACTIVITY_HUMAN_QUEUE_NAME
+        else:
+            queue_name = ACTIVITY_ANIMAL_QUEUE_NAME
+
+        return process_annotations(queue_name, request)
 
 
 class DeleteAnnotationView(LoginRequiredMixin, View):

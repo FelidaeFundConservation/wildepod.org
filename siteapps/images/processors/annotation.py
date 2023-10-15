@@ -330,6 +330,10 @@ def process_species_annotations(
                         created_by=annotator,
                         confidence=formatted_annotations[bbox_id]["confidence"],
                     )
+
+                # Cast a reject vote for all other annotations
+                for species in Species.objects.filter(~Q(id=species_obj.id), bounding_box=bbox_obj):
+                    vote(species, annotator, accept=False)
             else:
                 species_obj = None
 
@@ -417,6 +421,10 @@ def process_activity_annotations(
                         created_by=annotator,
                         confidence=formatted_annotations[bbox_id]["confidence"],
                     )
+
+                # Cast a reject vote for all other annotations
+                for activity in Activity.objects.filter(~Q(id=activity_obj.id), bounding_box=bbox_obj):
+                    vote(activity, annotator, accept=False)
             else:
                 activity_obj = None
 

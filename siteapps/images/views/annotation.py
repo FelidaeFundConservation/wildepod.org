@@ -379,7 +379,7 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
 
 
 # Handles annotation processing for each queue type
-def process_annotations(queue_name, request):
+def annotation_processor(queue_name, request):
     # Get the image id
     image_id = request.POST.get("image_id")
     skip = request.POST.get("skip") == "true"
@@ -417,11 +417,15 @@ def process_annotations(queue_name, request):
 
     elif queue_name == ACTIVITY_ANIMAL_QUEUE_NAME:
         annotation_description = "Animal activity"
-        success = process_activity_annotations(image_id, annotations, initial_bboxes, request.user, skip=skip)
+        success = process_activity_annotations(
+            image_id, annotations, initial_bboxes, request.user, social_media_worthy, staff_review_needed, skip=skip
+        )
 
     elif queue_name == ACTIVITY_HUMAN_QUEUE_NAME:
         annotation_description = "Human activity"
-        success = process_activity_annotations(image_id, annotations, initial_bboxes, request.user, skip=skip)
+        success = process_activity_annotations(
+            image_id, annotations, initial_bboxes, request.user, social_media_worthy, staff_review_needed, skip=skip
+        )
 
     else:
         logging.error(f"Invalid queue name provided to annotation processor function: {queue_name}")
@@ -472,12 +476,12 @@ def process_annotations(queue_name, request):
 
 class MDAnnotationProcessorView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
-        return process_annotations(OBJECTS_QUEUE_NAME, request)
+        return annotation_processor(OBJECTS_QUEUE_NAME, request)
 
 
 class SpeciesAnnotationProcessorView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
-        return process_annotations(SPECIES_QUEUE_NAME, request)
+        return annotation_processor(SPECIES_QUEUE_NAME, request)
 
 
 class ActivityAnnotationProcessorView(LoginRequiredMixin, View):
@@ -490,7 +494,7 @@ class ActivityAnnotationProcessorView(LoginRequiredMixin, View):
         else:
             queue_name = ACTIVITY_ANIMAL_QUEUE_NAME
 
-        return process_annotations(queue_name, request)
+        return annotation_processor(queue_name, request)
 
 
 class DeleteAnnotationView(LoginRequiredMixin, View):

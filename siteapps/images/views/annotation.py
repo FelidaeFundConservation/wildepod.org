@@ -8,7 +8,20 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
-from django.db.models import Case, Count, Exists, ExpressionWrapper, F, IntegerField, OuterRef, Q, Subquery, Value, When
+from django.db.models import (
+    BooleanField,
+    Case,
+    Count,
+    Exists,
+    ExpressionWrapper,
+    F,
+    IntegerField,
+    OuterRef,
+    Q,
+    Subquery,
+    Value,
+    When,
+)
 from django.db.models.functions import Coalesce
 from django.http.response import JsonResponse
 from django.shortcuts import redirect, render
@@ -963,7 +976,7 @@ def calculateSpeciesAnnotationFlags(image):
         try:
             # Get the valid category to replace (assuming there should only ever be 1)
             category = (
-                Category.objects.filter(bounding_box__image__id=image.id)
+                Category.objects.filter(bounding_box=species.bounding_box)
                 .annotate(
                     accepted_count=Count("accepted_by"),
                     rejected_count=Count("rejected_by"),
@@ -983,6 +996,12 @@ def calculateSpeciesAnnotationFlags(image):
                         Case(
                             When(Q(rejected_by__human__is_staff=True) | Q(rejected_by__human__is_expert=True), then=1),
                             output_field=IntegerField(),
+                        )
+                    ),
+                    has_staff_vote=Count(
+                        Case(
+                            When(Q(created_by__human__is_staff=True) | Q(accepted_by__human__is_staff=True), then=1),
+                            output_field=BooleanField(),
                         )
                     ),
                     vote_difference=(
@@ -1005,15 +1024,19 @@ def calculateSpeciesAnnotationFlags(image):
                 )
                 .get(status="Valid")
             )
-        except Exception:
+
+        except Exception as e:
+            logging.error(f"Couldn't find the valid category for the bbox: {e}")
             # This should only happen if the category wasn't valid
             # and shouldn't have been in the species pipeline in the first place
             continue
 
         # Replace the category based on the valid species annotated
-        if category and category.name == "person" and species.name in ANIMAL_CATEGORY_LIST:
+        is_same_bbox = category.bounding_box == species.bounding_box
+
+        if category and category.name == "person" and species.name in ANIMAL_CATEGORY_LIST and is_same_bbox:
             category.name = "animal"
-        elif category and category.name == "animal" and species.name in HUMAN_CATEGORY_LIST:
+        elif category and category.name == "animal" and species.name in HUMAN_CATEGORY_LIST and is_same_bbox:
             category.name = "person"
 
         category.save()
@@ -1136,6 +1159,7 @@ class SaveRecentTagsView(LoginRequiredMixin, View):
         try:
             request.session["recent_tags"] = annotations
         except BaseException as e:
+            logging.error(f"Error saving recent tags: {e}")
             success = False
 
         return JsonResponse({"success": success})
@@ -1148,6 +1172,7 @@ class GetRecentTagsView(LoginRequiredMixin, View):
         try:
             recent_tags = self.request.session.get("recent_tags", [])
         except BaseException as e:
+            logging.error(f"Error retrieving recent tags: {e}")
             success = False
 
         return JsonResponse({"success": success, "recent_tags": recent_tags})

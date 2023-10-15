@@ -57,50 +57,35 @@ class BboxAnnotationInfo:
         self.activities = activities
 
 
-# TODO: Clean up this code
-# TODO: There are several common bits of code across the three annotation views and should be refactored
-class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
-    login_url = settings.LOGIN_URL
-    template_name = "images/annotate/objects.html"
+# Retrieves data to pass to the views through context (mainly queue images and annotations info).
+def populate_view_context(queue_name, context, self, activity_category=None):
+    # First get the annotator object for the user
+    annotator, _ = Annotator.objects.get_or_create(type="human", human=self.request.user)
 
-    def get(self, request, *args, **kwargs):
-        start_date = self.request.GET.get("start_date")
-        end_date = self.request.GET.get("end_date")
-        camera_id = None if self.request.GET.get("camera_id") == "None" else self.request.GET.get("camera_id")
-        macrosite_name = self.request.GET.get("macrosite_name")
+    # Check if we're doing custom annotations
+    custom_annotations = self.request.GET.get("custom", None) == "true"
 
-        self.filterset = get_filter_params(start_date, end_date, macrosite_name, camera_id)
+    # Get the annotation queue cached in the datastore
+    if custom_annotations:
+        queue_name = CUSTOM_PREFIX + queue_name
+    queue_key = settings.DATASTORE_CLIENT.key(queue_name, str(self.request.user.id))
+    queue = settings.DATASTORE_CLIENT.get(queue_key)
 
-        return super().get(request, *args, **kwargs)
+    # Check if we have a valid cached queue of images
+    queue_available = (
+        queue
+        and datetime.datetime.fromisoformat(queue["expires_at"]) > datetime.datetime.now()
+        and queue["index"] < len(queue["images"])
+    )
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        # First get the annotator object for the user
-        annotator, _ = Annotator.objects.get_or_create(type="human", human=self.request.user)
+    if queue_available:
+        # Get the next image_id from the existing queue
+        image_id = queue["images"][queue["index"]]
+    else:
+        # Get images based on the following set of filters
+        images = Image.objects.filter(**self.filterset)
 
-        # Check if we're doing custom annotations
-        custom_annotations = self.request.GET.get("custom", None) == "true"
-
-        # Get the annotation queue cached in the datastore
-        queue_name = OBJECTS_QUEUE_NAME
-        if custom_annotations:
-            queue_name = CUSTOM_PREFIX + queue_name
-        queue_key = settings.DATASTORE_CLIENT.key(queue_name, str(self.request.user.id))
-        queue = settings.DATASTORE_CLIENT.get(queue_key)
-        # Check if we have a valid cached queue of images
-        queue_available = (
-            queue
-            and datetime.datetime.fromisoformat(queue["expires_at"]) > datetime.datetime.now()
-            and queue["index"] < len(queue["images"])
-        )
-
-        if queue_available:
-            # Get the next image_id from the existing queue
-            image_id = queue["images"][queue["index"]]
-        else:
-            # Get images based on the following set of filters
-            images = Image.objects.filter(**self.filterset)
-
+        if queue_name == OBJECTS_QUEUE_NAME:
             images = images.filter(
                 # It must not be checked or skipped by the current annotator
                 ~Q(bbox_checked_by__in=[annotator]) & ~Q(bbox_skipped_by__in=[annotator]),
@@ -160,79 +145,110 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
                 # Image has been preprocessed and we can use precomputed flags
                 use_precomputed_flags=True,
             ).order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
-            # Get the image stack based on stack size
-            images = images[: settings.ANNOTATION_QUEUE_SIZE]
 
-            # Get the image ids & convert to string
-            image_ids = [str(image.id) for image in images]
+        elif queue_name == SPECIES_QUEUE_NAME:
+            images = images.filter(
+                # It must not be checked or skipped by the current annotator
+                ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
+                # Image hasn't completed the Species Pipeline
+                species_pipeline_complete=False,
+                # Image has animals
+                has_animals=True,
+                # Image has been preprocessed and we can use precomputed flags
+                use_precomputed_flags=True,
+            ).order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
 
-            # Create a queue entity with image ids, user id, timestamp and index
-            payload = {
-                "user": str(self.request.user.id),
-                "name": self.request.user.name,
-                "images": image_ids,
-                "expires_at": (
-                    datetime.datetime.now() + datetime.timedelta(minutes=settings.ANNOTATION_EXPIRATION_MINS)
-                ).isoformat(),
-                "index": 0,
-            }
-            # Upload to datastore
-            # If queue is a new entity, create a new key
-            if not queue:
-                queue = settings.DATASTORE_CLIENT.entity(key=queue_key)
-            # Save the queue to the datastore
-            queue.update(payload)
-            settings.DATASTORE_CLIENT.put(queue)
+        elif queue_name == ACTIVITY_ANIMAL_QUEUE_NAME or ACTIVITY_HUMAN_QUEUE_NAME:
+            images = images.filter(
+                # It must not be checked or skipped by the current annotator
+                ~Q(activity_checked_by__in=[annotator]) & ~Q(activity_skipped_by__in=[annotator]),
+                # Image hasn't completed the Activity Pipeline
+                activity_pipeline_complete=False,
+                # Image has been preprocessed and we can use precomputed flags
+                use_precomputed_flags=True,
+            )
 
-            # Serve the first image
-            image_id = image_ids[0] if image_ids else None
+            # Filter for animals or humans based on the category passed into the view
+            if context["activity_category"] == CATEGORY_HUMAN:
+                images = images.filter(has_humans=True)
+            else:
+                images = images.filter(has_wild_animals=True)
 
-        # If there is a valid image, add bounding box information
-        if image_id:
-            image = Image.objects.get(id=image_id)
-            context["image"] = image
-            context["social_media_worthy"] = image.social_media_worthy
-            context["staff_review_needed"] = image.staff_review_needed
-            bounding_boxes = BoundingBox.objects.valid_or_uncertain().filter(image=image)
-            context["bounding_boxes"] = bounding_boxes
-            context["queue_index"] = queue["index"]
-            context["queue_length"] = len(queue["images"])
+            images = images.order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
         else:
-            context["image"] = None
-            context["bounding_boxes"] = []
+            logging.error(f"Invalid queue name provided: {queue_name}")
+        # Get the image stack based on stack size
+        images = images[: settings.ANNOTATION_QUEUE_SIZE]
 
-        # Gather surrounding context images.
-        CONTEXT_AMOUNT = 4
+        # Get the image ids & convert to string
+        image_ids = [str(image.id) for image in images]
 
-        lowerIndex = queue["index"] - CONTEXT_AMOUNT
-        upperIndex = queue["index"] + CONTEXT_AMOUNT
+        # Create a queue entity with image ids, user id, timestamp and index
+        payload = {
+            "user": str(self.request.user.id),
+            "name": self.request.user.name,
+            "images": image_ids,
+            "expires_at": (
+                datetime.datetime.now() + datetime.timedelta(minutes=settings.ANNOTATION_EXPIRATION_MINS)
+            ).isoformat(),
+            "index": 0,
+        }
+        # Upload to datastore
+        # If queue is a new entity, create a new key
+        if not queue:
+            queue = settings.DATASTORE_CLIENT.entity(key=queue_key)
+        # Save the queue to the datastore
+        queue.update(payload)
+        settings.DATASTORE_CLIENT.put(queue)
 
-        lowerIndex = 0 if (lowerIndex < 0) else lowerIndex
-        upperIndex = len(queue["images"]) if (upperIndex > len(queue["images"])) else upperIndex
+        # Serve the first image
+        image_id = image_ids[0] if image_ids else None
 
-        context["context_images"] = [
-            Image.objects.get(id=image_id) for image_id in queue["images"][lowerIndex:upperIndex]
-        ]
+    # If there is a valid image, add bounding box information
+    if image_id:
+        image = Image.objects.get(id=image_id)
+        context["image"] = image
+        context["social_media_worthy"] = image.social_media_worthy
+        context["staff_review_needed"] = image.staff_review_needed
+        bounding_boxes = BoundingBox.objects.valid_or_uncertain().filter(image=image)
+        context["bounding_boxes"] = bounding_boxes
+        context["queue_index"] = queue["index"]
+        context["queue_length"] = len(queue["images"])
+    else:
+        context["image"] = None
+        context["bounding_boxes"] = []
 
-        # Gather all annotations for bounding boxes.
-        try:
-            bboxes = BoundingBox.objects.filter(image=queue["images"][queue["index"]])
-        except (ObjectDoesNotExist, IndexError):
-            bboxes = []
+    context["species_list"] = SpeciesName.objects.all()
+    context["activity_list"] = ActivityType.objects.filter(category=activity_category)
 
-        infoList = []
+    # Gather surrounding context images.
+    CONTEXT_AMOUNT = 4
 
-        for bbox in bboxes:
-            categories = Category.objects.filter(bounding_box=bbox)
-            species = Species.objects.filter(bounding_box=bbox)
-            activities = Activity.objects.filter(bounding_box=bbox)
+    lowerIndex = queue["index"] - CONTEXT_AMOUNT
+    upperIndex = queue["index"] + CONTEXT_AMOUNT
 
-            infoList.append(BboxAnnotationInfo(bbox.id, categories, species, activities))
+    lowerIndex = 0 if (lowerIndex < 0) else lowerIndex
+    upperIndex = len(queue["images"]) if (upperIndex > len(queue["images"])) else upperIndex
 
-        context["bbox_all_annotations"] = infoList
-        context["custom_annotations"] = custom_annotations
+    context["context_images"] = [Image.objects.get(id=image_id) for image_id in queue["images"][lowerIndex:upperIndex]]
 
-        return context
+    # Gather all annotations for bounding boxes.
+    try:
+        bboxes = BoundingBox.objects.filter(image=queue["images"][queue["index"]])
+    except (ObjectDoesNotExist, IndexError):
+        bboxes = []
+
+    infoList = []
+
+    for bbox in bboxes:
+        categories = Category.objects.filter(bounding_box=bbox)
+        species = Species.objects.filter(bounding_box=bbox)
+        activities = Activity.objects.filter(bounding_box=bbox)
+
+        infoList.append(BboxAnnotationInfo(bbox.id, categories, species, activities))
+
+    context["bbox_all_annotations"] = infoList
+    context["custom_annotations"] = custom_annotations
 
 
 class CustomAnnotationView(LoginRequiredMixin, FormView, TemplateView):
@@ -282,7 +298,28 @@ class CustomAnnotationView(LoginRequiredMixin, FormView, TemplateView):
             return redirect(url)
 
 
-# TODO: Clean up this code
+class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
+    login_url = settings.LOGIN_URL
+    template_name = "images/annotate/objects.html"
+
+    def get(self, request, *args, **kwargs):
+        start_date = self.request.GET.get("start_date")
+        end_date = self.request.GET.get("end_date")
+        camera_id = None if self.request.GET.get("camera_id") == "None" else self.request.GET.get("camera_id")
+        macrosite_name = self.request.GET.get("macrosite_name")
+
+        self.filterset = get_filter_params(start_date, end_date, macrosite_name, camera_id)
+
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        populate_view_context(OBJECTS_QUEUE_NAME, context, self)
+
+        return context
+
+
 class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
     login_url = settings.LOGIN_URL
     template_name = "images/annotate/species.html"
@@ -300,117 +337,11 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        # First get the annotator object for the user
-        annotator, _ = Annotator.objects.get_or_create(type="human", human=self.request.user)
-
-        # Check if we're doing custom annotations
-        custom_annotations = self.request.GET.get("custom", None) == "true"
-
-        # Get the annotation queue cached in the datastore
-        queue_name = SPECIES_QUEUE_NAME
-        if custom_annotations:
-            queue_name = CUSTOM_PREFIX + queue_name
-        queue_key = settings.DATASTORE_CLIENT.key(queue_name, str(self.request.user.id))
-        queue = settings.DATASTORE_CLIENT.get(queue_key)
-        # Check if we have a valid cached queue of images
-        queue_available = (
-            queue
-            and datetime.datetime.fromisoformat(queue["expires_at"]) > datetime.datetime.now()
-            and queue["index"] < len(queue["images"])
-        )
-
-        if queue_available:
-            # Get the image id
-            image_id = queue["images"][queue["index"]]
-        else:
-            # Get images based on the following set of filters
-            images = Image.objects.filter(**self.filterset)
-
-            images = images.filter(
-                # It must not be checked or skipped by the current annotator
-                ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
-                # Image hasn't completed the Species Pipeline
-                species_pipeline_complete=False,
-                # Image has animals
-                has_animals=True,
-                # Image has been preprocessed and we can use precomputed flags
-                use_precomputed_flags=True,
-            ).order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
-            # Get the image stack based on stack size
-            images = images[: settings.ANNOTATION_QUEUE_SIZE]
-
-            # Get the image ids & convert to string
-            image_ids = [str(image.id) for image in images]
-            # Create a queue entity with image ids, user id, timestamp and index
-            payload = {
-                "user": str(self.request.user.id),
-                "name": self.request.user.name,
-                "images": image_ids,
-                "expires_at": (
-                    datetime.datetime.now() + datetime.timedelta(minutes=settings.ANNOTATION_EXPIRATION_MINS)
-                ).isoformat(),
-                "index": 0,
-            }
-            # Upload to datastore
-            # If queue is a new entity, create a new key
-            if not queue:
-                queue = settings.DATASTORE_CLIENT.entity(key=queue_key)
-            # Save the queue to the datastore
-            queue.update(payload)
-            settings.DATASTORE_CLIENT.put(queue)
-
-            # Serve the first image
-            image_id = image_ids[0] if image_ids else None
-
-        # If there is a valid image, add bounding box information
-        if image_id:
-            image = Image.objects.get(id=image_id)
-            context["image"] = image
-            context["social_media_worthy"] = image.social_media_worthy
-            context["staff_review_needed"] = image.staff_review_needed
-            bounding_boxes = BoundingBox.objects.valid().filter(image=image)
-            context["bounding_boxes"] = bounding_boxes
-        else:
-            context["image"] = None
-            context["bounding_boxes"] = []
-
-        context["species_list"] = SpeciesName.objects.all()
-
-        # Gather surrounding context images.
-        CONTEXT_AMOUNT = 4
-
-        lowerIndex = queue["index"] - CONTEXT_AMOUNT
-        upperIndex = queue["index"] + CONTEXT_AMOUNT
-
-        lowerIndex = 0 if (lowerIndex < 0) else lowerIndex
-        upperIndex = len(queue["images"]) if (upperIndex > len(queue["images"])) else upperIndex
-
-        context["context_images"] = [
-            Image.objects.get(id=image_id) for image_id in queue["images"][lowerIndex:upperIndex]
-        ]
-
-        # Gather all annotations for bounding boxes.
-        try:
-            bboxes = BoundingBox.objects.filter(image=queue["images"][queue["index"]])
-        except (ObjectDoesNotExist, IndexError):
-            bboxes = []
-
-        infoList = []
-
-        for bbox in bboxes:
-            categories = Category.objects.filter(bounding_box=bbox)
-            species = Species.objects.filter(bounding_box=bbox)
-            activities = Activity.objects.filter(bounding_box=bbox)
-
-            infoList.append(BboxAnnotationInfo(bbox.id, categories, species, activities))
-
-        context["bbox_all_annotations"] = infoList
-        context["custom_annotations"] = custom_annotations
+        populate_view_context(SPECIES_QUEUE_NAME, context, self)
 
         return context
 
 
-# TODO: Clean up this code
 class AnnotateActivityView(LoginRequiredMixin, TemplateView):
     login_url = settings.LOGIN_URL
     template_name = "images/annotate/activity.html"
@@ -429,9 +360,6 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
         activity_category = self.request.GET.get("annotation_choice") or self.kwargs["category"]
         context["activity_category"] = activity_category
 
-        # First get the annotator object for the user
-        annotator, _ = Annotator.objects.get_or_create(type="human", human=self.request.user)
-
         # Check if we're doing custom annotations
         custom_annotations = self.request.GET.get("custom", None) == "true"
 
@@ -441,110 +369,7 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
         else:
             queue_name = ACTIVITY_ANIMAL_QUEUE_NAME
 
-        if custom_annotations:
-            queue_name = CUSTOM_PREFIX + queue_name
-        queue_key = settings.DATASTORE_CLIENT.key(queue_name, str(self.request.user.id))
-        queue = settings.DATASTORE_CLIENT.get(queue_key)
-        # Check if we have a valid cached queue of images
-        queue_available = (
-            queue
-            and datetime.datetime.fromisoformat(queue["expires_at"]) > datetime.datetime.now()
-            and queue["index"] < len(queue["images"])
-        )
-
-        # If a valid object exists and if it is not expired and if the index points to a valid image, serve it
-        if queue_available:
-            # Get the image id
-            image_id = queue["images"][queue["index"]]
-        else:
-            # Get images based on the following set of filters
-            images = Image.objects.filter(**self.filterset)
-            images = images.filter(
-                # It must not be checked or skipped by the current annotator
-                ~Q(activity_checked_by__in=[annotator]) & ~Q(activity_skipped_by__in=[annotator]),
-                # Image hasn't completed the Activity Pipeline
-                activity_pipeline_complete=False,
-                # Image has been preprocessed and we can use precomputed flags
-                use_precomputed_flags=True,
-            )
-
-            # Filter for animals or humans based on the category passed into the view
-            if context["activity_category"] == CATEGORY_HUMAN:
-                images = images.filter(has_humans=True)
-            else:
-                images = images.filter(has_wild_animals=True)
-
-            images = images.order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
-
-            # Get the image stack based on stack size.
-            images = images[: settings.ANNOTATION_QUEUE_SIZE]
-
-            # Get the image ids & convert to string
-            image_ids = [str(image.id) for image in images]
-            # Create a queue entity with image ids, user id, timestamp and index
-            payload = {
-                "user": str(self.request.user.id),
-                "name": self.request.user.name,
-                "images": image_ids,
-                "expires_at": (
-                    datetime.datetime.now() + datetime.timedelta(minutes=settings.ANNOTATION_EXPIRATION_MINS)
-                ).isoformat(),
-                "index": 0,
-            }
-            # Upload to datastore
-            # If queue is a new entity, create a new key
-            if not queue:
-                queue = settings.DATASTORE_CLIENT.entity(key=queue_key)
-            # Save the queue to the datastore
-            queue.update(payload)
-            settings.DATASTORE_CLIENT.put(queue)
-
-            # Serve the first image
-            image_id = image_ids[0] if image_ids else None
-
-        # If there is a valid image, add bounding box information
-        if image_id:
-            image = Image.objects.get(id=image_id)
-            context["image"] = image
-            bounding_boxes = BoundingBox.objects.valid().filter(image=image)
-            context["bounding_boxes"] = bounding_boxes
-        else:
-            context["image"] = None
-            context["bounding_boxes"] = []
-
-        context["species_list"] = SpeciesName.objects.all()
-        context["activity_list"] = ActivityType.objects.filter(category=context["category"])
-
-        # Gather surrounding context images.
-        CONTEXT_AMOUNT = 4
-
-        lowerIndex = queue["index"] - CONTEXT_AMOUNT
-        upperIndex = queue["index"] + CONTEXT_AMOUNT
-
-        lowerIndex = 0 if (lowerIndex < 0) else lowerIndex
-        upperIndex = len(queue["images"]) if (upperIndex > len(queue["images"])) else upperIndex
-
-        context["context_images"] = [
-            Image.objects.get(id=image_id) for image_id in queue["images"][lowerIndex:upperIndex]
-        ]
-
-        # Gather all annotations for bounding boxes.
-        try:
-            bboxes = BoundingBox.objects.filter(image=queue["images"][queue["index"]])
-        except (ObjectDoesNotExist, IndexError):
-            bboxes = []
-
-        infoList = []
-
-        for bbox in bboxes:
-            categories = Category.objects.filter(bounding_box=bbox)
-            species = Species.objects.filter(bounding_box=bbox)
-            activities = Activity.objects.filter(bounding_box=bbox)
-
-            infoList.append(BboxAnnotationInfo(bbox.id, categories, species, activities))
-
-        context["bbox_all_annotations"] = infoList
-        context["custom_annotations"] = custom_annotations
+        populate_view_context(queue_name, context, self, context["activity_category"])
 
         return context
 

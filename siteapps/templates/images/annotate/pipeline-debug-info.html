@@ -23,21 +23,17 @@
                                     <i id="category-is-staff" class="bi bi-circle"></i>
                                     Vote By Staff User
                                 </div>
-                                <div>
-                                    <i id="category-is-expert" class="bi bi-circle"></i>
-                                    Vote By Expert User
-                                </div>
                             </div>
                             <text style="font-size: 20px; margin: 30px;"><b>And...</b></text>
                             <div id="category-and-checks" style="border: 1px solid black; border-radius: 5px; padding: 10px; text-align: left; margin: 10px; width: 40%">
                                 <div><b><i><u>All of the following...</u></i></b></div>
                                 <div>
-                                    <i id="category-processed" class="bi bi-circle"></i>
-                                    Image Processed By MegaDetector
-                                </div>
-                                <div>
                                     <i id="category-bbox-gte" class="bi bi-circle"></i>
                                     Image Has 1+ Bounding Boxes
+                                </div>
+                                <div>
+                                    <i id="category-processed" class="bi bi-circle"></i>
+                                    Image Processed By MegaDetector
                                 </div>
                             </div>
                         </div>
@@ -91,10 +87,6 @@
                                 <div>
                                     <i id="species-is-staff" class="bi bi-circle"></i>
                                     Vote By Staff User
-                                </div>
-                                <div>
-                                    <i id="species-is-expert" class="bi bi-circle"></i>
-                                    Vote By Expert User
                                 </div>
                             </div>
                             <text style="font-size: 20px; margin: 30px;"><b>And...</b></text>
@@ -157,10 +149,6 @@
                                     <i id="activity-is-staff" class="bi bi-circle"></i>
                                     Vote By Staff User
                                 </div>
-                                <div>
-                                    <i id="activity-is-expert" class="bi bi-circle"></i>
-                                    Vote By Expert User
-                                </div>
                             </div>
                             <text style="font-size: 20px; margin: 30px;"><b>And...</b></text>
                             <div id="activity-and-checks" style="border: 1px solid black; border-radius: 5px; padding: 10px; text-align: left; margin: 10px; width: 40%">
@@ -211,9 +199,10 @@
                     <td>${anno.name}</td>
                     <td>${anno.accepted_count}</td>
                     <td>${anno.rejected_count}</td>
-                    <td>${anno.accepted_count - anno.rejected_count}</td>
+                    <td>${anno.expert_accepted_count}</td>
+                    <td>${anno.expert_rejected_count}</td>
+                    <td>${anno.vote_difference}</td>
                     <td>${anno.has_staff_vote}</td>
-                    <td>${anno.has_expert_vote}</td>
                     <td>${anno.status}</td>
                 </tr>`;
             });
@@ -229,9 +218,10 @@
                             <th>Annotation Name</th>
                             <th>Accepted Count</th>
                             <th>Rejected Count</th>
+                            <th>Staff/Expert Accepted Count</th>
+                            <th>Staff/Expert Rejected Count</th>
                             <th>Vote Difference</th>
                             <th>Has Staff Vote</th>
-                            <th>Has Expert Vote</th>
                             <th>Status</th>
                         </tr>
                     </thead>
@@ -258,7 +248,6 @@
 
         $("#category-no-uncertain").attr("class", !categoryDebugData.flag_checks.or_checks.category_has_uncertain ? checkedIcon : xedIcon);
         $("#category-is-staff").attr("class", categoryDebugData.flag_checks.or_checks.is_staff ? checkedIcon : xedIcon);
-        $("#category-is-expert").attr("class", categoryDebugData.flag_checks.or_checks.is_expert ? checkedIcon : xedIcon);
 
         $("#category-processed").attr("class", categoryDebugData.flag_checks.processed ? checkedIcon : xedIcon);
         $("#category-bbox-gte").attr("class", categoryDebugData.flag_checks.bounding_boxes_gte_zero ? checkedIcon : xedIcon);
@@ -280,7 +269,6 @@
 
         $("#species-checked-by").attr("class", speciesDebugData.flag_checks.or_checks.checked_by ? checkedIcon : xedIcon);
         $("#species-is-staff").attr("class", speciesDebugData.flag_checks.or_checks.is_staff ? checkedIcon : xedIcon);
-        $("#species-is-expert").attr("class", speciesDebugData.flag_checks.or_checks.is_expert ? checkedIcon : xedIcon);
 
         $("#species-has-valid").attr("class", speciesDebugData.flag_checks.species_has_valid ? checkedIcon : xedIcon);
         $("#species-no-uncertain").attr("class", !speciesDebugData.flag_checks.species_has_uncertain ? checkedIcon : xedIcon);
@@ -301,7 +289,6 @@
 
         $("#activity-checked-by").attr("class", activityDebugData.flag_checks.or_checks.checked_by ? checkedIcon : xedIcon);
         $("#activity-is-staff").attr("class", activityDebugData.flag_checks.or_checks.is_staff ? checkedIcon : xedIcon);
-        $("#activity-is-expert").attr("class", activityDebugData.flag_checks.or_checks.is_expert ? checkedIcon : xedIcon);
 
         $("#activity-has-valid").attr("class", activityDebugData.flag_checks.activity_has_valid ? checkedIcon : xedIcon);
         $("#activity-no-uncertain").attr("class", !activityDebugData.flag_checks.activity_has_uncertain ? checkedIcon : xedIcon);

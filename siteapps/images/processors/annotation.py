@@ -127,23 +127,6 @@ def process_md_annotations(
     # Convert initial boxes into the same structure
     initial_bboxes = {bbox["id"]: bbox for bbox in initial_bboxes}
 
-    # Delete orphaned bbox/annotation objects and send image back if they exist
-    if (
-        len(formatted_annotations) == 0
-        and len(initial_bboxes) == 0
-        and BoundingBox.objects.filter(image=image).exists()
-    ):
-        BoundingBox.objects.filter(image=image).delete()
-        Category.objects.filter(bounding_box__image=image).delete()
-        Species.objects.filter(bounding_box__image=image).delete()
-        Activity.objects.filter(bounding_box__image=image).delete()
-
-        logging.info(f"Orphaned objects found in image {image.id}. Resetting flags and marking for re-processing.")
-
-        # Just in case the image had valid objects, reprocess the image.
-        image.processed = False
-        Upload.objects.get(id=image.upload.id).processed = False
-
     # First handle all deletions
     for bbox_id in initial_bboxes:
         if bbox_id not in formatted_annotations:
@@ -287,31 +270,25 @@ def process_species_annotations(
     formatted_annotations = flatten_annotorious_annotations(annotations)
     # Convert initial boxes into the same structure
     initial_bboxes = {bbox["id"]: bbox for bbox in initial_bboxes}
-    # If any bounding box is missing, return an error
-    # for bbox_id in initial_bboxes:
-    #    if bbox_id not in formatted_annotations:
-    #        logging.error("Error: Bounding boxes were deleted when annotating species.")
-    #        return False
 
-    # Delete orphaned bbox/annotation objects and send image back if they exist
-    if (
-        len(formatted_annotations) == 0
-        and len(initial_bboxes) == 0
-        and BoundingBox.objects.filter(image=image).exists()
-    ):
-        BoundingBox.objects.filter(image=image).delete()
-        Category.objects.filter(bounding_box__image=image).delete()
-        Species.objects.filter(bounding_box__image=image).delete()
-        Activity.objects.filter(bounding_box__image=image).delete()
-
-        logging.info(f"Orphaned objects found in image {image.id}. Resetting flags and marking for re-processing.")
-
-        # Just in case the image had valid objects, reprocess the image.
-        image.processed = False
-        Upload.objects.get(id=image.upload.id).processed = False
+    # Handle all deletions
+    for bbox_id in initial_bboxes:
+        if bbox_id not in formatted_annotations:
+            # First get the bounding box
+            try:
+                bbox_obj = BoundingBox.objects.get(id=bbox_id)
+                # If the annotator is the same as the current user or if it is an expert/staff user, then the object can be deleted
+                if user.is_staff or user.is_expert or bbox_obj.created_by == annotator:
+                    # Then delete it
+                    bbox_obj.delete()
+                else:
+                    vote(bbox_obj, annotator, accept=False)
+            except ObjectDoesNotExist:
+                pass
+    logging.info("Successfully removed all deleted bounding boxes")
 
     # Finally handle updates. This includes accept/reject depending on the category labels provided
-    for bbox_id in initial_bboxes:
+    for bbox_id in formatted_annotations:
         # Get the initial bounding box & category object
         bbox_obj = BoundingBox.objects.get(id=bbox_id)
         if bbox_id in formatted_annotations:
@@ -385,22 +362,6 @@ def process_activity_annotations(
     # if bbox_id not in formatted_annotations:
     # logging.error("Error: Bounding boxes were deleted when annotating activity.")
     # return False
-    # Delete orphaned bbox/annotation objects and send image back if they exist
-    if (
-        len(formatted_annotations) == 0
-        and len(initial_bboxes) == 0
-        and BoundingBox.objects.filter(image=image).exists()
-    ):
-        BoundingBox.objects.filter(image=image).delete()
-        Category.objects.filter(bounding_box__image=image).delete()
-        Species.objects.filter(bounding_box__image=image).delete()
-        Activity.objects.filter(bounding_box__image=image).delete()
-
-        logging.info(f"Orphaned objects found in image {image.id}. Resetting flags and marking for re-processing.")
-
-        # Just in case the image had valid objects, reprocess the image.
-        image.processed = False
-        Upload.objects.get(id=image.upload.id).processed = False
 
     # Finally handle updates. This includes accept/reject depending on the category labels provided
     for bbox_id in initial_bboxes:

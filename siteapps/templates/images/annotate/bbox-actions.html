@@ -7,8 +7,9 @@
             {% endfor %}
         ];
 
+
         // Need to check whether annotation preview and bounding boxes are loaded before setting up menu.
-        function checkElementsExist(func=createBboxActions) {
+        function checkElementsExist(func = createBboxActions) {
             let allElementsExist = true;
 
             for (const id of boxIds) {
@@ -21,14 +22,33 @@
                 }
             }
 
-            if (allElementsExist) {
+            if (allElementsExist && getAnno()) {
                 boxIds = getAnno().getAnnotations().map(obj => obj.id);
+
+                if (boxIds.length == 0) {
+                    $('[id^="preview-col-"]').remove();
+                    $('[id="hide-all-bboxes-button"]').remove();
+
+                    const noBoxesText = $("<span>")
+                      .attr("id", "no-boxes-text")
+                      .css("font-style", "italic")
+                      .css("font-size", "18px")
+                      .text("(No annotations found on image.)");
+                    if ($("#no-boxes-text").length == 0) {
+                        $("#annotations-preview").append(noBoxesText);
+                    }
+                }
+
                 func();
             }
             else {
                 setTimeout(checkElementsExist, 100);
             }
-        } (checkElementsExist());
+        }
+
+        window.addEventListener('load', function () {
+            (checkElementsExist());
+        });
 
         // Constructs the menu and appends to each annotation preview.
         function createBboxActions() {

@@ -248,7 +248,7 @@
         {% endfor %}
     ];
 
-    let anno;
+    let anno = null;
 
     window.getAnno = function () {
         return anno;
@@ -357,7 +357,7 @@
                                 })
                             )
                         );
-                      
+
                         let staffDebugCheckbox = $('#staff-debug-mode');
 
                         if (staffDebugCheckbox.length > 0 && staffDebugCheckbox.prop('checked')) {

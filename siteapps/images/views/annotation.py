@@ -8,7 +8,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
-from django.db.models import Case, Count, Exists, F, OuterRef, Q, Value, When, ExpressionWrapper, IntegerField
+from django.db.models import Case, Count, Exists, ExpressionWrapper, F, IntegerField, OuterRef, Q, Subquery, Value, When
 from django.db.models.functions import Coalesce
 from django.http.response import JsonResponse
 from django.shortcuts import redirect, render
@@ -16,12 +16,9 @@ from django.urls import reverse
 from django.views.generic import FormView
 from django.views.generic.base import TemplateView, View
 from images.forms import AnnotationForm
-from images.models import (Activity, ActivityType, Annotator, BoundingBox,
-                           Category, Image, Species, SpeciesName)
+from images.models import Activity, ActivityType, Annotator, BoundingBox, Category, Image, Species, SpeciesName
 from images.models.custom_fields import get_filter_params
-from images.processors import (process_activity_annotations,
-                               process_md_annotations,
-                               process_species_annotations)
+from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
 from locations.models import CameraStation, MacroSite, MicroSite
 
 MAX_VOTES_PER_IMAGE = 2
@@ -34,6 +31,9 @@ OBJECTS_QUEUE_NAME = "AnnotateObjectsQueue"
 SPECIES_QUEUE_NAME = "AnnotateSpeciesQueue"
 ACTIVITY_HUMAN_QUEUE_NAME = "AnnotateHumanBehaviorQueue"
 ACTIVITY_ANIMAL_QUEUE_NAME = "AnnotateAnimalActivityQueue"
+
+STAFF_OR_EXPERT_CHECK = Q(human__is_staff=True) | Q(human__is_expert=True)
+STAFF_OR_EXPERT_VOTE_MULTIPLIER = 2
 
 
 class BboxAnnotationInfo:
@@ -93,61 +93,63 @@ class AnnotateObjectsView(LoginRequiredMixin, TemplateView):
                 ~Q(bbox_checked_by__in=[annotator]) & ~Q(bbox_skipped_by__in=[annotator]),
                 # Image has at least one bounding box tagged by MegaDetector above the predetermined threshold
                 Exists(
-                    BoundingBox.objects.filter(
-                            image=OuterRef("pk")
-                        ).annotate(
-                            # TODO: This calculation can happen after MegaDetector processing, and we can set a flag.
-                            confidence_threshold=Case(
-                                When(created_by__type="bot", then="created_by__bot__threshold"),
-                                default=0.0,
+                    BoundingBox.objects.filter(image=OuterRef("pk"))
+                    .annotate(
+                        # TODO: This calculation can happen after MegaDetector processing, and we can set a flag.
+                        confidence_threshold=Case(
+                            When(created_by__type="bot", then="created_by__bot__threshold"),
+                            default=0.0,
+                        ),
+                        # TODO: These calculations should happen after the annotations are done in the precompute flag methods.
+                        num_accepted=Coalesce(Count("accepted_by", distinct=True), 0),
+                        num_rejected=Coalesce(Count("rejected_by", distinct=True), 0),
+                        num_accepted_expert=Case(
+                            When(
+                                Exists(
+                                    Annotator.objects.filter(
+                                        Q(human__is_staff=True) | Q(human__is_expert=True),
+                                        accepted_annotation=OuterRef("pk"),
+                                    )
+                                ),
+                                then=Value(1),
                             ),
-                            # TODO: These calculations should happen after the annotations are done in the precompute flag methods.
-                            num_accepted=Coalesce(Count("accepted_by", distinct=True), 0),
-                            num_rejected=Coalesce(Count("rejected_by", distinct=True), 0),
-                            num_accepted_expert=Case(
-                                When(
-                                    Exists(
-                                        Annotator.objects.filter(
-                                            Q(human__is_staff=True) | Q(human__is_expert=True), accepted_annotation=OuterRef("pk")
-                                        )
-                                    ), then=Value(1)),
-                                default=Value(0),
-                                output_field=IntegerField()
+                            default=Value(0),
+                            output_field=IntegerField(),
+                        ),
+                        num_rejected_expert=Case(
+                            When(
+                                Exists(
+                                    Annotator.objects.filter(
+                                        Q(human__is_staff=True) | Q(human__is_expert=True),
+                                        rejected_annotation=OuterRef("pk"),
+                                    )
+                                ),
+                                then=Value(1),
                             ),
-                            num_rejected_expert=Case(
-                                When(
-                                    Exists(
-                                        Annotator.objects.filter(
-                                            Q(human__is_staff=True) | Q(human__is_expert=True), rejected_annotation=OuterRef("pk")
-                                        )
-                                    ), then=Value(1)),
-                                default=Value(0),
-                                output_field=IntegerField()
-                            ),
-                            # Expert votes have a multiplier so they override any uncertainity about the bounding box
-                            vote_diff=F("num_accepted") + F("num_accepted_expert") * 2 - F("num_rejected") - F("num_rejected_expert") * 2,
-                            vote_uncertain=ExpressionWrapper(
-                                Q(vote_diff__lt=settings.NUM_ACCEPTS_OVER_REJECTS)
-                                & Q(vote_diff__gt=-settings.NUM_ACCEPTS_OVER_REJECTS),
-                                output_field=models.BooleanField(),
-                            )
-                        ).filter(
-                            confidence__gte=F("confidence_threshold"),
-                            vote_uncertain=True
-                        )
+                            default=Value(0),
+                            output_field=IntegerField(),
+                        ),
+                        # Expert votes have a multiplier so they override any uncertainity about the bounding box
+                        vote_diff=F("num_accepted")
+                        + F("num_accepted_expert") * 2
+                        - F("num_rejected")
+                        - F("num_rejected_expert") * 2,
+                        vote_uncertain=ExpressionWrapper(
+                            Q(vote_diff__lt=settings.NUM_ACCEPTS_OVER_REJECTS)
+                            & Q(vote_diff__gt=-settings.NUM_ACCEPTS_OVER_REJECTS),
+                            output_field=models.BooleanField(),
+                        ),
+                    )
+                    .filter(confidence__gte=F("confidence_threshold"), vote_uncertain=True)
                 ),
                 # Image hasn't completed the Category/Object Pipeline
                 category_pipeline_complete=False,
                 # Image has been preprocessed and we can use precomputed flags
-                use_precomputed_flags=True
-            ).order_by(
-                "-upload__priority",
-                "upload__camera_station",
-                "trigger_timestamp"
-            )
+                use_precomputed_flags=True,
+            ).order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
             # Get the image stack based on stack size
             images = images[: settings.ANNOTATION_QUEUE_SIZE]
-            
+
             # Get the image ids & convert to string
             image_ids = [str(image.id) for image in images]
 
@@ -319,12 +321,8 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
                 # Image has animals
                 has_animals=True,
                 # Image has been preprocessed and we can use precomputed flags
-                use_precomputed_flags=True
-            ).order_by(
-                "-upload__priority",
-                "upload__camera_station",
-                "trigger_timestamp"
-            )
+                use_precomputed_flags=True,
+            ).order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
             # Get the image stack based on stack size
             images = images[: settings.ANNOTATION_QUEUE_SIZE]
 
@@ -454,7 +452,7 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
                 # Image hasn't completed the Activity Pipeline
                 activity_pipeline_complete=False,
                 # Image has been preprocessed and we can use precomputed flags
-                use_precomputed_flags=True
+                use_precomputed_flags=True,
             )
 
             # Filter for animals or humans based on the category passed into the view
@@ -463,11 +461,7 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
             else:
                 images = images.filter(has_wild_animals=True)
 
-            images = images.order_by(
-                "-upload__priority",
-                "upload__camera_station",
-                "trigger_timestamp"
-            )
+            images = images.order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
 
             # Get the image stack based on stack size.
             images = images[: settings.ANNOTATION_QUEUE_SIZE]
@@ -823,64 +817,78 @@ class ChangeAnnotationView(LoginRequiredMixin, View):
 """
 Pipeline flag calculations.
 """
+
+
+def annotate(zipped_querysets):
+    # Alternative to .annotate() to calculate object properties, which returns incorrect data due to multiple aggregations.
+    # Takes a zip object containing a list of annotation objects to reference,
+    # and its .value() list to append data to.
+
+    for obj, annotation in zipped_querysets:
+        annotation["accepted_count"] = obj.accepted_by.count()
+        annotation["rejected_count"] = obj.rejected_by.count()
+
+        annotation["staff_or_expert_accepted_count"] = obj.accepted_by.filter(STAFF_OR_EXPERT_CHECK).count()
+        annotation["staff_or_expert_accepted_count"] += (
+            1 if obj.created_by.human and (obj.created_by.human.is_staff or obj.created_by.human.is_expert) else 0
+        )
+        annotation["staff_or_expert_rejected_count"] = obj.rejected_by.filter(STAFF_OR_EXPERT_CHECK).count()
+
+        annotation["vote_difference"] = (
+            (annotation.get("accepted_count") - annotation.get("staff_or_expert_accepted_count"))
+            + (annotation.get("staff_or_expert_accepted_count") * STAFF_OR_EXPERT_VOTE_MULTIPLIER)
+            - (annotation.get("rejected_count") - annotation.get("staff_or_expert_rejected_count"))
+            - (annotation.get("staff_or_expert_rejected_count") * STAFF_OR_EXPERT_VOTE_MULTIPLIER)
+        )
+
+        annotation["has_staff_vote"] = bool(
+            obj.accepted_by.filter(Q(human__is_staff=True)).exists()
+            or (obj.created_by.human and obj.created_by.human.is_staff)
+        )
+
+        if annotation.get("vote_difference") > VOTE_THRESHOLD or annotation.get("has_staff_vote"):
+            annotation["status"] = "Valid"
+        elif annotation.get("vote_difference") < VOTE_THRESHOLD:
+            annotation["status"] = "Invalid"
+        else:
+            annotation["status"] = "Uncertain"
+
+
 # Category Flag Checks
 def calculateCategoryAnnotationFlags(image):
-    category_annotations = Category.objects.filter(bounding_box__in=BoundingBox.objects.filter(image=image)).annotate(
-        accepted_count=Count("accepted_by"),
-        rejected_count=Count("rejected_by"),
-        vote_difference=Count("accepted_by") - Count("rejected_by"),
-        has_staff_vote=Case(
-            When(Q(created_by__human__is_staff=True) | Q(accepted_by__human__is_staff=True), then=Value(True)),
-            default=False,
-        ),
-        has_expert_vote=Case(
-            When(Q(created_by__human__is_expert=True) | Q(accepted_by__human__is_expert=True), then=Value(True)),
-            default=False,
-        ),
-        status=Case(
-            When(
-                Q(vote_difference__gt=VOTE_THRESHOLD)
-                | Q(created_by__human__is_staff=True)
-                | Q(accepted_by__human__is_staff=True)
-                | Q(created_by__human__is_expert=True)
-                | Q(accepted_by__human__is_expert=True),
-                then=Value("Valid"),
-            ),
-            When(vote_difference__lt=-VOTE_THRESHOLD, then=Value("Invalid")),
-            default=Value("Uncertain"),
-            output_field=models.CharField(),
-        ),
-    )
+    category_objs = Category.objects.filter(bounding_box__image=image)
+    category_annotations = category_objs.values()
 
-    category_has_uncertain_annotation = category_annotations.filter(status="Uncertain").exists()
+    zipped_querysets = list(zip(category_objs, category_annotations))
+    annotate(zipped_querysets)
 
-    has_staff_vote = category_annotations.filter(has_staff_vote=True).exists()
+    category_has_uncertain_annotation = any(category[1].get("status") == "Uncertain" for category in zipped_querysets)
 
-    has_expert_vote = category_annotations.filter(has_expert_vote=True).exists()
+    has_staff_vote = any(category[1].get("has_staff_vote") is True for category in zipped_querysets)
 
     bbox_count_gt = BoundingBox.objects.filter(image=image).count() > 0
 
-    if (
-        (not category_has_uncertain_annotation or has_staff_vote or has_expert_vote)
-        and image.processed
-        and bbox_count_gt
-    ):
+    if (not category_has_uncertain_annotation or has_staff_vote) and image.processed and bbox_count_gt:
         image.has_humans = category_annotations.filter(name="person").exists()
         image.has_animals = category_annotations.filter(name="animal").exists()
         image.has_vehicles = category_annotations.filter(name="vehicle").exists()
 
         image.category_pipeline_complete = True
+    else:
+        image.category_pipeline_complete = False
 
     category_annotations_info = []
     for category in list(category_annotations):
         category_annotations_info.append(
             {
-                "name": category.name,
-                "accepted_count": category.accepted_count,
-                "rejected_count": category.rejected_count,
-                "status": category.status,
-                "has_staff_vote": category.has_staff_vote,
-                "has_expert_vote": category.has_expert_vote,
+                "name": category.get("name"),
+                "accepted_count": category.get("accepted_count"),
+                "rejected_count": category.get("rejected_count"),
+                "expert_accepted_count": category.get("staff_or_expert_accepted_count"),
+                "expert_rejected_count": category.get("staff_or_expert_rejected_count"),
+                "vote_difference": category.get("vote_difference"),
+                "status": category.get("status"),
+                "has_staff_vote": category.get("has_staff_vote"),
             }
         )
 
@@ -890,7 +898,6 @@ def calculateCategoryAnnotationFlags(image):
             "or_checks": {
                 "category_has_uncertain": category_has_uncertain_annotation,
                 "is_staff": has_staff_vote,
-                "is_expert": has_expert_vote,
             },
             "processed": image.processed,
             "bounding_boxes_gte_zero": bbox_count_gt,
@@ -908,41 +915,25 @@ def calculateCategoryAnnotationFlags(image):
 
 # Species Flag Checks
 def calculateSpeciesAnnotationFlags(image):
-    species_annotations = Species.objects.filter(bounding_box__in=BoundingBox.objects.filter(image=image)).annotate(
-        accepted_count=Count("accepted_by"),
-        rejected_count=Count("rejected_by"),
-        vote_difference=Count("accepted_by") - Count("rejected_by"),
-        has_staff_vote=Case(
-            When(Q(created_by__human__is_staff=True) | Q(accepted_by__human__is_staff=True), then=Value(True)),
-            default=False,
-        ),
-        has_expert_vote=Case(
-            When(Q(created_by__human__is_expert=True) | Q(accepted_by__human__is_expert=True), then=Value(True)),
-            default=False,
-        ),
-        status=Case(
-            When(
-                Q(vote_difference__gt=VOTE_THRESHOLD)
-                | Q(created_by__human__is_staff=True)
-                | Q(accepted_by__human__is_staff=True)
-                | Q(created_by__human__is_expert=True)
-                | Q(accepted_by__human__is_expert=True),
-                then=Value("Valid"),
-            ),
-            When(vote_difference__lt=-VOTE_THRESHOLD, then=Value("Invalid")),
-            default=Value("Uncertain"),
-            output_field=models.CharField(),
-        ),
-    )
+    species_objs = Species.objects.filter(bounding_box__image__id=image.id)
+    species_annotations = species_objs.values()
 
-    species_has_uncertain_annotation = species_annotations.filter(status="Uncertain").exists()
+    zipped_querysets = list(zip(species_objs, species_annotations))
+    annotate(zipped_querysets)
 
-    species_valid_annotations = species_annotations.filter(status="Valid")
-    species_has_valid_annotation = species_valid_annotations.exists()
+    species_has_uncertain_annotation = any(species[1].get("status") == "Uncertain" for species in zipped_querysets)
 
-    has_staff_vote = species_annotations.filter(has_staff_vote=True).exists()
+    species_valid_annotations = [
+        species_obj
+        for species_obj, species_annotation in zipped_querysets
+        if species_annotation.get("status") == "Valid"
+    ]
 
-    has_expert_vote = species_annotations.filter(has_expert_vote=True).exists()
+    species_has_valid_annotation = len(species_valid_annotations) > 0
+
+    has_staff_vote = any(species[1].get("has_staff_vote") is True for species in zipped_querysets)
+
+    # has_expert_vote = species_annotations.filter(has_expert_vote=True).exists()
 
     annotation_checked_by_gte = image.species_checked_by.all().count() >= MAX_VOTES_PER_IMAGE
 
@@ -970,18 +961,39 @@ def calculateSpeciesAnnotationFlags(image):
         try:
             # Get the valid category to replace (assuming there should only ever be 1)
             category = (
-                Category.objects.filter(bounding_box=species.bounding_box)
+                Category.objects.filter(bounding_box__image__id=image.id)
                 .annotate(
                     accepted_count=Count("accepted_by"),
                     rejected_count=Count("rejected_by"),
-                    vote_difference=Count("accepted_by") - Count("rejected_by"),
+                    expert_accepted_count=Count(
+                        Case(
+                            When(
+                                Q(created_by__human__is_staff=True)
+                                | Q(accepted_by__human__is_staff=True)
+                                | Q(created_by__human__is_expert=True)
+                                | Q(accepted_by__human__is_expert=True),
+                                then=1,
+                            ),
+                            output_field=IntegerField(),
+                        )
+                    ),
+                    expert_rejected_count=Count(
+                        Case(
+                            When(Q(rejected_by__human__is_staff=True) | Q(rejected_by__human__is_expert=True), then=1),
+                            output_field=IntegerField(),
+                        )
+                    ),
+                    vote_difference=(
+                        (F("accepted_count") - F("expert_accepted_count"))
+                        + (F("expert_accepted_count") * STAFF_OR_EXPERT_VOTE_MULTIPLIER)
+                    )
+                    - (
+                        (F("rejected_count") - F("expert_rejected_count"))
+                        + (F("expert_rejected_count") * STAFF_OR_EXPERT_VOTE_MULTIPLIER)
+                    ),
                     status=Case(
                         When(
-                            Q(vote_difference__gt=VOTE_THRESHOLD)
-                            | Q(created_by__human__is_staff=True)
-                            | Q(accepted_by__human__is_staff=True)
-                            | Q(created_by__human__is_expert=True)
-                            | Q(accepted_by__human__is_expert=True),
+                            Q(vote_difference__gt=VOTE_THRESHOLD) | Q(has_staff_vote=True),
                             then=Value("Valid"),
                         ),
                         When(vote_difference__lt=-VOTE_THRESHOLD, then=Value("Invalid")),
@@ -1008,22 +1020,26 @@ def calculateSpeciesAnnotationFlags(image):
         not species_has_uncertain_annotation
         and species_has_valid_annotation
         and image.has_animals
-        and (has_staff_vote or has_expert_vote or annotation_checked_by_gte)
+        and (has_staff_vote or annotation_checked_by_gte)
         and image.processed
     ):
         image.has_wild_animals = species_annotations.filter(~Q(name__name__in=NON_WILD_SPECIES)).exists()
         image.species_pipeline_complete = True
+    else:
+        image.species_pipeline_complete = False
 
     species_annotations_info = []
     for species in list(species_annotations):
         species_annotations_info.append(
             {
-                "name": species.name.name,
-                "accepted_count": species.accepted_count,
-                "rejected_count": species.rejected_count,
-                "status": species.status,
-                "has_staff_vote": species.has_staff_vote,
-                "has_expert_vote": species.has_expert_vote,
+                "name": SpeciesName.objects.get(id=species.get("name_id")).name,
+                "accepted_count": species.get("accepted_count"),
+                "rejected_count": species.get("rejected_count"),
+                "expert_accepted_count": species.get("staff_or_expert_accepted_count"),
+                "expert_rejected_count": species.get("staff_or_expert_rejected_count"),
+                "vote_difference": species.get("vote_difference"),
+                "status": species.get("status"),
+                "has_staff_vote": species.get("has_staff_vote"),
             }
         )
 
@@ -1036,7 +1052,7 @@ def calculateSpeciesAnnotationFlags(image):
             "or_checks": {
                 "checked_by": annotation_checked_by_gte,
                 "is_staff": has_staff_vote,
-                "is_expert": has_expert_vote,
+                "is_expert": "FIELD NOT USED",
             },
             "processed": image.processed,
         },
@@ -1051,40 +1067,19 @@ def calculateSpeciesAnnotationFlags(image):
 
 # Activity Flag Checks
 def calculateActivityAnnotationFlags(image):
-    activity_annotations = Activity.objects.filter(bounding_box__in=BoundingBox.objects.filter(image=image)).annotate(
-        accepted_count=Count("accepted_by"),
-        rejected_count=Count("rejected_by"),
-        vote_difference=Count("accepted_by") - Count("rejected_by"),
-        has_staff_vote=Case(
-            When(Q(created_by__human__is_staff=True) | Q(accepted_by__human__is_staff=True), then=Value(True)),
-            default=False,
-        ),
-        has_expert_vote=Case(
-            When(Q(created_by__human__is_expert=True) | Q(accepted_by__human__is_expert=True), then=Value(True)),
-            default=False,
-        ),
-        status=Case(
-            When(
-                Q(vote_difference__gt=VOTE_THRESHOLD)
-                | Q(created_by__human__is_staff=True)
-                | Q(accepted_by__human__is_staff=True)
-                | Q(created_by__human__is_expert=True)
-                | Q(accepted_by__human__is_expert=True),
-                then=Value("Valid"),
-            ),
-            When(vote_difference__lt=-VOTE_THRESHOLD, then=Value("Invalid")),
-            default=Value("Uncertain"),
-            output_field=models.CharField(),
-        ),
-    )
+    activity_objs = Activity.objects.filter(bounding_box__image__id=image.id)
+    activity_annotations = activity_objs.values()
 
-    activity_has_uncertain_annotation = activity_annotations.filter(status="Uncertain").exists()
+    zipped_querysets = list(zip(activity_objs, activity_annotations))
+    annotate(zipped_querysets)
 
-    activity_has_valid_annotation = activity_annotations.filter(status="Valid").exists()
+    activity_has_uncertain_annotation = any(activity[1].get("status") == "Uncertain" for activity in zipped_querysets)
 
-    has_staff_vote = activity_annotations.filter(has_staff_vote=True).exists()
+    activity_has_valid_annotation = any(activity[1].get("status") == "Valid" for activity in zipped_querysets)
 
-    has_expert_vote = activity_annotations.filter(has_expert_vote=True).exists()
+    has_staff_vote = any(activity[1].get("has_staff_vote") is True for activity in zipped_querysets)
+
+    # has_expert_vote = activity_annotations.filter(has_expert_vote=True).exists()
 
     annotation_checked_by_gte = image.activity_checked_by.all().count() >= MAX_VOTES_PER_IMAGE
 
@@ -1092,21 +1087,25 @@ def calculateActivityAnnotationFlags(image):
         not activity_has_uncertain_annotation
         and activity_has_valid_annotation
         and image.has_wild_animals
-        and (has_staff_vote or has_expert_vote or annotation_checked_by_gte)
+        and (has_staff_vote or annotation_checked_by_gte)
         and image.processed
     ):
         image.activity_pipeline_complete = True
+    else:
+        image.activity_pipeline_complete = False
 
     activity_annotations_info = []
     for activity in list(activity_annotations):
         activity_annotations_info.append(
             {
-                "name": activity.name.name,
-                "accepted_count": activity.accepted_count,
-                "rejected_count": activity.rejected_count,
-                "status": activity.status,
-                "has_staff_vote": activity.has_staff_vote,
-                "has_expert_vote": activity.has_expert_vote,
+                "name": activity.get("name"),
+                "accepted_count": activity.get("accepted_count"),
+                "rejected_count": activity.get("rejected_count"),
+                "expert_accepted_count": activity.get("staff_or_expert_accepted_count"),
+                "expert_rejected_count": activity.get("staff_or_expert_rejected_count"),
+                "vote_difference": activity.get("vote_difference"),
+                "status": activity.get("status"),
+                "has_staff_vote": activity.get("has_staff_vote"),
             }
         )
 
@@ -1118,7 +1117,6 @@ def calculateActivityAnnotationFlags(image):
             "image_has_wild_animals": image.has_wild_animals,
             "or_checks": {
                 "is_staff": has_staff_vote,
-                "is_expert": has_expert_vote,
                 "checked_by": annotation_checked_by_gte,
             },
             "processed": image.processed,

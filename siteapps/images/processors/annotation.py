@@ -123,7 +123,7 @@ def process_annotations(
     # Convert initial boxes into the same structure
     initial_bboxes = {bbox["id"]: bbox for bbox in initial_bboxes}
 
-    # First handle all deletions
+    # First handle all deletions, only before Activity stage
     if annotation_type != ACTIVITY_ANNOTATION_TYPE:
         for bbox_id in initial_bboxes:
             if bbox_id not in formatted_annotations:
@@ -137,6 +137,7 @@ def process_annotations(
                     vote(bbox_obj, annotator, accept=False)
         logging.info("Successfully removed all deleted bounding boxes")
 
+    # Only add boxes in Object stage
     if annotation_type == OBJECT_ANNOTATION_TYPE:
         # Next, handles all additions
         for bbox_id in formatted_annotations:
@@ -155,7 +156,7 @@ def process_annotations(
             bbox_obj = BoundingBox.objects.get(id=bbox_id)
 
             #####################
-            # OBJECT PROCESSING
+            # Object Processing
             #####################
             if annotation_type == OBJECT_ANNOTATION_TYPE:
                 category_obj = Category.objects.get(bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"])
@@ -219,7 +220,7 @@ def process_annotations(
                     create_bbox(formatted_annotations[bbox_id], image, annotator)
 
             #######################
-            # SPECIES PROCESSING
+            # Species Processing
             #######################
             elif annotation_type == SPECIES_ANNOTATION_TYPE:
                 if formatted_annotations[bbox_id]["category"]:
@@ -245,7 +246,7 @@ def process_annotations(
                     species_obj = None
 
             #######################
-            # ACTIVITY PROCESSING
+            # Activity Processing
             #######################
             elif annotation_type == ACTIVITY_ANNOTATION_TYPE:
                 if formatted_annotations[bbox_id]["category"]:

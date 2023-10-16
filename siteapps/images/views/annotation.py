@@ -459,10 +459,6 @@ def annotation_processor(queue_name, request):
             f"{annotation_description} annotations for image '{image_id}' was skipped by user - '{request.user.name}'"
         )
 
-    category_debug_data = None
-    species_debug_data = None
-    activity_debug_data = None
-
     # If success, update image index in the datastore
     if success:
         # Calculate and set the flags
@@ -486,6 +482,10 @@ def annotation_processor(queue_name, request):
 
         # Update the datastore
         settings.DATASTORE_CLIENT.put(queue)
+    else:
+        category_debug_data = None
+        species_debug_data = None
+        activity_debug_data = None
 
     return JsonResponse(
         {
@@ -511,7 +511,6 @@ class ActivityAnnotationProcessorView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         activity_category = request.POST.get("activity_category")
 
-        # Get the annotation queue cached in the datastore
         if activity_category == CATEGORY_HUMAN:
             queue_name = ACTIVITY_HUMAN_QUEUE_NAME
         else:

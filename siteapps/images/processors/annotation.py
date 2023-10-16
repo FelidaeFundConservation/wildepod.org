@@ -293,6 +293,8 @@ def process_annotations(
     image.save()
     logging.info("Successfully updated all bounding boxes")
 
+    return True
+
 
 # Function to process a list of annotations for MegaDetector's Object Detection model
 # Annotations follow the Annotorious format
@@ -309,7 +311,7 @@ def process_md_annotations(
 
     Annotations follow the Annotorious format
     """
-    process_annotations(
+    return process_annotations(
         OBJECT_ANNOTATION_TYPE,
         image_id=image_id,
         annotations=annotations,
@@ -319,8 +321,6 @@ def process_md_annotations(
         staff_review_needed=staff_review_needed,
         skip=skip,
     )
-
-    return True
 
 
 # Function to process a list of annotations for MegaDetector's Object Detection model
@@ -338,7 +338,7 @@ def process_species_annotations(
 
     Annotations follow the Annotorious format
     """
-    process_annotations(
+    return process_annotations(
         SPECIES_ANNOTATION_TYPE,
         image_id=image_id,
         annotations=annotations,
@@ -348,7 +348,6 @@ def process_species_annotations(
         staff_review_needed=staff_review_needed,
         skip=skip,
     )
-    return True
 
 
 # Function to process a list of annotations for MegaDetector's Object Detection model
@@ -366,7 +365,7 @@ def process_activity_annotations(
 
     Annotations follow the Annotorious format
     """
-    process_annotations(
+    return process_annotations(
         ACTIVITY_ANNOTATION_TYPE,
         image_id=image_id,
         annotations=annotations,
@@ -376,5 +375,3 @@ def process_activity_annotations(
         staff_review_needed=staff_review_needed,
         skip=skip,
     )
-
-    return True

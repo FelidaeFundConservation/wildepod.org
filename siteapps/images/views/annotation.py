@@ -509,12 +509,16 @@ class SpeciesAnnotationProcessorView(LoginRequiredMixin, View):
 
 class ActivityAnnotationProcessorView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
+        # Retrieve the activity category type
         activity_category = request.POST.get("activity_category")
 
+        # Get the associated queue name
         if activity_category == CATEGORY_HUMAN:
             queue_name = ACTIVITY_HUMAN_QUEUE_NAME
-        else:
+        elif activity_category == CATEGORY_ANIMAL:
             queue_name = ACTIVITY_ANIMAL_QUEUE_NAME
+        else:
+            queue_name = None
 
         return annotation_processor(queue_name, request)
 

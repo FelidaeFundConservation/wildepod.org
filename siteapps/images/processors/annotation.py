@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict
 
 from django.conf import settings
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from django.db.models import Count, Q, Sum
 from images.models import Activity, ActivityType, Annotator, BoundingBox, Category, Image, Species, SpeciesName, Upload
 
@@ -55,6 +55,17 @@ def vote(obj, annotator: Annotator, accept: bool):
     return
 
 
+def set_image_checked_by(annotation_type, image, annotator):
+    """Add an annotator to the annotation checked_by"""
+    # Set image to "checked" by the annotator
+    if annotation_type == OBJECT_ANNOTATION_TYPE:
+        image.bbox_checked_by.add(annotator)
+    elif annotation_type == SPECIES_ANNOTATION_TYPE:
+        image.species_checked_by.add(annotator)
+    elif annotation_type == ACTIVITY_ANNOTATION_TYPE:
+        image.activity_checked_by.add(annotator)
+
+
 def create_category(annotation_dict: Dict[str, Any], bbox_obj: BoundingBox, annotator: Annotator):
     """Function to create a category object from an annotation dictionary"""
     # Create the category object
@@ -80,6 +91,206 @@ def create_bbox(annotation_dict: Dict[str, Any], image_obj: Image, annotator: An
     )
     create_category(annotation_dict, bbox_obj, annotator)
     return
+
+
+def handle_bbox_additions(initial_bboxes, formatted_annotations, image, annotator):
+    # Next, handles all additions
+    for bbox_id in formatted_annotations:
+        # If the annotation is not in the initial list, it is a new annotation
+        if bbox_id not in initial_bboxes:
+            # Create the bounding box
+            create_bbox(formatted_annotations[bbox_id], image, annotator)
+
+    logging.info("Successfully created all new bounding boxes")
+
+
+def handle_bbox_deletions(initial_bboxes, formatted_annotations, user, annotator):
+    for bbox_id in initial_bboxes:
+        if bbox_id not in formatted_annotations:
+            # First get the bounding box
+            bbox_obj = BoundingBox.objects.get(id=bbox_id)
+            # If the annotator is the same as the current user or if it is an expert/staff user, then the object can be deleted
+            if user.is_staff or user.is_expert or bbox_obj.created_by == annotator:
+                # Then delete it
+                bbox_obj.delete()
+            else:
+                vote(bbox_obj, annotator, accept=False)
+
+    logging.info("Successfully removed all deleted bounding boxes")
+
+
+def handle_bbox_updates(annotation_type, initial_bboxes, formatted_annotations, image, user, annotator):
+    # Finally handle updates. This includes accept/reject depending on the category labels provided
+    for bbox_id in initial_bboxes:
+        if bbox_id in formatted_annotations:
+            # Get the initial bounding box & category object
+            bbox_obj = BoundingBox.objects.get(id=bbox_id)
+
+            if annotation_type == OBJECT_ANNOTATION_TYPE:
+                process_category(
+                    initial_bboxes=initial_bboxes,
+                    formatted_annotations=formatted_annotations,
+                    image=image,
+                    bbox_id=bbox_id,
+                    bbox_obj=bbox_obj,
+                    user=user,
+                    annotator=annotator,
+                )
+            elif annotation_type == SPECIES_ANNOTATION_TYPE:
+                process_species(
+                    formatted_annotations=formatted_annotations, bbox_id=bbox_id, bbox_obj=bbox_obj, annotator=annotator
+                )
+            elif annotation_type == ACTIVITY_ANNOTATION_TYPE:
+                process_activity(
+                    formatted_annotations=formatted_annotations, bbox_id=bbox_id, bbox_obj=bbox_obj, annotator=annotator
+                )
+
+
+# Handles additions, deletions, and updates to image bboxes
+def handle_changes(annotation_type, initial_bboxes, formatted_annotations, image, user, annotator):
+    # Check if annotation type is valid
+    if annotation_type not in [OBJECT_ANNOTATION_TYPE, SPECIES_ANNOTATION_TYPE, ACTIVITY_ANNOTATION_TYPE]:
+        logging.error(f"Invalid annotation type given for processor function: {annotation_type}")
+        return False
+
+    # First handle all deletions, only before Activity stage
+    if annotation_type != ACTIVITY_ANNOTATION_TYPE:
+        handle_bbox_deletions(
+            initial_bboxes=initial_bboxes, formatted_annotations=formatted_annotations, user=user, annotator=annotator
+        )
+
+    # Only add boxes in Object stage
+    if annotation_type == OBJECT_ANNOTATION_TYPE:
+        handle_bbox_additions(
+            initial_bboxes=initial_bboxes, formatted_annotations=formatted_annotations, image=image, annotator=annotator
+        )
+
+    # Handle bbox updates
+    handle_bbox_updates(annotation_type, initial_bboxes, formatted_annotations, image, user, annotator)
+
+    # Set the image to checked by the annotator for the annotation type
+    set_image_checked_by(annotation_type=annotation_type, image=image, annotator=annotator)
+
+    image.save()
+    logging.info("Successfully updated all bounding boxes")
+
+    return True
+
+
+def process_category(initial_bboxes, formatted_annotations, image, bbox_id, bbox_obj, user, annotator):
+    try:
+        category_obj = Category.objects.get(bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"])
+    except MultipleObjectsReturned:
+        # If there are duplicate category objects, delete all but one
+        logging.info(f"Duplicate category objects were found in image {image.id} and were deleted.")
+        category_objs = Category.objects.filter(bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"])
+        category_obj = category_objs.first()
+        category_objs.filter(~Q(id=category_obj.id)).delete()
+
+    # First handle the case of 'accept' votes. This can happen in 3 cases,
+    # 1) The user is staff
+    # 2) The user is the same as the annotator who created the bounding box
+    # 3) The user is a regular annotator but the bounding box coordinates haven't changed
+    if (
+        user.is_staff
+        or bbox_obj.created_by == annotator
+        or all(
+            [
+                abs(bbox_obj.x - formatted_annotations[bbox_id]["x"]) < 0.02,
+                abs(bbox_obj.y - formatted_annotations[bbox_id]["y"]) < 0.02,
+                abs(bbox_obj.w - formatted_annotations[bbox_id]["w"]) < 0.02,
+                abs(bbox_obj.h - formatted_annotations[bbox_id]["h"]) < 0.02,
+            ]
+        )
+    ):
+        # If the user is expert/staff or annotator, we directly edit the bounding box
+        if user.is_staff or user.is_expert or bbox_obj.created_by == annotator:
+            bbox_obj.x = formatted_annotations[bbox_id]["x"]
+            bbox_obj.y = formatted_annotations[bbox_id]["y"]
+            bbox_obj.w = formatted_annotations[bbox_id]["w"]
+            bbox_obj.h = formatted_annotations[bbox_id]["h"]
+            category_obj.name = formatted_annotations[bbox_id]["category"]
+            category_obj.confidence = formatted_annotations[bbox_id]["confidence"]
+            bbox_obj.save()
+            category_obj.save()
+
+        # Now set the 'accept' votes for bounding box and category
+
+        # Update accept/reject if not created by the same user
+        vote(bbox_obj, annotator, accept=True)
+
+        # Next, cast a vote for the category label if it is the same
+        if initial_bboxes[bbox_id]["category"] == formatted_annotations[bbox_id]["category"]:
+            # Vote cast only if the user is not the creator
+            vote(category_obj, annotator, accept=True)
+        # If it isn't the same, then vote reject on the existing category & create/update a new category
+        else:
+            vote(category_obj, annotator, accept=False)
+            # If the category exists, add a vote to it
+            try:
+                new_category_obj = Category.objects.get(
+                    bounding_box=bbox_obj,
+                    name=formatted_annotations[bbox_id]["category"],
+                )
+                vote(new_category_obj, annotator, accept=True)
+            # If not, create the label & link it to the bounding box
+            except ObjectDoesNotExist:
+                create_category(formatted_annotations[bbox_id], bbox_obj, annotator)
+
+    else:
+        # Handle the cases of 'reject' votes
+
+        # Original bounding box was modified significantly by the annotator. Cast a reject vote on the original.
+        vote(bbox_obj, annotator, accept=False)
+        # Create a new bounding box
+        create_bbox(formatted_annotations[bbox_id], image, annotator)
+
+
+def process_species(formatted_annotations, bbox_id, bbox_obj, annotator):
+    if formatted_annotations[bbox_id]["category"]:
+        species_name_obj = SpeciesName.objects.get(name=formatted_annotations[bbox_id]["category"])
+        try:
+            species_obj = Species.objects.get(bounding_box=bbox_obj, name=species_name_obj)
+
+            if species_obj.created_by != annotator:
+                vote(species_obj, annotator, accept=True)
+
+        except ObjectDoesNotExist:
+            species_obj = Species.objects.create(
+                bounding_box=bbox_obj,
+                name=species_name_obj,
+                created_by=annotator,
+                confidence=formatted_annotations[bbox_id]["confidence"],
+            )
+
+        # Cast a reject vote for all other annotations
+        for species in Species.objects.filter(~Q(id=species_obj.id), bounding_box=bbox_obj):
+            vote(species, annotator, accept=False)
+    else:
+        species_obj = None
+
+
+def process_activity(formatted_annotations, bbox_id, bbox_obj, annotator):
+    if formatted_annotations[bbox_id]["category"]:
+        activity_type_obj = ActivityType.objects.get(name=formatted_annotations[bbox_id]["category"])
+        try:
+            activity_obj = Activity.objects.get(bounding_box=bbox_obj, name=activity_type_obj)
+            if activity_obj.created_by != annotator:
+                vote(activity_obj, annotator, accept=True)
+
+        except ObjectDoesNotExist:
+            activity_obj = Activity.objects.create(
+                bounding_box=bbox_obj,
+                name=activity_type_obj,
+                created_by=annotator,
+                confidence=formatted_annotations[bbox_id]["confidence"],
+            )
+
+        # Cast a reject vote for all other annotations
+        for activity in Activity.objects.filter(~Q(id=activity_obj.id), bounding_box=bbox_obj):
+            vote(activity, annotator, accept=False)
+    else:
+        activity_obj = None
 
 
 # Refactoring of all three processor functions
@@ -117,183 +328,20 @@ def process_annotations(
     # Update the image's social media worthy status
     image.social_media_worthy += 1 if social_media_worthy else 0
 
-    # Prep the annotations data
-    # Format the annotorious annotations
-    formatted_annotations = flatten_annotorious_annotations(annotations)
-    # Convert initial boxes into the same structure
-    initial_bboxes = {bbox["id"]: bbox for bbox in initial_bboxes}
+    # Handle additions, deletions, and updates to image bboxes
+    handler_success = handle_changes(
+        annotation_type=annotation_type,
+        # Prep the annotations data
+        # Format the annotorious annotations
+        initial_bboxes={bbox["id"]: bbox for bbox in initial_bboxes},
+        # Convert initial boxes into the same structure
+        formatted_annotations=flatten_annotorious_annotations(annotations),
+        image=image,
+        user=user,
+        annotator=annotator,
+    )
 
-    # First handle all deletions, only before Activity stage
-    if annotation_type != ACTIVITY_ANNOTATION_TYPE:
-        for bbox_id in initial_bboxes:
-            if bbox_id not in formatted_annotations:
-                # First get the bounding box
-                bbox_obj = BoundingBox.objects.get(id=bbox_id)
-                # If the annotator is the same as the current user or if it is an expert/staff user, then the object can be deleted
-                if user.is_staff or user.is_expert or bbox_obj.created_by == annotator:
-                    # Then delete it
-                    bbox_obj.delete()
-                else:
-                    vote(bbox_obj, annotator, accept=False)
-        logging.info("Successfully removed all deleted bounding boxes")
-
-    # Only add boxes in Object stage
-    if annotation_type == OBJECT_ANNOTATION_TYPE:
-        # Next, handles all additions
-        for bbox_id in formatted_annotations:
-            # If the annotation is not in the initial list, it is a new annotation
-            if bbox_id not in initial_bboxes:
-                # Create the bounding box
-                create_bbox(formatted_annotations[bbox_id], image, annotator)
-
-        logging.info("Successfully created all new bounding boxes")
-
-    # TODO: Extremely gnarly code. Must refactor
-    # Finally handle updates. This includes accept/reject depending on the category labels provided
-    for bbox_id in initial_bboxes:
-        if bbox_id in formatted_annotations:
-            # Get the initial bounding box & category object
-            bbox_obj = BoundingBox.objects.get(id=bbox_id)
-
-            #####################
-            # Object Processing
-            #####################
-            if annotation_type == OBJECT_ANNOTATION_TYPE:
-                try:
-                    category_obj = Category.objects.get(bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"])
-                except Exception:
-                    logging.info(f"Duplicate category objects were found in image {image_id} and were deleted.")
-                    # If there are duplicate category objects, delete all but one
-                    category_objs = Category.objects.filter(
-                        bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"]
-                    )
-                    category_obj = category_objs.first()
-                    category_objs.filter(~Q(id=category_obj.id)).delete()
-
-                # First handle the case of 'accept' votes. This can happen in 3 cases,
-                # 1) The user is staff
-                # 2) The user is the same as the annotator who created the bounding box
-                # 3) The user is a regular annotator but the bounding box coordinates haven't changed
-                if (
-                    user.is_staff
-                    or bbox_obj.created_by == annotator
-                    or all(
-                        [
-                            abs(bbox_obj.x - formatted_annotations[bbox_id]["x"]) < 0.02,
-                            abs(bbox_obj.y - formatted_annotations[bbox_id]["y"]) < 0.02,
-                            abs(bbox_obj.w - formatted_annotations[bbox_id]["w"]) < 0.02,
-                            abs(bbox_obj.h - formatted_annotations[bbox_id]["h"]) < 0.02,
-                        ]
-                    )
-                ):
-                    # If the user is expert/staff or annotator, we directly edit the bounding box
-                    if user.is_staff or user.is_expert or bbox_obj.created_by == annotator:
-                        bbox_obj.x = formatted_annotations[bbox_id]["x"]
-                        bbox_obj.y = formatted_annotations[bbox_id]["y"]
-                        bbox_obj.w = formatted_annotations[bbox_id]["w"]
-                        bbox_obj.h = formatted_annotations[bbox_id]["h"]
-                        category_obj.name = formatted_annotations[bbox_id]["category"]
-                        category_obj.confidence = formatted_annotations[bbox_id]["confidence"]
-                        bbox_obj.save()
-                        category_obj.save()
-
-                    # Now set the 'accept' votes for bounding box and category
-
-                    # Update accept/reject if not created by the same user
-                    vote(bbox_obj, annotator, accept=True)
-
-                    # Next, cast a vote for the category label if it is the same
-                    if initial_bboxes[bbox_id]["category"] == formatted_annotations[bbox_id]["category"]:
-                        # Vote cast only if the user is not the creator
-                        vote(category_obj, annotator, accept=True)
-                    # If it isn't the same, then vote reject on the existing category & create/update a new category
-                    else:
-                        vote(category_obj, annotator, accept=False)
-                        # If the category exists, add a vote to it
-                        try:
-                            new_category_obj = Category.objects.get(
-                                bounding_box=bbox_obj,
-                                name=formatted_annotations[bbox_id]["category"],
-                            )
-                            vote(new_category_obj, annotator, accept=True)
-                        # If not, create the label & link it to the bounding box
-                        except ObjectDoesNotExist:
-                            create_category(formatted_annotations[bbox_id], bbox_obj, annotator)
-
-                else:
-                    # Handle the cases of 'reject' votes
-
-                    # Original bounding box was modified significantly by the annotator. Cast a reject vote on the original.
-                    vote(bbox_obj, annotator, accept=False)
-                    # Create a new bounding box
-                    create_bbox(formatted_annotations[bbox_id], image, annotator)
-
-            #######################
-            # Species Processing
-            #######################
-            elif annotation_type == SPECIES_ANNOTATION_TYPE:
-                if formatted_annotations[bbox_id]["category"]:
-                    species_name_obj = SpeciesName.objects.get(name=formatted_annotations[bbox_id]["category"])
-                    try:
-                        species_obj = Species.objects.get(bounding_box=bbox_obj, name=species_name_obj)
-
-                        if species_obj.created_by != annotator:
-                            vote(species_obj, annotator, accept=True)
-
-                    except ObjectDoesNotExist:
-                        species_obj = Species.objects.create(
-                            bounding_box=bbox_obj,
-                            name=species_name_obj,
-                            created_by=annotator,
-                            confidence=formatted_annotations[bbox_id]["confidence"],
-                        )
-
-                    # Cast a reject vote for all other annotations
-                    for species in Species.objects.filter(~Q(id=species_obj.id), bounding_box=bbox_obj):
-                        vote(species, annotator, accept=False)
-                else:
-                    species_obj = None
-
-            #######################
-            # Activity Processing
-            #######################
-            elif annotation_type == ACTIVITY_ANNOTATION_TYPE:
-                if formatted_annotations[bbox_id]["category"]:
-                    activity_type_obj = ActivityType.objects.get(name=formatted_annotations[bbox_id]["category"])
-                    try:
-                        activity_obj = Activity.objects.get(bounding_box=bbox_obj, name=activity_type_obj)
-                        if activity_obj.created_by != annotator:
-                            vote(activity_obj, annotator, accept=True)
-
-                    except ObjectDoesNotExist:
-                        activity_obj = Activity.objects.create(
-                            bounding_box=bbox_obj,
-                            name=activity_type_obj,
-                            created_by=annotator,
-                            confidence=formatted_annotations[bbox_id]["confidence"],
-                        )
-
-                    # Cast a reject vote for all other annotations
-                    for activity in Activity.objects.filter(~Q(id=activity_obj.id), bounding_box=bbox_obj):
-                        vote(activity, annotator, accept=False)
-                else:
-                    activity_obj = None
-
-    # Set image to "checked" by the annotator
-    if annotation_type == OBJECT_ANNOTATION_TYPE:
-        image.bbox_checked_by.add(annotator)
-    elif annotation_type == SPECIES_ANNOTATION_TYPE:
-        image.species_checked_by.add(annotator)
-    elif annotation_type == ACTIVITY_ANNOTATION_TYPE:
-        image.activity_checked_by.add(annotator)
-    else:
-        logging.error(f"Invalid annotation type given for processor function: {annotation_type}")
-        return False
-
-    image.save()
-    logging.info("Successfully updated all bounding boxes")
-
-    return True
+    return handler_success
 
 
 # Function to process a list of annotations for MegaDetector's Object Detection model

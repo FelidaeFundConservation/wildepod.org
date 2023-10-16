@@ -366,4 +366,5 @@ def process_activity_annotations(
         staff_review_needed=staff_review_needed,
         skip=skip,
     )
+
     return True

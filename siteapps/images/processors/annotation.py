@@ -105,7 +105,7 @@ def process_annotations(
     logging.info("Successfully retrieved image object")
 
     # Update the staff review flag
-    image.staff_review_needed = True if staff_review_needed else False
+    image.staff_review_needed = bool(staff_review_needed)
 
     # If the user skipped this, add the user to the image skipped list & move on
     if skip:
@@ -159,7 +159,16 @@ def process_annotations(
             # Object Processing
             #####################
             if annotation_type == OBJECT_ANNOTATION_TYPE:
-                category_obj = Category.objects.get(bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"])
+                try:
+                    category_obj = Category.objects.get(bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"])
+                except Exception:
+                    logging.info(f"Duplicate category objects were found in image {image_id} and were deleted.")
+                    # If there are duplicate category objects, delete all but one
+                    category_objs = Category.objects.filter(
+                        bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"]
+                    )
+                    category_obj = category_objs.first()
+                    category_objs.filter(~Q(id=category_obj.id)).delete()
 
                 # First handle the case of 'accept' votes. This can happen in 3 cases,
                 # 1) The user is staff

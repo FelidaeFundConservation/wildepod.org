@@ -368,7 +368,8 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
             context["image"] = image
             context["social_media_worthy"] = image.social_media_worthy
             context["staff_review_needed"] = image.staff_review_needed
-            bounding_boxes = BoundingBox.objects.valid().filter(image=image)
+            bounding_boxes = BoundingBox.objects.filter(image=image)
+
             context["bounding_boxes"] = bounding_boxes
         else:
             context["image"] = None
@@ -872,10 +873,18 @@ def calculateCategoryAnnotationFlags(image):
     category_objs = Category.objects.filter(bounding_box__image=image)
     category_annotations = category_objs.values()
 
+    bounding_box_objs = BoundingBox.objects.filter(image=image)
+    bounding_box_annotations = bounding_box_objs.values()
+
+    zipped_bbox_querysets = list(zip(bounding_box_objs, bounding_box_annotations))
+    annotate(zipped_bbox_querysets)
+
     zipped_querysets = list(zip(category_objs, category_annotations))
     annotate(zipped_querysets)
 
-    category_has_uncertain_annotation = any(category[1].get("status") == "Uncertain" for category in zipped_querysets)
+    category_has_uncertain_annotation = any(
+        category[1].get("status") == "Uncertain" for category in zipped_querysets
+    ) or any(bbox[1].get("status") == "Uncertain" for bbox in zipped_bbox_querysets)
 
     has_staff_vote = any(category[1].get("has_staff_vote") is True for category in zipped_querysets)
 
@@ -906,6 +915,20 @@ def calculateCategoryAnnotationFlags(image):
                 "vote_difference": category.get("vote_difference"),
                 "status": category.get("status"),
                 "has_staff_vote": category.get("has_staff_vote"),
+            }
+        )
+
+    for bbox in list(bounding_box_annotations):
+        category_annotations_info.append(
+            {
+                "name": f"BBOX-{bbox.get('id')}",
+                "accepted_count": bbox.get("accepted_count"),
+                "rejected_count": bbox.get("rejected_count"),
+                "expert_accepted_count": bbox.get("staff_or_expert_accepted_count"),
+                "expert_rejected_count": bbox.get("staff_or_expert_rejected_count"),
+                "vote_difference": bbox.get("vote_difference"),
+                "status": bbox.get("status"),
+                "has_staff_vote": bbox.get("has_staff_vote"),
             }
         )
 

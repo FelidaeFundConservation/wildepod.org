@@ -409,11 +409,11 @@ def annotation_processor(queue_name, request):
 
     # Get bounding box ids that were sent to infer deleted annotations
     initial_bboxes = request.POST.get("initial_bboxes")
-    initial_bboxes = json.loads(initial_bboxes)
+    initial_bboxes = json.loads(initial_bboxes) if initial_bboxes else {}
 
     # Get the annotation payload from the request and convert it to a dict
     annotations = request.POST.get("annotations")
-    annotations = json.loads(annotations)
+    annotations = json.loads(annotations) if annotations else {}
 
     # Check if the image was tagged as social media worthy
     social_media_worthy = request.POST.get("social_media_worthy")

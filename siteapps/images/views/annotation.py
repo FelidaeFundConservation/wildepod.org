@@ -884,7 +884,7 @@ def calculateSpeciesAnnotationFlags(image):
 def calculateActivityAnnotationFlags(image):
     activity_objs = Activity.objects.filter(bounding_box__image__id=image.id)
     activity_annotations = activity_objs.values()
-    print(activity_annotations)
+
     zipped_querysets = list(zip(activity_objs, activity_annotations))
     annotate(zipped_querysets)
 

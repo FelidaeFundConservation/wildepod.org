@@ -235,9 +235,10 @@ class Category(TimeStampedModel):
     bounding_box = models.ForeignKey(BoundingBox, on_delete=models.CASCADE)
 
     # The main category of the detected object. This can be "Animal", "Human" or "Vehicle"
+    # Unannotated is set when a box is created in Species or later, and used to filter Species-completed images in category stage
     name = models.CharField(
-        max_length=10,
-        choices=[("animal", "animal"), ("vehicle", "vehicle"), ("person", "person")],
+        max_length=12,
+        choices=[("animal", "animal"), ("vehicle", "vehicle"), ("person", "person"), ("Unannotated", "Unannotated")],
     )
 
     # The creator of the annotation

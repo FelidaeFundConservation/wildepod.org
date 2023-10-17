@@ -644,7 +644,14 @@ def calculateCategoryAnnotationFlags(image):
 
     bbox_count_gt = BoundingBox.objects.filter(image=image).count() > 0
 
-    if (not category_has_uncertain_annotation or has_staff_vote) and image.processed and bbox_count_gt:
+    all_bboxes_have_category = not category_objs.filter(name="Unannotated").exists()
+
+    if (
+        (not category_has_uncertain_annotation or has_staff_vote)
+        and image.processed
+        and bbox_count_gt
+        and all_bboxes_have_category
+    ):
         image.has_humans = category_annotations.filter(name="person").exists()
         image.has_animals = category_annotations.filter(name="animal").exists()
         image.has_vehicles = category_annotations.filter(name="vehicle").exists()
@@ -695,6 +702,7 @@ def calculateCategoryAnnotationFlags(image):
             },
             "processed": image.processed,
             "bounding_boxes_gte_zero": bbox_count_gt,
+            "all_bboxes_have_category": all_bboxes_have_category,
         },
         "pipeline_flags": {
             "has_humans": image.has_humans,
@@ -728,6 +736,8 @@ def calculateSpeciesAnnotationFlags(image):
     has_staff_vote = any(species[1].get("has_staff_vote") is True for species in zipped_querysets)
 
     annotation_checked_by_gte = image.species_checked_by.all().count() >= MAX_VOTES_PER_IMAGE
+
+    all_bboxes_have_species = not species_objs.filter(name__name="Unannotated").exists()
 
     # TODO: Use the SpeciesName species_group field instead once they're set for all objects.
     NON_WILD_SPECIES = [
@@ -824,6 +834,7 @@ def calculateSpeciesAnnotationFlags(image):
         and image.has_animals
         and (has_staff_vote or annotation_checked_by_gte)
         and image.processed
+        and all_bboxes_have_species
     ):
         image.has_wild_animals = species_annotations.filter(~Q(name__name__in=NON_WILD_SPECIES)).exists()
         image.species_pipeline_complete = True
@@ -858,6 +869,7 @@ def calculateSpeciesAnnotationFlags(image):
                 "is_staff": has_staff_vote,
             },
             "processed": image.processed,
+            "all_bboxes_have_species": all_bboxes_have_species,
         },
         "pipeline_flags": {
             "has_wild_animals": image.has_wild_animals,
@@ -872,7 +884,7 @@ def calculateSpeciesAnnotationFlags(image):
 def calculateActivityAnnotationFlags(image):
     activity_objs = Activity.objects.filter(bounding_box__image__id=image.id)
     activity_annotations = activity_objs.values()
-
+    print(activity_annotations)
     zipped_querysets = list(zip(activity_objs, activity_annotations))
     annotate(zipped_querysets)
 
@@ -899,7 +911,7 @@ def calculateActivityAnnotationFlags(image):
     for activity in list(activity_annotations):
         activity_annotations_info.append(
             {
-                "name": activity.get("name"),
+                "name": ActivityType.objects.get(id=activity.get("name_id")).name,
                 "accepted_count": activity.get("accepted_count"),
                 "rejected_count": activity.get("rejected_count"),
                 "expert_accepted_count": activity.get("staff_or_expert_accepted_count"),

@@ -118,6 +118,8 @@ def create_bbox(annotation_type: str, annotation_dict: Dict[str, Any], image_obj
     if annotation_type == OBJECT_ANNOTATION_TYPE:
         create_category(annotation_dict, bbox_obj, annotator)
     elif annotation_type == SPECIES_ANNOTATION_TYPE:
+        # Create 'Unannotated' placeholder objects for new bboxes past staging
+        # for compatibility and to send the image back. Will be deleted upon making a proper annotation.
         create_category({"category": "Unannotated", "confidence": 1}, bbox_obj, annotator)
         create_species(annotation_dict, bbox_obj, annotator)
         logging.info("New bounding box created in Species stage. 'Unannotated' Category objects added.")

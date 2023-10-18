@@ -189,11 +189,11 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         images = Image.objects.filter(**self.filterset)
 
         # Filter using specified pipeline criteria
-        if queue_name == OBJECTS_QUEUE_NAME:
+        if OBJECTS_QUEUE_NAME in queue_name:
             images = object_pipeline_query(images=images, annotator=annotator)
-        elif queue_name == SPECIES_QUEUE_NAME:
+        elif SPECIES_QUEUE_NAME in queue_name:
             images = species_pipeline_query(images=images, annotator=annotator)
-        elif queue_name == ACTIVITY_ANIMAL_QUEUE_NAME or ACTIVITY_HUMAN_QUEUE_NAME:
+        elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
             images = activity_pipeline_query(images=images, annotator=annotator, activity_category=activity_category)
         else:
             logging.error(f"Invalid queue name provided to query function: {queue_name}")

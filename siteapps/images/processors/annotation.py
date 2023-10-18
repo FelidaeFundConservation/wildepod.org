@@ -66,6 +66,17 @@ def set_image_checked_by(annotation_type, image, annotator):
         image.activity_checked_by.add(annotator)
 
 
+def set_image_skipped_by(annotation_type, image, annotator):
+    """Add an annotator to the annotation skipped_by"""
+    # Set image to "skipped" by the annotator
+    if annotation_type == OBJECT_ANNOTATION_TYPE:
+        image.bbox_skipped_by.add(annotator)
+    elif annotation_type == SPECIES_ANNOTATION_TYPE:
+        image.species_skipped_by.add(annotator)
+    elif annotation_type == ACTIVITY_ANNOTATION_TYPE:
+        image.activity_skipped_by.add(annotator)
+
+
 def create_category(annotation_dict: Dict[str, Any], bbox_obj: BoundingBox, annotator: Annotator):
     """Function to create a category object from an annotation dictionary"""
     # Create the category object
@@ -321,7 +332,7 @@ def process_annotations(
     # If the user skipped this, add the user to the image skipped list & move on
     if skip:
         logging.info("User skipped this image. Adding to skipped list")
-        image.bbox_skipped_by.add(annotator)
+        set_image_skipped_by(annotation_type=annotation_type, image=image, annotator=annotator)
         image.save()
         return True
 

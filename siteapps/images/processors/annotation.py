@@ -67,8 +67,8 @@ def set_image_checked_by(annotation_type, image, annotator):
 
 
 def set_image_skipped_by(annotation_type, image, annotator):
-    """Add an annotator to the annotation checked_by"""
-    # Set image to "checked" by the annotator
+    """Add an annotator to the annotation skipped_by"""
+    # Set image to "skipped" by the annotator
     if annotation_type == OBJECT_ANNOTATION_TYPE:
         image.bbox_skipped_by.add(annotator)
     elif annotation_type == SPECIES_ANNOTATION_TYPE:

@@ -229,7 +229,7 @@ def handle_changes(annotation_type, initial_bboxes, formatted_annotations, image
 def process_category(initial_bboxes, formatted_annotations, image, bbox_id, bbox_obj, user, annotator):
     # Category with name "Unannotated" is created when a bbox is created in Species stage or beyond.
     # Delete this object once a proper annotation has been made
-    if Category.objects.filter(~Q(name="Unannotated"), bounding_box=bbox_obj):
+    if Category.objects.filter(~Q(name="Unannotated"), bounding_box=bbox_obj).exists():
         Category.objects.filter(name="Unannotated", bounding_box=bbox_obj).delete()
 
     try:
@@ -303,7 +303,7 @@ def process_category(initial_bboxes, formatted_annotations, image, bbox_id, bbox
 def process_species(formatted_annotations, bbox_id, bbox_obj, annotator):
     # Species with name "Unannotated" is created when a bbox is created in Activity stage.
     # Delete this object once a proper annotation has been made
-    if Species.objects.filter(~Q(name__name="Unannotated"), bounding_box=bbox_obj):
+    if Species.objects.filter(~Q(name__name="Unannotated"), bounding_box=bbox_obj).exists():
         Species.objects.filter(name__name="Unannotated", bounding_box=bbox_obj).delete()
 
     if formatted_annotations[bbox_id]["category"]:

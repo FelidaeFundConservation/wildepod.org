@@ -91,7 +91,7 @@ def create_species(annotation_dict: Dict[str, Any], bbox_obj: BoundingBox, annot
 
 
 def create_activity(annotation_dict: Dict[str, Any], bbox_obj: BoundingBox, annotator: Annotator):
-    """Function to create a species object from an annotation dictionary"""
+    """Function to create an activity object from an annotation dictionary"""
     # Create the activity object
     _ = Activity.objects.create(
         bounding_box=bbox_obj,

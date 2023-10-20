@@ -98,13 +98,16 @@
 <div class="container mt-2 mt-md-3">
     <div class="row mt-2 mt-md-4 px-2 justify-content-center">
         <div class="col-12 col-md-11 col-lg-9 col-xl-8 text-center" style="width: 80%">
-            <h6>
-                <b>
-                    {{ image.upload.camera_station.station_id }} |
-                    {{ image.upload.camera_station.micro_site.macro_site }} |
-                    {{ image.upload.camera_station.micro_site.macro_site.county }}
-                </b>
-            </h6>
+            <button class="btn" onclick="copyImageID()">
+                <h6>
+                    <b>
+                        {{ image.upload.camera_station.station_id }} |
+                        {{ image.upload.camera_station.micro_site.macro_site }} |
+                        {{ image.upload.camera_station.micro_site.macro_site.county }}
+                    </b>
+                </h6>
+                <i class="bi-clipboard"></i><text style="color: gray; font-size: 12px"><i>&nbsp;&nbsp;Copy Link To Image</i></text>
+            </button>
             <img id="{{image.id}}"
                  class="img-fluid m-0 p-0"
                  src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}"
@@ -200,6 +203,14 @@
     document.querySelector('label[for="staff-review-needed"]').addEventListener('click', function(event) {
         event.preventDefault();
     });
+</script>
+
+
+<script>
+    function copyImageID() {
+        navigator.clipboard.writeText("wildepod.org/images/image/" + "{{ image.id }}");
+        alert("Link copied to clipboard. Please provide this information to staff if there's an issue.");
+    }
 </script>
 
 

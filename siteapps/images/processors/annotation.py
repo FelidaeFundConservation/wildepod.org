@@ -272,6 +272,7 @@ def process_category(initial_bboxes, formatted_annotations, image, bbox_id, bbox
     # 3) The user is a regular annotator but the bounding box coordinates haven't changed
     if (
         user.is_staff
+        or user.is_expert
         or bbox_obj.created_by == annotator
         or all(
             [

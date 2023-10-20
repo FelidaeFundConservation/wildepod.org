@@ -273,6 +273,28 @@ class ModifyUploadSetImagesView(StaffuserRequiredMixin, View):
         return JsonResponse({"success": success, "errors": errors})
 
 
+class ClearTimeErrorDetailsView(StaffuserRequiredMixin, View):
+    # Clear the time error details, which marks it as resolved.
+    def post(self, request, *args, **kwargs):
+        upload_ids = request.POST.get("uploadIds", "[]")
+        upload_ids = json.loads(upload_ids)
+
+        errors = []
+
+        success = True
+
+        for upload_id in upload_ids:
+            try:
+                upload_set = Upload.objects.get(id=upload_id)
+                upload_set.time_error_details = None
+                upload_set.save()
+            except Exception as error:
+                errors.append([upload_id, error])
+                success = False
+
+        return JsonResponse({"success": success, "errors": errors})
+
+
 # # TODO: This view is currently implemented purely to "test" the annotation functionality
 # # This should be moved into the explore app with arbitrary contraints to export annotations
 # class UploadExportView(LoginRequiredMixin, StaffuserRequiredMixin, DetailView):

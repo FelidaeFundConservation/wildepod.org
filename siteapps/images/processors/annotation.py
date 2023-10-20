@@ -164,17 +164,21 @@ def handle_bbox_additions(annotation_type, initial_bboxes, formatted_annotations
     logging.info("Successfully created all new bounding boxes")
 
 
-def handle_bbox_deletions(initial_bboxes, formatted_annotations, user, annotator):
+def handle_bbox_deletions(initial_bboxes, formatted_annotations, user, annotator, image):
     for bbox_id in initial_bboxes:
         if bbox_id not in formatted_annotations:
-            # First get the bounding box
-            bbox_obj = BoundingBox.objects.get(id=bbox_id)
-            # If the annotator is the same as the current user or if it is an expert/staff user, then the object can be deleted
-            if user.is_staff or user.is_expert or bbox_obj.created_by == annotator:
-                # Then delete it
-                bbox_obj.delete()
-            else:
-                vote(bbox_obj, annotator, accept=False)
+            try:
+                # First get the bounding box
+                bbox_obj = BoundingBox.objects.get(id=bbox_id)
+                # If the annotator is the same as the current user or if it is an expert/staff user, then the object can be deleted
+                if user.is_staff or user.is_expert or bbox_obj.created_by == annotator:
+                    # Then delete it
+                    bbox_obj.delete()
+                    logging.info(f"Deleting bounding box with id {bbox_id}.")
+                else:
+                    vote(bbox_obj, annotator, accept=False)
+            except ObjectDoesNotExist:
+                logging.info(f"Bounding box with id {bbox_id} doesn't exist in image {image.id}. Skipping deletion.")
 
     logging.info("Successfully removed all deleted bounding boxes")
 
@@ -215,7 +219,11 @@ def handle_changes(annotation_type, initial_bboxes, formatted_annotations, image
 
     # First handle all deletions
     handle_bbox_deletions(
-        initial_bboxes=initial_bboxes, formatted_annotations=formatted_annotations, user=user, annotator=annotator
+        initial_bboxes=initial_bboxes,
+        formatted_annotations=formatted_annotations,
+        user=user,
+        annotator=annotator,
+        image=image,
     )
 
     # Add boxes

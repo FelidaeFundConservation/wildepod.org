@@ -34,6 +34,7 @@
             <div id="cam-modification-options">
                 <div>
                     <text><b>Camera Date/Time Correction Settings (at least 1 time unit required)</b></text>
+                    <text>*This is the offset that will be applied to the timestamps. Negative values will shift the times back.</text>
                 </div>
                 <table>
                     <tbody>
@@ -120,7 +121,7 @@
                 <tr>
                     <td><input type="checkbox"></td>
                     <td>{{ object.id }}</td>
-                    <td>{{ object.time_error_details }}</td>
+                    <td>{% if object.time_error_details %}{{ object.time_error_details }}{% endif %}</td>
                     <td>{{ object.time_fix_details }}</td>
                     <td>{{ object.camera_station.station_id }}</td>
                     <td>{{ object.camera_station.micro_site }}</td>
@@ -194,7 +195,7 @@
                 tableRows.forEach(function(row) {
                     const timeErrorNotes = row.querySelector('td:nth-child(3)').textContent;
 
-                    if (timeErrorNotes !== 'None') {
+                    if (timeErrorNotes) {
                         row.style.display = '';
                         errorCount++;
                     } else {

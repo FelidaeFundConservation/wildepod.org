@@ -183,6 +183,12 @@ class FixUploadSetsView(StaffuserRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
         if self.request.user.is_staff or self.request.user.is_superuser:
+            # Replace the blank strings in time error details
+            blank_time_errors = Upload.objects.filter(time_error_details="")
+            if blank_time_errors.exists():
+                for upload in blank_time_errors:
+                    upload.time_error_details = None
+
             context["num_uploads"] = Upload.objects.all().count()
             context["uploads"] = Upload.objects.all()
             context["first_timestamps"] = [

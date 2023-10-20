@@ -94,26 +94,6 @@
     </div>
     {% block missing_annotations_element %}
     {% endblock missing_annotations_element %}
-
-<div class="container mt-2 mt-md-3">
-    <div class="row mt-2 mt-md-4 px-2 justify-content-center">
-        <div class="col-12 col-md-11 col-lg-9 col-xl-8 text-center" style="width: 80%">
-            <h6>
-                <b>
-                    {{ image.upload.camera_station.station_id }} |
-                    {{ image.upload.camera_station.micro_site.macro_site }} |
-                    {{ image.upload.camera_station.micro_site.macro_site.county }}
-                </b>
-            </h6>
-            <img id="{{image.id}}"
-                 class="img-fluid m-0 p-0"
-                 src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}"
-            >
-        </div>
-        <div style="width: 20%; margin-top: 10px; max-height: 5%; overflow-y: auto">
-            {% include './image-manipulators.html' %}
-        </div>
-    </div>
     <div
         class="row py-3 justify-content-center d-none"
         id="status-failure"
@@ -127,6 +107,29 @@
                 <strong>Error!</strong> Your annotations could not be saved. Please refresh page & try again or report a
                 bug here.
             </div>
+        </div>
+    </div>
+
+<div class="container mt-2 mt-md-3">
+    <div class="row mt-2 mt-md-4 px-2 justify-content-center">
+        <div class="col-12 col-md-11 col-lg-9 col-xl-8 text-center" style="width: 80%">
+            <button class="btn" onclick="copyImageID()">
+                <h6>
+                    <b>
+                        {{ image.upload.camera_station.station_id }} |
+                        {{ image.upload.camera_station.micro_site.macro_site }} |
+                        {{ image.upload.camera_station.micro_site.macro_site.county }}
+                    </b>
+                </h6>
+                <i class="bi-clipboard"></i><text style="color: gray; font-size: 12px"><i>&nbsp;&nbsp;Copy Link To Image</i></text>
+            </button>
+            <img id="{{image.id}}"
+                 class="img-fluid m-0 p-0"
+                 src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}"
+            >
+        </div>
+        <div style="width: 20%; margin-top: 10px; max-height: 5%; overflow-y: auto">
+            {% include './image-manipulators.html' %}
         </div>
     </div>
     <div class="row mt-3 mt-md-5 text-center">
@@ -200,6 +203,21 @@
     document.querySelector('label[for="staff-review-needed"]').addEventListener('click', function(event) {
         event.preventDefault();
     });
+</script>
+
+
+<script>
+    function copyImageID() {
+        navigator.clipboard.writeText("https://wildepod.org/images/image/" + "{{ image.id }}");
+        alert("Link copied to clipboard. Please provide this information to staff if there's an issue.");
+    }
+
+    function showStatusFailure() {
+        $("#status-failure").removeClass("d-none");
+        setTimeout(function(){
+            $("#status-failure").addClass("d-none");
+        }, 10000);
+    }
 </script>
 
 
@@ -306,11 +324,12 @@
                             }
                         }
                         else {
-                            $("#status-failure").removeClass("d-none");
-                            setTimeout(function(){
-                                $("#status-failure").addClass("d-none");
-                            }, 10000);
+                            showStatusFailure();
                         }
+                    },
+                    error: function (jqXHR, textStatus, errorThrown) {
+                        showStatusFailure();
+                        console.error('HTTP Error:', jqXHR.status, textStatus, errorThrown);
                     }
                 })
             }

@@ -32,6 +32,10 @@
                                     Image Has 1+ Bounding Boxes
                                 </div>
                                 <div>
+                                    <i id="all-bboxes-have-category" class="bi bi-circle"></i>
+                                    No 'Unannotated' Object Categories
+                                </div>
+                                <div>
                                     <i id="category-processed" class="bi bi-circle"></i>
                                     Image Processed By MegaDetector
                                 </div>
@@ -99,6 +103,10 @@
                                 <div>
                                     <i id="species-has-valid" class="bi bi-circle"></i>
                                     Has 1+ Valid Bounding Boxes
+                                </div>
+                                <div>
+                                    <i id="all-bboxes-have-species" class="bi bi-circle"></i>
+                                    No 'Unannotated' Species Categories
                                 </div>
                                 <div>
                                     <i id="species-processed" class="bi bi-circle"></i>
@@ -252,6 +260,8 @@
         $("#category-processed").attr("class", categoryDebugData.flag_checks.processed ? checkedIcon : xedIcon);
         $("#category-bbox-gte").attr("class", categoryDebugData.flag_checks.bounding_boxes_gte_zero ? checkedIcon : xedIcon);
 
+        $("#all-bboxes-have-category").attr("class", categoryDebugData.flag_checks.all_bboxes_have_category ? checkedIcon : xedIcon);
+
         $("#category-has-animals").attr("class", categoryDebugData.pipeline_flags.has_animals ? checkedIcon : xedIcon);
         $("#category-has-humans").attr("class", categoryDebugData.pipeline_flags.has_humans ? checkedIcon : xedIcon);
         $("#category-has-vehicles").attr("class", categoryDebugData.pipeline_flags.has_vehicles ? checkedIcon : xedIcon);
@@ -273,6 +283,8 @@
         $("#species-has-valid").attr("class", speciesDebugData.flag_checks.species_has_valid ? checkedIcon : xedIcon);
         $("#species-no-uncertain").attr("class", !speciesDebugData.flag_checks.species_has_uncertain ? checkedIcon : xedIcon);
         $("#species-processed").attr("class", speciesDebugData.flag_checks.processed ? checkedIcon : xedIcon);
+
+        $("#all-bboxes-have-species").attr("class", speciesDebugData.flag_checks.all_bboxes_have_species ? checkedIcon : xedIcon);
 
         $("#species-has-wild-animals").attr("class", speciesDebugData.pipeline_flags.has_wild_animals ? checkedIcon : xedIcon);
 

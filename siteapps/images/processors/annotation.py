@@ -14,6 +14,8 @@ OBJECT_ANNOTATION_TYPE = "OBJECT"
 SPECIES_ANNOTATION_TYPE = "SPECIES"
 ACTIVITY_ANNOTATION_TYPE = "ACTIVITY"
 
+UNANNOTATED_CATEGORY = "unannotated"
+
 
 def flatten_annotorious_annotations(annotations: list) -> dict:
     """Function to take an annotorious formatted list and flatten it with numerical bounding boxes"""
@@ -89,7 +91,31 @@ def create_category(annotation_dict: Dict[str, Any], bbox_obj: BoundingBox, anno
     return
 
 
-def create_bbox(annotation_dict: Dict[str, Any], image_obj: Image, annotator: Annotator):
+def create_species(annotation_dict: Dict[str, Any], bbox_obj: BoundingBox, annotator: Annotator):
+    """Function to create a species object from an annotation dictionary"""
+    # Create the species object
+    _ = Species.objects.create(
+        bounding_box=bbox_obj,
+        name=SpeciesName.objects.get(name=annotation_dict["category"]),
+        created_by=annotator,
+        confidence=annotation_dict["confidence"],
+    )
+    return
+
+
+def create_activity(annotation_dict: Dict[str, Any], bbox_obj: BoundingBox, annotator: Annotator):
+    """Function to create an activity object from an annotation dictionary"""
+    # Create the activity object
+    _ = Activity.objects.create(
+        bounding_box=bbox_obj,
+        name=ActivityType.objects.get(name=annotation_dict["category"]),
+        created_by=annotator,
+        confidence=annotation_dict["confidence"],
+    )
+    return
+
+
+def create_bbox(annotation_type: str, annotation_dict: Dict[str, Any], image_obj: Image, annotator: Annotator):
     """Function to create a bounding box object from an annotation dictionary"""
     bbox_obj = BoundingBox.objects.create(
         image=image_obj,
@@ -100,17 +126,40 @@ def create_bbox(annotation_dict: Dict[str, Any], image_obj: Image, annotator: An
         confidence=annotation_dict["confidence"],
         created_by=annotator,
     )
-    create_category(annotation_dict, bbox_obj, annotator)
+
+    # Create the annotation object for the bbox as well
+    if annotation_type == OBJECT_ANNOTATION_TYPE:
+        create_category(annotation_dict, bbox_obj, annotator)
+    elif annotation_type == SPECIES_ANNOTATION_TYPE:
+        # Create 'unannotated' placeholder objects for new bboxes past Object stage
+        # for compatibility and to send the image back. Will be deleted upon making a proper annotation.
+        create_category({"category": UNANNOTATED_CATEGORY, "confidence": 1}, bbox_obj, annotator)
+        create_species(annotation_dict, bbox_obj, annotator)
+        logging.info("New bounding box created in Species stage. 'unannotated' Category objects added.")
+    elif annotation_type == ACTIVITY_ANNOTATION_TYPE:
+        create_category({"category": UNANNOTATED_CATEGORY, "confidence": 1}, bbox_obj, annotator)
+
+        if not SpeciesName.objects.filter(name=UNANNOTATED_CATEGORY).exists():
+            SpeciesName.objects.create(name=UNANNOTATED_CATEGORY, scientific_name=UNANNOTATED_CATEGORY)
+            logging.info(
+                "SpeciesName 'unannotated' object not found while creating new bbox in Activity stage. Created object."
+            )
+
+        create_species({"category": UNANNOTATED_CATEGORY, "confidence": 1}, bbox_obj, annotator)
+        create_activity(annotation_dict, bbox_obj, annotator)
+
+        logging.info("New bounding box created in Activity stage. 'unannotated' Category and Species objects added.")
+
     return
 
 
-def handle_bbox_additions(initial_bboxes, formatted_annotations, image, annotator):
+def handle_bbox_additions(annotation_type, initial_bboxes, formatted_annotations, image, annotator):
     # Next, handles all additions
     for bbox_id in formatted_annotations:
         # If the annotation is not in the initial list, it is a new annotation
         if bbox_id not in initial_bboxes:
             # Create the bounding box
-            create_bbox(formatted_annotations[bbox_id], image, annotator)
+            create_bbox(annotation_type, formatted_annotations[bbox_id], image, annotator)
 
     logging.info("Successfully created all new bounding boxes")
 
@@ -168,21 +217,19 @@ def handle_changes(annotation_type, initial_bboxes, formatted_annotations, image
         logging.error(f"Invalid annotation type given for processor function: {annotation_type}")
         return False
 
-    # First handle all deletions, only before Activity stage
-    if annotation_type != ACTIVITY_ANNOTATION_TYPE:
-        handle_bbox_deletions(
-            initial_bboxes=initial_bboxes,
-            formatted_annotations=formatted_annotations,
-            user=user,
-            annotator=annotator,
-            image=image,
-        )
+    # First handle all deletions
+    handle_bbox_deletions(
+        initial_bboxes=initial_bboxes, formatted_annotations=formatted_annotations, user=user, annotator=annotator
+    )
 
-    # Only add boxes in Object stage
-    if annotation_type == OBJECT_ANNOTATION_TYPE:
-        handle_bbox_additions(
-            initial_bboxes=initial_bboxes, formatted_annotations=formatted_annotations, image=image, annotator=annotator
-        )
+    # Add boxes
+    handle_bbox_additions(
+        annotation_type=annotation_type,
+        initial_bboxes=initial_bboxes,
+        formatted_annotations=formatted_annotations,
+        image=image,
+        annotator=annotator,
+    )
 
     # Handle bbox updates
     handle_bbox_updates(annotation_type, initial_bboxes, formatted_annotations, image, user, annotator)
@@ -197,6 +244,11 @@ def handle_changes(annotation_type, initial_bboxes, formatted_annotations, image
 
 
 def process_category(initial_bboxes, formatted_annotations, image, bbox_id, bbox_obj, user, annotator):
+    # Category with name "unannotated" is created when a bbox is created in Species stage or beyond.
+    # Delete this object once a proper annotation has been made
+    if Category.objects.filter(~Q(name=UNANNOTATED_CATEGORY), bounding_box=bbox_obj).exists():
+        Category.objects.filter(name=UNANNOTATED_CATEGORY, bounding_box=bbox_obj).delete()
+
     try:
         category_obj = Category.objects.get(bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"])
     except MultipleObjectsReturned:
@@ -266,6 +318,11 @@ def process_category(initial_bboxes, formatted_annotations, image, bbox_id, bbox
 
 
 def process_species(formatted_annotations, bbox_id, bbox_obj, annotator):
+    # Species with name "unannotated" is created when a bbox is created in Activity stage.
+    # Delete this object once a proper annotation has been made
+    if Species.objects.filter(~Q(name__name=UNANNOTATED_CATEGORY), bounding_box=bbox_obj).exists():
+        Species.objects.filter(name__name=UNANNOTATED_CATEGORY, bounding_box=bbox_obj).delete()
+
     if formatted_annotations[bbox_id]["category"]:
         species_name_obj = SpeciesName.objects.get(name=formatted_annotations[bbox_id]["category"])
         try:

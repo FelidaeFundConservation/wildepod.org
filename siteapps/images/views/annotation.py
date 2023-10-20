@@ -45,6 +45,8 @@ SPECIES_QUEUE_NAME = "AnnotateSpeciesQueue"
 ACTIVITY_HUMAN_QUEUE_NAME = "AnnotateHumanBehaviorQueue"
 ACTIVITY_ANIMAL_QUEUE_NAME = "AnnotateAnimalActivityQueue"
 
+UNANNOTATED_CATEGORY = "unannotated"
+
 STAFF_OR_EXPERT_CHECK = Q(human__is_staff=True) | Q(human__is_expert=True)
 STAFF_OR_EXPERT_VOTE_MULTIPLIER = 2
 
@@ -644,7 +646,7 @@ def calculateCategoryAnnotationFlags(image):
 
     bbox_count_gt = BoundingBox.objects.filter(image=image).count() > 0
 
-    all_bboxes_have_category = not category_objs.filter(name="Unannotated").exists()
+    all_bboxes_have_category = not category_objs.filter(name=UNANNOTATED_CATEGORY).exists()
 
     if (
         (not category_has_uncertain_annotation or has_staff_vote)
@@ -737,7 +739,7 @@ def calculateSpeciesAnnotationFlags(image):
 
     annotation_checked_by_gte = image.species_checked_by.all().count() >= MAX_VOTES_PER_IMAGE
 
-    all_bboxes_have_species = not species_objs.filter(name__name="Unannotated").exists()
+    all_bboxes_have_species = not species_objs.filter(name__name=UNANNOTATED_CATEGORY).exists()
 
     # TODO: Use the SpeciesName species_group field instead once they're set for all objects.
     NON_WILD_SPECIES = [

@@ -159,8 +159,12 @@ def handle_bbox_additions(annotation_type, initial_bboxes, formatted_annotations
         # If the annotation is not in the initial list, it is a new annotation
         if bbox_id not in initial_bboxes:
             # Create the bounding box
-            create_bbox(annotation_type, formatted_annotations[bbox_id], image, annotator)
-
+            create_bbox(
+                annotation_type=annotation_type,
+                annotation_dict=formatted_annotations[bbox_id],
+                image_obj=image,
+                annotator=annotator,
+            )
     logging.info("Successfully created all new bounding boxes")
 
 
@@ -268,6 +272,7 @@ def process_category(initial_bboxes, formatted_annotations, image, bbox_id, bbox
     # 3) The user is a regular annotator but the bounding box coordinates haven't changed
     if (
         user.is_staff
+        or user.is_expert
         or bbox_obj.created_by == annotator
         or all(
             [
@@ -318,7 +323,12 @@ def process_category(initial_bboxes, formatted_annotations, image, bbox_id, bbox
         # Original bounding box was modified significantly by the annotator. Cast a reject vote on the original.
         vote(bbox_obj, annotator, accept=False)
         # Create a new bounding box
-        create_bbox(formatted_annotations[bbox_id], image, annotator)
+        create_bbox(
+            annotation_type=OBJECT_ANNOTATION_TYPE,
+            annotation_dict=formatted_annotations[bbox_id],
+            image_obj=image,
+            annotator=annotator,
+        )
 
 
 def process_species(formatted_annotations, bbox_id, bbox_obj, annotator):

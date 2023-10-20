@@ -227,7 +227,7 @@ function renderBoundingBoxes(imageElementID, annotations, widgets, config) {
       label.id = 'preview-label-' + annotation.id;
       let confidence = annotation.body[0].confidence ? annotation.body[0].confidence : 1.0;
       label.innerHTML = `<text id="annotation-text-${annotation.id}" class="my-0 py-0"><b>${annotation.body[0].value}</b> |  <em>conf: ${confidence}</em></text>`;
-      if (annotation.body[0].value){
+      if (annotation.body[0].value && annotation.body[0].value != 'unannotated'){
         col.appendChild(label);
       }
 

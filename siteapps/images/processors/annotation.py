@@ -219,7 +219,11 @@ def handle_changes(annotation_type, initial_bboxes, formatted_annotations, image
 
     # First handle all deletions
     handle_bbox_deletions(
-        initial_bboxes=initial_bboxes, formatted_annotations=formatted_annotations, user=user, annotator=annotator
+        initial_bboxes=initial_bboxes,
+        formatted_annotations=formatted_annotations,
+        user=user,
+        annotator=annotator,
+        image=image,
     )
 
     # Add boxes

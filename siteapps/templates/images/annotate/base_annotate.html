@@ -94,6 +94,21 @@
     </div>
     {% block missing_annotations_element %}
     {% endblock missing_annotations_element %}
+    <div
+        class="row py-3 justify-content-center d-none"
+        id="status-failure"
+    >
+        <div class="col-12">
+            <div
+                class="alert alert-danger text-center"
+                role="alert"
+            >
+                {% comment %} TODO: Link to a spreadsheet error form here {% endcomment %}
+                <strong>Error!</strong> Your annotations could not be saved. Please refresh page & try again or report a
+                bug here.
+            </div>
+        </div>
+    </div>
 
 <div class="container mt-2 mt-md-3">
     <div class="row mt-2 mt-md-4 px-2 justify-content-center">
@@ -115,21 +130,6 @@
         </div>
         <div style="width: 20%; margin-top: 10px; max-height: 5%; overflow-y: auto">
             {% include './image-manipulators.html' %}
-        </div>
-    </div>
-    <div
-        class="row py-3 justify-content-center d-none"
-        id="status-failure"
-    >
-        <div class="col-12">
-            <div
-                class="alert alert-danger text-center"
-                role="alert"
-            >
-                {% comment %} TODO: Link to a spreadsheet error form here {% endcomment %}
-                <strong>Error!</strong> Your annotations could not be saved. Please refresh page & try again or report a
-                bug here.
-            </div>
         </div>
     </div>
     <div class="row mt-3 mt-md-5 text-center">
@@ -210,6 +210,13 @@
     function copyImageID() {
         navigator.clipboard.writeText("wildepod.org/images/image/" + "{{ image.id }}");
         alert("Link copied to clipboard. Please provide this information to staff if there's an issue.");
+    }
+
+    function showStatusFailure() {
+        $("#status-failure").removeClass("d-none");
+        setTimeout(function(){
+            $("#status-failure").addClass("d-none");
+        }, 10000);
     }
 </script>
 
@@ -317,11 +324,12 @@
                             }
                         }
                         else {
-                            $("#status-failure").removeClass("d-none");
-                            setTimeout(function(){
-                                $("#status-failure").addClass("d-none");
-                            }, 10000);
+                            showStatusFailure();
                         }
+                    },
+                    error: function (jqXHR, textStatus, errorThrown) {
+                        showStatusFailure();
+                        console.error('HTTP Error:', jqXHR.status, textStatus, errorThrown);
                     }
                 })
             }

@@ -196,7 +196,6 @@ def handle_bbox_updates(annotation_type, initial_bboxes, formatted_annotations, 
 
             if annotation_type == OBJECT_ANNOTATION_TYPE:
                 process_category(
-                    annotation_type=annotation_type,
                     initial_bboxes=initial_bboxes,
                     formatted_annotations=formatted_annotations,
                     image=image,
@@ -252,7 +251,7 @@ def handle_changes(annotation_type, initial_bboxes, formatted_annotations, image
     return True
 
 
-def process_category(annotation_type, initial_bboxes, formatted_annotations, image, bbox_id, bbox_obj, user, annotator):
+def process_category(initial_bboxes, formatted_annotations, image, bbox_id, bbox_obj, user, annotator):
     # Category with name "unannotated" is created when a bbox is created in Species stage or beyond.
     # Delete this object once a proper annotation has been made
     if Category.objects.filter(~Q(name=UNANNOTATED_CATEGORY), bounding_box=bbox_obj).exists():
@@ -324,7 +323,7 @@ def process_category(annotation_type, initial_bboxes, formatted_annotations, ima
         vote(bbox_obj, annotator, accept=False)
         # Create a new bounding box
         create_bbox(
-            annotation_type=annotation_type,
+            annotation_type=OBJECT_ANNOTATION_TYPE,
             annotation_dict=formatted_annotations[bbox_id],
             image_obj=image,
             annotator=annotator,

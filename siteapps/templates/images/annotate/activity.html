@@ -234,6 +234,9 @@
     window.addEventListener('load', function () {
         anno = renderBoundingBoxes("{{image.id}}", bboxes = bboxes, widgets = [SpeciesClassSelectorWidget]);
         renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
+        anno.on("createAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
+        anno.on("deleteAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
+        anno.on("updateAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
 
         document.getElementById("save_annotations").disabled = false;
         document.getElementById("skip_annotations").disabled = false;

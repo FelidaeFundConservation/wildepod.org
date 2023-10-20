@@ -2,8 +2,7 @@ from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
 from django.views.generic import DetailView
-from images.models import (Activity, ActivityType, BoundingBox, Category,
-                           Image, Species, SpeciesName)
+from images.models import Activity, ActivityType, BoundingBox, Category, Image, Species, SpeciesName
 
 
 class ImageDetailView(LoginRequiredMixin, DetailView):
@@ -18,7 +17,7 @@ class ImageDetailView(LoginRequiredMixin, DetailView):
         context["social_media_worthy"] = img_obj.social_media_worthy
         context["staff_review_needed"] = img_obj.staff_review_needed
 
-        #TODO: Depending on where this image page is loaded from, the Next, Previous buttons may not be needed.
+        # TODO: Depending on where this image page is loaded from, the Next, Previous buttons may not be needed.
         try:
             context["next_image"] = Image.objects.filter(
                 upload=img_obj.upload, trigger_timestamp__gt=img_obj.trigger_timestamp
@@ -31,9 +30,8 @@ class ImageDetailView(LoginRequiredMixin, DetailView):
             ).last()
         except ObjectDoesNotExist:
             pass
-        # Get valid annotations for this image
-        bounding_boxes = BoundingBox.objects.valid_or_uncertain().filter(image=img_obj)
-        context["bounding_boxes"] = bounding_boxes
+
+        context["bounding_boxes"] = BoundingBox.objects.filter(image=img_obj)
 
         class BboxAnnotationInfo:
             def __init__(self, id, categories, species, activities):

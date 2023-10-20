@@ -299,6 +299,9 @@
 
         // Render bounding boxes
         renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
+        anno.on("createAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
+        anno.on("deleteAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
+        anno.on("updateAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
 
         // Submit buttons disabled until all elements have loaded
         document.getElementById("save_annotations").disabled = false;

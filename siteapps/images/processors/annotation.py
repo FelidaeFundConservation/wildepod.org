@@ -14,6 +14,8 @@ OBJECT_ANNOTATION_TYPE = "OBJECT"
 SPECIES_ANNOTATION_TYPE = "SPECIES"
 ACTIVITY_ANNOTATION_TYPE = "ACTIVITY"
 
+UNANNOTATED_CATEGORY = "unannotated"
+
 
 def flatten_annotorious_annotations(annotations: list) -> dict:
     """Function to take an annotorious formatted list and flatten it with numerical bounding boxes"""
@@ -118,24 +120,24 @@ def create_bbox(annotation_type: str, annotation_dict: Dict[str, Any], image_obj
     if annotation_type == OBJECT_ANNOTATION_TYPE:
         create_category(annotation_dict, bbox_obj, annotator)
     elif annotation_type == SPECIES_ANNOTATION_TYPE:
-        # Create 'Unannotated' placeholder objects for new bboxes past staging
+        # Create 'unannotated' placeholder objects for new bboxes past Object stage
         # for compatibility and to send the image back. Will be deleted upon making a proper annotation.
-        create_category({"category": "Unannotated", "confidence": 1}, bbox_obj, annotator)
+        create_category({"category": UNANNOTATED_CATEGORY, "confidence": 1}, bbox_obj, annotator)
         create_species(annotation_dict, bbox_obj, annotator)
-        logging.info("New bounding box created in Species stage. 'Unannotated' Category objects added.")
+        logging.info("New bounding box created in Species stage. 'unannotated' Category objects added.")
     elif annotation_type == ACTIVITY_ANNOTATION_TYPE:
-        create_category({"category": "Unannotated", "confidence": 1}, bbox_obj, annotator)
+        create_category({"category": UNANNOTATED_CATEGORY, "confidence": 1}, bbox_obj, annotator)
 
-        if not SpeciesName.objects.filter(name="Unannotated").exists():
-            SpeciesName.objects.create(name="Unannotated", scientific_name="Unannotated")
+        if not SpeciesName.objects.filter(name=UNANNOTATED_CATEGORY).exists():
+            SpeciesName.objects.create(name=UNANNOTATED_CATEGORY, scientific_name=UNANNOTATED_CATEGORY)
             logging.info(
-                "SpeciesName 'Unannotated' object not found while creating new bbox in Activity stage. Created object."
+                "SpeciesName 'unannotated' object not found while creating new bbox in Activity stage. Created object."
             )
 
-        create_species({"category": "Unannotated", "confidence": 1}, bbox_obj, annotator)
+        create_species({"category": UNANNOTATED_CATEGORY, "confidence": 1}, bbox_obj, annotator)
         create_activity(annotation_dict, bbox_obj, annotator)
 
-        logging.info("New bounding box created in Activity stage. 'Unannotated' Category and Species objects added.")
+        logging.info("New bounding box created in Activity stage. 'unannotated' Category and Species objects added.")
 
     return
 
@@ -227,10 +229,10 @@ def handle_changes(annotation_type, initial_bboxes, formatted_annotations, image
 
 
 def process_category(initial_bboxes, formatted_annotations, image, bbox_id, bbox_obj, user, annotator):
-    # Category with name "Unannotated" is created when a bbox is created in Species stage or beyond.
+    # Category with name "unannotated" is created when a bbox is created in Species stage or beyond.
     # Delete this object once a proper annotation has been made
-    if Category.objects.filter(~Q(name="Unannotated"), bounding_box=bbox_obj).exists():
-        Category.objects.filter(name="Unannotated", bounding_box=bbox_obj).delete()
+    if Category.objects.filter(~Q(name=UNANNOTATED_CATEGORY), bounding_box=bbox_obj).exists():
+        Category.objects.filter(name=UNANNOTATED_CATEGORY, bounding_box=bbox_obj).delete()
 
     try:
         category_obj = Category.objects.get(bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"])
@@ -301,10 +303,10 @@ def process_category(initial_bboxes, formatted_annotations, image, bbox_id, bbox
 
 
 def process_species(formatted_annotations, bbox_id, bbox_obj, annotator):
-    # Species with name "Unannotated" is created when a bbox is created in Activity stage.
+    # Species with name "unannotated" is created when a bbox is created in Activity stage.
     # Delete this object once a proper annotation has been made
-    if Species.objects.filter(~Q(name__name="Unannotated"), bounding_box=bbox_obj).exists():
-        Species.objects.filter(name__name="Unannotated", bounding_box=bbox_obj).delete()
+    if Species.objects.filter(~Q(name__name=UNANNOTATED_CATEGORY), bounding_box=bbox_obj).exists():
+        Species.objects.filter(name__name=UNANNOTATED_CATEGORY, bounding_box=bbox_obj).delete()
 
     if formatted_annotations[bbox_id]["category"]:
         species_name_obj = SpeciesName.objects.get(name=formatted_annotations[bbox_id]["category"])

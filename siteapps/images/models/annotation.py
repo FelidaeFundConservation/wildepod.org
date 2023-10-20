@@ -238,7 +238,7 @@ class Category(TimeStampedModel):
     # Unannotated is set when a box is created in Species or later, and used to filter Species-completed images in category stage
     name = models.CharField(
         max_length=12,
-        choices=[("animal", "animal"), ("vehicle", "vehicle"), ("person", "person"), ("Unannotated", "Unannotated")],
+        choices=[("animal", "animal"), ("vehicle", "vehicle"), ("person", "person"), ("unannotated", "unannotated")],
     )
 
     # The creator of the annotation

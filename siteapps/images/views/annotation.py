@@ -253,7 +253,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         context["image"] = None
         context["bounding_boxes"] = []
 
-    context["species_list"] = SpeciesName.objects.all()
+    context["species_list"] = SpeciesName.objects.filter(~Q(name=UNANNOTATED_CATEGORY))
     context["activity_list"] = ActivityType.objects.filter(category=activity_category)
 
     # Gather surrounding context images.

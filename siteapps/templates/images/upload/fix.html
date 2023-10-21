@@ -746,7 +746,7 @@
 
         getMarkedRows();
         let data = { 'uploadIds': JSON.stringify(markedSetIds), 'csrfmiddlewaretoken': csrftoken, }
-        console.log(markedSetIds);
+
         return new Promise(function (resolve, reject) {
             $.ajax({
                 url: `{% url 'images:clear_time_error_details'%}`,

@@ -2,7 +2,7 @@ from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
 from django.views.generic import DetailView
-from images.models import Activity, ActivityType, BoundingBox, Category, Image, Species, SpeciesName
+from images.models import Activity, ActivityType, BoundingBox, Category, Image, Species, SpeciesName, Upload
 
 
 class ImageDetailView(LoginRequiredMixin, DetailView):

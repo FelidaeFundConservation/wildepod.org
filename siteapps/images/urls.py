@@ -6,6 +6,7 @@ from .views import (
     AnnotateObjectsView,
     AnnotateSpeciesView,
     ChangeAnnotationView,
+    ClearTimeErrorDetailsView,
     CustomAnnotationView,
     DeleteAnnotationView,
     FixUploadSetsView,
@@ -118,5 +119,10 @@ urlpatterns = [
         "modify-upload-set-images",
         ModifyUploadSetImagesView.as_view(),
         name="modify_upload_set_images",
+    ),
+    path(
+        "clear-time-error-details",
+        ClearTimeErrorDetailsView.as_view(),
+        name="clear_time_error_details",
     ),
 ]

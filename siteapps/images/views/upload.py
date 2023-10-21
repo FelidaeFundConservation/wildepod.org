@@ -183,6 +183,12 @@ class FixUploadSetsView(StaffuserRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
         if self.request.user.is_staff or self.request.user.is_superuser:
+            # Replace the blank strings in time error details
+            blank_time_errors = Upload.objects.filter(time_error_details="")
+            if blank_time_errors.exists():
+                for upload in blank_time_errors:
+                    upload.time_error_details = None
+
             context["num_uploads"] = Upload.objects.all().count()
             context["uploads"] = Upload.objects.all()
             context["first_timestamps"] = [
@@ -262,6 +268,28 @@ class ModifyUploadSetImagesView(StaffuserRequiredMixin, View):
                 target_image.save()
             except Exception as error:
                 errors.append([image_id, error])
+                success = False
+
+        return JsonResponse({"success": success, "errors": errors})
+
+
+class ClearTimeErrorDetailsView(StaffuserRequiredMixin, View):
+    # Clear the time error details, which marks it as resolved.
+    def post(self, request, *args, **kwargs):
+        upload_ids = request.POST.get("uploadIds", "[]")
+        upload_ids = json.loads(upload_ids)
+
+        errors = []
+
+        success = True
+
+        for upload_id in upload_ids:
+            try:
+                upload_set = Upload.objects.get(id=upload_id)
+                upload_set.time_error_details = None
+                upload_set.save()
+            except Exception as error:
+                errors.append([upload_id, error])
                 success = False
 
         return JsonResponse({"success": success, "errors": errors})

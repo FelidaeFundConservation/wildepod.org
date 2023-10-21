@@ -33,7 +33,8 @@
             <br>
             <div id="cam-modification-options">
                 <div>
-                    <text><b>Camera Date/Time Correction Settings (at least 1 time unit required)</b></text>
+                    <text><b>Camera Date/Time Correction Settings (at least 1 time unit required)</b></text><br>
+                    <text><i>*This is the offset that will be applied to the timestamps. Negative values will shift the times back.</i></text><br><br>
                 </div>
                 <table>
                     <tbody>
@@ -70,7 +71,8 @@
             </div>
             <div id="dls-modification-options">
                 <div>
-                    <text><b>Daylight Savings Correction Settings</b></text>
+                    <text><b>Daylight Savings Correction Settings</b></text><br>
+                    <text><i>*Timestamps will be shifted 1 hour forward/backward depending on the date.</i></text><br><br>
                 </div>
                 <div>
                     <label for="dls_date">When did the Daylight Savings shift occur?</label>
@@ -85,6 +87,11 @@
                         data-target="#previewFixesModal"
                 >Preview Fixes</button>
                 {% include './preview-fixes.html' %}
+                <button id="clear-time-error-button"
+                        type="button"
+                        class="btn btn-primary me-2"
+                        onclick="clearTimeErrorDetails()"
+                >Clear Selected Time Errors</button>
             </div>
             <hr>
         </div>
@@ -120,7 +127,7 @@
                 <tr>
                     <td><input type="checkbox"></td>
                     <td>{{ object.id }}</td>
-                    <td>{{ object.time_error_details }}</td>
+                    <td>{% if object.time_error_details %}{{ object.time_error_details }}{% endif %}</td>
                     <td>{{ object.time_fix_details }}</td>
                     <td>{{ object.camera_station.station_id }}</td>
                     <td>{{ object.camera_station.micro_site }}</td>
@@ -194,7 +201,7 @@
                 tableRows.forEach(function(row) {
                     const timeErrorNotes = row.querySelector('td:nth-child(3)').textContent;
 
-                    if (timeErrorNotes !== 'None') {
+                    if (timeErrorNotes) {
                         row.style.display = '';
                         errorCount++;
                     } else {
@@ -534,7 +541,7 @@
         }
     }
 
-    // Get all checked sets.
+    // Put all checked sets in the global variable.
     function getMarkedRows() {
         markedSetIds = []
 
@@ -724,6 +731,43 @@
                     if (data.success) {
                         resolve();
                     } else {
+                        reject(-1);
+                    }
+                },
+                error: function () {
+                    reject(-1);
+                }
+            });
+        });
+    }
+
+    function clearTimeErrorDetails() {
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        getMarkedRows();
+
+        if (markedSetIds.length == 0) {
+            alert("No upload sets were selected.")
+            return;
+        }
+
+        let data = { 'uploadIds': JSON.stringify(markedSetIds), 'csrfmiddlewaretoken': csrftoken, }
+
+        return new Promise(function (resolve, reject) {
+            $.ajax({
+                url: `{% url 'images:clear_time_error_details'%}`,
+                method: 'POST',
+                data: data,
+                dataType: 'json',
+                success: function (data) {
+                    if (data.success) {
+                        alert(`Successfully cleared time error details for selected sets. Refresh page to see updates.`);
+                        resolve();
+                    } else {
+                        alert(`Unable to clear time error details for ${data.errors.length} sets. View console for more details.`);
+                        for (let error of data.errors) {
+                            console.error(error);
+                        }
                         reject(-1);
                     }
                 },

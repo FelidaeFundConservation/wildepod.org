@@ -745,6 +745,12 @@
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
         getMarkedRows();
+
+        if (markedSetIds.length == 0) {
+            alert("No upload sets were selected.")
+            return;
+        }
+
         let data = { 'uploadIds': JSON.stringify(markedSetIds), 'csrfmiddlewaretoken': csrftoken, }
 
         return new Promise(function (resolve, reject) {

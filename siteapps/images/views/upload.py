@@ -6,6 +6,7 @@ from braces.views import StaffuserRequiredMixin
 from django import forms
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.paginator import Paginator
 from django.db.models import Q
@@ -20,6 +21,8 @@ from images.processors.upload import get_dropbox_item_count
 
 # Pagination size for images displayed for the upload detail page
 IMAGE_PAGINATION_LIMIT = 24
+
+UPLOAD_SELECT_RELATED_FIELDS = ["camera_station", "last_action", "volunteer"]
 
 # Views
 # ------------------------------------------------------------------------------
@@ -42,9 +45,11 @@ class UploadListView(LoginRequiredMixin, ListView):
     # Non-staff users can see only their uploads
     def get_queryset(self):
         if self.request.user.is_staff or self.request.user.is_superuser:
-            return super().get_queryset()
+            return super().get_queryset().select_related(*UPLOAD_SELECT_RELATED_FIELDS)
         else:
-            return super().get_queryset().filter(volunteer=self.request.user)
+            return (
+                super().get_queryset().filter(volunteer=self.request.user).select_related(*UPLOAD_SELECT_RELATED_FIELDS)
+            )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -190,7 +195,9 @@ class FixUploadSetsView(StaffuserRequiredMixin, ListView):
                     upload.time_error_details = None
 
             context["num_uploads"] = Upload.objects.all().count()
-            context["uploads"] = Upload.objects.all()
+            context["uploads"] = (
+                Upload.objects.all().select_related(*UPLOAD_SELECT_RELATED_FIELDS).prefetch_related("images")
+            )
             context["first_timestamps"] = [
                 upload.images.first().trigger_timestamp if upload.images.first() else None
                 for upload in context["uploads"]

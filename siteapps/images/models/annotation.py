@@ -161,7 +161,7 @@ class BoundingBox(TimeStampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     # The image the annotation is linked to
-    image = models.ForeignKey(Image, on_delete=models.CASCADE)
+    image = models.ForeignKey(Image, on_delete=models.CASCADE, related_name="bounding_boxes")
 
     # Bounding box of the annotation. These values are normalized (0-1)
     x = models.FloatField()

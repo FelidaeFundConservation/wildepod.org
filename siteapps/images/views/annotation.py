@@ -23,6 +23,7 @@ from django.db.models import (
     When,
 )
 from django.db.models.functions import Coalesce
+from django.db.models.query import Prefetch
 from django.http.response import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -49,6 +50,8 @@ UNANNOTATED_CATEGORY = "unannotated"
 
 STAFF_OR_EXPERT_CHECK = Q(human__is_staff=True) | Q(human__is_expert=True)
 STAFF_OR_EXPERT_VOTE_MULTIPLIER = 2
+
+IMAGE_PREFETCH_RELATED_FIELDS = ["bounding_boxes"]
 
 
 class BboxAnnotationInfo:
@@ -188,7 +191,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         image_id = queue["images"][queue["index"]]
     else:
         # Get images based on the following set of filters
-        images = Image.objects.filter(**self.filterset)
+        images = Image.objects.filter(**self.filterset).prefetch_related(*IMAGE_PREFETCH_RELATED_FIELDS)
 
         # Filter using specified pipeline criteria
         if OBJECTS_QUEUE_NAME in queue_name:
@@ -235,7 +238,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         context["staff_review_needed"] = image.staff_review_needed
 
         # Filter out the rejected bboxes
-        bounding_boxes = BoundingBox.objects.filter(image__id=image.id)
+        bounding_boxes = image.bounding_boxes.all()
         bounding_box_values = bounding_boxes.values()
 
         zipped_querysets = list(zip(bounding_boxes, bounding_box_values))

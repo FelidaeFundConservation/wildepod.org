@@ -52,17 +52,6 @@
                     style="background-color: orange" data-toggle="modal" data-target="#staffEditModal"
             >Admin View</button>
             <br>
-            <input
-                class="form-check-input"
-                type="checkbox"
-                id="staff-debug-mode"
-            >
-            <label
-                class="form-check-label"
-                for="staff-debug-mode"
-            >
-                &nbsp; Disable automatic refresh on submit (to view pipeline debugging info)
-            </label>
             {% include './staff-edit-annotations.html' %}
             {% endif %}
         </form>
@@ -155,6 +144,23 @@
                 >
                     &nbsp; Flag for Staff Review?
                 </label>
+                <br>
+                {% if user.is_staff %}
+                <div>
+                <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="staff-debug-mode"
+                >
+                <label
+                    class="form-check-label"
+                    for="staff-debug-mode"
+                    style="font-size: 11px;"
+                ><i>
+                    &nbsp; Disable refresh on submit (debug)
+                </i></label>
+                </div>
+                {% endif %}
             </div>
             {% include './image-manipulators.html' %}
         </div>

@@ -20,8 +20,8 @@
                                     No Uncertain Bounding Boxes
                                 </div>
                                 <div>
-                                    <i id="category-is-staff" class="bi bi-circle"></i>
-                                    Vote By Staff User
+                                    <i id="category-is-staff-or-expert" class="bi bi-circle"></i>
+                                    Vote By Staff/Expert User
                                 </div>
                             </div>
                             <text style="font-size: 20px; margin: 30px;"><b>And...</b></text>
@@ -38,6 +38,14 @@
                                 <div>
                                     <i id="category-processed" class="bi bi-circle"></i>
                                     Image Processed By MegaDetector
+                                </div>
+                            </div>
+                            <text style="font-size: 20px; margin: 30px;"><b>Or...</b></text>
+                            <div id="category-staff-or-expert" style="border: 1px solid black; border-radius: 5px; padding: 10px; text-align: left; margin: 10px; width: 40%">
+                                <div><b><i><u>Has...</u></i></b></div>
+                                <div>
+                                    <i id="category-is-staff-or-expert" class="bi bi-circle"></i>
+                                    Vote By Staff/Expert User
                                 </div>
                             </div>
                         </div>
@@ -88,10 +96,6 @@
                                     <i id="species-checked-by" class="bi bi-circle"></i>
                                     Checked By Annotators - Max Votes
                                 </div>
-                                <div>
-                                    <i id="species-is-staff" class="bi bi-circle"></i>
-                                    Vote By Staff User
-                                </div>
                             </div>
                             <text style="font-size: 20px; margin: 30px;"><b>And...</b></text>
                             <div id="species-and-checks" style="border: 1px solid black; border-radius: 5px; padding: 10px; text-align: left; margin: 10px; width: 40%">
@@ -111,6 +115,14 @@
                                 <div>
                                     <i id="species-processed" class="bi bi-circle"></i>
                                     Image Processed By MegaDetector
+                                </div>
+                            </div>
+                            <text style="font-size: 20px; margin: 30px;"><b>Or...</b></text>
+                            <div id="species-staff-or-expert" style="border: 1px solid black; border-radius: 5px; padding: 10px; text-align: left; margin: 10px; width: 40%">
+                                <div><b><i><u>Has...</u></i></b></div>
+                                <div>
+                                    <i id="species-is-staff-or-expert" class="bi bi-circle"></i>
+                                    Vote By Staff/Expert User
                                 </div>
                             </div>
                         </div>
@@ -153,10 +165,6 @@
                                     <i id="activity-checked-by" class="bi bi-circle"></i>
                                     Checked By Annotators - Max Votes
                                 </div>
-                                <div>
-                                    <i id="activity-is-staff" class="bi bi-circle"></i>
-                                    Vote By Staff User
-                                </div>
                             </div>
                             <text style="font-size: 20px; margin: 30px;"><b>And...</b></text>
                             <div id="activity-and-checks" style="border: 1px solid black; border-radius: 5px; padding: 10px; text-align: left; margin: 10px; width: 40%">
@@ -176,6 +184,14 @@
                                 <div>
                                     <i id="activity-processed" class="bi bi-circle"></i>
                                     Image Processed By MegaDetector
+                                </div>
+                            </div>
+                            <text style="font-size: 20px; margin: 30px;"><b>Or...</b></text>
+                            <div id="activity-staff-or-expert" style="border: 1px solid black; border-radius: 5px; padding: 10px; text-align: left; margin: 10px; width: 40%">
+                                <div><b><i><u>Has...</u></i></b></div>
+                                <div>
+                                    <i id="activity-is-staff-or-expert" class="bi bi-circle"></i>
+                                    Vote By Staff/Expert User
                                 </div>
                             </div>
                         </div>
@@ -207,10 +223,8 @@
                     <td>${anno.name}</td>
                     <td>${anno.accepted_count}</td>
                     <td>${anno.rejected_count}</td>
-                    <td>${anno.expert_accepted_count}</td>
-                    <td>${anno.expert_rejected_count}</td>
                     <td>${anno.vote_difference}</td>
-                    <td>${anno.has_staff_vote}</td>
+                    <td>${anno.has_staff_or_expert_vote}</td>
                     <td>${anno.status}</td>
                 </tr>`;
             });
@@ -226,10 +240,8 @@
                             <th>Annotation Name</th>
                             <th>Accepted Count</th>
                             <th>Rejected Count</th>
-                            <th>Staff/Expert Accepted Count</th>
-                            <th>Staff/Expert Rejected Count</th>
                             <th>Vote Difference</th>
-                            <th>Has Staff Vote</th>
+                            <th>Has Staff/Expert Vote</th>
                             <th>Status</th>
                         </tr>
                     </thead>
@@ -255,7 +267,7 @@
         $('#category-annotations-table').DataTable();
 
         $("#category-no-uncertain").attr("class", !categoryDebugData.flag_checks.or_checks.category_has_uncertain ? checkedIcon : xedIcon);
-        $("#category-is-staff").attr("class", categoryDebugData.flag_checks.or_checks.is_staff ? checkedIcon : xedIcon);
+        $("#category-is-staff-or-expert").attr("class", categoryDebugData.flag_checks.or_checks.has_staff_or_expert_vote ? checkedIcon : xedIcon);
 
         $("#category-processed").attr("class", categoryDebugData.flag_checks.processed ? checkedIcon : xedIcon);
         $("#category-bbox-gte").attr("class", categoryDebugData.flag_checks.bounding_boxes_gte_zero ? checkedIcon : xedIcon);
@@ -278,7 +290,7 @@
         $('#species-annotations-table').DataTable();
 
         $("#species-checked-by").attr("class", speciesDebugData.flag_checks.or_checks.checked_by ? checkedIcon : xedIcon);
-        $("#species-is-staff").attr("class", speciesDebugData.flag_checks.or_checks.is_staff ? checkedIcon : xedIcon);
+        $("#species-is-staff-or-expert").attr("class", speciesDebugData.flag_checks.or_checks.has_staff_or_expert_vote ? checkedIcon : xedIcon);
 
         $("#species-has-valid").attr("class", speciesDebugData.flag_checks.species_has_valid ? checkedIcon : xedIcon);
         $("#species-no-uncertain").attr("class", !speciesDebugData.flag_checks.species_has_uncertain ? checkedIcon : xedIcon);
@@ -300,7 +312,7 @@
         $('#activity-annotations-table').DataTable();
 
         $("#activity-checked-by").attr("class", activityDebugData.flag_checks.or_checks.checked_by ? checkedIcon : xedIcon);
-        $("#activity-is-staff").attr("class", activityDebugData.flag_checks.or_checks.is_staff ? checkedIcon : xedIcon);
+        $("#activity-is-staff-or-expert").attr("class", activityDebugData.flag_checks.or_checks.has_staff_or_expert_vote ? checkedIcon : xedIcon);
 
         $("#activity-has-valid").attr("class", activityDebugData.flag_checks.activity_has_valid ? checkedIcon : xedIcon);
         $("#activity-no-uncertain").attr("class", !activityDebugData.flag_checks.activity_has_uncertain ? checkedIcon : xedIcon);

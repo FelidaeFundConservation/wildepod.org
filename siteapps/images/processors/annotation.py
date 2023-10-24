@@ -394,7 +394,7 @@ def process_annotations(
     annotations: list,
     initial_bboxes: list,
     user: settings.AUTH_USER_MODEL,
-    social_media_worthy_vote: str,
+    social_media_worthy_vote: int,
     staff_review_needed: bool = False,
     skip: bool = False,
 ):

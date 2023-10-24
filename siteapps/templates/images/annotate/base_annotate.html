@@ -207,9 +207,18 @@
 
 
 <script>
-    function copyImageID() {
-        navigator.clipboard.writeText("https://wildepod.org/images/image/" + "{{ image.id }}");
-        alert("Link copied to clipboard. Please provide this information to staff if there's an issue.");
+    async function copyImageID() {
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(`https://wildepod.org/images/image/{{ image.id }}`).then(function () {
+                alert("Link copied to clipboard. Please provide this information to staff if there's an issue.");
+            }).catch(function (error) {
+                console.error("Clipboard access denied or error: ", error)
+                alert("Copy failed. Please check that clipboard permissions are enabled.");
+            })
+        }
+        else {
+            alert("Clipboard API is not supported in this browser.");
+        }
     }
 
     function showStatusFailure() {

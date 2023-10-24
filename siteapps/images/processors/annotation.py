@@ -394,7 +394,7 @@ def process_annotations(
     annotations: list,
     initial_bboxes: list,
     user: settings.AUTH_USER_MODEL,
-    social_media_worthy: bool = False,
+    social_media_worthy_vote: str,
     staff_review_needed: bool = False,
     skip: bool = False,
 ):
@@ -420,7 +420,7 @@ def process_annotations(
         return True
 
     # Update the image's social media worthy status
-    image.social_media_worthy += 1 if social_media_worthy else 0
+    image.social_media_worthy += social_media_worthy_vote
 
     # Handle additions, deletions, and updates to image bboxes
     handler_success = handle_changes(
@@ -445,7 +445,7 @@ def process_md_annotations(
     annotations: list,
     initial_bboxes: list,
     user: settings.AUTH_USER_MODEL,
-    social_media_worthy: bool = False,
+    social_media_worthy_vote: int,
     staff_review_needed: bool = False,
     skip: bool = False,
 ):
@@ -459,7 +459,7 @@ def process_md_annotations(
         annotations=annotations,
         initial_bboxes=initial_bboxes,
         user=user,
-        social_media_worthy=social_media_worthy,
+        social_media_worthy_vote=social_media_worthy_vote,
         staff_review_needed=staff_review_needed,
         skip=skip,
     )
@@ -472,7 +472,7 @@ def process_species_annotations(
     annotations: list,
     initial_bboxes: list,
     user: settings.AUTH_USER_MODEL,
-    social_media_worthy: bool = False,
+    social_media_worthy_vote: int,
     staff_review_needed: bool = False,
     skip: bool = False,
 ) -> bool:
@@ -486,7 +486,7 @@ def process_species_annotations(
         annotations=annotations,
         initial_bboxes=initial_bboxes,
         user=user,
-        social_media_worthy=social_media_worthy,
+        social_media_worthy_vote=social_media_worthy_vote,
         staff_review_needed=staff_review_needed,
         skip=skip,
     )
@@ -499,7 +499,7 @@ def process_activity_annotations(
     annotations: list,
     initial_bboxes: list,
     user: settings.AUTH_USER_MODEL,
-    social_media_worthy: bool = False,
+    social_media_worthy_vote: int,
     staff_review_needed: bool = False,
     skip: bool = False,
 ) -> bool:
@@ -513,7 +513,7 @@ def process_activity_annotations(
         annotations=annotations,
         initial_bboxes=initial_bboxes,
         user=user,
-        social_media_worthy=social_media_worthy,
+        social_media_worthy_vote=social_media_worthy_vote,
         staff_review_needed=staff_review_needed,
         skip=skip,
     )

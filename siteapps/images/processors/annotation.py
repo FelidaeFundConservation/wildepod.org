@@ -192,7 +192,11 @@ def handle_bbox_updates(annotation_type, initial_bboxes, formatted_annotations, 
     for bbox_id in initial_bboxes:
         if bbox_id in formatted_annotations:
             # Get the initial bounding box & category object
-            bbox_obj = BoundingBox.objects.get(id=bbox_id)
+            try:
+                bbox_obj = BoundingBox.objects.get(id=bbox_id)
+            except ObjectDoesNotExist as e:
+                logging.info(f"Bounding box with id {bbox_id} doesn't exist. Skipping update.'")
+                continue
 
             if annotation_type == OBJECT_ANNOTATION_TYPE:
                 process_category(

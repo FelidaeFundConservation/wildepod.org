@@ -598,25 +598,14 @@ def annotate(zipped_querysets):
         annotation["accepted_count"] = obj.accepted_by.count()
         annotation["rejected_count"] = obj.rejected_by.count()
 
-        annotation["staff_or_expert_accepted_count"] = obj.accepted_by.filter(STAFF_OR_EXPERT_CHECK).count()
-        annotation["staff_or_expert_accepted_count"] += (
-            1 if obj.created_by.human and (obj.created_by.human.is_staff or obj.created_by.human.is_expert) else 0
-        )
-        annotation["staff_or_expert_rejected_count"] = obj.rejected_by.filter(STAFF_OR_EXPERT_CHECK).count()
+        annotation["vote_difference"] = annotation.get("accepted_count") - annotation.get("rejected_count")
 
-        annotation["vote_difference"] = (
-            (annotation.get("accepted_count") - annotation.get("staff_or_expert_accepted_count"))
-            + (annotation.get("staff_or_expert_accepted_count") * STAFF_OR_EXPERT_VOTE_MULTIPLIER)
-            - (annotation.get("rejected_count") - annotation.get("staff_or_expert_rejected_count"))
-            - (annotation.get("staff_or_expert_rejected_count") * STAFF_OR_EXPERT_VOTE_MULTIPLIER)
-        )
-
-        annotation["has_staff_vote"] = bool(
-            obj.accepted_by.filter(Q(human__is_staff=True)).exists()
+        annotation["has_staff_or_expert_vote"] = bool(
+            obj.accepted_by.filter(Q(human__is_staff=True) | Q(human__is_expert=True)).exists()
             or (obj.created_by.human and obj.created_by.human.is_staff)
         )
 
-        if annotation.get("vote_difference") > VOTE_THRESHOLD or annotation.get("has_staff_vote"):
+        if annotation.get("vote_difference") > VOTE_THRESHOLD:
             annotation["status"] = "Valid"
         elif annotation.get("vote_difference") < -VOTE_THRESHOLD:
             annotation["status"] = "Invalid"
@@ -642,17 +631,18 @@ def calculateCategoryAnnotationFlags(image):
         category[1].get("status") == "Uncertain" for category in zipped_querysets
     ) or any(bbox[1].get("status") == "Uncertain" for bbox in zipped_bbox_querysets)
 
-    has_staff_vote = any(category[1].get("has_staff_vote") is True for category in zipped_querysets)
+    has_staff_or_expert_vote = any(category[1].get("has_staff_or_expert_vote") is True for category in zipped_querysets)
 
     bbox_count_gt = BoundingBox.objects.filter(image=image).count() > 0
 
     all_bboxes_have_category = not category_objs.filter(name=UNANNOTATED_CATEGORY).exists()
 
     if (
-        (not category_has_uncertain_annotation or has_staff_vote)
+        not category_has_uncertain_annotation
         and image.processed
         and bbox_count_gt
         and all_bboxes_have_category
+        or has_staff_or_expert_vote
     ):
         image.has_humans = category_annotations.filter(name="person").exists()
         image.has_animals = category_annotations.filter(name="animal").exists()
@@ -677,7 +667,7 @@ def calculateCategoryAnnotationFlags(image):
                 "expert_rejected_count": category.get("staff_or_expert_rejected_count"),
                 "vote_difference": category.get("vote_difference"),
                 "status": category.get("status"),
-                "has_staff_vote": category.get("has_staff_vote"),
+                "has_staff_or_expert_vote": category.get("has_staff_or_expert_vote"),
             }
         )
 
@@ -691,7 +681,7 @@ def calculateCategoryAnnotationFlags(image):
                 "expert_rejected_count": bbox.get("staff_or_expert_rejected_count"),
                 "vote_difference": bbox.get("vote_difference"),
                 "status": bbox.get("status"),
-                "has_staff_vote": bbox.get("has_staff_vote"),
+                "has_staff_or_expert_vote": bbox.get("has_staff_or_expert_vote"),
             }
         )
 
@@ -700,7 +690,7 @@ def calculateCategoryAnnotationFlags(image):
         "flag_checks": {
             "or_checks": {
                 "category_has_uncertain": category_has_uncertain_annotation,
-                "is_staff": has_staff_vote,
+                "has_staff_or_expert_vote": has_staff_or_expert_vote,
             },
             "processed": image.processed,
             "bounding_boxes_gte_zero": bbox_count_gt,
@@ -735,7 +725,7 @@ def calculateSpeciesAnnotationFlags(image):
 
     species_has_valid_annotation = len(species_valid_annotations) > 0
 
-    has_staff_vote = any(species[1].get("has_staff_vote") is True for species in zipped_querysets)
+    has_staff_or_expert_vote = any(species[1].get("has_staff_or_expert_vote") is True for species in zipped_querysets)
 
     annotation_checked_by_gte = image.species_checked_by.all().count() >= MAX_VOTES_PER_IMAGE
 
@@ -834,9 +824,10 @@ def calculateSpeciesAnnotationFlags(image):
         not species_has_uncertain_annotation
         and species_has_valid_annotation
         and image.has_animals
-        and (has_staff_vote or annotation_checked_by_gte)
+        and annotation_checked_by_gte
         and image.processed
         and all_bboxes_have_species
+        or has_staff_or_expert_vote
     ):
         image.has_wild_animals = species_annotations.filter(~Q(name__name__in=NON_WILD_SPECIES)).exists()
         image.species_pipeline_complete = True
@@ -856,7 +847,7 @@ def calculateSpeciesAnnotationFlags(image):
                 "expert_rejected_count": species.get("staff_or_expert_rejected_count"),
                 "vote_difference": species.get("vote_difference"),
                 "status": species.get("status"),
-                "has_staff_vote": species.get("has_staff_vote"),
+                "has_staff_or_expert_vote": species.get("has_staff_or_expert_vote"),
             }
         )
 
@@ -868,7 +859,7 @@ def calculateSpeciesAnnotationFlags(image):
             "image_has_animals": image.has_animals,
             "or_checks": {
                 "checked_by": annotation_checked_by_gte,
-                "is_staff": has_staff_vote,
+                "has_staff_or_expert_vote": has_staff_or_expert_vote,
             },
             "processed": image.processed,
             "all_bboxes_have_species": all_bboxes_have_species,
@@ -894,7 +885,7 @@ def calculateActivityAnnotationFlags(image):
 
     activity_has_valid_annotation = any(activity[1].get("status") == "Valid" for activity in zipped_querysets)
 
-    has_staff_vote = any(activity[1].get("has_staff_vote") is True for activity in zipped_querysets)
+    has_staff_or_expert_vote = any(activity[1].get("has_staff_or_expert_vote") is True for activity in zipped_querysets)
 
     annotation_checked_by_gte = image.activity_checked_by.all().count() >= MAX_VOTES_PER_IMAGE
 
@@ -902,8 +893,9 @@ def calculateActivityAnnotationFlags(image):
         not activity_has_uncertain_annotation
         and activity_has_valid_annotation
         and image.has_wild_animals
-        and (has_staff_vote or annotation_checked_by_gte)
+        and annotation_checked_by_gte
         and image.processed
+        or has_staff_or_expert_vote
     ):
         image.activity_pipeline_complete = True
     else:
@@ -920,7 +912,7 @@ def calculateActivityAnnotationFlags(image):
                 "expert_rejected_count": activity.get("staff_or_expert_rejected_count"),
                 "vote_difference": activity.get("vote_difference"),
                 "status": activity.get("status"),
-                "has_staff_vote": activity.get("has_staff_vote"),
+                "has_staff_or_expert_vote": activity.get("has_staff_or_expert_vote"),
             }
         )
 
@@ -931,7 +923,7 @@ def calculateActivityAnnotationFlags(image):
             "activity_has_valid": activity_has_valid_annotation,
             "image_has_wild_animals": image.has_wild_animals,
             "or_checks": {
-                "is_staff": has_staff_vote,
+                "has_staff_or_expert_vote": has_staff_or_expert_vote,
                 "checked_by": annotation_checked_by_gte,
             },
             "processed": image.processed,

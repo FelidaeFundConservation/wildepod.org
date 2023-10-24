@@ -127,9 +127,8 @@ def object_pipeline_query(images, annotator):
 # Filter criteria for an image to appear in the Species pipeline
 def species_pipeline_query(images, annotator):
     images = images.filter(
-        Q(id="faa3e054-1938-494a-942b-38df409786d9"),
         # It must not be checked or skipped by the current annotator
-        # ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
+        ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
         # Image hasn't completed the Species Pipeline
         species_pipeline_complete=False,
         # Image has animals

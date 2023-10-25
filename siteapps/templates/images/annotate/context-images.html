@@ -65,6 +65,7 @@
     // Button to hide the context image overlay.
     const closeOverlayButton = document.createElement("button");
     closeOverlayButton.setAttribute("id", `close-overlay-button`);
+    closeOverlayButton.setAttribute("class", "btn btn-primary me-2")
     closeOverlayButton.textContent = "Hide Context Overlay";
     Object.assign(closeOverlayButton.style, {
         display: "flex",
@@ -101,10 +102,11 @@
     // Button to show the context image overlay.
     const openOverlaybutton = document.createElement('button');
     openOverlaybutton.setAttribute("id", `open-overlay-button`);
-    openOverlaybutton.textContent = "Show Overlay";
+    openOverlaybutton.setAttribute("class", `btn btn-primary me-2`);
+    openOverlaybutton.innerHTML = "<i class='bi bi-images'>&nbsp;&nbsp;&nbsp;</i>Show Overlay";
     Object.assign(openOverlaybutton.style, {
         marginTop: "10px",
-        fontSize: "1.0em"
+        fontSize: "0.8em"
     });
 
     openOverlaybutton.addEventListener('click', (function () {

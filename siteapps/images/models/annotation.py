@@ -207,6 +207,7 @@ class SpeciesName(TimeStampedModel):
             ("HUMAN", "Human"),
             ("WILD", "Wild Animal"),
             ("DOMESTIC", "Domestic Animal"),
+            ("VEHICLE", "Vehicle"),
             ("OTHER", "Other"),
         ),
         null=True,

@@ -257,7 +257,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
     context["activity_list"] = ActivityType.objects.filter(category=activity_category)
 
     # Gather surrounding context images.
-    CONTEXT_AMOUNT = 4
+    CONTEXT_AMOUNT = 10
 
     lowerIndex = queue["index"] - CONTEXT_AMOUNT
     upperIndex = queue["index"] + CONTEXT_AMOUNT

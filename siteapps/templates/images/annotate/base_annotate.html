@@ -80,9 +80,9 @@
             </div>
         </div>
     </div>
-
+<hr>
 <div class="container mt-2 mt-md-3">
-    <div class="row mt-2 mt-md-4 px-2 justify-content-center" style="border: 1px dashed black; border-radius: 10px;">
+    <div class="row mt-2 mt-md-4 px-2 justify-content-center" style="padding: 20px">
         <div class="col-12 col-md-11 col-lg-9 col-xl-8 text-center" style="width: 80%;">
             <button class="btn" onclick="copyImageID()">
                 <h6>
@@ -96,12 +96,11 @@
             </button>
             <img id="{{image.id}}"
                  class="img-fluid m-0 p-0"
-                 src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}"
-            >
+                 src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}">
             {% block image_page_save_button %}
             {% endblock image_page_save_button %}
         </div>
-        <div style="width: 20%; margin-top: 10px; max-height: 5%; margin-bottom: 15px">
+        <div style="width: 20%; margin-bottom: 15px">
             <div class="mt-3" style="border: 1px solid black; border-radius: 5px; padding: 20px">
                 <h3>Options</h3><hr>
                 <button class="social-media-worthy-upvote"
@@ -164,6 +163,26 @@
             </div>
             {% include './image-manipulators.html' %}
         </div>
+        <div style="display: flex">
+        <div style="border: 1px dotted black; border-radius: 5px; margin: 10px; width: 80%;">
+            <h5 style="margin: 20px">Context Images</h5>
+            <hr>
+            <div id="context-image-container"
+                    style="display: block; height: max-content; white-space: nowrap; margin: 20px; overflow: scroll; overflow-y: visible"
+            >
+                {% for context_image in context_images %}
+                <img
+                    class="img-fluid rounded context-image"
+                    src="{% get_media_prefix %}{{ context_image.thumbnail_gcloud_path }}"
+                    style="margin-top: 5px; margin-bottom: 5px;{% if context_image.thumbnail_gcloud_path == image.thumbnail_gcloud_path %}border: 5px solid yellow{% endif %}"
+                    onmouseover="displayContextImage(this)" onmouseout="revertContextImage()"
+                >
+                {% endfor %}
+            </div>
+        </div>
+        <div style="width:20%"></div>
+        </div>
+
     </div>
     <div class="row mt-3 mt-md-5 text-center">
         <h2>Annotations Preview</h2>
@@ -209,7 +228,6 @@
     </div>
     {% endif %}
 </div>
-{% include './context-images.html' %}
 {% endblock content %}
 
 {% block footer_includes %}
@@ -288,7 +306,20 @@
             }
         }
     }
-</script>
+
+    function displayContextImage(contextImage) {
+        var mainImage = document.getElementById("{{ image.id }}");
+        mainImage.src = contextImage.src;
+        $(".a9s-annotationlayer").hide();
+    }
+
+    // JavaScript function to revert to the original main image
+    function revertContextImage() {
+        var mainImage = document.getElementById("{{ image.id }}");
+        mainImage.src = "{% get_media_prefix %}{{image.thumbnail_gcloud_path}}";
+        $(".a9s-annotationlayer").show();
+    }
+    </script>
 
 
 <script>

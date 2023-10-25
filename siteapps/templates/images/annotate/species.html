@@ -97,6 +97,17 @@
     {% endblock multiple_category_check %}
 
 
+    {% block save_recent_tags %}
+    saveRecentTags(
+        JSON.stringify(
+            anno.getAnnotations().map(function (annotation) {
+                return annotation.body[0].value;
+            })
+        )
+    );
+    {% endblock save_recent_tags %}
+
+
     {% block recent_tags_handling %}
     // Retrieve recent tags
     (async () => {

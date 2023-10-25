@@ -417,9 +417,8 @@ def annotation_processor(queue_name, request):
     annotations = request.POST.get("annotations")
     annotations = json.loads(annotations) if annotations else {}
 
-    # Check if the image was tagged as social media worthy
-    social_media_worthy = request.POST.get("social_media_worthy")
-    social_media_worthy = True if social_media_worthy and social_media_worthy == "true" else False
+    # Apply the social media worthy vote
+    social_media_worthy_vote = int(request.POST.get("social_media_worthy_vote"))
 
     # Check if the image was tagged as needing staff review
     staff_review_needed = request.POST.get("staff_review_needed")
@@ -431,25 +430,43 @@ def annotation_processor(queue_name, request):
     if queue_name == OBJECTS_QUEUE_NAME:
         annotation_description = "Bounding box"
         success = process_md_annotations(
-            image_id, annotations, initial_bboxes, request.user, False, staff_review_needed, skip
+            image_id, annotations, initial_bboxes, request.user, social_media_worthy_vote, staff_review_needed, skip
         )
 
     elif queue_name == SPECIES_QUEUE_NAME:
         annotation_description = "Species"
         success = process_species_annotations(
-            image_id, annotations, initial_bboxes, request.user, social_media_worthy, staff_review_needed, skip=skip
+            image_id,
+            annotations,
+            initial_bboxes,
+            request.user,
+            social_media_worthy_vote,
+            staff_review_needed,
+            skip=skip,
         )
 
     elif queue_name == ACTIVITY_ANIMAL_QUEUE_NAME:
         annotation_description = "Animal activity"
         success = process_activity_annotations(
-            image_id, annotations, initial_bboxes, request.user, social_media_worthy, staff_review_needed, skip=skip
+            image_id,
+            annotations,
+            initial_bboxes,
+            request.user,
+            social_media_worthy_vote,
+            staff_review_needed,
+            skip=skip,
         )
 
     elif queue_name == ACTIVITY_HUMAN_QUEUE_NAME:
         annotation_description = "Human activity"
         success = process_activity_annotations(
-            image_id, annotations, initial_bboxes, request.user, social_media_worthy, staff_review_needed, skip=skip
+            image_id,
+            annotations,
+            initial_bboxes,
+            request.user,
+            social_media_worthy_vote,
+            staff_review_needed,
+            skip=skip,
         )
 
     else:

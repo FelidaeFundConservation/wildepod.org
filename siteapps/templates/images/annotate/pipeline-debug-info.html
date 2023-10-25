@@ -28,7 +28,7 @@
                                     Image Has 1+ Bounding Boxes
                                 </div>
                                 <div>
-                                    <i id="all-bboxes-have-category" class="bi bi-circle"></i>
+                                    <i class="bi bi-circle all-bboxes-have-category"></i>
                                     No 'Unannotated' Object Categories
                                 </div>
                                 <div>
@@ -38,10 +38,14 @@
                             </div>
                             <text style="font-size: 20px; margin: 30px;"><b>Or...</b></text>
                             <div id="category-staff-or-expert" style="border: 1px solid black; border-radius: 5px; padding: 10px; text-align: left; margin: 10px; width: 40%">
-                                <div><b><i><u>Has...</u></i></b></div>
+                                <div><b><i><u>Both of the following...</u></i></b></div>
                                 <div>
                                     <i id="category-is-staff-or-expert" class="bi bi-circle"></i>
                                     Vote By Staff/Expert User
+                                </div>
+                                <div>
+                                    <i class="bi bi-circle all-bboxes-have-category"></i>
+                                    No 'Unannotated' Object Categories
                                 </div>
                             </div>
                         </div>
@@ -105,7 +109,7 @@
                                     Has 1+ Valid Bounding Boxes
                                 </div>
                                 <div>
-                                    <i id="all-bboxes-have-species" class="bi bi-circle"></i>
+                                    <i class="bi bi-circle all-bboxes-have-species"></i>
                                     No 'Unannotated' Species Categories
                                 </div>
                                 <div>
@@ -115,10 +119,14 @@
                             </div>
                             <text style="font-size: 20px; margin: 30px;"><b>Or...</b></text>
                             <div id="species-staff-or-expert" style="border: 1px solid black; border-radius: 5px; padding: 10px; text-align: left; margin: 10px; width: 40%">
-                                <div><b><i><u>Has...</u></i></b></div>
+                                <div><b><i><u>Both of the following...</u></i></b></div>
                                 <div>
                                     <i id="species-is-staff-or-expert" class="bi bi-circle"></i>
                                     Vote By Staff/Expert User
+                                </div>
+                                <div>
+                                    <i class="bi bi-circle all-bboxes-have-species"></i>
+                                    No 'Unannotated' Species Categories
                                 </div>
                             </div>
                         </div>
@@ -268,7 +276,7 @@
         $("#category-processed").attr("class", categoryDebugData.flag_checks.processed ? checkedIcon : xedIcon);
         $("#category-bbox-gte").attr("class", categoryDebugData.flag_checks.bounding_boxes_gte_zero ? checkedIcon : xedIcon);
 
-        $("#all-bboxes-have-category").attr("class", categoryDebugData.flag_checks.all_bboxes_have_category ? checkedIcon : xedIcon);
+        $(".all-bboxes-have-category").attr("class", categoryDebugData.flag_checks.all_bboxes_have_category ? checkedIcon : xedIcon);
 
         $("#category-has-animals").attr("class", categoryDebugData.pipeline_flags.has_animals ? checkedIcon : xedIcon);
         $("#category-has-humans").attr("class", categoryDebugData.pipeline_flags.has_humans ? checkedIcon : xedIcon);
@@ -292,7 +300,7 @@
         $("#species-no-uncertain").attr("class", !speciesDebugData.flag_checks.species_has_uncertain ? checkedIcon : xedIcon);
         $("#species-processed").attr("class", speciesDebugData.flag_checks.processed ? checkedIcon : xedIcon);
 
-        $("#all-bboxes-have-species").attr("class", speciesDebugData.flag_checks.all_bboxes_have_species ? checkedIcon : xedIcon);
+        $(".all-bboxes-have-species").attr("class", speciesDebugData.flag_checks.all_bboxes_have_species ? checkedIcon : xedIcon);
 
         $("#species-has-wild-animals").attr("class", speciesDebugData.pipeline_flags.has_wild_animals ? checkedIcon : xedIcon);
 

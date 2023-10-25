@@ -659,7 +659,7 @@ def calculateCategoryAnnotationFlags(image):
         and image.processed
         and bbox_count_gt
         and all_bboxes_have_category
-        or has_staff_or_expert_vote
+        or (has_staff_or_expert_vote and all_bboxes_have_category)
     ):
         image.has_humans = category_annotations.filter(name="person").exists()
         image.has_animals = category_annotations.filter(name="animal").exists()
@@ -844,7 +844,7 @@ def calculateSpeciesAnnotationFlags(image):
         and annotation_checked_by_gte
         and image.processed
         and all_bboxes_have_species
-        or has_staff_or_expert_vote
+        or (has_staff_or_expert_vote and all_bboxes_have_species)
     ):
         image.has_wild_animals = species_annotations.filter(~Q(name__name__in=NON_WILD_SPECIES)).exists()
         image.species_pipeline_complete = True

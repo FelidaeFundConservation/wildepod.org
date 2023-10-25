@@ -168,7 +168,7 @@
             <h5 style="margin: 20px">Context Images</h5>
             <hr>
             <div id="context-image-container"
-                    style="display: block; height: max-content; white-space: nowrap; margin: 20px; overflow: scroll; overflow-y: visible"
+                    style="display: block; height: max-content; white-space: nowrap; margin: 20px; overflow: scroll; overflow-y: visible;"
             >
                 {% for context_image in context_images %}
                 <img
@@ -307,19 +307,28 @@
         }
     }
 
+
+    // Show the context image in place of the original
     function displayContextImage(contextImage) {
         var mainImage = document.getElementById("{{ image.id }}");
         mainImage.src = contextImage.src;
         $(".a9s-annotationlayer").hide();
     }
 
-    // JavaScript function to revert to the original main image
+    // Change the displayed image back to the original image being annotated
     function revertContextImage() {
         var mainImage = document.getElementById("{{ image.id }}");
         mainImage.src = "{% get_media_prefix %}{{image.thumbnail_gcloud_path}}";
         $(".a9s-annotationlayer").show();
     }
-    </script>
+
+    // Horizontal scrolling of context images
+    contextImageContainer = document.getElementById("context-image-container");
+    contextImageContainer.addEventListener("wheel", (evt) => {
+        evt.preventDefault();
+        contextImageContainer.scrollLeft += evt.deltaY;
+    });
+</script>
 
 
 <script>

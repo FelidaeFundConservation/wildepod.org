@@ -44,7 +44,7 @@
             disabled
             selected
         ></option>
-        {% for species in species_list%}
+        {% for species in species_list %}
         <option value="{{species}}">{{species}}</option>
         {% endfor%}
         <hr>
@@ -113,11 +113,19 @@
     (async () => {
         try {
             window.recentTags = await getRecentTags();
+
+            // Move recent tag to first place in species list
+            let speciesList = $("#species-list");
+            let recentTagOption = speciesList.find(`option[value='${recentTags[0]}']`);
+
+            if (recentTagOption.length) {
+                recentTagOption.remove();
+                speciesList.prepend(recentTagOption);
+            }
         } catch (error) {
             console.log(`An error occurred getting recent tags: ${error}`);
         }
     })();
-
 
     // Check if a box is clicked, and default select the associated recent tag if so
     window.observer = new MutationObserver(function (mutations) {

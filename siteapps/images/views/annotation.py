@@ -987,7 +987,7 @@ class GetRecentTagsView(LoginRequiredMixin, View):
         return JsonResponse({"success": success, "recent_tags": recent_tags})
 
 
-class SavePreviousImageToReturnTo(LoginRequiredMixin, View):
+class SavePreviousImageToReturnToView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         success = True
 

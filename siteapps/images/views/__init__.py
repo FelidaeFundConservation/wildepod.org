@@ -8,7 +8,7 @@ from .annotation import (
     DeleteAnnotationView,
     GetRecentTagsView,
     MDAnnotationProcessorView,
-    SavePreviousImageToReturnTo,
+    SavePreviousImageToReturnToView,
     SaveRecentTagsView,
     SpeciesAnnotationProcessorView,
 )

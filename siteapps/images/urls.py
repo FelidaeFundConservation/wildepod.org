@@ -15,7 +15,7 @@ from .views import (
     ImageDetailView,
     MDAnnotationProcessorView,
     ModifyUploadSetImagesView,
-    SavePreviousImageToReturnTo,
+    SavePreviousImageToReturnToView,
     SaveRecentTagsView,
     SearchImagesView,
     SetUploadSetTimeFixDetailsView,
@@ -83,7 +83,7 @@ urlpatterns = [
     ),
     path(
         "save-previous-image-to-return-to/",
-        SavePreviousImageToReturnTo.as_view(),
+        SavePreviousImageToReturnToView.as_view(),
         name="save_previous_image_to_return_to",
     ),
     path(

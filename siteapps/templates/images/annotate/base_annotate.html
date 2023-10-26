@@ -175,6 +175,7 @@
                     class="img-fluid rounded context-image"
                     src="{% get_media_prefix %}{{ context_image.thumbnail_gcloud_path }}"
                     style="margin-top: 5px; margin-bottom: 5px;{% if context_image.thumbnail_gcloud_path == image.thumbnail_gcloud_path %}border: 5px solid yellow{% endif %}"
+                    {% if context_image.trigger_timestamp < image.trigger_timestamp %}onclick="promptReturnToPreviousImage('{{ context_image.id }}')"{% endif %}
                     onmouseover="displayContextImage(this)" onmouseout="revertContextImage()"
                 >
                 {% endfor %}
@@ -344,6 +345,35 @@
         evt.preventDefault();
         contextImageContainer.scrollLeft += evt.deltaY;
     });
+
+
+    // If an annotator made a mistake, they can return to a previous image
+    function promptReturnToPreviousImage(imageId) {
+        if (confirm("Are you sure you want to return to re-annotate this previous image?") == true) {
+            savePreviousImageToReturnTo(imageId)
+        }
+    }
+
+    // Save image to return to
+    function savePreviousImageToReturnTo(imageId) {
+        return new Promise(function(resolve, reject) {
+            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            let data = {
+                'csrfmiddlewaretoken': csrftoken,
+                'returnToImageId': imageId,
+            }
+
+            $.ajax({
+                url: '{% url 'images:save_previous_image_to_return_to'%}',
+                method: 'POST',
+                data: data,
+                dataType: 'json',
+                success: function(data) {
+                    window.location.reload();
+                }
+            });
+        });
+    }
 </script>
 
 
@@ -427,6 +457,7 @@
                     'staff_review_needed': document.getElementById('staff-review-needed').checked,
                     'custom_annotations': '{{custom_annotations}}',
                     'activity_category': '{{activity_category}}',
+                    'is_reannotation': '{{ is_reannotation }}'
                 }
 
                 if (species) {

@@ -256,16 +256,17 @@ def populate_view_context(queue_name, context, self, activity_category=None):
     context["species_list"] = SpeciesName.objects.filter(~Q(name=UNANNOTATED_CATEGORY))
     context["activity_list"] = ActivityType.objects.filter(category=activity_category)
 
-    # Gather surrounding context images.
-    CONTEXT_AMOUNT = 10
+    # Gather surrounding context images
+    LOWER_CONTEXT_AMOUNT = 5
+    UPPER_CONTEXT_AMOUNT = 25
 
-    lowerIndex = queue["index"] - CONTEXT_AMOUNT
-    upperIndex = queue["index"] + CONTEXT_AMOUNT
+    lowerIndex = queue["index"] - LOWER_CONTEXT_AMOUNT
+    upperIndex = queue["index"] + UPPER_CONTEXT_AMOUNT
 
     lowerIndex = 0 if (lowerIndex < 0) else lowerIndex
     upperIndex = len(queue["images"]) if (upperIndex > len(queue["images"])) else upperIndex
 
-    context["context_images"] = [Image.objects.get(id=image_id) for image_id in queue["images"][lowerIndex:upperIndex]]
+    context["context_images"] = list(Image.objects.filter(id__in=queue["images"][lowerIndex:upperIndex]))
 
     # Gather all annotations for bounding boxes.
     try:

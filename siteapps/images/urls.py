@@ -15,6 +15,7 @@ from .views import (
     ImageDetailView,
     MDAnnotationProcessorView,
     ModifyUploadSetImagesView,
+    SavePreviousImageToReturnToView,
     SaveRecentTagsView,
     SearchImagesView,
     SetUploadSetTimeFixDetailsView,
@@ -79,6 +80,11 @@ urlpatterns = [
         "get-recent-tags/",
         GetRecentTagsView.as_view(),
         name="get_recent_tags",
+    ),
+    path(
+        "save-previous-image-to-return-to/",
+        SavePreviousImageToReturnToView.as_view(),
+        name="save_previous_image_to_return_to",
     ),
     path(
         "save-recent-tags/",

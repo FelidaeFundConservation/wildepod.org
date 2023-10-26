@@ -184,8 +184,13 @@ def populate_view_context(queue_name, context, self, activity_category=None):
     )
 
     if queue_available:
+        # Exists if user is returning to a previous image
+        return_to_image_id = self.request.session.get("return_to_image_id")
+        context["is_reannotation"] = return_to_image_id is not None
+        self.request.session["return_to_image_id"] = None
+
         # Get the next image_id from the existing queue
-        image_id = queue["images"][queue["index"]]
+        image_id = return_to_image_id if return_to_image_id else queue["images"][queue["index"]]
     else:
         # Get images based on the following set of filters
         images = Image.objects.filter(**self.filterset)
@@ -270,7 +275,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
 
     # Gather all annotations for bounding boxes.
     try:
-        bboxes = BoundingBox.objects.filter(image=queue["images"][queue["index"]])
+        bboxes = BoundingBox.objects.filter(image=image)
     except (ObjectDoesNotExist, IndexError):
         bboxes = []
 
@@ -410,6 +415,9 @@ def annotation_processor(queue_name, request):
     image_id = request.POST.get("image_id")
     skip = request.POST.get("skip") == "true"
 
+    # Annotator returned to a previous image (i.e. this one)
+    is_reannotation = request.POST.get("is_reannotation") == "True"
+
     # Get bounding box ids that were sent to infer deleted annotations
     initial_bboxes = request.POST.get("initial_bboxes")
     initial_bboxes = json.loads(initial_bboxes) if initial_bboxes else {}
@@ -498,7 +506,7 @@ def annotation_processor(queue_name, request):
         queue = settings.DATASTORE_CLIENT.get(settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id)))
 
         # Update the index
-        queue["index"] += 1
+        queue["index"] += 1 if not is_reannotation else 0
 
         # Update the datastore
         settings.DATASTORE_CLIENT.put(queue)
@@ -977,3 +985,18 @@ class GetRecentTagsView(LoginRequiredMixin, View):
             success = False
 
         return JsonResponse({"success": success, "recent_tags": recent_tags})
+
+
+class SavePreviousImageToReturnToView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        success = True
+
+        return_to_image_id = request.POST.get("returnToImageId")
+
+        try:
+            request.session["return_to_image_id"] = return_to_image_id
+        except Exception as e:
+            logging.error(f"Error saving image id to return to: {e}")
+            success = False
+
+        return JsonResponse({"success": success})

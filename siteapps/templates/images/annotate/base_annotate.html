@@ -318,8 +318,24 @@
     // Change the displayed image back to the original image being annotated
     function revertContextImage() {
         var mainImage = document.getElementById("{{ image.id }}");
-        mainImage.src = "{% get_media_prefix %}{{image.thumbnail_gcloud_path}}";
-        $(".a9s-annotationlayer").show();
+
+        // Delay switching images to avoid flickering
+        setTimeout(function () {
+            let anyImgHovered = false;
+
+            $('#context-image-container').find('img').each(function() {
+                if ($(this).is(':hover')) {
+                    anyImgHovered = true;
+                    return false;
+                }
+            });
+
+            // Don't switch image if still hovering context
+            if (!anyImgHovered) {
+                mainImage.src = "{% get_media_prefix %}{{image.thumbnail_gcloud_path}}";
+                $(".a9s-annotationlayer").show();
+            }
+        }, 1000)
     }
 
     // Horizontal scrolling of context images

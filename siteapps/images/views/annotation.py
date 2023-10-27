@@ -162,6 +162,31 @@ def activity_pipeline_query(images, annotator, activity_category):
     return images
 
 
+# Skip images completed by other annotators since the queue was built
+def skip_completed_images(queue_name, queue):
+    pipeline_completed = True
+
+    while pipeline_completed and queue["index"] < len(queue["images"]):
+        image = Image.objects.get(id=queue["images"][queue["index"]])
+
+        if OBJECTS_QUEUE_NAME in queue_name:
+            pipeline_completed = image.category_pipeline_complete
+        elif SPECIES_QUEUE_NAME in queue_name:
+            pipeline_completed = image.species_pipeline_complete
+        elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
+            pipeline_completed = image.activity_pipeline_complete
+        else:
+            break
+
+        if pipeline_completed:
+            queue["index"] += 1
+            logging.info(f"Queue image {image.id} was completed by another annotator. Skipping to next image.")
+
+    settings.DATASTORE_CLIENT.put(queue)
+
+    return image
+
+
 # Retrieves data to pass to the views through context (namely queue images and annotations info).
 def populate_view_context(queue_name, context, self, activity_category=None):
     # First get the annotator object for the user
@@ -235,6 +260,11 @@ def populate_view_context(queue_name, context, self, activity_category=None):
     # If there is a valid image, add bounding box information
     if image_id:
         image = Image.objects.get(id=image_id)
+
+        if not return_to_image_id:
+            skip_result = skip_completed_images(queue_name=queue_name, queue=queue)
+            image = skip_result if skip_result else image
+
         context["image"] = image
         context["social_media_worthy"] = image.social_media_worthy
         context["staff_review_needed"] = image.staff_review_needed

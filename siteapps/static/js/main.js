@@ -1,7 +1,7 @@
 // Widget for category selection
 // Modified example from here - https://recogito.github.io/guides/editor-widgets/
 // This is a second order function that takes a list of categories and returns a category selection widget
-function createCategoryWidget(categories){
+function createCategoryWidget(categories, speciesVotes){
     return function(args) {
         // 1. Find the current class in the annotation, if any
         let currentClassBody = args.annotation ?
@@ -72,6 +72,14 @@ function createCategoryWidget(categories){
           if(categories.length > 5){
             let col = document.createElement("div")
             col.className = 'col-3 p-0 m-0 d-flex';
+
+            if (recentTags.includes(`${button.textContent}`)) {
+                col.innerHTML += `${col.innerHTML}<span style="position:absolute; font-size: 8px;" class="badge rounded-pill bg-dark"><text style="font-size: 8px">Recent Tag</text></span>`
+            }
+            else if (speciesVotes.includes(`${button.textContent}`)) {
+                col.innerHTML += `${col.innerHTML}<span style="position:absolute; font-size: 8px;" class="badge rounded-pill bg-secondary"><text style="font-size: 8px">Has Vote In Image</text></span>`
+              }
+
             col.appendChild(button);
             return col;
           }
@@ -121,25 +129,7 @@ function createCategoryWidget(categories){
                     let tag = recentTags[index];
 
                     if (category == tag) {
-                        let recentTagDiv = document.createElement('div');
-                        recentTagDiv.setAttribute("id", "recent-tag-div");
-                        let recentTagLabel = document.createElement('h5');
-
-                        recentTagLabel.textContent = "Recent Tag"
-
-                        Object.assign(recentTagDiv.style, {
-                            display: 'flex',
-                            justifyContent: 'center',
-                        });
-
-                        recentTagDiv.append(categoryButton);
-
-                        let hr = document.createElement('hr');
-                        hr.style.margin = '10px';
-
-                        container.prepend(hr);
-                        container.prepend(recentTagDiv);
-                        container.prepend(recentTagLabel);
+                        categoryButton.setAttribute("id", "recent-tag-div");
                     }
                 }
             }

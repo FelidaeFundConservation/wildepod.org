@@ -215,7 +215,6 @@
             </p>
         </div>
     </div>
-
     {% include './pipeline-debug-info.html' %}
 
     {% endif %}
@@ -415,7 +414,16 @@
             {% block recent_tags_handling %}
             {% endblock recent_tags_handling %}
 
-            let ClassSelectorWidget = createCategoryWidget(categories);
+            // Add a badge in the annotation widget showing which Species have been voted on
+            let speciesVotes = [
+                {% for info in bbox_all_annotations %}
+                    {% for species in info.species.all %}
+                        "{{ species.name.name }}",
+                    {% endfor %}
+                {% endfor %}
+            ];
+
+            let ClassSelectorWidget = createCategoryWidget(categories, speciesVotes);
 
             anno = renderBoundingBoxes("{{image.id}}", bboxes = bboxes, widgets = [ClassSelectorWidget]);
 

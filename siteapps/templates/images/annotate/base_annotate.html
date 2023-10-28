@@ -35,7 +35,9 @@
                     name="skip_annotations"
                     value="Skip Image"
                     disabled
-                ><i class="bi bi-skip-end"></i>&nbsp;&nbsp;&nbsp;Skip <span class="d-none d-sm-inline">Image</span=""></button>
+                ><i class="bi bi-skip-end"></i>&nbsp;&nbsp;&nbsp;Skip <span class="d-none d-sm-inline">Image</span>&nbsp;
+                <div id="skip-spinner" class="spinner-border" role="status" style="width: 15px; height: 15px; display: none"></div>
+                </button>
                 {% block delete_all_boxes_button %}
                 {% endblock delete_all_boxes_button %}
                 <button
@@ -45,7 +47,9 @@
                     name="save_annotations"
                     value="Save Annotations"
                     disabled
-                ><i class="bi bi-save2"></i>&nbsp;&nbsp;&nbsp;Save <span class="d-none d-sm-inline">Annotations</span></button>
+                ><i class="bi bi-save2"></i>&nbsp;&nbsp;&nbsp;Save <span class="d-none d-sm-inline">Annotations</span>&nbsp;
+                <div id="save-spinner" class="spinner-border" role="status" style="width: 15px; height: 15px; display: none"></div>
+                </button>
                 {% endblock menu_buttons %}
             </form>
         </div>
@@ -60,7 +64,8 @@
                     class="alert alert-success"
                     role="alert"
                 >
-                    <strong>Success!</strong> Your annotations have been saved.
+                    <i class="bi bi-check-circle-fill"></i>&nbsp;
+                    <strong>Success!</strong> Your annotations have been saved.<div class="spinner-border" role="status" style="height: 20px; width: 20px"></div>
                 </div>
             </div>
         </div>
@@ -74,6 +79,7 @@
                     role="alert"
                 >
                     {% comment %} TODO: Link to a spreadsheet error form here {% endcomment %}
+                    <i class="bi bi-exclamation-triangle-fill"></i>&nbsp;
                     <strong>Error!</strong> Your annotations could not be saved. Please refresh page & try again or report a
                     bug here.
                 </div>
@@ -102,7 +108,7 @@
             <div class="accordion" id="context-image-accordion">
                 <div class="accordion-item">
                     <h1 class="accordion-header">
-                        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-context-images" aria-expanded="true" aria-controls="collapse-context-images">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-context-images" aria-expanded="true" aria-controls="collapse-context-images">
                         <h5>Context Images</h5>
                         </button>
                     </h1>
@@ -123,7 +129,7 @@
                                         >
                                         {% endfor %}
                                     </div>
-                                    <i>Click on a previous image to return and reannotate if you've made a mistake.</i>
+                                    <i>(If you've made a mistake, click on a previous image to return and reannotate.)</i>
                                 </div>
                             </div>
                         </div>
@@ -281,6 +287,7 @@
     }
 
     function showStatusFailure() {
+        $(".spinner-border").hide();
         $("#status-failure").removeClass("d-none");
         setTimeout(function(){
             $("#status-failure").addClass("d-none");
@@ -288,6 +295,7 @@
     }
 
     function showStatusSuccess() {
+        $(".spinner-border").hide();
         $("#status-success").removeClass("d-none");
         setTimeout(function(){
             $("#status-success").addClass("d-none");
@@ -486,7 +494,9 @@
                     dataType: 'json',
                     success: function (data){
                         if (data.success) {
-                            showStatusSuccess()
+                            if (!skip) {
+                                showStatusSuccess();
+                            }
                             // Save the recent tags
                             // Currently used in Species only
                             {% block save_recent_tags %}
@@ -577,6 +587,7 @@
             $("#save_annotations").click(function(e){
                 // First, prevent the default action of the form
                 e.preventDefault();
+                $("#save-spinner").show();
                 // Then, save the annotations
 
                 // Species and Activity override this to check
@@ -590,6 +601,7 @@
             $("#skip_annotations").click(function(e){
                 // First, prevent the default action of the form
                 e.preventDefault();
+                $("#skip-spinner").show();
                 // Then, save the annotations
                 submitAnnotations(skip = true);
             });

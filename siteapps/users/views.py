@@ -1,3 +1,5 @@
+import logging
+
 from braces.views import StaffuserRequiredMixin
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -31,10 +33,15 @@ class UserUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        volunteer = [Annotator.objects.get(human=self.request.user)]
+        volunteer, created = Annotator.objects.get_or_create(type="human", human=self.request.user)
+
+        if created:
+            logging.info(f"Annotator object for user '{self.request.user}' successfully created")
+        else:
+            logging.info(f"Annotator object for user '{self.request.user}' already exists. Successfully retrieved.")
 
         user_annotations_q_filter = (
-            Q(created_by__in=volunteer) | Q(accepted_by__in=volunteer) | Q(rejected_by__in=volunteer)
+            Q(created_by__in=[volunteer]) | Q(accepted_by__in=[volunteer]) | Q(rejected_by__in=[volunteer])
         )
 
         context["user_category_annotation_count"] = Category.objects.filter(user_annotations_q_filter).count()

@@ -29,6 +29,7 @@
             class="alert alert-danger text-center"
             role="alert"
         >
+            <i class="bi bi-exclamation-triangle-fill"></i>&nbsp;
             <strong>Error!</strong> Some of your the bounding boxes don't have a species. Please try again.
         </div>
     </div>
@@ -44,7 +45,7 @@
             disabled
             selected
         ></option>
-        {% for species in species_list%}
+        {% for species in species_list %}
         <option value="{{species}}">{{species}}</option>
         {% endfor%}
         <hr>
@@ -79,6 +80,7 @@
     if (!species & !skip) {
         for (const annotation of anno.getAnnotations()) {
             if (annotation.body[0].value === undefined) {
+                $(".spinner-border").hide();
                 $("#status-missing-species").removeClass("d-none");
                 setTimeout(function(){
                     $("#status-missing-species").addClass("d-none");
@@ -113,11 +115,19 @@
     (async () => {
         try {
             window.recentTags = await getRecentTags();
+
+            // Move recent tag to first place in species list
+            let speciesList = $("#species-list");
+            let recentTagOption = speciesList.find(`option[value='${recentTags[0]}']`);
+
+            if (recentTagOption.length) {
+                recentTagOption.remove();
+                speciesList.prepend(recentTagOption);
+            }
         } catch (error) {
             console.log(`An error occurred getting recent tags: ${error}`);
         }
     })();
-
 
     // Check if a box is clicked, and default select the associated recent tag if so
     window.observer = new MutationObserver(function (mutations) {

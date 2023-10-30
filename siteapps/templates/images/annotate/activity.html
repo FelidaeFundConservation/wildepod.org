@@ -60,6 +60,7 @@
             class="alert alert-warning text-center"
             role="alert"
         >
+            <i class="bi bi-exclamation-triangle-fill"></i>&nbsp;
             <strong>Warning! Some of your bounding boxes don't have a activity.</strong><br>If you are sure you want to submit, click "Save" again.
         </div>
     </div>
@@ -83,6 +84,7 @@ if (!activity & !skip) {
     if ($("#status-missing-activity").hasClass("d-none")) {
         for (const annotation of anno.getAnnotations()) {
             if (annotation.body[0].value === undefined) {
+                $(".spinner-border").hide();
                 $("#status-missing-activity").removeClass("d-none");
                 setTimeout(function () {
                     $("#status-missing-activity").addClass("d-none");

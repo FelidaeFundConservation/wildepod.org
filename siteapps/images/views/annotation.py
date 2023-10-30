@@ -208,6 +208,8 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         and queue["index"] < len(queue["images"])
     )
 
+    return_to_image_id = None
+
     if queue_available:
         # Exists if user is returning to a previous image
         return_to_image_id = self.request.session.get("return_to_image_id")
@@ -261,7 +263,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
     if image_id:
         image = Image.objects.get(id=image_id)
 
-        if not return_to_image_id:
+        if return_to_image_id is None:
             skip_result = skip_completed_images(queue_name=queue_name, queue=queue)
             image = skip_result if skip_result else image
 

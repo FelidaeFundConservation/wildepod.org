@@ -145,7 +145,7 @@ $('#activity-list').on('change', function () {
     }
 
     anno.setAnnotations(annotations);
-    renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno);
+    createImageBboxActions("{{image.id}}", "annotations-preview", anno);
 });
 {% endblock additional_event_handlers %}
 {% comment %}</script>{% endcomment %}

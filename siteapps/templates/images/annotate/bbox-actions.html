@@ -204,7 +204,8 @@
 
                         // Update the present boxIds.
                         boxIds = getAnno().getAnnotations().map(obj => obj.id);
-                        recreateMenus();
+                        createImageBboxActions("{{image.id}}", "annotations-preview", anno);
+                        renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno);
                     });
 
                     return deleteBboxButton;
@@ -360,9 +361,9 @@
                 }
 
                 for (id of boxIds) {
-                    if (document.getElementById(`entry-${id}`)) { continue; }
-
                     let annotationPreview = getAssociatedElements(id);
+                    if (document.getElementById(`entry-${id}`) || !annotationPreview['previewCol']) { continue; }
+
                     Object.assign(annotationPreview['previewCol'].style, {
                         border: "2px solid black",
                         borderRadius: "5px",

@@ -203,7 +203,7 @@
             {% include './image-manipulators.html' %}
         </div>
     </div>
-    {% comment %}<div class="row mt-3 mt-md-5 text-center">
+    <div class="row mt-3 mt-md-5 text-center">
         <h2>Annotations Preview</h2>
         <hr />
     </div>
@@ -212,7 +212,7 @@
         <div>
             {% include './bbox-actions.html' %}
         </div>
-    </div>{% endcomment %}
+    </div>
 
     {% if user.is_authenticated and user.is_staff %}
 
@@ -436,17 +436,32 @@
 
             anno = renderBoundingBoxes("{{image.id}}", bboxes = bboxes, widgets = [ClassSelectorWidget]);
 
+            imageElementID = "{{image.id}}";
+            previewElementID = "annotations-preview";
+
             // Render bounding boxes
-            renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
-            anno.on("createAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
-            anno.on("deleteAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
-            anno.on("updateAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno) })
+            renderBoundingBoxPreviews(imageElementID, previewElementID, anno)
+            createImageBboxActions(imageElementID, previewElementID, anno);
+
+            anno.on("createAnnotation", function () {
+                createImageBboxActions(imageElementID, previewElementID, anno);
+                renderBoundingBoxPreviews(imageElementID, previewElementID, anno)
+                createBboxActions();
+            })
+            anno.on("deleteAnnotation", function () {
+                createImageBboxActions(imageElementID, previewElementID, anno);
+            })
+            anno.on("updateAnnotation", function () {
+                createImageBboxActions(imageElementID, previewElementID, anno);
+                renderBoundingBoxPreviews(imageElementID, previewElementID, anno)
+                createBboxActions();
+            })
             anno.on('cancelSelected', function (selection) {
                 if (typeof observer !== 'undefined') {
                     observer.observe(document, { attributes: false, childList: true, characterData: false, subtree: true });
                 }
                 $(".tooltip").tooltip('dispose');
-                return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno);
+                createImageBboxActions(imageElementID, previewElementID, anno);
             });
 
             // Submit buttons disabled until all elements have loaded
@@ -620,7 +635,7 @@
                 e.preventDefault();
                 // Then, save the annotations
                 anno.clearAnnotations();
-                return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
+                createImageBboxActions("{{image.id}}", "annotations-preview", anno);
             });
 
             // Event listeners unique to the annotation stage

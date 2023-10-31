@@ -263,8 +263,8 @@ function createImageBboxActions(imageElementID, previewContainerID, anno) {
                 $(".a9s-annotation").show();
                 anno.removeAnnotation(annotation.id);
                 createImageBboxActions(imageElementID, previewContainerID, anno);
-                renderBoundingBoxPreviews(imageElementID, previewContainerID, anno);
-                createBboxActions();
+                //renderBoundingBoxPreviews(imageElementID, previewContainerID, anno);
+                //createBboxActions();
             })
 
             deleteButton.hover(function () {

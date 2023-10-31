@@ -223,7 +223,7 @@ function createImageBboxActions(imageElementID, previewContainerID, anno) {
 
         bboxPreview.attr("data-toggle", "tooltip");
         bboxPreview.attr("data-bs-placement", "bottom");
-        bboxPreview.attr("title", annotationName);
+        bboxPreview.attr("title", `${annotationName}` + ((annotation.body[0].confidence && annotation.body[0].confidence != 1) ? ` | conf. ${ annotation.body[0].confidence }` : ""));
         bboxPreview.tooltip('show');
 
         const label = $(`#label-${replacedAnnotationId}`);
@@ -263,8 +263,6 @@ function createImageBboxActions(imageElementID, previewContainerID, anno) {
                 $(".a9s-annotation").show();
                 anno.removeAnnotation(annotation.id);
                 createImageBboxActions(imageElementID, previewContainerID, anno);
-                //renderBoundingBoxPreviews(imageElementID, previewContainerID, anno);
-                //createBboxActions();
             })
 
             deleteButton.hover(function () {

@@ -440,7 +440,11 @@
             renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
             anno.on("createAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
             anno.on("deleteAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
-            anno.on("updateAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
+            anno.on("updateAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno) })
+            anno.on('cancelSelected', function (selection) {
+                observer.observe(document, { attributes: false, childList: true, characterData: false, subtree: true });
+                return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno);
+            });
 
             // Submit buttons disabled until all elements have loaded
             {% block enable_save_buttons %}

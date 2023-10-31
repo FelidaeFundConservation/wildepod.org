@@ -53,7 +53,7 @@ function createCategoryWidget(categories, speciesVotes){
                 // Focus the ok button if a selection is made.
               const okButton = $('button.r6o-btn:contains("Ok")');
               if (okButton.length) {
-                  okButton['0'].focus();
+                  okButton['0'].focus({preventScroll: true});
               }
 
               // Restart the observer when menu is closed (for handling recent tags auto-selection)

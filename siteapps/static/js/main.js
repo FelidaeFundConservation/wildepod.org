@@ -65,6 +65,10 @@ function createCategoryWidget(categories){
                   const cancelButton = $('button.r6o-btn:contains("Cancel")');
                   cancelButton.on('click', function () {
                       observer.observe(document, { attributes: false, childList: true, characterData: false, subtree: true });
+                      setTimeout(function () {
+                          $(".tooltip").remove();
+                          renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno);
+                      }, 50);
                   });
               }
           });
@@ -200,63 +204,116 @@ function renderBoundingBoxes(imageElementID, annotations, widgets, config) {
 
   // Function to consume an annoatation object, a container element and
   // create a list of preview images from the original image
-  function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
+function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
 
     let imageElement = document.getElementById(imageElementID);
     let previewContainer = document.getElementById(previewContainerID);
 
     previewContainer.innerHTML = ""
+    let bboxNum = 1;
+    $("#bbox-actions").empty();
+    $(".tooltip").remove();
 
     for (const annotation of anno.getAnnotations()) {
 
-      // Get the bounding box for the annotation
-      let x, y, w, h;
-      [x, y, w, h] = annotation.target.selector.value.split(':')[1].split(',').map(function (x) { return parseFloat(x).toFixed(5) });
-      [x, y, w, h] = [x*0.01*imageElement.naturalWidth, y*0.01*imageElement.naturalHeight, w*0.01*imageElement.naturalWidth, h*0.01*imageElement.naturalHeight].map(Math.round)
+        // Create the in-image bbox actions menu.
+        const isUnannotated = annotation.body[0].value || annotation.body[0].value == "unannotated"
 
-      // Create a column container for each annotation
-      let col = document.createElement('div');
-      col.className = 'col-6 col-md-4 col-lg-3 col-xl-2 m-2';
-      col.id = 'preview-col-' + annotation.id;
-      // Add the column to the container first
-      previewContainer.appendChild(col)
+        let annotationName = isUnannotated ? annotation.body[0].value : "No Annotation"
+        let backgroundColor = isUnannotated ? "white" : "red"
 
-      // Create the label element & add to the column
-      let label = document.createElement('div');
-      label.className = 'preview-label py-2';
-      label.id = 'preview-label-' + annotation.id;
-      let confidence = annotation.body[0].confidence ? annotation.body[0].confidence : 1.0;
-      label.innerHTML = `<text id="annotation-text-${annotation.id}" class="my-0 py-0"><b>${annotation.body[0].value}</b> |  <em>conf: ${confidence}</em></text>`;
-      if (annotation.body[0].value && annotation.body[0].value != 'unannotated'){
+        bboxEntryHtml = `<button id="label-${annotation.id}"
+                            style="color: ${backgroundColor}; background-color: gray; border: 1px solid black;"
+                        >&nbsp;&nbsp;<i class="bi bi-eye"></i><b>&nbsp;&nbsp;Box ${bboxNum}&nbsp;&nbsp;</b></button>`
+        $("#bbox-actions").append(bboxEntryHtml);
+        bboxNum++;
+
+        let bboxPreview = $(`[data-id='${annotation.id}']`)
+        bboxPreview.attr("data-toggle", "tooltip");
+        bboxPreview.attr("data-bs-placement", "bottom");
+        bboxPreview.attr("title", annotationName);
+        bboxPreview.tooltip('show');
+        bboxPreview.click(function () {
+            $(".tooltip").remove();
+        });
+
+        bboxPreview.hover(function () {
+            $(`#label-${annotation.id}`).css("background-color", "rgba(255, 255, 0, 0.6)");
+        }, function () {
+            $(`#label-${annotation.id}`).css("background-color", "gray");
+        })
+
+        $(`#label-${annotation.id}`).hover(function () {
+            $(`#label-${annotation.id}`).css("background-color", "rgba(255, 255, 0, 0.6)");
+            bboxPreview.find(".a9s-outer").css("fill", "rgba(255, 255, 0, 0.2)");
+            bboxPreview.tooltip('show');
+        }, function () {
+            $(`#label-${annotation.id}`).css("background-color", "gray");
+            bboxPreview.find(".a9s-outer").css("fill", "rgba(0, 0, 0, 0.0)");
+            bboxPreview.tooltip('hide');
+        })
+
+        if ($("#bbox-actions").children().length === 0) {
+            $("#bbox-actions").text("(No annotations found on image.)").css("color", "white");
+        }
+
+        $('[data-toggle="tooltip"]').tooltip();
+        $('[data-toggle="tooltip"]').tooltip('show');
+
+        setTimeout(function () {
+            $('[data-toggle="tooltip"]').tooltip('hide');
+        }, 3000);
+
+            continue;
+
+        // Get the bounding box for the annotation
+        let x, y, w, h;
+        [x, y, w, h] = annotation.target.selector.value.split(':')[1].split(',').map(function (x) { return parseFloat(x).toFixed(5) });
+        [x, y, w, h] = [x*0.01*imageElement.naturalWidth, y*0.01*imageElement.naturalHeight, w*0.01*imageElement.naturalWidth, h*0.01*imageElement.naturalHeight].map(Math.round)
+
+        // Create a column container for each annotation
+        let col = document.createElement('div');
+        col.className = 'col-6 col-md-4 col-lg-3 col-xl-2 m-2';
+        col.id = 'preview-col-' + annotation.id;
+        // Add the column to the container first
+        previewContainer.appendChild(col)
+
+        // Create the label element & add to the column
+        let label = document.createElement('div');
+        label.className = 'preview-label py-2';
+        label.id = 'preview-label-' + annotation.id;
+        let confidence = annotation.body[0].confidence ? annotation.body[0].confidence : 1.0;
+        label.innerHTML = `<text id="annotation-text-${annotation.id}" class="my-0 py-0"><b>${annotation.body[0].value}</b> |  <em>conf: ${confidence}</em></text>`;
+        if (annotation.body[0].value && annotation.body[0].value != 'unannotated'){
         col.appendChild(label);
-      }
+        }
 
-      // Next, create a canvas element & add to the column
-      let canvas = document.createElement('canvas');
-      let context = canvas.getContext("2d");
-      canvas.id = 'canvas-' + annotation.id;
-      canvas.width = col.offsetWidth;
-      canvas.style.maxWidth = '100%';
-      canvas.height = col.offsetWidth;
+        // Next, create a canvas element & add to the column
+        let canvas = document.createElement('canvas');
+        let context = canvas.getContext("2d");
+        canvas.id = 'canvas-' + annotation.id;
+        canvas.width = col.offsetWidth;
+        canvas.style.maxWidth = '100%';
+        canvas.height = col.offsetWidth;
 
-      // Calculate height of destination canvas to maintain aspect ratio
-      let dx, dy, dw, dh;
-      if (w > h) {
+        // Calculate height of destination canvas to maintain aspect ratio
+        let dx, dy, dw, dh;
+        if (w > h) {
         dx = 0;
         dy = 0;
         dw = col.offsetWidth;
         dh = Math.round(h * (dw / w));
-      } else {
+        } else {
         dy = 0;
         dh = col.offsetWidth;
         dw = Math.round(w * (dh / h));
         dx = Math.round((col.offsetWidth - dw) / 2);
-      }
+        }
 
-      context.drawImage(imageElement, x, y, w, h, dx, dy, dw, dh);
-      col.appendChild(canvas);
+        context.drawImage(imageElement, x, y, w, h, dx, dy, dw, dh);
+        col.appendChild(canvas);
 
-      // Show the previews in the staff annotation overview modal as well.
+        // Show the previews in the staff annotation overview modal as well.
         try {
             let canvasClone = canvas.cloneNode();
             canvasClone.id = 'canvas-clone-' + annotation.id;
@@ -267,6 +324,5 @@ function renderBoundingBoxes(imageElementID, annotations, widgets, config) {
         catch {
 
         }
-
     }
-  }
+}

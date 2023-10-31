@@ -137,6 +137,15 @@ $('#activity-list').on('change', function () {
         annoText.innerText = selectedOption.length > 17 ? selectedOption.slice(0, 17) + "..." : selectedOption;
         annoText.style.backgroundColor = 'transparent';
     }
+
+    let annotations = anno.getAnnotations();
+
+    for (annotation of annotations) {
+        annotation.body[0].value = selectedOption;
+    }
+
+    anno.setAnnotations(annotations);
+    renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno);
 });
 {% endblock additional_event_handlers %}
 {% comment %}</script>{% endcomment %}

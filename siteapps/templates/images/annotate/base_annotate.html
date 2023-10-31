@@ -203,7 +203,7 @@
             {% include './image-manipulators.html' %}
         </div>
     </div>
-    <div class="row mt-3 mt-md-5 text-center">
+    {% comment %}<div class="row mt-3 mt-md-5 text-center">
         <h2>Annotations Preview</h2>
         <hr />
     </div>
@@ -212,7 +212,7 @@
         <div>
             {% include './bbox-actions.html' %}
         </div>
-    </div>
+    </div>{% endcomment %}
 
     {% if user.is_authenticated and user.is_staff %}
 
@@ -442,7 +442,10 @@
             anno.on("deleteAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
             anno.on("updateAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno) })
             anno.on('cancelSelected', function (selection) {
-                observer.observe(document, { attributes: false, childList: true, characterData: false, subtree: true });
+                if (typeof observer !== 'undefined') {
+                    observer.observe(document, { attributes: false, childList: true, characterData: false, subtree: true });
+                }
+                $(".tooltip").tooltip('dispose');
                 return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno);
             });
 
@@ -616,7 +619,8 @@
                 // First, prevent the default action of the form
                 e.preventDefault();
                 // Then, save the annotations
-                anno.clearAnnotations()
+                anno.clearAnnotations();
+                return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
             });
 
             // Event listeners unique to the annotation stage

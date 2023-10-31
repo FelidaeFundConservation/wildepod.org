@@ -243,6 +243,15 @@
                 : `<strong>${selectedOption}</strong>`;
             annoText.style.backgroundColor = 'transparent';
         }
+
+        let annotations = anno.getAnnotations();
+
+        for (annotation of annotations) {
+            annotation.body[0].value = selectedOption;
+        }
+
+        anno.setAnnotations(annotations);
+        renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno);
     });
 
 

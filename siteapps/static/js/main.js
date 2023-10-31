@@ -196,28 +196,31 @@ function renderBoundingBoxes(imageElementID, annotations, widgets, config) {
   // create a list of preview images from the original image
 function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
 
-    let imageElement = document.getElementById(imageElementID);
-    let previewContainer = document.getElementById(previewContainerID);
+    //let imageElement = document.getElementById(imageElementID);
+    //let previewContainer = document.getElementById(previewContainerID);
 
-    previewContainer.innerHTML = ""
+    //previewContainer.innerHTML = ""
+
     let bboxNum = 1;
     $("#bbox-actions").empty();
-    $(".tooltip").remove();
+    $(".tooltip").tooltip('dispose');
 
     for (const annotation of anno.getAnnotations()) {
 
         // Create the in-image bbox actions menu.
-        const isUnannotated = annotation.body[0].value || annotation.body[0].value == "unannotated"
+        const isUnannotated = annotation.body[0].value === "unannotated" || !annotation.body[0].value;
 
         // New bboxes contain a # symbol, doesn't work with JQuery.
         const replacedAnnotationId = annotation.id.replace('#', '');
 
-        let annotationName = isUnannotated ? annotation.body[0].value : "(No Annotation)"
-        let backgroundColor = isUnannotated ? "white" : "red"
+        let annotationName = !isUnannotated ? annotation.body[0].value : "(No Annotation)";
+        let titleString = `Box ${bboxNum} - ${annotationName}`;
+        titleString = titleString.length > 21 ? titleString.slice(0, 18) + "..." : titleString;
+        let backgroundColor = !isUnannotated ? "white" : "red"
 
         bboxEntryHtml = `<button id="label-${replacedAnnotationId}"
                             style="color: ${backgroundColor}; background-color: gray; border: 1px solid black;"
-                        >&nbsp;&nbsp;<i class="bi bi-eye"></i>&nbsp;&nbsp;Box ${bboxNum}
+                        >&nbsp;&nbsp;<i class="bi bi-eye"></i>&nbsp;&nbsp;${titleString}
                         <button id="delete-${replacedAnnotationId}" style="border: 1px solid transparent; background-color: transparent;"><i class="bi bi-trash"></i>
                         </button>
                         </button>`
@@ -230,9 +233,6 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         bboxPreview.attr("data-bs-placement", "bottom");
         bboxPreview.attr("title", annotationName);
         bboxPreview.tooltip('show');
-        bboxPreview.click(function () {
-            $(".tooltip").remove();
-        });
 
         const label = $(`#label-${replacedAnnotationId}`);
         label.css("font-weight", "bold");
@@ -292,20 +292,6 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
             rect.css("fill", "rgba(0, 0, 0, 0.0)");
             bboxPreview.tooltip('hide');
         })
-
-        if ($("#bbox-actions").children().length === 0) {
-            $("#bbox-actions").text("(No annotations found on image.)").css("color", "white");
-        }
-
-        $('[data-toggle="tooltip"]').tooltip();
-        $('[data-toggle="tooltip"]').tooltip('show');
-
-        if (window.tooltipTimeout) {
-            window.clearTimeout(tooltipTimeout);
-        }
-        window.tooltipTimeout = setTimeout(function () {
-            $('[data-toggle="tooltip"]').tooltip('hide');
-        }, 5000);
 
         // Get the bounding box for the annotation
         //let x, y, w, h;
@@ -367,4 +353,18 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         //
         //}
     }
+
+    if ($("#bbox-actions").children().length === 0) {
+        $("#bbox-actions").text("(No annotations found on image.)").css("color", "white");
+    }
+
+    $('[data-toggle="tooltip"]').tooltip();
+    $('[data-toggle="tooltip"]').tooltip('show');
+
+    if (window.tooltipTimeout) {
+        window.clearTimeout(tooltipTimeout);
+    }
+    window.tooltipTimeout = setTimeout(function () {
+        $('[data-toggle="tooltip"]').tooltip('hide');
+    }, 5000);
 }

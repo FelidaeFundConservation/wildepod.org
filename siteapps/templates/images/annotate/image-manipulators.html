@@ -56,9 +56,7 @@
                         }
                         image.style.filter = filterString;
 
-                        for (let image of window.contextImageElements) {
-                            image.style.filter = filterString;
-                        }
+                        $("[id^='canvas-']").css("filter", filterString);
 
                     }
 

@@ -199,6 +199,8 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
 
     let boxNum = 1;
 
+    $(document).unbind("keydown");
+
     $(function () {
         $('[data-toggle="tooltip"]').tooltip('dispose');
     })
@@ -207,6 +209,29 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         if ($("[id^='preview-']").length == 0) {
             previewContainer.innerHTML = `<h1 class="display-5"><i class="bi bi-bounding-box-circles"></i>&nbsp;&nbsp;<i>(No annotations found on image.)</i></text><br>`;
         }
+    }
+
+    function appendToast(cleanedId, type, messageHtml) {
+        $(`.toast.hide`).remove();
+
+        $(".toast-container").append(`
+        <small>
+            <div id="toast-${type}-${cleanedId}"
+                    class="toast align-items-center fade"
+                    role="alert" aria-live="assertive"
+                    aria-atomic="true"
+            >
+                <div class="d-flex">
+                    <div class="toast-body">
+                        ${messageHtml}
+                    </div>
+                </div>
+            </div>
+        </small>`)
+
+        $(document).ready(function () {
+            $(`#toast-${type}-${cleanedId}`).toast('show');
+        });
     }
 
     for (const annotation of anno.getAnnotations()) {
@@ -261,6 +286,10 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
                         anno.removeAnnotation(annotation.id);
                         preview.remove();
                         checkNoAnnotations();
+
+                        appendToast(cleanedId, "delete", `<kbd><i class="bi bi-trash"></i>&nbsp;BACKSPACE</kbd>&nbsp;&nbsp;Deleted box '${annotationText}.'</i>`)
+
+                        $(document).unbind("keydown");
                     }
                 });
             },
@@ -276,6 +305,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
             switch (event.which) {
                 case 3:
                     hide();
+                    appendToast(cleanedId, "hide", `<kbd><i class="bi bi-eye-slash"></i>&nbsp;(<i class="bi bi-mouse"> RIGHTCLICK</i>)</kbd>&nbsp;&nbsp;Hid box '${annotationText}.'</i>`)
                     break;
             }
         })

@@ -89,7 +89,7 @@
 <hr>
 <div class="container-fluid mt-2 mt-md-3">
     <div class="row mt-2 mt-md-4 justify-content-center">
-        <div class="col-xl-9 text-center" oncontextmenu="return false;">
+        <div class="col-xl-9 text-center p-2" oncontextmenu="return false;">
             <button class="btn" onclick="copyImageID()">
                 <h6>
                     <b>
@@ -137,8 +137,8 @@
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-lg-12 col-md-12 col-sm-12 mt-3">
-            <div class="accordion" id="keyboard-shortcuts-accordion">
+        <div class="col-xl-3 col-lg-12 col-md-12 col-sm-12 mt-2 overflow-auto" style="max-height: 665px">
+            <div class="accordion mb-3" id="keyboard-shortcuts-accordion">
                 <div class="accordion-item">
                     <h2 class="accordion-header">
                         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#shortcut-list" aria-expanded="true">
@@ -148,84 +148,81 @@
                     <div id="shortcut-list" class="accordion-collapse collapse" data-bs-parent="#keyboard-shortcuts-accordion">
                         <div class="accordion-body">
                             <ul class="list-group">
-                                <li class="list-group-item"><small><b>RIGHT_CLICK:</b> <i>Hide bounding box</i></small></li>
-                                <li class="list-group-item"><small><b>BACKSPACE:</b> <i>Delete bounding box</i></small></li>
+                                <li class="list-group-item"><small><kbd><i class="bi bi-mouse"> RIGHTCLICK</i></kbd>&nbsp;&nbsp;<i class="bi bi-arrow-right"></i><i>&nbsp;&nbsp;Hide bounding box</i></small></li>
+                                <li class="list-group-item"><small><kbd>BACKSPACE</kbd>&nbsp;&nbsp;<i class="bi bi-arrow-right"></i><i>&nbsp;&nbsp;Delete bounding box</i></small></li>
                             </ul>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="accordion" id="options-accordion">
-                <div class="accordion-item">
-                    <h2 class="accordion-header">
-                        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#options-list" aria-expanded="true">
-                        Options
-                        </button>
-                    </h2>
-                    <div id="options-list" class="accordion-collapse collapse show" data-bs-parent="#options-accordion">
-                        <div class="accordion-body">
-                            <button class="social-media-worthy-upvote"
-                    data-vote="1"
-                    onclick=stageSocialMediaWorthyVote("upvote")
-                    id="social-media-worthy-up"
-                    style="font-size: 10px; border: 1px solid lightgray; border-radius: 2px; background-color: transparent"
-                >
-                    <i class="bi bi-hand-thumbs-up"></i>
-                </button>
-                <button class="social-media-worthy-downvote"
-                        data-vote="-1"
-                        onclick=stageSocialMediaWorthyVote("downvote")
-                        id="social-media-worthy-down"
-                        style="font-size: 10px; border: 1px solid lightgray; border-radius: 2px; background-color: transparent">
-                    <i class="bi bi-hand-thumbs-down"></i>
-                </button>
-                <label
-                    style="font-size: 12px; margin-bottom: 8px"
-                >
-                    &nbsp;Social Media Worthy? ({{ image.social_media_worthy }})
-                </label>
-                <br>
-                <input
-                    class="form-check-input"
-                    type="checkbox"
-                    {% if staff_review_needed %}checked="checked"{% endif %}
-                    id="staff-review-needed"
-                >
-                <label
-                    class="form-check-label"
-                    for="staff-review-needed"
-                    style="font-size: 14px"
-                >
-                    &nbsp; Flag for Staff Review?
-                </label>
-                <br>
-                {% if user.is_staff %}
-                <div>
-                <input
-                    class="form-check-input"
-                    type="checkbox"
-                    id="staff-debug-mode"
-                >
-                <label
-                    class="form-check-label"
-                    for="staff-debug-mode"
-                    style="font-size: 11px;"
-                ><i>
-                    &nbsp; Disable refresh on submit (debug)
-                </i></label>
+            <div class="card" id="options-card">
+                <div class="card-header">
+                    <text>Options</text>
                 </div>
-                <br>
-                <button type="button"
-                        class="btn btn-primary me-2"
-                        style="background-color: orange; font-size: 14px" data-toggle="modal" data-target="#staffEditModal"
-                ><i class="bi bi-person-circle">&nbsp;&nbsp;&nbsp;</i>Admin View</button><br>
-                {% include './staff-edit-annotations.html' %}
-                {% endif %}
-                        </div>
+                <div id="options-list" class="accordion-collapse collapse show" data-bs-parent="#options-accordion">
+                    <div class="card-body">
+                        <button class="social-media-worthy-upvote"
+                            data-vote="1"
+                            onclick=stageSocialMediaWorthyVote("upvote")
+                            id="social-media-worthy-up"
+                            style="font-size: 10px; border: 1px solid lightgray; border-radius: 2px; background-color: transparent"
+                        >
+                <i class="bi bi-hand-thumbs-up"></i>
+            </button>
+            <button class="social-media-worthy-downvote"
+                    data-vote="-1"
+                    onclick=stageSocialMediaWorthyVote("downvote")
+                    id="social-media-worthy-down"
+                    style="font-size: 10px; border: 1px solid lightgray; border-radius: 2px; background-color: transparent">
+                <i class="bi bi-hand-thumbs-down"></i>
+            </button>
+            <label
+                style="font-size: 12px; margin-bottom: 8px"
+            >
+                &nbsp;Social Media Worthy? ({{ image.social_media_worthy }})
+            </label>
+            <br>
+            <input
+                class="form-check-input"
+                type="checkbox"
+                {% if staff_review_needed %}checked="checked"{% endif %}
+                id="staff-review-needed"
+            >
+            <label
+                class="form-check-label"
+                for="staff-review-needed"
+                style="font-size: 14px"
+            >
+                &nbsp; Flag for Staff Review?
+            </label>
+            <br>
+            {% if user.is_staff %}
+            <div>
+            <input
+                class="form-check-input"
+                type="checkbox"
+                id="staff-debug-mode"
+            >
+            <label
+                class="form-check-label"
+                for="staff-debug-mode"
+                style="font-size: 11px;"
+            ><i>
+                &nbsp; Disable refresh on submit (debug)
+            </i></label>
+            </div>
+            <br>
+            <button type="button"
+                    class="btn btn-primary me-2"
+                    style="background-color: orange; font-size: 14px" data-toggle="modal" data-target="#staffEditModal"
+            ><i class="bi bi-person-circle">&nbsp;&nbsp;&nbsp;</i>Admin View</button><br>
+            {% include './staff-edit-annotations.html' %}
+            {% endif %}
                     </div>
                 </div>
             </div>
             {% include './image-manipulators.html' %}
+
         </div>
     </div>
     <div class="row mt-3 mt-md-5 text-center">
@@ -240,7 +237,10 @@
         ><i class="bi bi-save2"></i>&nbsp;&nbsp;&nbsp;Save <span class="d-none d-sm-inline">Annotations</span>&nbsp;
         </button></div>
     </div>
+</div>
 
+<div class="toast-container position-fixed bottom-0 end-0 p-1 mh-1">
+</div>
     {% if user.is_authenticated and user.is_staff %}
 
     <div class="row mt-3 mt-md-5 text-center">

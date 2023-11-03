@@ -199,6 +199,10 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
 
     let boxNum = 1;
 
+    $(function () {
+        $('[data-toggle="tooltip"]').tooltip('dispose');
+    })
+
     function checkNoAnnotations() {
         if ($("[id^='preview-']").length == 0) {
             previewContainer.innerHTML = `<h1 class="display-5"><i class="bi bi-bounding-box-circles"></i>&nbsp;&nbsp;<i>(No annotations found on image.)</i></text><br>`;
@@ -216,7 +220,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         // Setup the basic card
         let annotationHtml = `<div id="preview-${cleanedId}" class="card p-0 m-1" style="width: 250px">
         <div id="preview-label-${cleanedId}" class="card-header py-2">
-            <text id="annotation-text-${cleanedId}" class="my-0 py-0" ${highlight}><i class="bi bi-eye"></i>&nbsp;&nbsp;<b>${annotationText}</b>${confidence}
+            <text id="annotation-text-${cleanedId}" class="my-0 py-0" ${highlight}><i class="bi bi-eye"></i>&nbsp;&nbsp;<b>${annotationText}</b>${confidence}</text>
             </div>
             <div class="card-body">
             </div>
@@ -312,7 +316,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         // Next, create a canvas element & add to the column
         let canvas = document.createElement('canvas');
         let context = canvas.getContext("2d");
-        canvas.id = 'canvas-' + annotation.id;
+        canvas.id = 'canvas-' + cleanedId;
         canvas.width = col.offsetWidth;
         canvas.style.maxWidth = '100%';
         canvas.height = col.offsetWidth;
@@ -334,6 +338,14 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         context.drawImage(imageElement, x, y, w, h, dx, dy, dw, dh);
         col.querySelector(".card-body").appendChild(canvas);
 
+        previewLabel = $(`#preview-label-${cleanedId}`);
+        previewLabel.click(function () {
+            anno.selectAnnotation(annotation.id);
+        })
+
+        previewLabel.attr("data-toggle", "tooltip")
+        .attr("title", "Click To Annotate");
+
         // Show the previews in the staff annotation overview modal as well.
         try {
             let canvasClone = canvas.cloneNode();
@@ -350,4 +362,8 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
     }
 
     checkNoAnnotations();
+
+    $(function () {
+        $('[data-toggle="tooltip"]').tooltip();
+    })
 }

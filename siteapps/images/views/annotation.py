@@ -162,6 +162,60 @@ def activity_pipeline_query(images, annotator, activity_category):
     return images
 
 
+def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_category):
+    # Get images based on the following set of filters
+    images = Image.objects.filter(**self.filterset)
+
+    # Filter using specified pipeline criteria
+    if OBJECTS_QUEUE_NAME in queue_name:
+        images = object_pipeline_query(images=images, annotator=annotator)
+    elif SPECIES_QUEUE_NAME in queue_name:
+        images = species_pipeline_query(images=images, annotator=annotator)
+    elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
+        images = activity_pipeline_query(images=images, annotator=annotator, activity_category=activity_category)
+    else:
+        logging.error(f"Invalid queue name provided to query function: {queue_name}")
+
+    # Get the image stack based on stack size
+    images = images[: settings.ANNOTATION_QUEUE_SIZE]
+
+    # Get the image ids & convert to string
+    image_ids = [str(image.id) for image in images]
+
+    # Create a queue entity with image ids, user id, timestamp and index
+    payload = {
+        "user": str(self.request.user.id),
+        "name": self.request.user.name,
+        "images": image_ids,
+        "expires_at": (
+            datetime.datetime.now() + datetime.timedelta(minutes=settings.ANNOTATION_EXPIRATION_MINS)
+        ).isoformat(),
+        "index": 0,
+    }
+    # Upload to datastore
+    # If queue is a new entity, create a new key
+    if not queue:
+        queue = settings.DATASTORE_CLIENT.entity(key=queue_key)
+    # Save the queue to the datastore
+    queue.update(payload)
+    settings.DATASTORE_CLIENT.put(queue)
+
+    return image_ids if image_ids else [None]
+
+
+def get_next_queue_image(self, context, queue):
+    # Exists if user is returning to a previous image
+    return_to_image_id = self.request.session.get("return_to_image_id")
+    context["is_reannotation"] = return_to_image_id is not None
+
+    # Clear the return image id
+    self.request.session["return_to_image_id"] = None
+
+    # If not returning to prev. image,
+    # get the next image_id from the existing queue
+    return return_to_image_id if return_to_image_id else queue["images"][queue["index"]]
+
+
 # Skip images completed by other annotators since the queue was built
 def skip_completed_images(queue_name, queue):
     pipeline_completed = True
@@ -193,7 +247,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
     annotator, _ = Annotator.objects.get_or_create(type="human", human=self.request.user)
 
     # Check if we're doing custom annotations
-    custom_annotations = self.request.GET.get("custom", None) == "true"
+    custom_annotations = self.request.GET.get("custom") == "true"
 
     # Get the annotation queue cached in the datastore
     queue_name = CUSTOM_PREFIX + queue_name if custom_annotations else queue_name
@@ -211,53 +265,17 @@ def populate_view_context(queue_name, context, self, activity_category=None):
     return_to_image_id = None
 
     if queue_available:
-        # Exists if user is returning to a previous image
-        return_to_image_id = self.request.session.get("return_to_image_id")
-        context["is_reannotation"] = return_to_image_id is not None
-        self.request.session["return_to_image_id"] = None
-
-        # Get the next image_id from the existing queue
-        image_id = return_to_image_id if return_to_image_id else queue["images"][queue["index"]]
+        image_id = get_next_queue_image(self=self, context=context, queue=queue)
     else:
-        # Get images based on the following set of filters
-        images = Image.objects.filter(**self.filterset)
-
-        # Filter using specified pipeline criteria
-        if OBJECTS_QUEUE_NAME in queue_name:
-            images = object_pipeline_query(images=images, annotator=annotator)
-        elif SPECIES_QUEUE_NAME in queue_name:
-            images = species_pipeline_query(images=images, annotator=annotator)
-        elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
-            images = activity_pipeline_query(images=images, annotator=annotator, activity_category=activity_category)
-        else:
-            logging.error(f"Invalid queue name provided to query function: {queue_name}")
-
-        # Get the image stack based on stack size
-        images = images[: settings.ANNOTATION_QUEUE_SIZE]
-
-        # Get the image ids & convert to string
-        image_ids = [str(image.id) for image in images]
-
-        # Create a queue entity with image ids, user id, timestamp and index
-        payload = {
-            "user": str(self.request.user.id),
-            "name": self.request.user.name,
-            "images": image_ids,
-            "expires_at": (
-                datetime.datetime.now() + datetime.timedelta(minutes=settings.ANNOTATION_EXPIRATION_MINS)
-            ).isoformat(),
-            "index": 0,
-        }
-        # Upload to datastore
-        # If queue is a new entity, create a new key
-        if not queue:
-            queue = settings.DATASTORE_CLIENT.entity(key=queue_key)
-        # Save the queue to the datastore
-        queue.update(payload)
-        settings.DATASTORE_CLIENT.put(queue)
-
         # Serve the first image
-        image_id = image_ids[0] if image_ids else None
+        image_id = gather_queue_images(
+            self=self,
+            queue=queue,
+            queue_name=queue_name,
+            queue_key=queue_key,
+            annotator=annotator,
+            activity_category=activity_category,
+        )[0]
 
     # If there is a valid image, add bounding box information
     if image_id:
@@ -270,30 +288,37 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         context["image"] = image
         context["social_media_worthy"] = image.social_media_worthy
         context["staff_review_needed"] = image.staff_review_needed
-
-        # Filter out the rejected bboxes
-        bounding_boxes = BoundingBox.objects.filter(image__id=image.id)
-        bounding_box_values = bounding_boxes.values()
-
-        zipped_querysets = list(zip(bounding_boxes, bounding_box_values))
-        annotate(zipped_querysets)
-
-        valid_or_uncertain_bboxes = [
-            bbox_obj for bbox_obj, bbox_values in zipped_querysets if bbox_values.get("status") != "Rejected"
-        ]
-
-        context["bounding_boxes"] = valid_or_uncertain_bboxes
-
+        context["bounding_boxes"] = get_valid_or_uncertain_bboxes(image=image)
         context["queue_index"] = queue["index"]
         context["queue_length"] = len(queue["images"])
     else:
+        image = None
         context["image"] = None
         context["bounding_boxes"] = []
 
     context["species_list"] = SpeciesName.objects.filter(~Q(name=UNANNOTATED_CATEGORY))
     context["activity_list"] = ActivityType.objects.filter(category=activity_category)
+    context["custom_annotations"] = custom_annotations
 
     # Gather surrounding context images
+    get_context_images(queue=queue, context=context)
+
+    # Gather all annotations for bounding boxes to display in admin view.
+    get_all_annotations(image=image, context=context)
+
+
+# Filter out the rejected bboxes
+def get_valid_or_uncertain_bboxes(image):
+    bounding_boxes = BoundingBox.objects.filter(image__id=image.id)
+    bounding_box_values = bounding_boxes.values()
+
+    zipped_querysets = list(zip(bounding_boxes, bounding_box_values))
+    annotate(zipped_querysets)
+
+    return [bbox_obj for bbox_obj, bbox_values in zipped_querysets if bbox_values.get("status") != "Rejected"]
+
+
+def get_context_images(queue, context):
     LOWER_CONTEXT_AMOUNT = 5
     UPPER_CONTEXT_AMOUNT = 25
 
@@ -305,7 +330,8 @@ def populate_view_context(queue_name, context, self, activity_category=None):
 
     context["context_images"] = list(Image.objects.filter(id__in=queue["images"][lowerIndex:upperIndex]))
 
-    # Gather all annotations for bounding boxes.
+
+def get_all_annotations(image, context):
     try:
         bboxes = BoundingBox.objects.filter(image=image)
     except (ObjectDoesNotExist, IndexError):
@@ -321,7 +347,6 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         infoList.append(BboxAnnotationInfo(bbox.id, categories, species, activities))
 
     context["bbox_all_annotations"] = infoList
-    context["custom_annotations"] = custom_annotations
 
 
 class CustomAnnotationView(LoginRequiredMixin, FormView, TemplateView):

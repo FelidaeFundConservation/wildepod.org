@@ -214,13 +214,13 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         let highlight = annotationText == "(No Annotation)" ? `style="background-color: #FFCCCB"` : "";
         const confidence = annotation.body[0].confidence && annotation.body[0].confidence !== 1 ? ` | <em>conf: ${annotation.body[0].confidence}</em></text>` : ``;
 
+        // Remove the pound sign to work with Jquery
         const cleanedId = annotation.id.replace("#", "");
-
 
         // Setup the basic card
         let annotationHtml = `<div id="preview-${cleanedId}" class="card p-0 m-1" style="width: 250px">
         <div id="preview-label-${cleanedId}" class="card-header py-2">
-            <text id="annotation-text-${cleanedId}" class="my-0 py-0" ${highlight}><i class="bi bi-eye"></i>&nbsp;&nbsp;<b>${annotationText}</b>${confidence}</text>
+            <text id="annotation-text-${cleanedId}" class="my-0 py-0" ${highlight}><i class="bi bi-eye"></i>&nbsp;&nbsp;<b>${annotationText}</b>${confidence}
             </div>
             <div class="card-body">
             </div>
@@ -237,6 +237,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         const rectAnnotation = $(`[data-id='${annotation.id}']`);
         let innerRect = rectAnnotation.find(".a9s-inner");
 
+        // Highlighting the preview on hover
         preview.hover(
             function () {
                 $(this).css("background-color", "rgba(255, 255, 0, 0.5)")
@@ -281,6 +282,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
 
         hideButton = $(`#hide-${cleanedId}`);
 
+        // Handle visual changes for hiding bboxes
         const hide = function () {
             const footer = preview.find(".card-footer");
             const eyeIcon = preview.find(".bi");
@@ -338,6 +340,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         context.drawImage(imageElement, x, y, w, h, dx, dy, dw, dh);
         col.querySelector(".card-body").appendChild(canvas);
 
+        // Open the annotation widget when the label is clicked
         previewLabel = $(`#preview-label-${cleanedId}`);
         previewLabel.click(function () {
             anno.selectAnnotation(annotation.id);

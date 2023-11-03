@@ -109,7 +109,7 @@
                 <div class="accordion-item">
                     <h1 class="accordion-header">
                         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-context-images" aria-expanded="true" aria-controls="collapse-context-images">
-                        <h5>Context Images</h5>
+                        Context Images
                         </button>
                     </h1>
                     <div id="collapse-context-images" class="accordion-collapse collapse" data-bs-parent="#context-image-accordion">
@@ -137,10 +137,34 @@
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-lg-12 col-md-12 col-sm-12">
-            <div class="mt-3" style="border: 1px solid black; border-radius: 5px; padding: 20px;">
-                <h3>Options</h3><hr>
-                <button class="social-media-worthy-upvote"
+        <div class="col-xl-3 col-lg-12 col-md-12 col-sm-12 mt-3">
+            <div class="accordion" id="keyboard-shortcuts-accordion">
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#shortcut-list" aria-expanded="true">
+                        Keyboard Shortcuts
+                        </button>
+                    </h2>
+                    <div id="shortcut-list" class="accordion-collapse collapse" data-bs-parent="#keyboard-shortcuts-accordion">
+                        <div class="accordion-body">
+                            <ul class="list-group">
+                                <li class="list-group-item"><small><b>RIGHT_CLICK:</b> <i>Hide bounding box</i></small></li>
+                                <li class="list-group-item"><small><b>BACKSPACE:</b> <i>Delete bounding box</i></small></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="accordion" id="options-accordion">
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#options-list" aria-expanded="true">
+                        Options
+                        </button>
+                    </h2>
+                    <div id="options-list" class="accordion-collapse collapse show" data-bs-parent="#options-accordion">
+                        <div class="accordion-body">
+                            <button class="social-media-worthy-upvote"
                     data-vote="1"
                     onclick=stageSocialMediaWorthyVote("upvote")
                     id="social-media-worthy-up"
@@ -193,10 +217,13 @@
                 <br>
                 <button type="button"
                         class="btn btn-primary me-2"
-                        style="background-color: orange" data-toggle="modal" data-target="#staffEditModal"
-                ><i class="bi bi-person-circle">&nbsp;&nbsp;&nbsp;</i>Admin View</button>
+                        style="background-color: orange; font-size: 14px" data-toggle="modal" data-target="#staffEditModal"
+                ><i class="bi bi-person-circle">&nbsp;&nbsp;&nbsp;</i>Admin View</button><br>
                 {% include './staff-edit-annotations.html' %}
                 {% endif %}
+                        </div>
+                    </div>
+                </div>
             </div>
             {% include './image-manipulators.html' %}
         </div>
@@ -268,6 +295,10 @@
 <script>
     document.querySelector('label[for="staff-review-needed"]').addEventListener('click', function(event) {
         event.preventDefault();
+    });
+
+    $(document).ready(function(){
+      $('[data-toggle="popover"]').popover();
     });
 </script>
 
@@ -449,6 +480,7 @@
             anno.on("createAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
             anno.on("deleteAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
             anno.on("updateAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
+            anno.on('cancelSelected', function(selection) { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno) });
 
             // Submit buttons disabled until all elements have loaded
             {% block enable_save_buttons %}

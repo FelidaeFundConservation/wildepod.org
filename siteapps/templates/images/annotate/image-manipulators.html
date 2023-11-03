@@ -1,86 +1,97 @@
-<div id="image-manipulator-sliders" class="mt-3" style="border: 1px solid black; border-radius: 5px; padding: 20px;">
-    <h5>Image Manipulators</h5>
-    <text style="font-size: 14px">Adjust the sliders as needed to make details easier to see.</text>
-    <hr>
-    <script>
-                    let imageManipulatorSliders = document.getElementById("image-manipulator-sliders");
+<div class="accordion" id="image-manipulators-accordion">
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#image-manipulators" aria-expanded="true">
+                        Image Manipulators
+                        </button>
+                    </h2>
+                    <div id="image-manipulators" class="accordion-collapse collapse show" data-bs-parent="#image-manipulators-accordion">
+                        <div class="accordion-body p-3">
+                            <text style="font-size: 14px; margin-top: -30px">Adjust the sliders as needed to make details easier to see.</text>
+                            <hr>
+                            <div id="image-manipulator-sliders" class="p-2"></div>
+                            <script>
+                                            let imageManipulatorSliders = document.getElementById("image-manipulator-sliders");
 
-                    // Contains information for each filter type.
-                    class ImageManipulator {
-                        constructor(name, sliderId, filterFunction) {
-                            this.name = name;
-                            this.sliderId = sliderId;
-                            this.filterFunction = filterFunction;
-                        }
-                    }
+                                            // Contains information for each filter type.
+                                            class ImageManipulator {
+                                                constructor(name, sliderId, filterFunction) {
+                                                    this.name = name;
+                                                    this.sliderId = sliderId;
+                                                    this.filterFunction = filterFunction;
+                                                }
+                                            }
 
-                    // Can add or remove filters as needed.
-                    let imageManipulators = [
-                        new ImageManipulator("Brightness", "image-brightness-slider", "brightness"),
-                        new ImageManipulator("Contrast", "image-contrast-slider", "contrast"),
-                        new ImageManipulator("Saturation", "image-saturation-slider", "saturate")
-                    ];
+                                            // Can add or remove filters as needed.
+                                            let imageManipulators = [
+                                                new ImageManipulator("Brightness", "image-brightness-slider", "brightness"),
+                                                new ImageManipulator("Contrast", "image-contrast-slider", "contrast"),
+                                                new ImageManipulator("Saturation", "image-saturation-slider", "saturate")
+                                            ];
 
-                    // Creates the sliders based on the defined manipulators.
-                    for (let manipulator of imageManipulators) {
-                        let slider = document.createElement("input");
-                        slider.setAttribute("class", "col-6");
-                        slider.setAttribute("type", "range");
-                        slider.setAttribute("min", "10");
-                        slider.setAttribute("max", "250");
-                        slider.setAttribute("value", "100");
-                        slider.setAttribute("id", manipulator.sliderId);
-                        slider.style.width = "100%";
+                                            // Creates the sliders based on the defined manipulators.
+                                            for (let manipulator of imageManipulators) {
+                                                let slider = document.createElement("input");
+                                                slider.setAttribute("class", "col-6");
+                                                slider.setAttribute("type", "range");
+                                                slider.setAttribute("min", "10");
+                                                slider.setAttribute("max", "250");
+                                                slider.setAttribute("value", "100");
+                                                slider.setAttribute("id", manipulator.sliderId);
+                                                slider.style.width = "100%";
 
-                        slider.addEventListener('input', adjustImage)
+                                                slider.addEventListener('input', adjustImage)
 
-                        let text = document.createElement("text");
-                        text.innerHTML = manipulator.name;
+                                                let text = document.createElement("text");
+                                                text.innerHTML = manipulator.name;
 
-                        imageManipulatorSliders.appendChild(text);
-                        imageManipulatorSliders.appendChild(document.createElement("br"));
-                        imageManipulatorSliders.appendChild(slider);
-                        imageManipulatorSliders.appendChild(document.createElement("br"));
-                    }
+                                                imageManipulatorSliders.appendChild(text);
+                                                imageManipulatorSliders.appendChild(document.createElement("br"));
+                                                imageManipulatorSliders.appendChild(slider);
+                                                imageManipulatorSliders.appendChild(document.createElement("br"));
+                                            }
 
-                    // Applies the filters to the image.
-                    function adjustImage() {
-                        const image = document.getElementById('{{image.id}}');
+                                            // Applies the filters to the image.
+                                            function adjustImage() {
+                                                const image = document.getElementById('{{image.id}}');
 
-                        let filterString = "";
+                                                let filterString = "";
 
-                        for (let manipulator of imageManipulators) {
-                            const slider = document.getElementById(manipulator.sliderId);
-                            const value = slider.value;
-                            filterString += manipulator.filterFunction + "(" + value + "%) ";
-                        }
-                        image.style.filter = filterString;
+                                                for (let manipulator of imageManipulators) {
+                                                    const slider = document.getElementById(manipulator.sliderId);
+                                                    const value = slider.value;
+                                                    filterString += manipulator.filterFunction + "(" + value + "%) ";
+                                                }
+                                                image.style.filter = filterString;
 
-                        $("[id^='canvas-']").css("filter", filterString);
+                                                $("[id^='canvas-']").css("filter", filterString);
 
-                    }
+                                            }
 
-                    // Resets all filters to the default value when clicked.
-                    const defaultSliderValue = 100;
+                                            // Resets all filters to the default value when clicked.
+                                            const defaultSliderValue = 100;
 
-                    let resetFiltersButton = document.createElement("button");
-                    resetFiltersButton.setAttribute("class", "btn btn-primary me-2")
-                    resetFiltersButton.innerHTML = "<i class='bi bi-arrow-clockwise'>&nbsp;&nbsp;&nbsp;</i>Reset Filters";
-                    Object.assign(resetFiltersButton.style, {
-                        marginTop: "5px",
-                        fontSize: "0.6em",
-                    });
+                                            let resetFiltersButton = document.createElement("button");
+                                            resetFiltersButton.setAttribute("class", "btn btn-primary me-2")
+                                            resetFiltersButton.innerHTML = "<i class='bi bi-arrow-clockwise'>&nbsp;&nbsp;&nbsp;</i>Reset Filters";
+                                            Object.assign(resetFiltersButton.style, {
+                                                marginTop: "5px",
+                                                fontSize: "0.6em",
+                                            });
 
-                    resetFiltersButton.addEventListener('click', function () {
-                        for (manipulator of imageManipulators) {
-                            filterSlider = document.getElementById(manipulator.sliderId);
+                                            resetFiltersButton.addEventListener('click', function () {
+                                                for (manipulator of imageManipulators) {
+                                                    filterSlider = document.getElementById(manipulator.sliderId);
 
-                            filterSlider.value = defaultSliderValue;
-                        }
-                        adjustImage();
-                    });
+                                                    filterSlider.value = defaultSliderValue;
+                                                }
+                                                adjustImage();
+                                            });
 
-                    imageManipulatorSliders.appendChild(resetFiltersButton);
+                                            imageManipulatorSliders.appendChild(resetFiltersButton);
 
-    </script>
-</div>
+                            </script>
+                        </div>
+                    </div>
+                </div>
+            </div>

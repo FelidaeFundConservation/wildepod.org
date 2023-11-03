@@ -235,14 +235,9 @@
     // Show the single species annotation on all annotation previews.
     $('#species-list').on('change', function () {
         const selectedOption = $('#species-list').val();
-        annotationTexts = document.querySelectorAll("[id^='annotation-text-']");
-
-        for (let annoText of annotationTexts) {
-            annoText.innerHTML = selectedOption.length > 17
-                ? `<strong>${selectedOption.slice(0, 17)}...</strong>`
-                : `<strong>${selectedOption}</strong>`;
-            annoText.style.backgroundColor = 'transparent';
-        }
+        annotationTexts = $("[id^='annotation-text-']");
+        annotationTexts.html(`<strong>${selectedOption}</strong>`);
+        annotationTexts.css("backgroundColor", "transparent");
     });
 
 

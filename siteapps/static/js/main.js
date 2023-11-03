@@ -188,68 +188,156 @@ function renderBoundingBoxes(imageElementID, annotations, widgets, config) {
   }
 
 
-  // Function to consume an annoatation object, a container element and
-  // create a list of preview images from the original image
-  function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
+// Function to consume an annoatation object, a container element and
+// create a list of preview images from the original image
+function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
 
     let imageElement = document.getElementById(imageElementID);
     let previewContainer = document.getElementById(previewContainerID);
 
     previewContainer.innerHTML = ""
 
+    let boxNum = 1;
+
+    function checkNoAnnotations() {
+        if ($("[id^='preview-']").length == 0) {
+            previewContainer.innerHTML = `<h1 class="display-5"><i class="bi bi-bounding-box-circles"></i>&nbsp;&nbsp;<i>(No annotations found on image.)</i></text><br>`;
+        }
+    }
+
     for (const annotation of anno.getAnnotations()) {
+        let annotationText = annotation.body[0].value && annotation.body[0].value != 'unannotated' ? annotation.body[0].value : "(No Annotation)";
+        let highlight = annotationText == "(No Annotation)" ? `style="background-color: #FFCCCB"` : "";
+        const confidence = annotation.body[0].confidence && annotation.body[0].confidence !== 1 ? ` | <em>conf: ${annotation.body[0].confidence}</em></text>` : ``;
 
-      // Get the bounding box for the annotation
-      let x, y, w, h;
-      [x, y, w, h] = annotation.target.selector.value.split(':')[1].split(',').map(function (x) { return parseFloat(x).toFixed(5) });
-      [x, y, w, h] = [x*0.01*imageElement.naturalWidth, y*0.01*imageElement.naturalHeight, w*0.01*imageElement.naturalWidth, h*0.01*imageElement.naturalHeight].map(Math.round)
+        const cleanedId = annotation.id.replace("#", "");
 
-      // Create a column container for each annotation
-      let col = document.createElement('div');
-      col.className = 'col-6 col-md-4 col-lg-3 col-xl-2 m-2';
-      col.id = 'preview-col-' + annotation.id;
-      // Add the column to the container first
-      previewContainer.appendChild(col)
 
-      // Create the label element & add to the column
-      let label = document.createElement('div');
-      label.className = 'preview-label py-2';
-      label.id = 'preview-label-' + annotation.id;
-      let confidence = annotation.body[0].confidence ? annotation.body[0].confidence : 1.0;
-      label.innerHTML = `<text id="annotation-text-${annotation.id}" class="my-0 py-0"><b>${annotation.body[0].value}</b> |  <em>conf: ${confidence}</em></text>`;
-      if (annotation.body[0].value && annotation.body[0].value != 'unannotated'){
-        col.appendChild(label);
-      }
+        // Setup the basic card
+        let annotationHtml = `<div id="preview-${cleanedId}" class="card p-0 m-1" style="width: 250px">
+        <div id="preview-label-${cleanedId}" class="card-header py-2">
+            <text id="annotation-text-${cleanedId}" class="my-0 py-0" ${highlight}><i class="bi bi-eye"></i>&nbsp;&nbsp;<b>${annotationText}</b>${confidence}
+            </div>
+            <div class="card-body">
+            </div>
+            <div class="card-footer text-muted border-bottom">Box ${boxNum}</div>
+            <div class="btn-group" role="group">
+                <button id="hide-${cleanedId}" class="btn btn-outline-secondary w-50 m-0 border-0 bg-light">Hide Box</button>
+                <button id="delete-${cleanedId}" class="btn btn-outline-danger w-50 m-0 border-0 bg-light">Delete Box</button>
+            </div>
+        </div>`
 
-      // Next, create a canvas element & add to the column
-      let canvas = document.createElement('canvas');
-      let context = canvas.getContext("2d");
-      canvas.id = 'canvas-' + annotation.id;
-      canvas.width = col.offsetWidth;
-      canvas.style.maxWidth = '100%';
-      canvas.height = col.offsetWidth;
+        $(`#${previewContainerID}`).append(annotationHtml);
 
-      // Calculate height of destination canvas to maintain aspect ratio
-      let dx, dy, dw, dh;
-      if (w > h) {
-        dx = 0;
-        dy = 0;
-        dw = col.offsetWidth;
-        dh = Math.round(h * (dw / w));
-      } else {
-        dy = 0;
-        dh = col.offsetWidth;
-        dw = Math.round(w * (dh / h));
-        dx = Math.round((col.offsetWidth - dw) / 2);
-      }
+        const preview = $(`#preview-${cleanedId}`);
+        const rectAnnotation = $(`[data-id='${annotation.id}']`);
+        let innerRect = rectAnnotation.find(".a9s-inner");
 
-      context.drawImage(imageElement, x, y, w, h, dx, dy, dw, dh);
-      col.appendChild(canvas);
+        preview.hover(
+            function () {
+                $(this).css("background-color", "rgba(255, 255, 0, 0.5)")
+                innerRect.css("background-color", "yellow")
+            },
+            function () {
+                $(this).css("background-color", "rgba(0, 0, 0, 0.0)")
+                innerRect.css("background-color", "transparent")
+            }
+        );
 
-      // Show the previews in the staff annotation overview modal as well.
+        innerRect.hover(
+            function () {
+                preview.css("background-color", "rgba(255, 255, 0, 0.5)")
+                $(this).css("background-color", "yellow")
+
+                // Use backspace to delete box when hovered
+                $(document).keydown(function (event) {
+                    if (event.keyCode === 8) {
+                        event.preventDefault();
+                        anno.removeAnnotation(annotation.id);
+                        preview.remove();
+                        checkNoAnnotations();
+                    }
+                });
+            },
+            function () {
+                preview.css("background-color", "rgba(255, 255, 0, 0.0)")
+                $(this).css("background-color", "transparent")
+                $(document).unbind("keydown");
+            }
+        )
+
+        // Right click hides the bbox
+        innerRect.mousedown(function (event) {
+            switch (event.which) {
+                case 3:
+                    hide();
+                    break;
+            }
+        })
+
+        hideButton = $(`#hide-${cleanedId}`);
+
+        const hide = function () {
+            const footer = preview.find(".card-footer");
+            const eyeIcon = preview.find(".bi");
+
+            if (innerRect.is(':visible')) {
+                footer.html(`<i>${footer.html()} (Hidden)</i>`);
+                eyeIcon.removeClass("bi-eye").addClass("bi-eye-slash");
+            }
+            else {
+                footer.html(`${footer.html().replace("<i>", "").replace(" (Hidden)", "").replace("</i>", "")}`);
+                eyeIcon.removeClass("bi-eye-slash").addClass("bi-eye");
+            }
+            innerRect.toggle(speed = 100);
+            rectAnnotation.find(".a9s-outer").toggle(speed = 100);
+        };
+        hideButton.click(hide);
+
+
+        $(`#delete-${cleanedId}`).click(function () {
+            anno.removeAnnotation(annotation.id);
+            preview.remove();
+
+            checkNoAnnotations();
+        });
+
+        let col = document.getElementById(`preview-${cleanedId}`);
+
+        // Get the bounding box for the annotation
+        let x, y, w, h;
+        [x, y, w, h] = annotation.target.selector.value.split(':')[1].split(',').map(function (x) { return parseFloat(x).toFixed(5) });
+        [x, y, w, h] = [x * 0.01 * imageElement.naturalWidth, y * 0.01 * imageElement.naturalHeight, w * 0.01 * imageElement.naturalWidth, h * 0.01 * imageElement.naturalHeight].map(Math.round)
+
+        // Next, create a canvas element & add to the column
+        let canvas = document.createElement('canvas');
+        let context = canvas.getContext("2d");
+        canvas.id = 'canvas-' + annotation.id;
+        canvas.width = col.offsetWidth;
+        canvas.style.maxWidth = '100%';
+        canvas.height = col.offsetWidth;
+
+        // Calculate height of destination canvas to maintain aspect ratio
+        let dx, dy, dw, dh;
+        if (w > h) {
+            dx = 0;
+            dy = 0;
+            dw = col.offsetWidth;
+            dh = Math.round(h * (dw / w));
+        } else {
+            dy = 0;
+            dh = col.offsetWidth;
+            dw = Math.round(w * (dh / h));
+            dx = Math.round((col.offsetWidth - dw) / 2);
+        }
+
+        context.drawImage(imageElement, x, y, w, h, dx, dy, dw, dh);
+        col.querySelector(".card-body").appendChild(canvas);
+
+        // Show the previews in the staff annotation overview modal as well.
         try {
             let canvasClone = canvas.cloneNode();
-            canvasClone.id = 'canvas-clone-' + annotation.id;
+            canvasClone.id = `canvas-clone-${annotation.id}`;
             let cloneContext = canvasClone.getContext("2d");
             cloneContext.drawImage(imageElement, x, y, w, h, dx, dy, dw, dh);
             document.getElementById(`staff-modal-card-${annotation.id}`).appendChild(canvasClone);
@@ -258,5 +346,8 @@ function renderBoundingBoxes(imageElementID, annotations, widgets, config) {
 
         }
 
+        boxNum++;
     }
-  }
+
+    checkNoAnnotations();
+}

@@ -200,7 +200,7 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
     queue.update(payload)
     settings.DATASTORE_CLIENT.put(queue)
 
-    return image_ids if image_ids else [None]
+    return queue, image_ids[0] if image_ids else None
 
 
 def get_next_queue_image(self, context, queue):
@@ -268,14 +268,14 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         image_id = get_next_queue_image(self=self, context=context, queue=queue)
     else:
         # Serve the first image
-        image_id = gather_queue_images(
+        queue, image_id = gather_queue_images(
             self=self,
             queue=queue,
             queue_name=queue_name,
             queue_key=queue_key,
             annotator=annotator,
             activity_category=activity_category,
-        )[0]
+        )
 
     # If there is a valid image, add bounding box information
     if image_id:

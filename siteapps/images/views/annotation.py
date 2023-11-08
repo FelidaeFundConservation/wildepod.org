@@ -319,7 +319,7 @@ def get_valid_or_uncertain_bboxes(image):
 
 
 def get_context_images(queue, context):
-    CONTEXT_AMOUNT = 25
+    CONTEXT_AMOUNT = 20
 
     context["context_images"] = list(
         Image.objects.filter(

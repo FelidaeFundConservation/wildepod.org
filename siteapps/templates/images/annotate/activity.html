@@ -131,12 +131,9 @@ $('#activity-list').select2({
 // Show the single activity on all annotation previews.
 $('#activity-list').on('change', function () {
     const selectedOption = $('#activity-list').val();
-    annotationTexts = document.querySelectorAll("[id^='annotation-text-']");
-
-    for (let annoText of annotationTexts) {
-        annoText.innerText = selectedOption.length > 17 ? selectedOption.slice(0, 17) + "..." : selectedOption;
-        annoText.style.backgroundColor = 'transparent';
-    }
+    annotationTexts = $("[id^='annotation-text-']");
+    annotationTexts.html(`<strong>${selectedOption}</strong>`);
+    annotationTexts.css("backgroundColor", "transparent");
 });
 {% endblock additional_event_handlers %}
 {% comment %}</script>{% endcomment %}

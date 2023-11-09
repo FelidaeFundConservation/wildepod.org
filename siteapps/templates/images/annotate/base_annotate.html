@@ -153,6 +153,38 @@
                     </div>
                 </div>
             </div>
+            <div class="accordion mb-3" id="annotation-history-accordion">
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#annotation-history-list" aria-expanded="true">
+                        Annotation History
+                        </button>
+                    </h2>
+                    <div id="annotation-history-list" class="accordion-collapse collapse" data-bs-parent="#keyboard-shortcuts-accordion">
+                        <div class="accordion-body">
+                            <ul class="list-group">
+                                <li class="list-group-item">
+                                <i>If you've made a mistake, click on a previous image to reannotate.</i></li>
+
+                                {% if previous_queue_images|length == 0 %}
+                                <li class="list-group-item">
+                                <i>(No annotation history yet.)</i></li>
+                                {% endif %}
+
+                                {% for queue_image, annotations in previous_annotation_info %}
+                                <li class="list-group-item">
+                                    <img class="img-fluid m-0 p-0"
+                                         src="{% get_media_prefix %}{{queue_image.thumbnail_gcloud_path}}"
+                                         onclick="promptReturnToPreviousImage(`{{ queue_image.id }}`);"
+                                    >
+                                    <small>Your Annotation(s): {{ annotations }}</small>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div class="card" id="options-card">
                 <div class="card-header">
                     <text>Options</text>

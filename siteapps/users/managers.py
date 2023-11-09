@@ -59,7 +59,8 @@ class UserManager(BaseUserManager):
         # This only happens when users are created programmatically since sign up is disabled
         EmailAddress.objects.create(user=user, email=email, primary=True, verified=True)
         logging.info("Email address created successfully!")
-        send_welcome_email(user, password_generated)
+        if "prod" in settings.WSGI_APPLICATION:
+            send_welcome_email(user, password_generated)
 
         return user
 

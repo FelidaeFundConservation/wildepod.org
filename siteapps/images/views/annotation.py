@@ -22,7 +22,7 @@ from django.db.models import (
     Value,
     When,
 )
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, math
 from django.http.response import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -241,6 +241,42 @@ def skip_completed_images(queue_name, queue):
     return image
 
 
+def get_annotation_history(context, queue, queue_name, annotator):
+    HISTORY_LENGTH = 10
+
+    context["previous_queue_images"] = Image.objects.filter(
+        id__in=queue["images"][max(0, queue["index"] - HISTORY_LENGTH) : queue["index"]]
+    )
+    context["previous_annotations"] = []
+
+    for image in context["previous_queue_images"]:
+        if OBJECTS_QUEUE_NAME in queue_name:
+            previous_annotations = Category.objects.filter(
+                Q(created_by=annotator) | Q(accepted_by__in=[annotator]), bounding_box__image=image
+            ).values("name")
+        elif SPECIES_QUEUE_NAME in queue_name:
+            previous_annotations = Species.objects.filter(
+                Q(created_by=annotator) | Q(accepted_by__in=[annotator]), bounding_box__image=image
+            ).values("name__name")
+        elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
+            previous_annotations = Activity.objects.filter(
+                Q(created_by=annotator) | Q(accepted_by__in=[annotator]), bounding_box__image=image
+            ).values("name")
+        else:
+            pass
+
+        if previous_annotations.count() == 0:
+            context["previous_annotations"].append("None")
+        else:
+            context["previous_annotations"].append(
+                ", ".join(anno for anno in set(list(annotation.values())[0] for annotation in previous_annotations))
+            )
+
+    context["previous_annotation_info"] = zip(
+        reversed(context["previous_queue_images"]), reversed(context["previous_annotations"])
+    )
+
+
 # Retrieves data to pass to the views through context (namely queue images and annotations info).
 def populate_view_context(queue_name, context, self, activity_category=None):
     # First get the annotator object for the user
@@ -299,6 +335,9 @@ def populate_view_context(queue_name, context, self, activity_category=None):
     context["species_list"] = SpeciesName.objects.filter(~Q(name=UNANNOTATED_CATEGORY))
     context["activity_list"] = ActivityType.objects.filter(category=activity_category)
     context["custom_annotations"] = custom_annotations
+
+    # Get previously annotated images and their information
+    get_annotation_history(context, queue, queue_name, annotator)
 
     # Gather surrounding context images
     get_context_images(queue=queue, context=context)

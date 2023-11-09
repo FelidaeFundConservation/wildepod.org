@@ -205,15 +205,12 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
 
 def get_next_queue_image(self, context, queue):
     # Exists if user is returning to a previous image
-    return_to_image_id = self.request.session.get("return_to_image_id")
+    return_to_image_id = self.request.session.pop("return_to_image_id", None)
     context["is_reannotation"] = return_to_image_id is not None
-
-    # Clear the return image id
-    self.request.session["return_to_image_id"] = None
 
     # If not returning to prev. image,
     # get the next image_id from the existing queue
-    return return_to_image_id if return_to_image_id else queue["images"][queue["index"]]
+    return return_to_image_id if return_to_image_id else queue["images"][queue["index"]], return_to_image_id
 
 
 # Skip images completed by other annotators since the queue was built
@@ -301,7 +298,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
     return_to_image_id = None
 
     if queue_available:
-        image_id = get_next_queue_image(self=self, context=context, queue=queue)
+        image_id, return_to_image_id = get_next_queue_image(self=self, context=context, queue=queue)
     else:
         # Serve the first image
         queue, image_id = gather_queue_images(

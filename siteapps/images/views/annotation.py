@@ -319,16 +319,21 @@ def get_valid_or_uncertain_bboxes(image):
 
 
 def get_context_images(queue, context):
-    LOWER_CONTEXT_AMOUNT = 5
-    UPPER_CONTEXT_AMOUNT = 25
+    CONTEXT_AMOUNT = 20
 
-    lowerIndex = queue["index"] - LOWER_CONTEXT_AMOUNT
-    upperIndex = queue["index"] + UPPER_CONTEXT_AMOUNT
-
-    lowerIndex = 0 if (lowerIndex < 0) else lowerIndex
-    upperIndex = len(queue["images"]) if (upperIndex > len(queue["images"])) else upperIndex
-
-    context["context_images"] = list(Image.objects.filter(id__in=queue["images"][lowerIndex:upperIndex]))
+    context["context_images"] = list(
+        Image.objects.filter(
+            upload__camera_station=context["image"].upload.camera_station,
+            trigger_timestamp__lt=context["image"].trigger_timestamp,
+            trigger_timestamp__gt=context["image"].trigger_timestamp - datetime.timedelta(hours=1),
+        )[:CONTEXT_AMOUNT]
+    ) + list(
+        Image.objects.filter(
+            upload__camera_station=context["image"].upload.camera_station,
+            trigger_timestamp__gte=context["image"].trigger_timestamp,
+            trigger_timestamp__lt=context["image"].trigger_timestamp + datetime.timedelta(hours=1),
+        )[:CONTEXT_AMOUNT]
+    )
 
 
 def get_all_annotations(image, context):

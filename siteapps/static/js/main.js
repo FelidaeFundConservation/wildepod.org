@@ -335,10 +335,13 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
             if (innerRect.is(':visible')) {
                 footer.html(`<i>${footer.html()} (Hidden)</i>`);
                 eyeIcon.removeClass("bi-eye").addClass("bi-eye-slash");
+                innerRect.removeClass("preSubmitTooltip")
+
             }
             else {
                 footer.html(`${footer.html().replace("<i>", "").replace(" (Hidden)", "").replace("</i>", "")}`);
                 eyeIcon.removeClass("bi-eye-slash").addClass("bi-eye");
+                innerRect.addClass("preSubmitTooltip")
             }
             innerRect.toggle(speed = 100);
             rectAnnotation.find(".a9s-outer").toggle(speed = 100);

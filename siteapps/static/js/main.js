@@ -262,6 +262,22 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         const rectAnnotation = $(`[data-id='${annotation.id}']`);
         let innerRect = rectAnnotation.find(".a9s-inner");
 
+        // Show tooltips on submit button hover
+        innerRect.attr("data-toggle", "tooltip")
+            .attr("title", annotationText)
+            .addClass("preSubmitTooltip");
+
+        $(`#save_annotations`).hover(
+            function () {
+                $('.preSubmitTooltip').tooltip('enable');
+                $('.preSubmitTooltip').tooltip('show');
+            },
+            function () {
+                $('.preSubmitTooltip').tooltip('hide');
+                $('.preSubmitTooltip').tooltip('disable');
+            }
+        )
+
         // Highlighting the preview on hover
         preview.hover(
             function () {
@@ -330,7 +346,6 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         };
         hideButton.click(hide);
 
-
         $(`#delete-${cleanedId}`).click(function () {
             anno.removeAnnotation(annotation.id);
             preview.remove();
@@ -398,5 +413,6 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
 
     $(function () {
         $('[data-toggle="tooltip"]').tooltip();
+        $('.preSubmitTooltip').tooltip('disable');
     })
 }

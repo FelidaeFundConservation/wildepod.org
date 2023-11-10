@@ -191,7 +191,6 @@ function renderBoundingBoxes(imageElementID, annotations, widgets, config) {
 // Function to consume an annoatation object, a container element and
 // create a list of preview images from the original image
 function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
-
     let imageElement = document.getElementById(imageElementID);
     let previewContainer = document.getElementById(previewContainerID);
 
@@ -203,6 +202,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
 
     $(function () {
         $('[data-toggle="tooltip"]').tooltip('dispose');
+        $(`.tooltip`).remove();
     })
 
     function checkNoAnnotations() {
@@ -262,6 +262,20 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         const rectAnnotation = $(`[data-id='${annotation.id}']`);
         let innerRect = rectAnnotation.find(".a9s-inner");
 
+        // Show tooltips on submit button hover
+        innerRect.attr("data-toggle", "tooltip")
+            .attr("title", annotationText)
+            .addClass("preSubmitTooltip");
+
+        $(`#save_annotations`).hover(
+            function () {
+                $('.preSubmitTooltip').tooltip('show');
+            },
+            function () {
+                $('.preSubmitTooltip').tooltip('hide');
+            }
+        )
+
         // Highlighting the preview on hover
         preview.hover(
             function () {
@@ -287,8 +301,9 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
                         preview.remove();
                         checkNoAnnotations();
 
-                        appendToast(cleanedId, "delete", `<kbd><i class="bi bi-trash"></i>&nbsp;BACKSPACE</kbd>&nbsp;&nbsp;Deleted box '${annotationText}.'</i>`)
+                        $(`.tooltip`).remove();
 
+                        appendToast(cleanedId, "delete", `<kbd><i class="bi bi-trash"></i>&nbsp;BACKSPACE</kbd>&nbsp;&nbsp;Deleted box '${annotationText}.'</i>`)
                         $(document).unbind("keydown");
                     }
                 });
@@ -313,23 +328,31 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         hideButton = $(`#hide-${cleanedId}`);
 
         // Handle visual changes for hiding bboxes
-        const hide = function () {
+        const hide = function (speed=300) {
             const footer = preview.find(".card-footer");
             const eyeIcon = preview.find(".bi");
 
             if (innerRect.is(':visible')) {
                 footer.html(`<i>${footer.html()} (Hidden)</i>`);
                 eyeIcon.removeClass("bi-eye").addClass("bi-eye-slash");
+                innerRect.removeClass("preSubmitTooltip")
+
             }
             else {
                 footer.html(`${footer.html().replace("<i>", "").replace(" (Hidden)", "").replace("</i>", "")}`);
                 eyeIcon.removeClass("bi-eye-slash").addClass("bi-eye");
+                innerRect.addClass("preSubmitTooltip")
             }
-            innerRect.toggle(speed = 100);
-            rectAnnotation.find(".a9s-outer").toggle(speed = 100);
+            innerRect.toggle(speed = speed);
+            rectAnnotation.find(".a9s-outer").toggle(speed = speed);
+
+            hiddenBoxes = $(`[id^=preview-]:not([id*='preview-label-'])`).has("i.bi-eye-slash");
         };
         hideButton.click(hide);
 
+        hideButton.on('persistHide', function () {
+            hide(0);
+        });
 
         $(`#delete-${cleanedId}`).click(function () {
             anno.removeAnnotation(annotation.id);
@@ -377,7 +400,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         })
 
         previewLabel.attr("data-toggle", "tooltip")
-        .attr("title", "Click To Annotate");
+            .attr("title", "Click To Annotate");
 
         // Show the previews in the staff annotation overview modal as well.
         try {
@@ -395,6 +418,12 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
     }
 
     checkNoAnnotations();
+
+    // Hide the previously hidden boxes after each re-render
+
+    $(hiddenBoxes).each(function () {
+        $(`#${$(this).attr("id") }`).find(`[id^=hide-]`).trigger("persistHide");
+    });
 
     $(function () {
         $('[data-toggle="tooltip"]').tooltip();

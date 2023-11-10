@@ -14,92 +14,93 @@
 {% block content %}
 <div class="container mt-2 mt-md-3 species-annotation">
     {% if image %}
-    <div style="border: 0px dashed black">
-        <div class="row">
-            <div class="col-12 text-center">
-                {% block instruction_text %}
-                {% endblock instruction_text %}
+    <div class="p-2">
+            <div class="row">
+                 <div class="col-6 text-center border p-3">
+                    <button class="btn" onclick="copyImageID()">
+                        <h4>
+                            <b>
+                                {{ image.upload.camera_station.station_id }} |
+                                {{ image.upload.camera_station.micro_site.macro_site }} |
+                                {{ image.upload.camera_station.micro_site.macro_site.county }}
+                            </b>
+                        </h4>
+                        <i class="bi-clipboard"></i><text style="color: gray; font-size: 12px"><i>&nbsp;&nbsp;Copy Link To Image</i></text>
+                    </button>
+                    <form method="POST">
+                        {% csrf_token %}
+                        {% block menu_buttons %}
+                        {% block category_button %}
+                        {% endblock category_button %}
+                        <button
+                            type="submit"
+                            class="btn btn-primary me-2 btn-sm"
+                            id="skip_annotations"
+                            name="skip_annotations"
+                            value="Skip Image"
+                            disabled
+                        ><i class="bi bi-skip-end"></i>&nbsp;&nbsp;&nbsp;Skip <span class="d-none d-sm-inline">Image</span>&nbsp;
+                        <div id="skip-spinner" class="spinner-border" role="status" style="width: 15px; height: 15px; display: none"></div>
+                        </button>
+                        {% block delete_all_boxes_button %}
+                        {% endblock delete_all_boxes_button %}
+                        <button
+                            type="submit"
+                            class="btn btn-primary btn-sm"
+                            id="save_annotations"
+                            name="save_annotations"
+                            value="Save Annotations"
+                            disabled
+                        ><i class="bi bi-save2"></i>&nbsp;&nbsp;&nbsp;Save <span class="d-none d-sm-inline">Annotations</span>&nbsp;
+                        <div id="save-spinner" class="spinner-border" role="status" style="width: 15px; height: 15px; display: none"></div>
+                        </button>
+                        {% endblock menu_buttons %}
+                    </form>
+                </div>
+                <div class="col-6 text-center border p-3">
+                    {% block instruction_text %}
+                    {% endblock instruction_text %}
+                    {% block category_list %}
+                    {% endblock category_list %}
+                </div>
             </div>
-        </div>
+    </div>
 
-        <div class="row text-center">
-            <form method="POST" style="margin-bottom: 15px">
-                {% csrf_token %}
-                {% block menu_buttons %}
-                {% block category_list %}
-                {% endblock category_list %}
-                <button
-                    type="submit"
-                    class="btn btn-primary me-2"
-                    id="skip_annotations"
-                    name="skip_annotations"
-                    value="Skip Image"
-                    disabled
-                ><i class="bi bi-skip-end"></i>&nbsp;&nbsp;&nbsp;Skip <span class="d-none d-sm-inline">Image</span>&nbsp;
-                <div id="skip-spinner" class="spinner-border" role="status" style="width: 15px; height: 15px; display: none"></div>
-                </button>
-                {% block delete_all_boxes_button %}
-                {% endblock delete_all_boxes_button %}
-                <button
-                    type="submit"
-                    class="btn btn-primary"
-                    id="save_annotations"
-                    name="save_annotations"
-                    value="Save Annotations"
-                    disabled
-                ><i class="bi bi-save2"></i>&nbsp;&nbsp;&nbsp;Save <span class="d-none d-sm-inline">Annotations</span>&nbsp;
-                <div id="save-spinner" class="spinner-border" role="status" style="width: 15px; height: 15px; display: none"></div>
-                </button>
-                {% endblock menu_buttons %}
-            </form>
-        </div>
-        {% block missing_annotations_element %}
-        {% endblock missing_annotations_element %}
+{% block missing_annotations_element %}
+{% endblock missing_annotations_element %}
+<div
+    class="row py-3 justify-content-center d-none"
+    id="status-success"
+>
+    <div class="col-12">
         <div
-            class="row py-3 justify-content-center d-none"
-            id="status-success"
+            class="alert alert-success"
+            role="alert"
         >
-            <div class="col-12">
-                <div
-                    class="alert alert-success"
-                    role="alert"
-                >
-                    <i class="bi bi-check-circle-fill"></i>&nbsp;
-                    <strong>Success!</strong> Your annotations have been saved.<div class="spinner-border" role="status" style="height: 20px; width: 20px"></div>
-                </div>
-            </div>
-        </div>
-        <div
-            class="row py-3 justify-content-center d-none"
-            id="status-failure"
-        >
-            <div class="col-12">
-                <div
-                    class="alert alert-danger text-center"
-                    role="alert"
-                >
-                    {% comment %} TODO: Link to a spreadsheet error form here {% endcomment %}
-                    <i class="bi bi-exclamation-triangle-fill"></i>&nbsp;
-                    <strong>Error!</strong> Your annotations could not be saved. Please refresh page & try again or report a
-                    bug here.
-                </div>
-            </div>
+            <i class="bi bi-check-circle-fill"></i>&nbsp;
+            <strong>Success!</strong> Your annotations have been saved.<div class="spinner-border" role="status" style="height: 20px; width: 20px"></div>
         </div>
     </div>
-<hr>
+</div>
+<div
+    class="row py-3 justify-content-center d-none"
+    id="status-failure"
+>
+    <div class="col-12">
+        <div
+            class="alert alert-danger text-center"
+            role="alert"
+        >
+            {% comment %} TODO: Link to a spreadsheet error form here {% endcomment %}
+            <i class="bi bi-exclamation-triangle-fill"></i>&nbsp;
+            <strong>Error!</strong> Your annotations could not be saved. Please refresh page & try again or report a
+            bug here.
+        </div>
+    </div>
+</div>
 <div class="container-fluid mt-2 mt-md-3">
     <div class="row mt-2 mt-md-4 justify-content-center">
         <div class="col-xl-9 text-center p-2" oncontextmenu="return false;">
-            <button class="btn" onclick="copyImageID()">
-                <h6>
-                    <b>
-                        {{ image.upload.camera_station.station_id }} |
-                        {{ image.upload.camera_station.micro_site.macro_site }} |
-                        {{ image.upload.camera_station.micro_site.macro_site.county }}
-                    </b>
-                </h6>
-                <i class="bi-clipboard"></i><text style="color: gray; font-size: 12px"><i>&nbsp;&nbsp;Copy Link To Image</i></text>
-            </button>
             <img id="{{image.id}}"
                  class="img-fluid m-0 p-0"
                  src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}">

@@ -13,18 +13,20 @@
 
 
 {% block instruction_text %}
-<p>
+<p class="label-toggle">
     {% if activity_category == "human" %}
         What activity/behavior are people in the image engaged in?
     {% else %}
         What activity are the animals in the image exhibiting?
     {% endif %}
+    <p class="fw-bold d-none label-toggle">Click on each box and select the activity. Then, click Save when
+    complete!</p>
 </p>
 {% endblock instruction_text %}
 
 
 {% block category_list %}
-<div class="pb-3 label-toggle">
+<div class="pb-1 label-toggle">
     <select id="activity-list">
         <option
             value=""
@@ -33,21 +35,21 @@
         ></option>
         {% for activity in activity_list%}
         <option value="{{activity}}">{{activity}}</option>
-        {% endfor%}
-        <hr>
+        {% endfor %}
     </select>
 </div>
-<p class="fw-bold d-none label-toggle">Click on each box and select the activity. Then, click Save when
-    complete!</p>
+{% endblock category_list %}
+
+{% block category_button %}
 <span
-    class="btn btn-primary label-toggle"
+    class="btn btn-primary label-toggle me-2 btn-sm"
     id="multiple-activity"
 ><i class="bi bi-journal-plus">&nbsp;&nbsp;&nbsp;</i>Multiple activity?</span>
 <span
-    class="btn btn-primary label-toggle d-none"
+    class="btn btn-primary label-toggle d-none me-2 btn-sm"
     id="single-activity"
 ><i class="bi bi-journal-minus">&nbsp;&nbsp;&nbsp;</i>Single activity?</span>
-{% endblock category_list %}
+{% endblock category_button %}
 
 
 {% block missing_annotations_element %}

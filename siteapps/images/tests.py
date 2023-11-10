@@ -2,13 +2,31 @@ from datetime import datetime
 
 from django.test import Client, TestCase
 from django.urls import reverse
-from images.models import Annotator, BoundingBox, CameraStationAction, Image, Upload
-from images.views import *
+from images.models import (
+    Activity,
+    ActivityType,
+    Annotator,
+    Bot,
+    BoundingBox,
+    CameraStationAction,
+    Category,
+    Image,
+    Species,
+    SpeciesName,
+    Upload,
+)
+from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations, vote
+from images.views.annotation import (
+    annotate,
+    calculateActivityAnnotationFlags,
+    calculateCategoryAnnotationFlags,
+    calculateSpeciesAnnotationFlags,
+)
 from locations.models import Area, CameraStation, County, MacroSite, MicroSite
 from users.models import User
 
 
-def createTestUserObject(name):
+def create_test_user_object(name):
     email = f"{name}@fakewildepodaccount.com"
     password = name
     user = User.objects.create_user(password=password, email=email)
@@ -16,7 +34,7 @@ def createTestUserObject(name):
     return user, email, password
 
 
-def createTestUploadObject(self):
+def create_test_upload_object(self):
     return Upload.objects.create(
         camera_station=CameraStation.objects.get_or_create(
             station_id="test_station",
@@ -44,7 +62,7 @@ def createTestUploadObject(self):
     )
 
 
-def createTestImageObject(test_upload_object):
+def create_test_image_object(test_upload_object):
     return Image.objects.create(
         upload=test_upload_object,
         dropbox_file_name="test_dropbox_file_name",
@@ -56,14 +74,42 @@ def createTestImageObject(test_upload_object):
     )
 
 
-def createTestBoundingBoxObject(test_image_object, test_user_object):
+def create_test_bounding_box_object(test_image_object, test_user_object):
     return BoundingBox.objects.create(image=test_image_object, x=0, y=0, w=0, h=0, created_by=test_user_object)
+
+
+def create_test_bboxes(test_image_object, test_user_object, num_boxes):
+    box_list = []
+
+    while num_boxes > 0:
+        box_list.append(create_test_bounding_box_object(test_image_object, test_user_object))
+        num_boxes -= 1
+
+    return box_list if len(box_list) > 1 else box_list[0]
+
+
+def create_test_category_object(test_bounding_box_object, name, test_annotator_object):
+    return Category.objects.create(
+        bounding_box=test_bounding_box_object,
+        name=name,
+        created_by=test_annotator_object,
+        confidence=1,
+    )
+
+
+def create_test_species_object(test_bounding_box_object, name, test_annotator_object):
+    return Species.objects.create(
+        bounding_box=test_bounding_box_object,
+        name=SpeciesName.objects.get_or_create(name=name),
+        created_by=test_annotator_object,
+        confidence=1,
+    )
 
 
 # Create your tests here.
 class AnnotationPagesTestCase(TestCase):
     def setUp(self):
-        self.user, email, password = createTestUserObject("Justin")
+        self.user, email, password = create_test_user_object("Justin")
         self.client.login(email=email, password=password)
 
     def test_object_page_loads(self):
@@ -87,22 +133,187 @@ class AnnotationPagesTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
 
 
-class AnnotationProcessorTestCase(TestCase):
+class AnnotationFlagsTestCase(TestCase):
     def setUp(self):
-        self.user, email, password = createTestUserObject("Justin")
+        # Create test user and login with it
+        self.user, email, password = create_test_user_object("Justin")
         self.client.login(email=email, password=password)
         self.annotator, created = Annotator.objects.get_or_create(type="human", human=self.user)
-        test_upload_object = createTestUploadObject(self)
 
-        test_image_object = createTestImageObject(test_upload_object)
+        self.other_user, email, password = create_test_user_object("OtherUser")
+        self.other_annotator, created = Annotator.objects.get_or_create(type="human", human=self.other_user)
+
+        bot, created = Bot.objects.get_or_create(name="MegaDetector", version="0.0")
+        self.megadetector_annotator, created = Annotator.objects.get_or_create(type="bot", bot=bot)
+
+        test_upload_object = create_test_upload_object(self)
+
+        test_image_object = create_test_image_object(test_upload_object)
+        test_image_object.processed = True
+        test_image_object.save()
+
         self.test_image = test_image_object
 
-    def test_category_submission(self):
-        boxNum = 5
-        boxList = []
 
-        while boxNum > 0:
-            boxList.append(createTestBoundingBoxObject(self.test_image, self.annotator))
-            boxNum -= 1
+class SingleBoxSingleCategoryTestCase(AnnotationFlagsTestCase):
+    """
+    When a regular user is the first to vote and creates a new category object
+    """
 
-        self.assertEqual(len(boxList), 5)
+    def test_category_creation_regular_user(self):
+        # Check we're using a nonstaff and nonexpert user
+        self.assertFalse(self.user.is_staff)
+        self.assertFalse(self.user.is_expert)
+
+        # Setup objects and check flags
+        bbox1 = create_test_bboxes(test_image_object=self.test_image, test_user_object=self.annotator, num_boxes=1)
+        category1 = create_test_category_object(bbox1, "person", self.annotator)
+
+        debug_info = calculateCategoryAnnotationFlags(self.test_image)
+
+        self.assertFalse(not debug_info["flag_checks"]["or_checks"]["category_has_uncertain"])
+        self.assertFalse(debug_info["flag_checks"]["or_checks"]["has_staff_or_expert_vote"])
+
+        self.assertTrue(debug_info["flag_checks"]["bounding_boxes_gte_zero"])
+        self.assertTrue(debug_info["flag_checks"]["all_bboxes_have_category"])
+
+        self.assertFalse(self.test_image.has_humans)
+        self.assertFalse(self.test_image.has_animals)
+        self.assertFalse(self.test_image.has_vehicles)
+        self.assertFalse(self.test_image.category_pipeline_complete)
+
+    """
+    When a staff user is the first to vote and creates a new category object
+    """
+
+    def test_category_creation_staff_user(self):
+        # Make user staff
+        self.user.is_staff = True
+        self.user.save()
+
+        # Check we're using a staff and nonexpert user
+        self.assertTrue(self.user.is_staff)
+        self.assertFalse(self.user.is_expert)
+
+        # Setup objects and check flags
+        bbox1 = create_test_bboxes(test_image_object=self.test_image, test_user_object=self.annotator, num_boxes=1)
+        category1 = create_test_category_object(bbox1, "animal", self.annotator)
+
+        debug_info = calculateCategoryAnnotationFlags(self.test_image)
+
+        self.assertFalse(not debug_info["flag_checks"]["or_checks"]["category_has_uncertain"])
+        self.assertTrue(debug_info["flag_checks"]["or_checks"]["has_staff_or_expert_vote"])
+
+        self.assertTrue(debug_info["flag_checks"]["bounding_boxes_gte_zero"])
+        self.assertTrue(debug_info["flag_checks"]["all_bboxes_have_category"])
+
+        self.assertFalse(self.test_image.has_humans)
+        self.assertTrue(self.test_image.has_animals)
+        self.assertFalse(self.test_image.has_vehicles)
+        self.assertTrue(self.test_image.category_pipeline_complete)
+
+    """
+    When an expert user is the first to vote and creates a new category object
+    """
+
+    def test_category_creation_expert_user(self):
+        # Make user expert
+        self.user.is_expert = True
+        self.user.save()
+
+        # Check we're using a nonstaff and expert user
+        self.assertFalse(self.user.is_staff)
+        self.assertTrue(self.user.is_expert)
+
+        # Setup objects and check flags
+        bbox1 = create_test_bboxes(test_image_object=self.test_image, test_user_object=self.annotator, num_boxes=1)
+        category1 = create_test_category_object(bbox1, "vehicle", self.annotator)
+
+        debug_info = calculateCategoryAnnotationFlags(self.test_image)
+
+        self.assertFalse(not debug_info["flag_checks"]["or_checks"]["category_has_uncertain"])
+        self.assertTrue(debug_info["flag_checks"]["or_checks"]["has_staff_or_expert_vote"])
+
+        self.assertTrue(debug_info["flag_checks"]["bounding_boxes_gte_zero"])
+        self.assertTrue(debug_info["flag_checks"]["all_bboxes_have_category"])
+
+        self.assertFalse(self.test_image.has_humans)
+        self.assertFalse(self.test_image.has_animals)
+        self.assertTrue(self.test_image.has_vehicles)
+        self.assertTrue(self.test_image.category_pipeline_complete)
+
+    """
+    When a regular user accepts a created category by another regular annotator
+    """
+
+    def test_category_acception_regular_user(self):
+        # Check we're using a nonstaff and nonexpert user
+        self.assertFalse(self.user.is_staff)
+        self.assertFalse(self.user.is_expert)
+
+        # Check the other user is the same
+        self.assertFalse(self.other_user.is_staff)
+        self.assertFalse(self.other_user.is_expert)
+
+        # Setup objects
+        bbox1 = create_test_bboxes(
+            test_image_object=self.test_image, test_user_object=self.other_annotator, num_boxes=1
+        )
+        category1 = create_test_category_object(bbox1, "vehicle", self.other_annotator)
+
+        # Check that the category was created successfully
+        self.assertEquals(category1.created_by, self.other_annotator)
+
+        # Make the vote
+        vote(category1, self.annotator, accept=True)
+        vote(bbox1, self.annotator, accept=True)
+
+        # Check flags
+        debug_info = calculateCategoryAnnotationFlags(self.test_image)
+
+        self.assertTrue(not debug_info["flag_checks"]["or_checks"]["category_has_uncertain"])
+        self.assertFalse(debug_info["flag_checks"]["or_checks"]["has_staff_or_expert_vote"])
+
+        self.assertTrue(debug_info["flag_checks"]["bounding_boxes_gte_zero"])
+        self.assertTrue(debug_info["flag_checks"]["all_bboxes_have_category"])
+
+        self.assertFalse(self.test_image.has_humans)
+        self.assertFalse(self.test_image.has_animals)
+        self.assertTrue(self.test_image.has_vehicles)
+        self.assertTrue(self.test_image.category_pipeline_complete)
+
+    """
+    When a regular user accepts a MegaDetector annotation
+    """
+
+    def test_megadetector_category_acception_regular_user(self):
+        # Check we're using a nonstaff and nonexpert user
+        self.assertFalse(self.user.is_staff)
+        self.assertFalse(self.user.is_expert)
+
+        # Check that the category creator is a bot
+        self.assertEquals(self.megadetector_annotator.type, "bot")
+
+        # Setup objects
+        bbox1 = create_test_bboxes(
+            test_image_object=self.test_image, test_user_object=self.megadetector_annotator, num_boxes=1
+        )
+        category1 = create_test_category_object(bbox1, "person", self.megadetector_annotator)
+
+        # Make the vote
+        vote(category1, self.annotator, accept=True)
+        vote(bbox1, self.annotator, accept=True)
+
+        # Check flags
+        debug_info = calculateCategoryAnnotationFlags(self.test_image)
+
+        self.assertFalse(not debug_info["flag_checks"]["or_checks"]["category_has_uncertain"])
+        self.assertFalse(debug_info["flag_checks"]["or_checks"]["has_staff_or_expert_vote"])
+
+        self.assertTrue(debug_info["flag_checks"]["bounding_boxes_gte_zero"])
+        self.assertTrue(debug_info["flag_checks"]["all_bboxes_have_category"])
+
+        self.assertFalse(self.test_image.has_humans)
+        self.assertFalse(self.test_image.has_animals)
+        self.assertFalse(self.test_image.has_vehicles)
+        self.assertFalse(self.test_image.category_pipeline_complete)

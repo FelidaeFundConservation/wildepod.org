@@ -13,9 +13,11 @@
 
 
 {% block instruction_text %}
-<p>
+<p class="label-toggle">
     What species does the image have?
 </p>
+<p class="fw-bold d-none label-toggle">Click on each box and select the species. Then, click Save when
+    complete!</p>
 {% endblock instruction_text %}
 
 
@@ -38,7 +40,7 @@
 
 
 {% block category_list %}
-<div class="pb-3 label-toggle">
+<div class="pb-1 label-toggle">
     <select id="species-list">
         <option
             value=""
@@ -47,21 +49,21 @@
         ></option>
         {% for species in species_list %}
         <option value="{{species}}">{{species}}</option>
-        {% endfor%}
-        <hr>
+        {% endfor %}
     </select>
 </div>
-<p class="fw-bold d-none label-toggle">Click on each box and select the species. Then, click Save when
-    complete!</p>
+{% endblock category_list %}
+
+{% block category_button %}
 <span
-    class="btn btn-primary label-toggle me-2"
+    class="btn btn-primary label-toggle me-2 btn-sm"
     id="multiple-species"
 ><i class="bi bi-journal-plus">&nbsp;&nbsp;&nbsp;</i>Multiple species?</span>
 <span
-    class="btn btn-primary label-toggle d-none me-2"
+    class="btn btn-primary label-toggle d-none me-2 btn-sm"
     id="single-species"
 ><i class="bi bi-journal-minus">&nbsp;&nbsp;&nbsp;</i>Single species?</span>
-{% endblock category_list %}
+{% endblock category_button %}
 
 
 {% comment %}<script>{% endcomment %}

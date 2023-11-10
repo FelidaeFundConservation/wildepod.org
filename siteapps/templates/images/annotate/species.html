@@ -237,9 +237,14 @@
     // Show the single species annotation on all annotation previews.
     $('#species-list').on('change', function () {
         const selectedOption = $('#species-list').val();
-        annotationTexts = $("[id^='annotation-text-']");
-        annotationTexts.html(`<strong>${selectedOption}</strong>`);
-        annotationTexts.css("backgroundColor", "transparent");
+        annotations = anno.getAnnotations();
+
+        for (annotation of annotations) {
+            annotation.body[0].value = selectedOption;
+        }
+
+        anno.setAnnotations(annotations);
+        renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno);
     });
 
 

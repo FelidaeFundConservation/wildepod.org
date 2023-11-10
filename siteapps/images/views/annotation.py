@@ -22,7 +22,7 @@ from django.db.models import (
     Value,
     When,
 )
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, math
 from django.http.response import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -205,15 +205,12 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
 
 def get_next_queue_image(self, context, queue):
     # Exists if user is returning to a previous image
-    return_to_image_id = self.request.session.get("return_to_image_id")
+    return_to_image_id = self.request.session.pop("return_to_image_id", None)
     context["is_reannotation"] = return_to_image_id is not None
-
-    # Clear the return image id
-    self.request.session["return_to_image_id"] = None
 
     # If not returning to prev. image,
     # get the next image_id from the existing queue
-    return return_to_image_id if return_to_image_id else queue["images"][queue["index"]]
+    return return_to_image_id if return_to_image_id else queue["images"][queue["index"]], return_to_image_id
 
 
 # Skip images completed by other annotators since the queue was built
@@ -241,6 +238,42 @@ def skip_completed_images(queue_name, queue):
     return image
 
 
+def get_annotation_history(context, queue, queue_name, annotator):
+    HISTORY_LENGTH = 10
+
+    context["previous_queue_images"] = Image.objects.filter(
+        id__in=queue["images"][max(0, queue["index"] - HISTORY_LENGTH) : queue["index"]]
+    )
+    context["previous_annotations"] = []
+
+    for image in context["previous_queue_images"]:
+        if OBJECTS_QUEUE_NAME in queue_name:
+            previous_annotations = Category.objects.filter(
+                Q(created_by=annotator) | Q(accepted_by__in=[annotator]), bounding_box__image=image
+            ).values("name")
+        elif SPECIES_QUEUE_NAME in queue_name:
+            previous_annotations = Species.objects.filter(
+                Q(created_by=annotator) | Q(accepted_by__in=[annotator]), bounding_box__image=image
+            ).values("name__name")
+        elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
+            previous_annotations = Activity.objects.filter(
+                Q(created_by=annotator) | Q(accepted_by__in=[annotator]), bounding_box__image=image
+            ).values("name")
+        else:
+            pass
+
+        if previous_annotations.count() == 0:
+            context["previous_annotations"].append("None")
+        else:
+            context["previous_annotations"].append(
+                ", ".join(anno for anno in set(list(annotation.values())[0] for annotation in previous_annotations))
+            )
+
+    context["previous_annotation_info"] = zip(
+        reversed(context["previous_queue_images"]), reversed(context["previous_annotations"])
+    )
+
+
 # Retrieves data to pass to the views through context (namely queue images and annotations info).
 def populate_view_context(queue_name, context, self, activity_category=None):
     # First get the annotator object for the user
@@ -265,7 +298,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
     return_to_image_id = None
 
     if queue_available:
-        image_id = get_next_queue_image(self=self, context=context, queue=queue)
+        image_id, return_to_image_id = get_next_queue_image(self=self, context=context, queue=queue)
     else:
         # Serve the first image
         queue, image_id = gather_queue_images(
@@ -300,6 +333,9 @@ def populate_view_context(queue_name, context, self, activity_category=None):
     context["activity_list"] = ActivityType.objects.filter(category=activity_category)
     context["custom_annotations"] = custom_annotations
 
+    # Get previously annotated images and their information
+    get_annotation_history(context, queue, queue_name, annotator)
+
     # Gather surrounding context images
     get_context_images(queue=queue, context=context)
 
@@ -319,16 +355,21 @@ def get_valid_or_uncertain_bboxes(image):
 
 
 def get_context_images(queue, context):
-    LOWER_CONTEXT_AMOUNT = 5
-    UPPER_CONTEXT_AMOUNT = 25
+    CONTEXT_AMOUNT = 20
 
-    lowerIndex = queue["index"] - LOWER_CONTEXT_AMOUNT
-    upperIndex = queue["index"] + UPPER_CONTEXT_AMOUNT
-
-    lowerIndex = 0 if (lowerIndex < 0) else lowerIndex
-    upperIndex = len(queue["images"]) if (upperIndex > len(queue["images"])) else upperIndex
-
-    context["context_images"] = list(Image.objects.filter(id__in=queue["images"][lowerIndex:upperIndex]))
+    context["context_images"] = list(
+        Image.objects.filter(
+            upload__camera_station=context["image"].upload.camera_station,
+            trigger_timestamp__lt=context["image"].trigger_timestamp,
+            trigger_timestamp__gt=context["image"].trigger_timestamp - datetime.timedelta(hours=1),
+        )[:CONTEXT_AMOUNT]
+    ) + list(
+        Image.objects.filter(
+            upload__camera_station=context["image"].upload.camera_station,
+            trigger_timestamp__gte=context["image"].trigger_timestamp,
+            trigger_timestamp__lt=context["image"].trigger_timestamp + datetime.timedelta(hours=1),
+        )[:CONTEXT_AMOUNT]
+    )
 
 
 def get_all_annotations(image, context):

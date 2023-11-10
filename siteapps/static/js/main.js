@@ -313,7 +313,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         hideButton = $(`#hide-${cleanedId}`);
 
         // Handle visual changes for hiding bboxes
-        const hide = function () {
+        const hide = function (speed=300) {
             const footer = preview.find(".card-footer");
             const eyeIcon = preview.find(".bi");
 
@@ -325,12 +325,17 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
                 footer.html(`${footer.html().replace("<i>", "").replace(" (Hidden)", "").replace("</i>", "")}`);
                 eyeIcon.removeClass("bi-eye-slash").addClass("bi-eye");
             }
-            innerRect.toggle(speed=0);
-            rectAnnotation.find(".a9s-outer").toggle(speed=0);
+            innerRect.toggle(speed = speed);
+            rectAnnotation.find(".a9s-outer").toggle(speed = speed);
 
             hiddenBoxes = $(`[id^=preview-]:not([id*='preview-label-'])`).has("i.bi-eye-slash");
         };
         hideButton.click(hide);
+
+        hideButton.on('persistHide', function () {
+            hide(0);
+        });
+
 
         $(`#delete-${cleanedId}`).click(function () {
             anno.removeAnnotation(annotation.id);
@@ -398,8 +403,9 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
     checkNoAnnotations();
 
     // Hide the previously hidden boxes after each re-render
+
     $(hiddenBoxes).each(function () {
-        $(`#${$(this).attr("id") }`).find(`[id^=hide-]`).trigger("click");
+        $(`#${$(this).attr("id") }`).find(`[id^=hide-]`).trigger("persistHide");
     });
 
     $(function () {

@@ -14,20 +14,22 @@
 {% block content %}
 <div class="container mt-2 mt-md-3 species-annotation">
     {% if image %}
-    <div class="p-2">
+    <div>
             <div class="row">
-                 <div class="col-6 text-center border p-3">
+                 <div class="col-6 text-center border">
                     <button class="btn" onclick="copyImageID()">
-                        <h4>
-                            <b>
-                                {{ image.upload.camera_station.station_id }} |
-                                {{ image.upload.camera_station.micro_site.macro_site }} |
-                                {{ image.upload.camera_station.micro_site.macro_site.county }}
-                            </b>
-                        </h4>
-                        <i class="bi-clipboard"></i><text style="color: gray; font-size: 12px"><i>&nbsp;&nbsp;Copy Link To Image</i></text>
+                        <h1 class="display-6">
+                            <small><small>
+                                <i class="bi-clipboard"></i>&nbsp;&nbsp;
+                                <b>
+                                    {{ image.upload.camera_station.station_id }} |
+                                    {{ image.upload.camera_station.micro_site.macro_site }} |
+                                    {{ image.upload.camera_station.micro_site.macro_site.county }}
+                                </b>
+                            </small></small>
+                        </h1>
                     </button>
-                    <form method="POST">
+                    <form method="POST" class="mb-3">
                         {% csrf_token %}
                         {% block menu_buttons %}
                         {% block category_button %}

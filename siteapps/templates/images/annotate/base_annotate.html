@@ -481,11 +481,7 @@
             {% endfor %}
         ];
 
-        let anno = null;
-
-        window.getAnno = function () {
-            return anno;
-        }
+        window.hiddenBoxes = [];
 
         // Set up annotations, rendering and submit hooks after the window has fully loaded
         window.addEventListener('load', function () {
@@ -513,7 +509,7 @@
 
             // Render bounding boxes
             renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
-            anno.on("createAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
+            anno.on("createAnnotation", function () { renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
             anno.on("deleteAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
             anno.on("updateAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
             anno.on('cancelSelected', function(selection) { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno) });

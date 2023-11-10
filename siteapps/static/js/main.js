@@ -325,11 +325,12 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
                 footer.html(`${footer.html().replace("<i>", "").replace(" (Hidden)", "").replace("</i>", "")}`);
                 eyeIcon.removeClass("bi-eye-slash").addClass("bi-eye");
             }
-            innerRect.toggle(speed = 100);
-            rectAnnotation.find(".a9s-outer").toggle(speed = 100);
+            innerRect.toggle(speed=0);
+            rectAnnotation.find(".a9s-outer").toggle(speed=0);
+
+            hiddenBoxes = $(`[id^=preview-]:not([id*='preview-label-'])`).has("i.bi-eye-slash");
         };
         hideButton.click(hide);
-
 
         $(`#delete-${cleanedId}`).click(function () {
             anno.removeAnnotation(annotation.id);
@@ -377,7 +378,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         })
 
         previewLabel.attr("data-toggle", "tooltip")
-        .attr("title", "Click To Annotate");
+            .attr("title", "Click To Annotate");
 
         // Show the previews in the staff annotation overview modal as well.
         try {
@@ -395,6 +396,11 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
     }
 
     checkNoAnnotations();
+
+    // Hide the previously hidden boxes after each re-render
+    $(hiddenBoxes).each(function () {
+        $(`#${$(this).attr("id") }`).find(`[id^=hide-]`).trigger("click");
+    });
 
     $(function () {
         $('[data-toggle="tooltip"]').tooltip();

@@ -13,15 +13,15 @@
 
 
 {% block instruction_text %}
-<p class="label-toggle">
+<p class="label-toggle lead">
     {% if activity_category == "human" %}
         What activity/behavior are people in the image engaged in?
     {% else %}
         What activity are the animals in the image exhibiting?
     {% endif %}
-    <p class="fw-bold d-none label-toggle">Click on each box and select the activity. Then, click Save when
-    complete!</p>
 </p>
+<p class="d-none label-toggle fw-bold">Click on each box and select the activity. Then, click Save when
+complete!</p>
 {% endblock instruction_text %}
 
 

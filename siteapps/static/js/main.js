@@ -328,7 +328,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         hideButton = $(`#hide-${cleanedId}`);
 
         // Handle visual changes for hiding bboxes
-        const hide = function () {
+        const hide = function (speed=300) {
             const footer = preview.find(".card-footer");
             const eyeIcon = preview.find(".bi");
 
@@ -343,10 +343,16 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
                 eyeIcon.removeClass("bi-eye-slash").addClass("bi-eye");
                 innerRect.addClass("preSubmitTooltip")
             }
-            innerRect.toggle(speed = 100);
-            rectAnnotation.find(".a9s-outer").toggle(speed = 100);
+            innerRect.toggle(speed = speed);
+            rectAnnotation.find(".a9s-outer").toggle(speed = speed);
+
+            hiddenBoxes = $(`[id^=preview-]:not([id*='preview-label-'])`).has("i.bi-eye-slash");
         };
         hideButton.click(hide);
+
+        hideButton.on('persistHide', function () {
+            hide(0);
+        });
 
         $(`#delete-${cleanedId}`).click(function () {
             anno.removeAnnotation(annotation.id);
@@ -394,7 +400,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         })
 
         previewLabel.attr("data-toggle", "tooltip")
-        .attr("title", "Click To Annotate");
+            .attr("title", "Click To Annotate");
 
         // Show the previews in the staff annotation overview modal as well.
         try {
@@ -412,6 +418,12 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
     }
 
     checkNoAnnotations();
+
+    // Hide the previously hidden boxes after each re-render
+
+    $(hiddenBoxes).each(function () {
+        $(`#${$(this).attr("id") }`).find(`[id^=hide-]`).trigger("persistHide");
+    });
 
     $(function () {
         $('[data-toggle="tooltip"]').tooltip();

@@ -191,7 +191,6 @@ function renderBoundingBoxes(imageElementID, annotations, widgets, config) {
 // Function to consume an annoatation object, a container element and
 // create a list of preview images from the original image
 function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
-
     let imageElement = document.getElementById(imageElementID);
     let previewContainer = document.getElementById(previewContainerID);
 
@@ -203,6 +202,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
 
     $(function () {
         $('[data-toggle="tooltip"]').tooltip('dispose');
+        $(`.tooltip`).remove();
     })
 
     function checkNoAnnotations() {
@@ -269,12 +269,10 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
 
         $(`#save_annotations`).hover(
             function () {
-                $('.preSubmitTooltip').tooltip('enable');
                 $('.preSubmitTooltip').tooltip('show');
             },
             function () {
                 $('.preSubmitTooltip').tooltip('hide');
-                $('.preSubmitTooltip').tooltip('disable');
             }
         )
 
@@ -303,8 +301,9 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
                         preview.remove();
                         checkNoAnnotations();
 
-                        appendToast(cleanedId, "delete", `<kbd><i class="bi bi-trash"></i>&nbsp;BACKSPACE</kbd>&nbsp;&nbsp;Deleted box '${annotationText}.'</i>`)
+                        $(`.tooltip`).remove();
 
+                        appendToast(cleanedId, "delete", `<kbd><i class="bi bi-trash"></i>&nbsp;BACKSPACE</kbd>&nbsp;&nbsp;Deleted box '${annotationText}.'</i>`)
                         $(document).unbind("keydown");
                     }
                 });
@@ -413,6 +412,5 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
 
     $(function () {
         $('[data-toggle="tooltip"]').tooltip();
-        $('.preSubmitTooltip').tooltip('disable');
     })
 }

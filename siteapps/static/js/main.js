@@ -208,7 +208,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
 
     function checkNoAnnotations() {
         if ($("[id^='preview-']").length == 0) {
-            previewContainer.innerHTML = `<h1 class="display-5"><i class="bi bi-bounding-box-circles"></i>&nbsp;&nbsp;<i>(No annotations found on image.)</i></text><br>`;
+            previewContainer.innerHTML = `<h1 class="display-6"><i class="bi bi-bounding-box-circles"></i>&nbsp;&nbsp;<small><i>(No annotations found on image.)</i></small></text><br>`;
         }
     }
 
@@ -249,7 +249,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
             <div class="card-body m-0 fw-bold">
                 <button id="hide-${cleanedId}" class="border-0 bg-transparent"><i class="bi bi-eye"></i></button>
                 <button id="delete-${cleanedId}" class="border-0 bg-transparent"><i class="bi bi-trash text-danger"></i></button>
-                <span ${highlight}" id="preview-label-${cleanedId}"> ${annotationText}${confidence}</span>
+                <span ${highlight} id="preview-label-${cleanedId}"> ${annotationText}${confidence}</span>
             </div>
         </div>`
 
@@ -257,6 +257,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
 
         const preview = $(`#preview-${cleanedId}`);
         const rectAnnotation = $(`[data-id='${annotation.id}']`);
+
         let innerRect = rectAnnotation.find(".a9s-inner");
         innerRect.addClass(`${boxColor}`);
         // Show tooltips on submit button hover
@@ -272,6 +273,8 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
                 $('.preSubmitTooltip').tooltip('hide');
             }
         )
+
+        timeout = null;
 
         // Highlighting the preview on hover
         preview.hover(
@@ -321,29 +324,27 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
             }
         })
 
-        hideButton = $(`#hide-${cleanedId}`);
 
         // Handle visual changes for hiding bboxes
-        const hide = function (speed=300) {
-            const footer = preview.find(".card-header");
+        const hide = function (speed = 300) {
             const eyeIcon = preview.find(".bi");
             if (!innerRect.hasClass('box-hidden')) {
-                footer.html(`<i>${footer.html()} (Hidden)</i>`);
                 eyeIcon.removeClass("bi-eye").addClass("bi-eye-slash");
                 innerRect.removeClass("preSubmitTooltip")
                 innerRect.addClass('box-hidden');
-                preview.addClass('persist-hide');
+                hiddenBoxes.add(cleanedId);
             }
             else {
-                footer.html(`${footer.html().replace("<i>", "").replace(" (Hidden)", "").replace("</i>", "")}`);
                 eyeIcon.removeClass("bi-eye-slash").addClass("bi-eye");
                 innerRect.addClass("preSubmitTooltip")
                 innerRect.removeClass('box-hidden');
-                preview.removeClass('persist-hide');
+                hiddenBoxes.delete(cleanedId);
             }
             innerRect.toggle(speed = speed);
             rectAnnotation.find(".a9s-outer").toggle(speed = speed);
         };
+
+        hideButton = $(`#hide-${cleanedId}`);
         hideButton.click(hide);
 
         hideButton.on('persistHide', function () {
@@ -357,7 +358,6 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
             checkNoAnnotations();
         });
 
-        let col = document.getElementById(`preview-${cleanedId}`);
         // Get the bounding box for the annotation
         let x, y, w, h;
         [x, y, w, h] = annotation.target.selector.value.split(':')[1].split(',').map(function (x) { return parseFloat(x).toFixed(5) });
@@ -386,7 +386,6 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         }
 
         context.drawImage(imageElement, x, y, w, h, dx, dy, dw, dh);
-        //col.querySelector(".card-body").appendChild(canvas);
 
         // Open the annotation widget when the label is clicked
         previewLabel = $(`#preview-label-${cleanedId}`);
@@ -416,10 +415,9 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
     checkNoAnnotations();
 
     // Hide the previously hidden boxes after each re-render
-
-    $(hiddenBoxes).each(function () {
-        $(`#${$(this).attr("id") }`).find(`[id=hide-]`).trigger("persistHide");
-    });
+    for (hiddenBoxId of hiddenBoxes) {
+        $(`#hide-${hiddenBoxId}`).trigger("persistHide");
+    }
 
     $(function () {
         $('[data-toggle="tooltip"]').tooltip();

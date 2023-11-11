@@ -2,8 +2,45 @@
 
 /* ------------ Annotations ------------ */
 svg.a9s-annotationlayer .a9s-inner {
-    stroke-width: 2px;
+    outline-width: 8px;
+    outline-style: groove
 }
+
+svg.a9s-annotationlayer .a9s-inner:hover {
+    outline-color: yellow !important;
+}
+
+svg.a9s-annotationlayer .a9s-inner.red {
+    outline-color: red;
+}
+
+svg.a9s-annotationlayer .a9s-inner.orange {
+    outline-color: orange;
+}
+
+svg.a9s-annotationlayer .a9s-inner.lightgreen {
+    outline-color: lightgreen;
+}
+
+svg.a9s-annotationlayer .a9s-inner.lightsteelblue {
+    outline-color: lightsteelblue;
+}
+
+svg.a9s-annotationlayer .a9s-inner.cyan {
+    outline-color: cyan;
+}
+
+svg.a9s-annotationlayer .a9s-inner.mediumpurple {
+    outline-color: mediumpurple;
+}
+
+svg.a9s-annotationlayer .a9s-inner.pink {
+    outline-color: pink;
+}
+
+
+
+
 
 .species-annotation {
     .r6o-editor {
@@ -24,4 +61,3 @@ svg.a9s-annotationlayer .a9s-inner {
 .context-image:hover {
     transform: scale(1.05)
 }
-

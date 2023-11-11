@@ -16,7 +16,7 @@
 <p class="label-toggle lead">
     What species does the image have?
 </p>
-<p class=" d-none label-toggle lead"><b>Click on each box and select the species. Then, click Save when
+<p class="d-none label-toggle lead"><b>Click on each box and select the species. Then, click Save when
     complete!</b></p>
 {% endblock instruction_text %}
 
@@ -56,13 +56,15 @@
 
 {% block category_button %}
 <span
-    class="btn btn-primary label-toggle me-2 btn-sm"
+    class="btn btn-primary label-toggle"
     id="multiple-species"
-><i class="bi bi-journal-plus">&nbsp;&nbsp;&nbsp;</i>Multiple species?</span>
+    style="width: 33%"
+><i class="bi bi-journal-plus"></i>&nbsp;&nbsp;&nbsp;Multiple</span>
 <span
-    class="btn btn-primary label-toggle d-none me-2 btn-sm"
+    class="btn btn-primary label-toggle d-none"
     id="single-species"
-><i class="bi bi-journal-minus">&nbsp;&nbsp;&nbsp;</i>Single species?</span>
+    style="width: 33%"
+><i class="bi bi-journal-minus"></i>&nbsp;&nbsp;&nbsp;Single</span>
 {% endblock category_button %}
 
 

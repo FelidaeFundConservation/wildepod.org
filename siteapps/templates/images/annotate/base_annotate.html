@@ -16,249 +16,187 @@
     {% if image %}
 
 <div class="container-fluid mt-2 mt-md-3">
-    <nav>
-        <div class="nav nav-tabs" id="nav-tab" role="tablist">
-            <a class="nav-link active" id="nav-annotate-tab" data-bs-toggle="tab" href="#nav-annotate" role="tab" aria-controls="nav-annotate" aria-selected="true">Image</a>
-            <a class="nav-link" id="nav-context-images-tab" data-bs-toggle="tab" href="#nav-context-images" role="tab" aria-controls="nav-context-images" aria-selected="false">Context Images</a>
-            <a class="nav-link" id="nav-history-tab" data-bs-toggle="tab" href="#nav-history" role="tab" aria-controls="nav-history" aria-selected="false">History</a>
-        </div>
+    <div class="row">
+        <nav>
+            <div class="nav nav-tabs" id="nav-tab" role="tablist">
+                <a class="nav-link active" id="nav-annotate-tab" data-bs-toggle="tab" href="#nav-annotate" role="tab" aria-controls="nav-annotate" aria-selected="true"><text class="small">Annotations</text></a>
+                <a class="nav-link" id="nav-image-tab" data-bs-toggle="tab" href="#nav-image" role="tab" aria-controls="nav-image" aria-selected="false"><text class="small">Image</text></a>
+                <a class="nav-link" id="nav-annotation-preview-tab" data-bs-toggle="tab" href="#nav-annotation-preview" role="tab" aria-controls="nav-annotation-preview" aria-selected="false"><text class="small">Preview</text></a>
+                <a class="nav-link" id="nav-context-images-tab" data-bs-toggle="tab" href="#nav-context-images" role="tab" aria-controls="nav-context-images" aria-selected="false"><text class="small">Context Images</text></a>
+                <a class="nav-link" id="nav-history-tab" data-bs-toggle="tab" href="#nav-history" role="tab" aria-controls="nav-history" aria-selected="false"><text class="small">History</text></a>
+                <a class="nav-link" id="nav-shortcuts-tab" data-bs-toggle="tab" href="#nav-shortcuts" role="tab" aria-controls="nav-shortcuts" aria-selected="false"><text class="small">Keyboard Shortcuts</text></a>
+            </div>
+            <div class="tab-content" id="nav-tabContent">
 
-        <div class="tab-content" id="nav-tabContent">
-            <div class="tab-pane fade show active p-3" id="nav-annotate" role="tabpanel" aria-labelledby="nav-annotate-tab">
-                <div>
-                    <div class="row">
-                         <div class="col-6 text-center border">
-                            <button class="btn" onclick="copyImageID()">
-                                <h1 class="display-6">
-                                    <small><small>
-                                        <i class="bi-clipboard"></i>&nbsp;&nbsp;
-                                        <b>
-                                            {{ image.upload.camera_station.station_id }} |
-                                            {{ image.upload.camera_station.micro_site.macro_site }} |
-                                            {{ image.upload.camera_station.micro_site.macro_site.county }}
-                                        </b>
-                                    </small></small>
-                                </h1>
-                            </button>
-                            <form method="POST" class="mb-3">
-                                {% csrf_token %}
-                                {% block menu_buttons %}
-                                {% block category_button %}
-                                {% endblock category_button %}
-                                <button
-                                    type="submit"
-                                    class="btn btn-primary me-2 btn-sm"
-                                    id="skip_annotations"
-                                    name="skip_annotations"
-                                    value="Skip Image"
-                                    disabled
-                                ><i class="bi bi-skip-end"></i>&nbsp;&nbsp;&nbsp;Skip <span class="d-none d-sm-inline">Image</span>&nbsp;
-                                <div id="skip-spinner" class="spinner-border" role="status" style="width: 15px; height: 15px; display: none"></div>
-                                </button>
-                                {% block delete_all_boxes_button %}
-                                {% endblock delete_all_boxes_button %}
-                                <button
-                                    type="submit"
-                                    class="btn btn-primary btn-sm"
-                                    id="save_annotations"
-                                    name="save_annotations"
-                                    value="Save Annotations"
-                                    disabled
-                                ><i class="bi bi-save2"></i>&nbsp;&nbsp;&nbsp;Save <span class="d-none d-sm-inline">Annotations</span>&nbsp;
-                                <div id="save-spinner" class="spinner-border" role="status" style="width: 15px; height: 15px; display: none"></div>
-                                </button>
-                                {% endblock menu_buttons %}
-                            </form>
-                        </div>
-                        <div class="col-6 text-center border p-3">
-                            {% block instruction_text %}
-                            {% endblock instruction_text %}
-                            {% block category_list %}
-                            {% endblock category_list %}
-                        </div>
-                    </div>
-                </div>
-
-                {% block missing_annotations_element %}
-                {% endblock missing_annotations_element %}
-                <div
-                    class="row py-3 justify-content-center d-none"
-                    id="status-success"
-                >
-                    <div class="col-12">
-                        <div
-                            class="alert alert-success"
-                            role="alert"
+            <div class="tab-pane fade mt-3" id="nav-context-images" role="tabpanel" aria-labelledby="nav-context-images-tab">
+                 <div class="card d-flex w-100">
+                    <div>
+                        <div id="context-image-container"
+                                style="display: block; height: max-content; white-space: nowrap; margin: 20px; overflow: scroll; overflow-y: visible;"
                         >
-                            <i class="bi bi-check-circle-fill"></i>&nbsp;
-                            <strong>Success!</strong> Your annotations have been saved.<div class="spinner-border" role="status" style="height: 20px; width: 20px"></div>
+                            {% for context_image in context_images %}
+                            <img
+                                class="img-fluid rounded context-image"
+                                src="{% get_media_prefix %}{{ context_image.thumbnail_gcloud_path }}"
+                                style="margin-top: 5px; margin-bottom: 5px;{% if context_image.thumbnail_gcloud_path == image.thumbnail_gcloud_path %}border: 5px solid yellow{% endif %}"
+                                onmouseover="displayContextImage(this)" onmouseout="revertContextImage()"
+                            >
+                            {% endfor %}
                         </div>
-                    </div>
-                </div>
-                <div
-                    class="row py-3 justify-content-center d-none"
-                    id="status-failure"
-                >
-                    <div class="col-12">
-                        <div
-                            class="alert alert-danger text-center"
-                            role="alert"
-                        >
-                            {% comment %} TODO: Link to a spreadsheet error form here {% endcomment %}
-                            <i class="bi bi-exclamation-triangle-fill"></i>&nbsp;
-                            <strong>Error!</strong> Your annotations could not be saved. Please refresh page & try again or report a
-                            bug here.
-                        </div>
-                    </div>
-                </div>
-        </div>
-        <div class="tab-pane fade mt-3" id="nav-context-images" role="tabpanel" aria-labelledby="nav-context-images-tab">
-             <div class="card d-flex w-100">
-                <div>
-                    <div id="context-image-container"
-                            style="display: block; height: max-content; white-space: nowrap; margin: 20px; overflow: scroll; overflow-y: visible;"
-                    >
-                        {% for context_image in context_images %}
-                        <img
-                            class="img-fluid rounded context-image"
-                            src="{% get_media_prefix %}{{ context_image.thumbnail_gcloud_path }}"
-                            style="margin-top: 5px; margin-bottom: 5px;{% if context_image.thumbnail_gcloud_path == image.thumbnail_gcloud_path %}border: 5px solid yellow{% endif %}"
-                            onmouseover="displayContextImage(this)" onmouseout="revertContextImage()"
-                        >
-                        {% endfor %}
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="tab-pane fade mt-3" id="nav-history" role="tabpanel" aria-labelledby="nav-history-tab">
-            <p class="lead">If you've made a mistake, click on a previous image to reannotate.</p>
-            {% if previous_queue_images|length == 0 %}
-            <div class="border">
-            <i>(No annotation history yet.)</i></div>
-            {% endif %}
-            <div class="d-flex">
-                {% for queue_image, annotations in previous_annotation_info %}
-                <div class="card border m-2 p-2" style="width: 25%">
-                    <img class="img-fluid m-0 p-0"
-                            src="{% get_media_prefix %}{{queue_image.thumbnail_gcloud_path}}"
-                            onclick="promptReturnToPreviousImage(`{{ queue_image.id }}`);"
-                    >
-                    <small>Your Annotation(s): {{ annotations }}</small>
-                </div>
-                {% endfor %}
-            </div>
-            <hr>
-        </div>
-        </div>
-    </nav>
-    <div class="row justify-content-center p-2">
-                    <div class="col-xl-8 text-center p-2" oncontextmenu="return false;">
-                        <img id="{{image.id}}"
-                                class="img-fluid m-0 p-0"
-                                src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}">
-                        {% block image_page_save_button %}
-                        {% endblock image_page_save_button %}
+            <div class="tab-pane fade mt-3" id="nav-history" role="tabpanel" aria-labelledby="nav-history-tab">
+                <p class="lead">If you've made a mistake, click on a previous image to reannotate.</p>
+                {% if previous_queue_images|length == 0 %}
+                <p class="text-muted"><i>(No annotation history yet.)</i></p>
+                {% endif %}
+                <div class="d-flex">
+                    {% for queue_image, annotations in previous_annotation_info %}
+                    <div class="card border m-2 p-2" style="width: 25%">
+                        <img class="img-fluid m-0 p-0"
+                                src="{% get_media_prefix %}{{queue_image.thumbnail_gcloud_path}}"
+                                onclick="promptReturnToPreviousImage(`{{ queue_image.id }}`);"
+                        >
+                        <small>Your Annotation(s): {{ annotations }}</small>
                     </div>
-                    <div id="side-menu" class="col-xl-3 col-lg-12 col-md-12 col-sm-12 mt-2 overflow-auto">
-                        <div class="accordion mb-3" id="keyboard-shortcuts-accordion">
-                            <div class="accordion-item">
-                                <h2 class="accordion-header">
-                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#shortcut-list" aria-expanded="true">
-                                    Keyboard Shortcuts
-                                    </button>
-                                </h2>
-                                <div id="shortcut-list" class="accordion-collapse collapse" data-bs-parent="#keyboard-shortcuts-accordion">
-                                    <div class="accordion-body">
-                                        <ul class="list-group">
-                                            <li class="list-group-item"><small><kbd><i class="bi bi-mouse"> RIGHTCLICK</i></kbd>&nbsp;&nbsp;<i class="bi bi-arrow-right"></i><i>&nbsp;&nbsp;Hide bounding box</i></small></li>
-                                            <li class="list-group-item"><small><kbd>BACKSPACE</kbd>&nbsp;&nbsp;<i class="bi bi-arrow-right"></i><i>&nbsp;&nbsp;Delete bounding box</i></small></li>
-                                        </ul>
-                                    </div>
+                    {% endfor %}
+                </div>
+                <hr>
+            </div>
+
+
+            </div>
+        </nav>
+    </div>
+    <div class="row justify-content-center p-0">
+        <div id="side-menu" class="col-xl-4 col-lg-12 col-md-12 col-sm-12 mt-2 overflow-auto">
+             <nav>
+                <div class="tab-content">
+                    <div class="tab-pane fade show active p-3" id="nav-annotate" role="tabpanel" aria-labelledby="nav-annotate-tab">
+                        {% block missing_annotations_element %}
+                        {% endblock missing_annotations_element %}
+                        <div
+                            class="row py-3 justify-content-center d-none"
+                            id="status-success"
+                        >
+                            <div class="col-12">
+                                <div
+                                    class="alert alert-success"
+                                    role="alert"
+                                >
+                                    <i class="bi bi-check-circle-fill"></i>&nbsp;
+                                    <strong>Success!</strong> Your annotations have been saved.<div class="spinner-border" role="status" style="height: 20px; width: 20px"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div
+                            class="row py-3 justify-content-center d-none"
+                            id="status-failure"
+                        >
+                            <div class="col-12">
+                                <div
+                                    class="alert alert-danger text-center"
+                                    role="alert"
+                                >
+                                    {% comment %} TODO: Link to a spreadsheet error form here {% endcomment %}
+                                    <i class="bi bi-exclamation-triangle-fill"></i>&nbsp;
+                                    <strong>Error!</strong> Your annotations could not be saved. Please refresh page & try again or report a
+                                    bug here.
                                 </div>
                             </div>
                         </div>
                         <div class="card">
                             <div class="card-header">
-                                <text>Annotations Preview</text>
+                                <button class="btn" onclick="copyImageID()">
+                                    <i class="bi-clipboard"></i>&nbsp;&nbsp;
+                                    {{ image.upload.camera_station.station_id }} |
+                                    {{ image.upload.camera_station.micro_site.macro_site }} |
+                                    {{ image.upload.camera_station.micro_site.macro_site.county }}
+                                </button>
+                            </div>
+                            <div class="text-center p-3">
+                                {% block instruction_text %}
+                                {% endblock instruction_text %}
+                                {% block category_list %}
+                                {% endblock category_list %}
+                            </div>
+                            <div class="card-footer text-center p-2">
+                                <form method="POST">
+                                    {% csrf_token %}
+                                    {% block menu_buttons %}
+                                    {% block category_button %}
+                                    {% endblock category_button %}
+                                    {% block delete_all_boxes_button %}
+                                    {% endblock delete_all_boxes_button %}
+                                    <button
+                                        type="submit"
+                                        class="btn btn-primary"
+                                        id="skip_annotations"
+                                        name="skip_annotations"
+                                        value="Skip Image"
+                                        style="width: 30%"
+                                        disabled
+                                    ><i class="bi bi-skip-end"></i>&nbsp;&nbsp;&nbsp;Skip&nbsp;
+                                    <div id="skip-spinner" class="spinner-border" role="status" style="width: 12px; height: 12px; display: none"></div>
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        class="btn btn-primary"
+                                        id="save_annotations"
+                                        name="save_annotations"
+                                        value="Save Annotations"
+                                        style="width: 30%"
+                                        disabled
+                                    ><i class="bi bi-save2"></i>&nbsp;&nbsp;&nbsp;Save&nbsp;
+                                    <div id="save-spinner" class="spinner-border" role="status" style="width: 12px; height: 12px; display: none"></div>
+                                    </button>
+                                    {% endblock menu_buttons %}
+                                </form>
+                            </div>
+                        </div>
+
+                        <div class="card mt-3">
+                            <div class="card-header">
+                                <text>Annotations</text>
                             </div>
                             <div id="annotations-preview" class="card-body">
                             </div>
                         </div>
-                        <div class="card" id="options-card">
-                            <div class="card-header">
-                                <text>Options</text>
-                            </div>
-                            <div id="options-list" class="accordion-collapse collapse show" data-bs-parent="#options-accordion">
-                                <div class="card-body">
-                                    <button class="social-media-worthy-upvote"
-                                        data-vote="1"
-                                        onclick=stageSocialMediaWorthyVote("upvote")
-                                        id="social-media-worthy-up"
-                                        style="font-size: 10px; border: 1px solid lightgray; border-radius: 2px; background-color: transparent"
-                                    >
-                                    <i class="bi bi-hand-thumbs-up"></i>
-                                </button>
-                                <button class="social-media-worthy-downvote"
-                                        data-vote="-1"
-                                        onclick=stageSocialMediaWorthyVote("downvote")
-                                        id="social-media-worthy-down"
-                                        style="font-size: 10px; border: 1px solid lightgray; border-radius: 2px; background-color: transparent">
-                                    <i class="bi bi-hand-thumbs-down"></i>
-                                </button>
-                                <label
-                                    style="font-size: 12px; margin-bottom: 8px"
-                                >
-                                    &nbsp;Social Media Worthy? ({{ image.social_media_worthy }})
-                                </label>
-                                <br>
-                                <input
-                                    class="form-check-input"
-                                    type="checkbox"
-                                    {% if staff_review_needed %}checked="checked"{% endif %}
-                                    id="staff-review-needed"
-                                >
-                                <label
-                                    class="form-check-label"
-                                    for="staff-review-needed"
-                                    style="font-size: 14px"
-                                >
-                                    &nbsp; Flag for Staff Review?
-                                </label>
-                                <br>
-                                {% if user.is_staff %}
-                                <div>
-                                <input
-                                    class="form-check-input"
-                                    type="checkbox"
-                                    id="staff-debug-mode"
-                                >
-                                <label
-                                    class="form-check-label"
-                                    for="staff-debug-mode"
-                                    style="font-size: 11px;"
-                                ><i>
-                                    &nbsp; Disable refresh on submit (debug)
-                                </i></label>
-                                </div>
-                                <br>
-                                <button type="button"
-                                        class="btn btn-primary me-2"
-                                        style="background-color: orange; font-size: 14px" data-toggle="modal" data-target="#staffEditModal"
-                                ><i class="bi bi-person-circle">&nbsp;&nbsp;&nbsp;</i>Admin View</button><br>
-                                {% include './staff-edit-annotations.html' %}
-                                {% endif %}
+                    </div>
+                    <div class="tab-pane fade p-3" id="nav-image" role="tabpanel" aria-labelledby="nav-image-tab">
+                        {% include './page_elements/options.html' %}
+                        {% include './page_elements/image-manipulators.html' %}
+                    </div>
+                    <div class="tab-pane fade mt-3" id="nav-shortcuts" role="tabpanel" aria-labelledby="nav-shortcuts-tab">
+                        <div class="card">
+                            <div class="card-header">Keybindings</div>
+                            <div class="card-body">
+                                <ul class="list-group">
+                                    <li class="list-group-item"><small><kbd><i class="bi bi-mouse"> RIGHTCLICK</i></kbd>&nbsp;&nbsp;<i class="bi bi-arrow-right"></i><i>&nbsp;&nbsp;Hide bounding box</i></small></li>
+                                    <li class="list-group-item"><small><kbd>BACKSPACE</kbd>&nbsp;&nbsp;<i class="bi bi-arrow-right"></i><i>&nbsp;&nbsp;Delete bounding box</i></small></li>
+                                </ul>
                             </div>
                         </div>
                     </div>
-                    {% include './image-manipulators.html' %}
-
                 </div>
-             </div>
+            </nav>
+
+
+    </div>
+    <div class="col-xl-8 text-center p-2" oncontextmenu="return false;">
+        <img id="{{image.id}}"
+                class="img-fluid m-0 p-0"
+                src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}">
+        {% block image_page_save_button %}
+        {% endblock image_page_save_button %}
+    </div>
+    </div>
 </div>
 
 <div class="toast-container position-fixed bottom-0 end-0 p-1 mh-1">
 </div>
-    {% if user.is_authenticated and user.is_staff %}
+    {% if user.is_authenticated and not user.is_staff %}
 
     <div class="row mt-3 mt-md-5 text-center">
         <h2>Annotations Details</h2>
@@ -274,7 +212,7 @@
             </p>
         </div>
     </div>
-    {% include './pipeline-debug-info.html' %}
+    {% include './page_elements/pipeline-debug-info.html' %}
 
     {% endif %}
 
@@ -317,9 +255,7 @@
     $(document).ready(function(){
         $('[data-toggle="popover"]').popover();
     });
-
 </script>
-
 
 <script>
     async function copyImageID() {
@@ -469,7 +405,9 @@
             {% endfor %}
         ];
 
-        window.hiddenBoxes = [];
+
+        // Save state of hidden boxes
+        window.hiddenBoxes = new Set();
 
         // Set up annotations, rendering and submit hooks after the window has fully loaded
         window.addEventListener('load', function () {
@@ -491,8 +429,10 @@
                 {% endfor %}
             ];
 
-            // Set height of menu to fit image
-            $(`#side-menu`).css("max-height", $(`#${'{{image.id}}'}`).height())
+            // Set height of menu depending on image size
+            let maxHeight = Math.max($(`#${'{{image.id}}'}`).height(), $(window).height() * 0.77);
+
+            $(`#side-menu`).css("max-height", maxHeight)
 
             let ClassSelectorWidget = createCategoryWidget(categories, speciesVotes);
 

@@ -41,7 +41,7 @@
 
 {% block category_list %}
 <div class="pb-1 label-toggle">
-    <select id="species-list">
+    <select id="species-list" class="w-100">
         <option
             value=""
             disabled
@@ -58,13 +58,11 @@
 <span
     class="btn btn-primary label-toggle"
     id="multiple-species"
-    style="width: 33%"
-><i class="bi bi-journal-plus"></i>&nbsp;&nbsp;&nbsp;Multiple</span>
+><i class="bi bi-journal-plus"></i>&nbsp;&nbsp;&nbsp;Multiple species?</span>
 <span
     class="btn btn-primary label-toggle d-none"
     id="single-species"
-    style="width: 33%"
-><i class="bi bi-journal-minus"></i>&nbsp;&nbsp;&nbsp;Single</span>
+><i class="bi bi-journal-minus"></i>&nbsp;&nbsp;&nbsp;Single species?</span>
 {% endblock category_button %}
 
 

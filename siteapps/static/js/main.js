@@ -190,6 +190,7 @@ function renderBoundingBoxes(imageElementID, annotations, widgets, config) {
 
 // Function to consume an annoatation object, a container element and
 // create a list of preview images from the original image
+const uniqueColors = ["red", "orange", "lightgreen", "lightsteelblue", "cyan", "mediumpurple", "pink"]
 function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
     let imageElement = document.getElementById(imageElementID);
     let previewContainer = document.getElementById(previewContainerID);
@@ -241,18 +242,14 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
 
         // Remove the pound sign to work with Jquery
         const cleanedId = annotation.id.replace("#", "");
+        const boxColor = uniqueColors[(boxNum - 1) % uniqueColors.length];
 
         // Setup the basic card
-        let annotationHtml = `<div id="preview-${cleanedId}" class="card p-0 m-1" style="width: 250px">
-        <div id="preview-label-${cleanedId}" class="card-header py-2">
-            <text id="annotation-text-${cleanedId}" class="my-0 py-0" ${highlight}><i class="bi bi-eye"></i>&nbsp;&nbsp;<b>${annotationText}</b>${confidence}
-            </div>
-            <div class="card-body">
-            </div>
-            <div class="card-footer text-muted border-bottom">Box ${boxNum}</div>
-            <div class="btn-group" role="group">
-                <button id="hide-${cleanedId}" class="btn btn-outline-secondary w-50 m-0 border-0 bg-light">Hide Box</button>
-                <button id="delete-${cleanedId}" class="btn btn-outline-danger w-50 m-0 border-0 bg-light">Delete Box</button>
+        let annotationHtml = `<div id="preview-${cleanedId}" class="card p-0 mb-3" style="outline-width: 8px; outline-style: groove; outline-color: ${boxColor}">
+            <div class="card-body m-0 fw-bold">
+                <button id="hide-${cleanedId}" class="border-0 bg-transparent"><i class="bi bi-eye"></i></button>
+                <button id="delete-${cleanedId}" class="border-0 bg-transparent"><i class="bi bi-trash text-danger"></i></button>
+                <span ${highlight}" id="preview-label-${cleanedId}"> ${annotationText}${confidence}</span>
             </div>
         </div>`
 
@@ -261,7 +258,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         const preview = $(`#preview-${cleanedId}`);
         const rectAnnotation = $(`[data-id='${annotation.id}']`);
         let innerRect = rectAnnotation.find(".a9s-inner");
-
+        innerRect.addClass(`${boxColor}`);
         // Show tooltips on submit button hover
         innerRect.attr("data-toggle", "tooltip")
             .attr("title", annotationText)
@@ -279,19 +276,18 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         // Highlighting the preview on hover
         preview.hover(
             function () {
-                $(this).css("background-color", "rgba(255, 255, 0, 0.5)")
-                innerRect.css("background-color", "yellow")
+                $(this).css("background-color", "rgba(255, 255, 0, 0.5)");
+                innerRect.css("fill", "rgba(255, 255, 0, 0.2)")
             },
             function () {
-                $(this).css("background-color", "rgba(0, 0, 0, 0.0)")
-                innerRect.css("background-color", "transparent")
+                $(this).css("background-color", "rgba(255, 255, 255, 1.0)");
+                innerRect.css("fill", "transparent")
             }
         );
 
         innerRect.hover(
             function () {
                 preview.css("background-color", "rgba(255, 255, 0, 0.5)")
-                $(this).css("background-color", "yellow")
 
                 // Use backspace to delete box when hovered
                 $(document).keydown(function (event) {
@@ -329,24 +325,24 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
 
         // Handle visual changes for hiding bboxes
         const hide = function (speed=300) {
-            const footer = preview.find(".card-footer");
+            const footer = preview.find(".card-header");
             const eyeIcon = preview.find(".bi");
-
-            if (innerRect.is(':visible')) {
+            if (!innerRect.hasClass('box-hidden')) {
                 footer.html(`<i>${footer.html()} (Hidden)</i>`);
                 eyeIcon.removeClass("bi-eye").addClass("bi-eye-slash");
                 innerRect.removeClass("preSubmitTooltip")
-
+                innerRect.addClass('box-hidden');
+                preview.addClass('persist-hide');
             }
             else {
                 footer.html(`${footer.html().replace("<i>", "").replace(" (Hidden)", "").replace("</i>", "")}`);
                 eyeIcon.removeClass("bi-eye-slash").addClass("bi-eye");
                 innerRect.addClass("preSubmitTooltip")
+                innerRect.removeClass('box-hidden');
+                preview.removeClass('persist-hide');
             }
             innerRect.toggle(speed = speed);
             rectAnnotation.find(".a9s-outer").toggle(speed = speed);
-
-            hiddenBoxes = $(`[id^=preview-]:not([id*='preview-label-'])`).has("i.bi-eye-slash");
         };
         hideButton.click(hide);
 
@@ -362,7 +358,6 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         });
 
         let col = document.getElementById(`preview-${cleanedId}`);
-
         // Get the bounding box for the annotation
         let x, y, w, h;
         [x, y, w, h] = annotation.target.selector.value.split(':')[1].split(',').map(function (x) { return parseFloat(x).toFixed(5) });
@@ -372,26 +367,26 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         let canvas = document.createElement('canvas');
         let context = canvas.getContext("2d");
         canvas.id = 'canvas-' + cleanedId;
-        canvas.width = col.offsetWidth;
+        canvas.width = 250;
         canvas.style.maxWidth = '100%';
-        canvas.height = col.offsetWidth;
+        canvas.height = canvas.width;
 
         // Calculate height of destination canvas to maintain aspect ratio
         let dx, dy, dw, dh;
         if (w > h) {
             dx = 0;
             dy = 0;
-            dw = col.offsetWidth;
+            dw = canvas.width;
             dh = Math.round(h * (dw / w));
         } else {
             dy = 0;
-            dh = col.offsetWidth;
+            dh = canvas.width;
             dw = Math.round(w * (dh / h));
-            dx = Math.round((col.offsetWidth - dw) / 2);
+            dx = Math.round((canvas.width - dw) / 2);
         }
 
         context.drawImage(imageElement, x, y, w, h, dx, dy, dw, dh);
-        col.querySelector(".card-body").appendChild(canvas);
+        //col.querySelector(".card-body").appendChild(canvas);
 
         // Open the annotation widget when the label is clicked
         previewLabel = $(`#preview-label-${cleanedId}`);
@@ -408,7 +403,8 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
             canvasClone.id = `canvas-clone-${annotation.id}`;
             let cloneContext = canvasClone.getContext("2d");
             cloneContext.drawImage(imageElement, x, y, w, h, dx, dy, dw, dh);
-            document.getElementById(`staff-modal-card-${annotation.id}`).appendChild(canvasClone);
+            $(`#staff-modal-card-${annotation.id}`).empty();
+            $(`#staff-modal-card-${annotation.id}`).append(canvasClone);
         }
         catch {
 
@@ -422,7 +418,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
     // Hide the previously hidden boxes after each re-render
 
     $(hiddenBoxes).each(function () {
-        $(`#${$(this).attr("id") }`).find(`[id^=hide-]`).trigger("persistHide");
+        $(`#${$(this).attr("id") }`).find(`[id=hide-]`).trigger("persistHide");
     });
 
     $(function () {

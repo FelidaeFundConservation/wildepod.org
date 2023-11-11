@@ -239,7 +239,7 @@ def skip_completed_images(queue_name, queue):
 
 
 def get_annotation_history(context, queue, queue_name, annotator):
-    HISTORY_LENGTH = 10
+    HISTORY_LENGTH = 5
 
     context["previous_queue_images"] = Image.objects.filter(
         id__in=queue["images"][max(0, queue["index"] - HISTORY_LENGTH) : queue["index"]]

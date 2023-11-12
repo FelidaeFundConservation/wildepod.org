@@ -25,22 +25,8 @@ let categories = ['animal','person','vehicle']
 {% endblock show_bbox_category_and_confidence %}
 
 {% block enable_save_buttons %}
+document.getElementById("save_annotations").disabled = false;
 {% endblock enable_save_buttons %}
-
-{% block image_page_save_button %}
-<div class="row text-center pt-3">
-        <form method="POST">
-            {% csrf_token %}
-            <input
-                type="submit"
-                class="btn btn-primary"
-                id="save_annotations"
-                name="save_annotations"
-                value="Save Annotations"
-            >
-        </form>
-    </div>
-{% endblock image_page_save_button %}
 
 {% block menu_buttons %}
 <p class="p-1 mt-1 mb-0">

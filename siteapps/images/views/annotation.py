@@ -62,8 +62,8 @@ class BboxAnnotationInfo:
         self.activities = activities
 
 
-def calculate_image_luminance(image, bboxes):
-    TARGET_LUMINANCE = 13
+def calculate_image_luma(image, bboxes):
+    TARGET_LUMA = 13
 
     image_file_path = f"{settings.MEDIA_URL}{image.thumbnail_gcloud_path}"
     response = requests.get(image_file_path)
@@ -94,12 +94,12 @@ def calculate_image_luminance(image, bboxes):
 
             return corrected_y
 
-        # Calculate luminance
+        # Calculate luma
         y_values = [(0.257 * r) + (0.504 * g) + (0.098 * b) for (r, g, b) in pixel_data]
         gamma_corrected_y_values = [apply_gamma_correction(y) for y in y_values]
         average_gamma_corrected_y_value = sum(gamma_corrected_y_values) / len(gamma_corrected_y_values)
 
-        adjustment_percentage = round((TARGET_LUMINANCE / average_gamma_corrected_y_value) * 100 - 100)
+        adjustment_percentage = round((TARGET_LUMA / average_gamma_corrected_y_value) * 100 - 100)
         adjustment_percentage = max(100, adjustment_percentage)
 
         return adjustment_percentage
@@ -371,8 +371,8 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         context["queue_index"] = queue["index"]
         context["queue_length"] = len(queue["images"])
 
-        # Calculate image luminance
-        context["luminance_adjustment"] = calculate_image_luminance(image, context["bounding_boxes"])
+        # Calculate image luma
+        context["luma_adjustment"] = calculate_image_luma(image, context["bounding_boxes"])
 
         # Get previously annotated images and their information
         get_annotation_history(context, queue, queue_name, annotator)

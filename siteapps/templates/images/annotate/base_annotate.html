@@ -515,10 +515,10 @@
             anno.on("updateAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
             anno.on('cancelSelected', function (selection) { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno) });
 
-            // Set default brightness value based on luminance
-            const luminanceAdjustment = "{{ luminance_adjustment }}";
-            const brightnessFilter = `brightness(${luminanceAdjustment}%)`
-            $(`#image-brightness-slider`).val(luminanceAdjustment);
+            // Set default brightness value based on luma value
+            const lumaAdjustment = "{{ luma_adjustment }}";
+            const brightnessFilter = `brightness(${lumaAdjustment}%)`
+            $(`#image-brightness-slider`).val(lumaAdjustment);
 
             $('#{{image.id}}').css("filter", brightnessFilter);
             $("[id^='canvas-']").css("filter", brightnessFilter);

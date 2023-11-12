@@ -90,7 +90,7 @@ def calculate_image_luma(image, bboxes):
 
         # Gamma correction
         def apply_gamma_correction(y_value, gamma=2.2):
-            corrected_y = y_value ** (1 / gamma)
+            corrected_y = int(y_value ** (1 / gamma))
 
             return corrected_y
 

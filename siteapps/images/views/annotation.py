@@ -62,17 +62,48 @@ class BboxAnnotationInfo:
         self.activities = activities
 
 
-def calculate_image_luminance(image):
+def calculate_image_luminance(image, bboxes):
+    TARGET_LUMINANCE = 180
+
     image_file_path = f"{settings.MEDIA_URL}{image.thumbnail_gcloud_path}"
     response = requests.get(image_file_path)
 
     if response.status_code == 200:
+        # Get the image data
         pillow_image = PILImage.open(BytesIO(response.content)).convert("RGB")
-        pixel_data = list(pillow_image.getdata())
-        y_values = [(0.299 * r + 0.587 * g + 0.144 * b) for (r, g, b) in pixel_data]
-        average_y = sum(y_values) / len(y_values)
 
-        return average_y
+        width, height = pillow_image.size
+        pixel_data = []
+
+        # Grab the pixels enclosed by bounding boxes
+        for bbox in bboxes:
+            x = bbox.x * width
+            y = bbox.y * height
+            w = x + (bbox.w * width)
+            h = y + (bbox.h * height)
+
+            bbox_region = (x, y, w, h)
+            cropped_image = pillow_image.crop(bbox_region)
+            region_pixel_data = list(cropped_image.getdata())
+
+            pixel_data += region_pixel_data
+
+        # Gamma correction
+        def apply_gamma_correction(y_value, gamma=2.2):
+            y_value = max(0, min(1, y_value))
+            corrected_y = y_value ** (1 / gamma)
+
+            return corrected_y
+
+        # Calculate luminance
+        y_values = [((0.257 * r) + (0.504 * g) + (0.098 * b) + 16) / 255.0 for (r, g, b) in pixel_data]
+        gamma_corrected_y_values = [apply_gamma_correction(y) for y in y_values]
+        average_gamma_corrected_y_value = sum(gamma_corrected_y_values) / len(gamma_corrected_y_values)
+
+        adjustment_percentage = round((TARGET_LUMINANCE / average_gamma_corrected_y_value) * 100 - 100)
+        adjustment_percentage = max(100, adjustment_percentage)
+
+        return adjustment_percentage
 
 
 # Filter criteria for an image to appear in the Object/Blank pipeline
@@ -350,7 +381,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
     context["custom_annotations"] = custom_annotations
 
     # Calculate  image luminance
-    context["image_luminance"] = calculate_image_luminance(image)
+    context["luminance_adjustment"] = calculate_image_luminance(image, context["bounding_boxes"])
 
     # Get previously annotated images and their information
     get_annotation_history(context, queue, queue_name, annotator)

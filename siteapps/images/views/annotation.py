@@ -73,6 +73,11 @@ def calculate_image_luma(image, bboxes):
         pillow_image = PILImage.open(BytesIO(response.content)).convert("RGB")
 
         width, height = pillow_image.size
+        width = round(width * 0.2)
+        height = round(height * 0.2)
+
+        pillow_image = pillow_image.resize((width, height))
+
         pixel_data = []
 
         # Grab the pixels enclosed by bounding boxes

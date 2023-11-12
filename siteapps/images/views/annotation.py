@@ -63,7 +63,7 @@ class BboxAnnotationInfo:
 
 
 def calculate_image_luminance(image, bboxes):
-    TARGET_LUMINANCE = 180
+    TARGET_LUMINANCE = 13
 
     image_file_path = f"{settings.MEDIA_URL}{image.thumbnail_gcloud_path}"
     response = requests.get(image_file_path)
@@ -90,13 +90,12 @@ def calculate_image_luminance(image, bboxes):
 
         # Gamma correction
         def apply_gamma_correction(y_value, gamma=2.2):
-            y_value = max(0, min(1, y_value))
             corrected_y = y_value ** (1 / gamma)
 
             return corrected_y
 
         # Calculate luminance
-        y_values = [((0.257 * r) + (0.504 * g) + (0.098 * b) + 16) / 255.0 for (r, g, b) in pixel_data]
+        y_values = [(0.257 * r) + (0.504 * g) + (0.098 * b) for (r, g, b) in pixel_data]
         gamma_corrected_y_values = [apply_gamma_correction(y) for y in y_values]
         average_gamma_corrected_y_value = sum(gamma_corrected_y_values) / len(gamma_corrected_y_values)
 
@@ -371,6 +370,18 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         context["bounding_boxes"] = get_valid_or_uncertain_bboxes(image=image)
         context["queue_index"] = queue["index"]
         context["queue_length"] = len(queue["images"])
+
+        # Calculate image luminance
+        context["luminance_adjustment"] = calculate_image_luminance(image, context["bounding_boxes"])
+
+        # Get previously annotated images and their information
+        get_annotation_history(context, queue, queue_name, annotator)
+
+        # Gather surrounding context images
+        get_context_images(queue=queue, context=context)
+
+        # Gather all annotations for bounding boxes to display in admin view.
+        get_all_annotations(image=image, context=context)
     else:
         image = None
         context["image"] = None
@@ -379,18 +390,6 @@ def populate_view_context(queue_name, context, self, activity_category=None):
     context["species_list"] = SpeciesName.objects.filter(~Q(name=UNANNOTATED_CATEGORY))
     context["activity_list"] = ActivityType.objects.filter(category=activity_category)
     context["custom_annotations"] = custom_annotations
-
-    # Calculate  image luminance
-    context["luminance_adjustment"] = calculate_image_luminance(image, context["bounding_boxes"])
-
-    # Get previously annotated images and their information
-    get_annotation_history(context, queue, queue_name, annotator)
-
-    # Gather surrounding context images
-    get_context_images(queue=queue, context=context)
-
-    # Gather all annotations for bounding boxes to display in admin view.
-    get_all_annotations(image=image, context=context)
 
 
 # Filter out the rejected bboxes

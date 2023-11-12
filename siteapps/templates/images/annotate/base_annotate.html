@@ -331,10 +331,6 @@
     $(document).ready(function(){
       $('[data-toggle="popover"]').popover();
     });
-
-    // Set default filter values based on luminance and histogram calculations
-    $(`#image-brightness-slider`).val("{{ luminance_adjustment }}"); console.log("{{ luminance_adjustment }}");
-    adjustImage();
 </script>
 
 
@@ -517,7 +513,15 @@
             anno.on("createAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
             anno.on("deleteAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
             anno.on("updateAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
-            anno.on('cancelSelected', function(selection) { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno) });
+            anno.on('cancelSelected', function (selection) { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno) });
+
+            // Set default brightness value based on luminance
+            const luminanceAdjustment = "{{ luminance_adjustment }}";
+            const brightnessFilter = `brightness(${luminanceAdjustment}%)`
+            $(`#image-brightness-slider`).val(luminanceAdjustment);
+
+            $('#{{image.id}}').css("filter", brightnessFilter);
+            $("[id^='canvas-']").css("filter", brightnessFilter);
 
             // Submit buttons disabled until all elements have loaded
             {% block enable_save_buttons %}

@@ -481,11 +481,7 @@
             {% endfor %}
         ];
 
-        let anno = null;
-
-        window.getAnno = function () {
-            return anno;
-        }
+        window.hiddenBoxes = [];
 
         // Set up annotations, rendering and submit hooks after the window has fully loaded
         window.addEventListener('load', function () {

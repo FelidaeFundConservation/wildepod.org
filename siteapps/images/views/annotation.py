@@ -1,8 +1,10 @@
 import datetime
 import json
 import logging
+from io import BytesIO
 
 import numpy as np
+import requests
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -33,6 +35,7 @@ from images.models import Activity, ActivityType, Annotator, BoundingBox, Catego
 from images.models.custom_fields import get_filter_params
 from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
 from locations.models import CameraStation, MacroSite, MicroSite
+from PIL import Image as PILImage
 
 MAX_VOTES_PER_IMAGE = 2
 VOTE_THRESHOLD = 1
@@ -57,6 +60,19 @@ class BboxAnnotationInfo:
         self.categories = categories
         self.species = species
         self.activities = activities
+
+
+def calculate_image_luminance(image):
+    image_file_path = f"{settings.MEDIA_URL}{image.thumbnail_gcloud_path}"
+    response = requests.get(image_file_path)
+
+    if response.status_code == 200:
+        pillow_image = PILImage.open(BytesIO(response.content)).convert("RGB")
+        pixel_data = list(pillow_image.getdata())
+        y_values = [(0.299 * r + 0.587 * g + 0.144 * b) for (r, g, b) in pixel_data]
+        average_y = sum(y_values) / len(y_values)
+
+        return average_y
 
 
 # Filter criteria for an image to appear in the Object/Blank pipeline
@@ -332,6 +348,9 @@ def populate_view_context(queue_name, context, self, activity_category=None):
     context["species_list"] = SpeciesName.objects.filter(~Q(name=UNANNOTATED_CATEGORY))
     context["activity_list"] = ActivityType.objects.filter(category=activity_category)
     context["custom_annotations"] = custom_annotations
+
+    # Calculate  image luminance
+    context["image_luminance"] = calculate_image_luminance(image)
 
     # Get previously annotated images and their information
     get_annotation_history(context, queue, queue_name, annotator)

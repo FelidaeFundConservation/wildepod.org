@@ -327,9 +327,18 @@
         event.preventDefault();
     });
 
+    // Initialize popovers
     $(document).ready(function(){
       $('[data-toggle="popover"]').popover();
     });
+
+    // Set default brightness filter based on luminance
+    const TARGET_LUMINANCE = 200;
+    const luminance = "{{ image_luminance }}";
+    let adjustmentPercentage = Math.round((TARGET_LUMINANCE / luminance) * 100 - 100);
+    adjustmentPercentage = Math.max(100, adjustmentPercentage);
+    $(`#image-brightness-slider`).val(adjustmentPercentage);
+    adjustImage();
 </script>
 
 

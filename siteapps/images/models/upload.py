@@ -95,8 +95,9 @@ class Upload(TimeStampedModel):
     history = HistoricalRecords()
 
     def save(self, *args, **kwargs):
+        is_prod = "prod" in settings.WSGI_APPLICATION
         # If the object is being created for the first time, create a Dropbox request url and populate relevant fields
-        if self._state.adding:
+        if self._state.adding and is_prod:
             # First auto-generate a foldername. Always lowercase since dropbox is case insensitive anyway
             self.dropbox_folder_name = (
                 f"{self.date_retrieved.date()} - {self.camera_station.micro_site.macro_site.name} -"

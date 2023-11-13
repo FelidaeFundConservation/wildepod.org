@@ -93,6 +93,9 @@ def calculate_image_luma(image, bboxes):
 
             pixel_data += region_pixel_data
 
+        if len(pixel_data) == 0:
+            return 100
+
         # Gamma correction
         def apply_gamma_correction(y_value, gamma=2.2):
             corrected_y = int(y_value ** (1 / gamma))
@@ -102,6 +105,7 @@ def calculate_image_luma(image, bboxes):
         # Calculate luma
         y_values = [(0.257 * r) + (0.504 * g) + (0.098 * b) for (r, g, b) in pixel_data]
         gamma_corrected_y_values = [apply_gamma_correction(y) for y in y_values]
+
         average_gamma_corrected_y_value = sum(gamma_corrected_y_values) / len(gamma_corrected_y_values)
 
         adjustment_percentage = round((TARGET_LUMA / average_gamma_corrected_y_value) * 100 - 100)

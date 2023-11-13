@@ -265,6 +265,7 @@
         event.preventDefault();
     });
 
+    // Initialize popovers
     $(document).ready(function(){
         $('[data-toggle="popover"]').popover();
     });
@@ -478,7 +479,15 @@
             anno.on("createAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
             anno.on("deleteAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
             anno.on("updateAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
-            anno.on('cancelSelected', function(selection) { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno) });
+            anno.on('cancelSelected', function (selection) { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno) });
+
+            // Set default brightness value based on luma value
+            const lumaAdjustment = "{{ luma_adjustment }}";
+            const brightnessFilter = `brightness(${lumaAdjustment}%)`
+            $(`#image-brightness-slider`).val(lumaAdjustment);
+
+            $('#{{image.id}}').css("filter", brightnessFilter);
+            $("[id^='canvas-']").css("filter", brightnessFilter);
 
             // Submit buttons disabled until all elements have loaded
             {% block enable_save_buttons %}

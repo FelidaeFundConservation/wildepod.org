@@ -719,14 +719,14 @@ def annotate(zipped_querysets):
     # and its .value() list to append data to.
 
     for obj, annotation in zipped_querysets:
-        annotation["accepted_count"] = obj.accepted_by.count()
+        annotation["accepted_count"] = obj.accepted_by.count() + 1 if obj.created_by.type == "human" else 0
         annotation["rejected_count"] = obj.rejected_by.count()
 
         annotation["vote_difference"] = annotation.get("accepted_count") - annotation.get("rejected_count")
 
         annotation["has_staff_or_expert_vote"] = bool(
             obj.accepted_by.filter(Q(human__is_staff=True) | Q(human__is_expert=True)).exists()
-            or (obj.created_by.human and obj.created_by.human.is_staff)
+            or (obj.created_by.human and (obj.created_by.human.is_staff or obj.created_by.human.is_expert))
         )
 
         if annotation.get("vote_difference") > VOTE_THRESHOLD:

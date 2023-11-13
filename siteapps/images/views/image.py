@@ -3,6 +3,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
 from django.views.generic import DetailView
 from images.models import Activity, ActivityType, BoundingBox, Category, Image, Species, SpeciesName, Upload
+from images.views.annotation import calculate_image_luma
 
 
 class ImageDetailView(LoginRequiredMixin, DetailView):
@@ -59,5 +60,7 @@ class ImageDetailView(LoginRequiredMixin, DetailView):
             infoList.append(BboxAnnotationInfo(bbox.id, categories, species, activities))
 
         context["bbox_all_annotations"] = infoList
+
+        context["luma_adjustment"] = calculate_image_luma(img_obj, context["bounding_boxes"])
 
         return context

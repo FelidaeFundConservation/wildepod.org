@@ -11,6 +11,7 @@ from .annotation import (
     SavePreviousImageToReturnToView,
     SaveRecentTagsView,
     SpeciesAnnotationProcessorView,
+    annotate,
 )
 from .image import ImageDetailView
 from .search_images import SearchImagesView

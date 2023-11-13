@@ -1,8 +1,10 @@
 import datetime
 import json
 import logging
+from io import BytesIO
 
 import numpy as np
+import requests
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -33,6 +35,7 @@ from images.models import Activity, ActivityType, Annotator, BoundingBox, Catego
 from images.models.custom_fields import get_filter_params
 from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
 from locations.models import CameraStation, MacroSite, MicroSite
+from PIL import Image as PILImage
 
 MAX_VOTES_PER_IMAGE = 2
 VOTE_THRESHOLD = 1
@@ -57,6 +60,58 @@ class BboxAnnotationInfo:
         self.categories = categories
         self.species = species
         self.activities = activities
+
+
+def calculate_image_luma(image, bboxes):
+    TARGET_LUMA = 13
+
+    image_file_path = f"{settings.MEDIA_URL}{image.thumbnail_gcloud_path}"
+    response = requests.get(image_file_path)
+
+    if response.status_code == 200:
+        # Get the image data
+        pillow_image = PILImage.open(BytesIO(response.content)).convert("RGB")
+
+        width, height = pillow_image.size
+        width = round(width * 0.2)
+        height = round(height * 0.2)
+
+        pillow_image = pillow_image.resize((width, height))
+
+        pixel_data = []
+
+        # Grab the pixels enclosed by bounding boxes
+        for bbox in bboxes:
+            x = bbox.x * width
+            y = bbox.y * height
+            w = x + (bbox.w * width)
+            h = y + (bbox.h * height)
+
+            bbox_region = (x, y, w, h)
+            cropped_image = pillow_image.crop(bbox_region)
+            region_pixel_data = list(cropped_image.getdata())
+
+            pixel_data += region_pixel_data
+
+        if len(pixel_data) == 0:
+            return 100
+
+        # Gamma correction
+        def apply_gamma_correction(y_value, gamma=2.2):
+            corrected_y = int(y_value ** (1 / gamma))
+
+            return corrected_y
+
+        # Calculate luma
+        y_values = [(0.257 * r) + (0.504 * g) + (0.098 * b) for (r, g, b) in pixel_data]
+        gamma_corrected_y_values = [apply_gamma_correction(y) for y in y_values]
+
+        average_gamma_corrected_y_value = sum(gamma_corrected_y_values) / len(gamma_corrected_y_values)
+
+        adjustment_percentage = round((TARGET_LUMA / average_gamma_corrected_y_value) * 100 - 100)
+        adjustment_percentage = max(100, adjustment_percentage)
+
+        return adjustment_percentage
 
 
 # Filter criteria for an image to appear in the Object/Blank pipeline
@@ -324,6 +379,18 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         context["bounding_boxes"] = get_valid_or_uncertain_bboxes(image=image)
         context["queue_index"] = queue["index"]
         context["queue_length"] = len(queue["images"])
+
+        # Calculate image luma
+        context["luma_adjustment"] = calculate_image_luma(image, context["bounding_boxes"])
+
+        # Get previously annotated images and their information
+        get_annotation_history(context, queue, queue_name, annotator)
+
+        # Gather surrounding context images
+        get_context_images(queue=queue, context=context)
+
+        # Gather all annotations for bounding boxes to display in admin view.
+        get_all_annotations(image=image, context=context)
     else:
         image = None
         context["image"] = None
@@ -332,15 +399,6 @@ def populate_view_context(queue_name, context, self, activity_category=None):
     context["species_list"] = SpeciesName.objects.filter(~Q(name=UNANNOTATED_CATEGORY))
     context["activity_list"] = ActivityType.objects.filter(category=activity_category)
     context["custom_annotations"] = custom_annotations
-
-    # Get previously annotated images and their information
-    get_annotation_history(context, queue, queue_name, annotator)
-
-    # Gather surrounding context images
-    get_context_images(queue=queue, context=context)
-
-    # Gather all annotations for bounding boxes to display in admin view.
-    get_all_annotations(image=image, context=context)
 
 
 # Filter out the rejected bboxes

@@ -97,10 +97,10 @@ def create_test_category_object(test_bounding_box_object, name, test_annotator_o
     )
 
 
-def create_test_species_object(test_bounding_box_object, name, test_annotator_object):
+def create_test_species_object(test_bounding_box_object, name, group, test_annotator_object):
     return Species.objects.create(
         bounding_box=test_bounding_box_object,
-        name=SpeciesName.objects.get_or_create(name=name)[0],
+        name=SpeciesName.objects.get_or_create(name=name, species_group=group)[0],
         created_by=test_annotator_object,
         confidence=1,
     )
@@ -177,10 +177,10 @@ class SingleBoxSingleCategoryTestCase(AnnotationFlagsTestCase):
         self.assertTrue(debug_info["flag_checks"]["bounding_boxes_gte_zero"])
         self.assertTrue(debug_info["flag_checks"]["all_bboxes_have_category"])
 
+        self.assertFalse(self.test_image.category_pipeline_complete)
         self.assertFalse(self.test_image.has_humans)
         self.assertFalse(self.test_image.has_animals)
         self.assertFalse(self.test_image.has_vehicles)
-        self.assertFalse(self.test_image.category_pipeline_complete)
 
     """
     When a staff user is the first to vote and creates a new category object
@@ -201,16 +201,16 @@ class SingleBoxSingleCategoryTestCase(AnnotationFlagsTestCase):
 
         debug_info = calculateCategoryAnnotationFlags(self.test_image)
 
-        self.assertFalse(not debug_info["flag_checks"]["or_checks"]["category_has_uncertain"])
+        self.assertTrue(not debug_info["flag_checks"]["or_checks"]["category_has_uncertain"])
         self.assertTrue(debug_info["flag_checks"]["or_checks"]["has_staff_or_expert_vote"])
 
         self.assertTrue(debug_info["flag_checks"]["bounding_boxes_gte_zero"])
         self.assertTrue(debug_info["flag_checks"]["all_bboxes_have_category"])
 
+        self.assertTrue(self.test_image.category_pipeline_complete)
         self.assertFalse(self.test_image.has_humans)
         self.assertTrue(self.test_image.has_animals)
         self.assertFalse(self.test_image.has_vehicles)
-        self.assertTrue(self.test_image.category_pipeline_complete)
 
     """
     When an expert user is the first to vote and creates a new category object
@@ -231,16 +231,16 @@ class SingleBoxSingleCategoryTestCase(AnnotationFlagsTestCase):
 
         debug_info = calculateCategoryAnnotationFlags(self.test_image)
 
-        self.assertFalse(not debug_info["flag_checks"]["or_checks"]["category_has_uncertain"])
+        self.assertTrue(not debug_info["flag_checks"]["or_checks"]["category_has_uncertain"])
         self.assertTrue(debug_info["flag_checks"]["or_checks"]["has_staff_or_expert_vote"])
 
         self.assertTrue(debug_info["flag_checks"]["bounding_boxes_gte_zero"])
         self.assertTrue(debug_info["flag_checks"]["all_bboxes_have_category"])
 
+        self.assertTrue(self.test_image.category_pipeline_complete)
         self.assertFalse(self.test_image.has_humans)
         self.assertFalse(self.test_image.has_animals)
         self.assertTrue(self.test_image.has_vehicles)
-        self.assertTrue(self.test_image.category_pipeline_complete)
 
     """
     When a regular user accepts a created category by another regular annotator
@@ -277,10 +277,10 @@ class SingleBoxSingleCategoryTestCase(AnnotationFlagsTestCase):
         self.assertTrue(debug_info["flag_checks"]["bounding_boxes_gte_zero"])
         self.assertTrue(debug_info["flag_checks"]["all_bboxes_have_category"])
 
+        self.assertTrue(self.test_image.category_pipeline_complete)
         self.assertFalse(self.test_image.has_humans)
         self.assertFalse(self.test_image.has_animals)
         self.assertTrue(self.test_image.has_vehicles)
-        self.assertTrue(self.test_image.category_pipeline_complete)
 
     """
     When a regular user accepts a MegaDetector annotation
@@ -313,10 +313,10 @@ class SingleBoxSingleCategoryTestCase(AnnotationFlagsTestCase):
         self.assertTrue(debug_info["flag_checks"]["bounding_boxes_gte_zero"])
         self.assertTrue(debug_info["flag_checks"]["all_bboxes_have_category"])
 
+        self.assertFalse(self.test_image.category_pipeline_complete)
         self.assertFalse(self.test_image.has_humans)
         self.assertFalse(self.test_image.has_animals)
         self.assertFalse(self.test_image.has_vehicles)
-        self.assertFalse(self.test_image.category_pipeline_complete)
 
 
 class SingleBoxSingleSpeciesTestCase(AnnotationFlagsTestCase):
@@ -343,7 +343,7 @@ class SingleBoxSingleSpeciesTestCase(AnnotationFlagsTestCase):
 
         # Setup objects and check flags
         bbox1 = create_test_bboxes(test_image_object=self.test_image, test_user_object=self.annotator, num_boxes=1)
-        species1 = create_test_species_object(bbox1, "Mule Deer", self.annotator)
+        species1 = create_test_species_object(bbox1, "Mule Deer", "WILD", self.annotator)
 
         debug_info = calculateSpeciesAnnotationFlags(self.test_image)
 
@@ -353,8 +353,8 @@ class SingleBoxSingleSpeciesTestCase(AnnotationFlagsTestCase):
         self.assertFalse(debug_info["flag_checks"]["or_checks"]["checked_by"])
         self.assertFalse(debug_info["flag_checks"]["or_checks"]["has_staff_or_expert_vote"])
 
-        self.assertFalse(self.test_image.has_wild_animals)
         self.assertFalse(self.test_image.species_pipeline_complete)
+        self.assertFalse(self.test_image.has_wild_animals)
 
     """
     When a staff user is the first to vote and creates a new species object
@@ -375,18 +375,18 @@ class SingleBoxSingleSpeciesTestCase(AnnotationFlagsTestCase):
 
         # Setup objects and check flags
         bbox1 = create_test_bboxes(test_image_object=self.test_image, test_user_object=self.annotator, num_boxes=1)
-        species1 = create_test_species_object(bbox1, "Domestic horse", self.annotator)
+        species1 = create_test_species_object(bbox1, "Domestic horse", "DOMESTIC", self.annotator)
 
         debug_info = calculateSpeciesAnnotationFlags(self.test_image)
 
-        self.assertFalse(not debug_info["flag_checks"]["species_has_uncertain"])
-        self.assertFalse(debug_info["flag_checks"]["species_has_valid"])
+        self.assertTrue(not debug_info["flag_checks"]["species_has_uncertain"])
+        self.assertTrue(debug_info["flag_checks"]["species_has_valid"])
 
         self.assertFalse(debug_info["flag_checks"]["or_checks"]["checked_by"])
         self.assertTrue(debug_info["flag_checks"]["or_checks"]["has_staff_or_expert_vote"])
 
-        self.assertFalse(self.test_image.has_wild_animals)
         self.assertTrue(self.test_image.species_pipeline_complete)
+        self.assertFalse(self.test_image.has_wild_animals)
 
     """
     When an expert user is the first to vote and creates a new species object
@@ -407,18 +407,18 @@ class SingleBoxSingleSpeciesTestCase(AnnotationFlagsTestCase):
 
         # Setup objects and check flags
         bbox1 = create_test_bboxes(test_image_object=self.test_image, test_user_object=self.annotator, num_boxes=1)
-        species1 = create_test_species_object(bbox1, "Raccoon", self.annotator)
+        species1 = create_test_species_object(bbox1, "Raccoon", "WILD", self.annotator)
 
         debug_info = calculateSpeciesAnnotationFlags(self.test_image)
 
-        self.assertFalse(not debug_info["flag_checks"]["species_has_uncertain"])
-        self.assertFalse(debug_info["flag_checks"]["species_has_valid"])
+        self.assertTrue(not debug_info["flag_checks"]["species_has_uncertain"])
+        self.assertTrue(debug_info["flag_checks"]["species_has_valid"])
 
         self.assertFalse(debug_info["flag_checks"]["or_checks"]["checked_by"])
         self.assertTrue(debug_info["flag_checks"]["or_checks"]["has_staff_or_expert_vote"])
 
-        self.assertTrue(self.test_image.has_wild_animals)
         self.assertTrue(self.test_image.species_pipeline_complete)
+        self.assertTrue(self.test_image.has_wild_animals)
 
     """
     When a regular user accepts a created species by another regular annotator
@@ -441,7 +441,7 @@ class SingleBoxSingleSpeciesTestCase(AnnotationFlagsTestCase):
         bbox1 = create_test_bboxes(
             test_image_object=self.test_image, test_user_object=self.other_annotator, num_boxes=1
         )
-        species1 = create_test_species_object(bbox1, "Unknown", self.other_annotator)
+        species1 = create_test_species_object(bbox1, "Unknown", "OTHER", self.other_annotator)
         self.test_image.species_checked_by.add(self.other_annotator)
 
         # Check that the species was created successfully
@@ -460,5 +460,5 @@ class SingleBoxSingleSpeciesTestCase(AnnotationFlagsTestCase):
         self.assertTrue(debug_info["flag_checks"]["or_checks"]["checked_by"])
         self.assertFalse(debug_info["flag_checks"]["or_checks"]["has_staff_or_expert_vote"])
 
-        self.assertFalse(self.test_image.has_wild_animals)
         self.assertTrue(self.test_image.species_pipeline_complete)
+        self.assertFalse(self.test_image.has_wild_animals)

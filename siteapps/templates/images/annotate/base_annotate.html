@@ -17,38 +17,88 @@
 
 <div class="container-fluid mt-2 mt-md-3">
     <div class="row">
-        <div class="col-9">
+        <div class="col-8">
             <nav>
                 <div class="nav nav-tabs" id="nav-tab" role="tablist">
-                    <a class="nav-link active" id="nav-annotate-tab" data-bs-toggle="tab" href="#nav-annotate" role="tab" aria-controls="nav-annotate" aria-selected="true"><text class="small">Annotations</text></a>
-                    <a class="nav-link" id="nav-image-tab" data-bs-toggle="tab" href="#nav-image" role="tab" aria-controls="nav-image" aria-selected="false"><text class="small">Image</text></a>
-                    <a class="nav-link" id="nav-bboxes-tab" data-bs-toggle="tab" href="#nav-bboxes" role="tab" aria-controls="nav-bboxes" aria-selected="false"><text class="small">Bounding Boxes</text></a>
-                    <a class="nav-link" id="nav-context-images-tab" data-bs-toggle="tab" href="#nav-context-images" role="tab" aria-controls="nav-context-images" aria-selected="false"><text class="small">Context</text></a>
-                    <a class="nav-link" id="nav-shortcuts-tab" data-bs-toggle="tab" href="#nav-shortcuts" role="tab" aria-controls="nav-shortcuts" aria-selected="false"><text class="small">Keyboard Shortcuts</text></a>
+                    <a class="nav-link active"
+                       id="nav-annotate-tab"
+                       data-bs-toggle="tab"
+                       href="#nav-annotate"
+                       role="tab"
+                       aria-controls="nav-annotate"
+                       aria-selected="true"
+                    >
+                        <text class="small"><span class="d-none d-md-inline">Annotations</span><span class="d-inline d-md-none">Tags</span></text>
+                    </a>
+                    <a class="nav-link"
+                       id="nav-image-tab"
+                       data-bs-toggle="tab"
+                       href="#nav-image"
+                       role="tab"
+                       aria-controls="nav-image"
+                       aria-selected="false"
+                    >
+                        <text class="small">Image</text>
+                    </a>
+                    <a class="nav-link"
+                       id="nav-bboxes-tab"
+                       data-bs-toggle="tab"
+                       href="#nav-bboxes"
+                       role="tab"
+                       aria-controls="nav-bboxes"
+                       aria-selected="false"
+                    >
+                        <text class="small">
+                            <span class="d-none d-md-inline">Bounding </span>Boxes
+                        </text>
+                    </a>
+                    <a class="nav-link"
+                       id="nav-context-images-tab"
+                       data-bs-toggle="tab"
+                       href="#nav-context-images"
+                       role="tab"
+                       aria-controls="nav-context-images"
+                       aria-selected="false"
+                    >
+                        <text class="small"><span class="d-none d-md-inline">Context</span><span class="d-inline d-md-none">Cxt.</span></text>
+                    </a>
+                    <span class="d-none d-lg-inline">
+                        <a class="nav-link"
+                           id="nav-shortcuts-tab"
+                           data-bs-toggle="tab"
+                           href="#nav-shortcuts"
+                           role="tab"
+                           aria-controls="nav-shortcuts"
+                           aria-selected="false"
+                        >
+                            <text class="small">
+                                Keyboard Shortcuts
+                            </text>
+                        </a>
+                    </span>
                 </div>
+
             </nav>
         </div>
-        <div class="col-3 border rounded p-2 m-0 text-center">
+        <div class="col-4 border rounded py-2 m-0 text-center d-flex">
             <button
                 type="submit"
-                class="btn btn-primary me-3"
+                class="btn btn-primary w-50 mx-2"
                 id="save_annotations"
                 name="save_annotations"
                 value="Save Annotations"
-                style="width: 45%"
                 disabled
-            ><i class="bi bi-save2"></i>&nbsp;&nbsp;&nbsp;Save Tags
+            ><i class="bi bi-save2"></i><span class="d-none d-md-inline">&nbsp;&nbsp;&nbsp;Save<span class="d-none d-xl-inline"> Tags&nbsp;&nbsp;</span></span>
             <div id="save-spinner" class="spinner-border" role="status" style="width: 12px; height: 12px; display: none"></div>
             </button>
              <button
                 type="submit"
-                class="btn btn-secondary"
+                class="btn btn-secondary mx-2 w-50"
                 id="skip_annotations"
                 name="skip_annotations"
                 value="Skip Image"
-                style="width: 45%"
                 disabled
-            ><i class="bi bi-skip-end"></i>&nbsp;&nbsp;&nbsp;Skip Image
+            ><i class="bi bi-skip-end"></i><span class="d-none d-md-inline">&nbsp;&nbsp;&nbsp;Skip<span class="d-none d-xl-inline"> Image&nbsp;&nbsp;</span></span>
             <div id="skip-spinner" class="spinner-border" role="status" style="width: 12px; height: 12px; display: none"></div>
             </button>
         </div>
@@ -156,19 +206,33 @@
                         <div class="card d-flex w-100">
                             <div class="card-header">Context Images</div>
                             <div class="card-body">
-                                <p class="lead">Hover over images to view. Then scroll or use arrow keys to move in time.</p>
-                                <div id="context-image-container"
-                                     style="display: block; height: max-content; white-space: nowrap; margin: 20px; overflow: scroll; overflow-y: visible;"
-
-                                >
-                                    {% for context_image in context_images %}
-                                    <img
-                                        class="img-fluid rounded context-image"
-                                        src="{% get_media_prefix %}{{ context_image.thumbnail_gcloud_path }}"
-                                        style="margin-top: 5px; margin-bottom: 5px;{% if context_image.thumbnail_gcloud_path == image.thumbnail_gcloud_path %}border: 5px solid yellow{% endif %}"
-                                        onmouseover="displayContextImage(this);" onmouseout="revertContextImage()"
+                                <p class="lead">Click or use arrow keys to move through time. Hover image to enlargen.</p>
+                                <div id="context-image-carousel" class="carousel" data-ride="carousel" data-interval="false">
+                                    <div class="carousel-inner">
+                                        {% for context_image in context_images %}
+                                        <div class="carousel-item {% if context_image.id == image.id %}active{% endif %}">
+                                            <img class="img-fluid rounded context-image"
+                                                src="{% get_media_prefix %}{{ context_image.thumbnail_gcloud_path }}"
+                                                style="margin-top: 5px; margin-bottom: 5px;"
+                                                onmouseover="displayContextImage(this);" onmouseout="revertContextImage()"
+                                            >
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    <a id="context-images-prev" class="carousel-control-prev" href="#context-image-carousel" role="button" data-slide="prev"
+                                        onmouseover="displayContextImage($('.carousel-item.active img').get(0))"
+                                        onmouseout="revertContextImage()"
                                     >
-                                    {% endfor %}
+                                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                        <span class="sr-only"></span>
+                                    </a>
+                                    <a id="context-images-next" class="carousel-control-next" href="#context-image-carousel" role="button" data-slide="next"
+                                        onmouseover="displayContextImage($('.carousel-item.active img').get(0))"
+                                        onmouseout="revertContextImage()"
+                                    >
+                                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                        <span class="sr-only"></span>
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -266,9 +330,20 @@
     });
 
     // Initialize popovers
-    $(document).ready(function(){
+    $(document).ready(function () {
         $('[data-toggle="popover"]').popover();
+
+        document.onkeydown = function (event) {
+            event.preventDefault();
+            if (event.key == 'ArrowLeft') {
+                $(`#context-images-prev`).click();
+            }
+            else if (event.key == 'ArrowRight') {
+                $(`#context-images-next`).click();
+            }
+        };
     });
+
 </script>
 
 <script>
@@ -362,14 +437,6 @@
             }
         }, 1000)
     }
-
-    // Horizontal scrolling of context images
-    contextImageContainer = document.getElementById("context-image-container");
-    contextImageContainer.addEventListener("wheel", (evt) => {
-        evt.preventDefault();
-        contextImageContainer.scrollLeft += evt.deltaY;
-    });
-
 
     // If an annotator made a mistake, they can return to a previous image
     function promptReturnToPreviousImage(imageId) {
@@ -488,6 +555,7 @@
 
             $('#{{image.id}}').css("filter", brightnessFilter);
             $("[id^='canvas-']").css("filter", brightnessFilter);
+            $(".context-image").css("filter", brightnessFilter);
 
             // Submit buttons disabled until all elements have loaded
             {% block enable_save_buttons %}

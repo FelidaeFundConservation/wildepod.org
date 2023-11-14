@@ -787,6 +787,7 @@ def annotate(zipped_querysets):
             or (obj.created_by.human and (obj.created_by.human.is_staff or obj.created_by.human.is_expert))
         )
 
+        staff_or_expert_rejection = obj.rejected_by.filter(STAFF_OR_EXPERT_CHECK).exists()
         correlated_obj_rejected = False
 
         if hasattr(obj, "bounding_box"):
@@ -800,14 +801,12 @@ def annotate(zipped_querysets):
 
         if (
             annotation.get("vote_difference") > VOTE_THRESHOLD
-            or annotation["has_staff_or_expert_vote"]
+            and not staff_or_expert_rejection
             and not correlated_obj_rejected
-        ):
+        ) or annotation["has_staff_or_expert_vote"]:
             annotation["status"] = "Valid"
         elif (
-            annotation.get("vote_difference") < -VOTE_THRESHOLD
-            or (obj.rejected_by.filter(STAFF_OR_EXPERT_CHECK).exists())
-            or correlated_obj_rejected
+            annotation.get("vote_difference") < -VOTE_THRESHOLD or staff_or_expert_rejection or correlated_obj_rejected
         ):
             annotation["status"] = "Invalid"
         else:

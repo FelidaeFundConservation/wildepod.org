@@ -48,12 +48,3 @@ svg.a9s-annotationlayer .a9s-inner.pink {
         }
     }
 }
-
-.context-image {
-    transition: transform .4s;
-    max-height: 80px;
-}
-
-.context-image:hover {
-    transform: scale(1.05)
-}

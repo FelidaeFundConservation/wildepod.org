@@ -409,7 +409,7 @@ def get_valid_or_uncertain_bboxes(image):
     zipped_querysets = list(zip(bounding_boxes, bounding_box_values))
     annotate(zipped_querysets)
 
-    return [bbox_obj for bbox_obj, bbox_values in zipped_querysets if bbox_values.get("status") != "Rejected"]
+    return [bbox_obj for bbox_obj, bbox_values in zipped_querysets if bbox_values.get("status") != "Invalid"]
 
 
 def get_context_images(queue, context):
@@ -783,13 +783,15 @@ def annotate(zipped_querysets):
         annotation["vote_difference"] = annotation.get("accepted_count") - annotation.get("rejected_count")
 
         annotation["has_staff_or_expert_vote"] = bool(
-            obj.accepted_by.filter(Q(human__is_staff=True) | Q(human__is_expert=True)).exists()
+            obj.accepted_by.filter(STAFF_OR_EXPERT_CHECK).exists()
             or (obj.created_by.human and (obj.created_by.human.is_staff or obj.created_by.human.is_expert))
         )
 
-        if annotation.get("vote_difference") > VOTE_THRESHOLD:
+        if annotation.get("vote_difference") > VOTE_THRESHOLD or annotation["has_staff_or_expert_vote"]:
             annotation["status"] = "Valid"
-        elif annotation.get("vote_difference") < -VOTE_THRESHOLD:
+        elif annotation.get("vote_difference") < -VOTE_THRESHOLD or (
+            obj.rejected_by.filter(STAFF_OR_EXPERT_CHECK).exists()
+        ):
             annotation["status"] = "Invalid"
         else:
             annotation["status"] = "Uncertain"
@@ -819,13 +821,7 @@ def calculateCategoryAnnotationFlags(image):
 
     all_bboxes_have_category = not category_objs.filter(name=UNANNOTATED_CATEGORY).exists()
 
-    if (
-        not category_has_uncertain_annotation
-        and image.processed
-        and bbox_count_gt
-        and all_bboxes_have_category
-        or (has_staff_or_expert_vote and all_bboxes_have_category)
-    ):
+    if not category_has_uncertain_annotation and image.processed and bbox_count_gt and all_bboxes_have_category:
         image.has_humans = category_annotations.filter(name="person").exists()
         image.has_animals = category_annotations.filter(name="animal").exists()
         image.has_vehicles = category_annotations.filter(name="vehicle").exists()
@@ -1006,10 +1002,9 @@ def calculateSpeciesAnnotationFlags(image):
         not species_has_uncertain_annotation
         and species_has_valid_annotation
         and image.has_animals
-        and annotation_checked_by_gte
+        and (annotation_checked_by_gte or has_staff_or_expert_vote)
         and image.processed
         and all_bboxes_have_species
-        or (has_staff_or_expert_vote and all_bboxes_have_species)
     ):
         image.has_wild_animals = species_annotations.filter(~Q(name__name__in=NON_WILD_SPECIES)).exists()
         image.species_pipeline_complete = True
@@ -1077,7 +1072,6 @@ def calculateActivityAnnotationFlags(image):
         and image.has_wild_animals
         and annotation_checked_by_gte
         and image.processed
-        or has_staff_or_expert_vote
     ):
         image.activity_pipeline_complete = True
     else:

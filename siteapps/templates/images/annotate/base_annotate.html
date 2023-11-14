@@ -1,5 +1,6 @@
 {% extends '_base.html' %}
 {% load static %}
+{% load humanize %}
 
 <!-- Set corresponding nav pill to active -->
 {% block nav_tag %}active{% endblock nav_tag %}
@@ -63,19 +64,18 @@
                         <text class="small"><span class="d-none d-md-inline">Context</span><span class="d-inline d-md-none">Cxt.</span></text>
                     </a>
                     <a class="nav-link d-none d-lg-inline"
-                        id="nav-shortcuts-tab"
+                        id="nav-info-tab"
                         data-bs-toggle="tab"
-                        href="#nav-shortcuts"
+                        href="#nav-info"
                         role="tab"
-                        aria-controls="nav-shortcuts"
+                        aria-controls="nav-info"
                         aria-selected="false"
                     >
                         <text class="small">
-                            Keyboard Shortcuts
+                            Information
                         </text>
                     </a>
                 </div>
-
             </nav>
         </div>
         <div class="col-4 border rounded py-2 m-0 text-center d-flex">
@@ -138,7 +138,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="card">
+                        <div class="card" >
                             <div class="card-header">
                                 <button class="btn" onclick="copyImageID()">
                                     <i class="bi-clipboard"></i>&nbsp;&nbsp;
@@ -189,8 +189,18 @@
                         {% include './page_elements/options.html' %}
                         {% include './page_elements/image-manipulators.html' %}
                     </div>
-                    <div class="tab-pane fade mt-3" id="nav-shortcuts" role="tabpanel" aria-labelledby="nav-shortcuts-tab">
+                    <div class="tab-pane fade mt-3" id="nav-info" role="tabpanel" aria-labelledby="nav-info-tab">
                         <div class="card">
+                            <div class="card-header">
+                                Your Stats
+                            </div>
+                            <div class="card-body text-center">
+                                <h1 class="display-1">{{ user_annotation_count|intcomma }}</h1>
+                                <p class="lead">{% block annotation_count_type %}{% endblock annotation_count_type %} Annotations so far.</p>
+
+                            </div>
+                        </div>
+                        <div class="card mt-3">
                             <div class="card-header">Keybindings</div>
                             <div class="card-body">
                                 <ul class="list-group">

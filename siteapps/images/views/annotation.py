@@ -787,10 +787,27 @@ def annotate(zipped_querysets):
             or (obj.created_by.human and (obj.created_by.human.is_staff or obj.created_by.human.is_expert))
         )
 
-        if annotation.get("vote_difference") > VOTE_THRESHOLD or annotation["has_staff_or_expert_vote"]:
+        correlated_obj_rejected = False
+
+        if hasattr(obj, "bounding_box"):
+            bbox_obj = BoundingBox.objects.filter(id=obj.bounding_box.id)
+            bbox_values = bbox_obj.values()
+
+            zipped_bbox_querysets = list(zip(bbox_obj, bbox_values))
+            annotate(zipped_bbox_querysets)
+
+            correlated_obj_rejected = zipped_bbox_querysets[0][1].get("status") == "Invalid"
+
+        if (
+            annotation.get("vote_difference") > VOTE_THRESHOLD
+            or annotation["has_staff_or_expert_vote"]
+            and not correlated_obj_rejected
+        ):
             annotation["status"] = "Valid"
-        elif annotation.get("vote_difference") < -VOTE_THRESHOLD or (
-            obj.rejected_by.filter(STAFF_OR_EXPERT_CHECK).exists()
+        elif (
+            annotation.get("vote_difference") < -VOTE_THRESHOLD
+            or (obj.rejected_by.filter(STAFF_OR_EXPERT_CHECK).exists())
+            or correlated_obj_rejected
         ):
             annotation["status"] = "Invalid"
         else:
@@ -1070,7 +1087,7 @@ def calculateActivityAnnotationFlags(image):
         not activity_has_uncertain_annotation
         and activity_has_valid_annotation
         and image.has_wild_animals
-        and annotation_checked_by_gte
+        and (annotation_checked_by_gte or has_staff_or_expert_vote)
         and image.processed
     ):
         image.activity_pipeline_complete = True

@@ -419,13 +419,13 @@ def get_context_images(queue, context):
         Image.objects.filter(
             upload__camera_station=context["image"].upload.camera_station,
             trigger_timestamp__lt=context["image"].trigger_timestamp,
-            trigger_timestamp__gt=context["image"].trigger_timestamp - datetime.timedelta(hours=1),
+            trigger_timestamp__gt=context["image"].trigger_timestamp - datetime.timedelta(minutes=10),
         )[:CONTEXT_AMOUNT]
     ) + list(
         Image.objects.filter(
             upload__camera_station=context["image"].upload.camera_station,
             trigger_timestamp__gte=context["image"].trigger_timestamp,
-            trigger_timestamp__lt=context["image"].trigger_timestamp + datetime.timedelta(hours=1),
+            trigger_timestamp__lt=context["image"].trigger_timestamp + datetime.timedelta(minutes=10),
         )[:CONTEXT_AMOUNT]
     )
 

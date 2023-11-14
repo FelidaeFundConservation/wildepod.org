@@ -106,11 +106,26 @@ def create_test_species_object(test_bounding_box_object, name, group, test_annot
     )
 
 
-# Create your tests here.
-class AnnotationPagesTestCase(TestCase):
+class LoggedInTestCase(TestCase):
     def setUp(self):
         self.user, email, password = create_test_user_object("Justin")
         self.client.login(email=email, password=password)
+
+        self.annotator, created = Annotator.objects.get_or_create(type="human", human=self.user)
+
+        test_upload_object = create_test_upload_object(self)
+
+        test_image_object = create_test_image_object(test_upload_object)
+        test_image_object.processed = True
+        test_image_object.save()
+
+        self.test_image = test_image_object
+
+
+# Create your tests here.
+class AnnotationPagesTestCase(LoggedInTestCase):
+    def setUp(self):
+        super().setUp()
 
     def test_object_page_loads(self):
         response = self.client.get(reverse("images:annotate_objects"))
@@ -133,26 +148,16 @@ class AnnotationPagesTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
 
 
-class AnnotationFlagsTestCase(TestCase):
+class AnnotationFlagsTestCase(LoggedInTestCase):
     def setUp(self):
         # Create test user and login with it
-        self.user, email, password = create_test_user_object("Justin")
-        self.client.login(email=email, password=password)
-        self.annotator, created = Annotator.objects.get_or_create(type="human", human=self.user)
+        super().setUp()
 
         self.other_user, email, password = create_test_user_object("OtherUser")
         self.other_annotator, created = Annotator.objects.get_or_create(type="human", human=self.other_user)
 
         bot, created = Bot.objects.get_or_create(name="MegaDetector", version="0.0")
         self.megadetector_annotator, created = Annotator.objects.get_or_create(type="bot", bot=bot)
-
-        test_upload_object = create_test_upload_object(self)
-
-        test_image_object = create_test_image_object(test_upload_object)
-        test_image_object.processed = True
-        test_image_object.save()
-
-        self.test_image = test_image_object
 
 
 class SingleBoxSingleCategoryTestCase(AnnotationFlagsTestCase):
@@ -462,3 +467,141 @@ class SingleBoxSingleSpeciesTestCase(AnnotationFlagsTestCase):
 
         self.assertTrue(self.test_image.species_pipeline_complete)
         self.assertFalse(self.test_image.has_wild_animals)
+
+
+class ObjectValidityTestCase(LoggedInTestCase):
+    def setUp(self):
+        super().setUp()
+
+        self.other_user1, email, password = create_test_user_object("OtherUser1")
+        self.other_annotator1, created = Annotator.objects.get_or_create(type="human", human=self.other_user1)
+
+        self.other_user2, email, password = create_test_user_object("OtherUser2")
+        self.other_annotator2, created = Annotator.objects.get_or_create(type="human", human=self.other_user2)
+
+        self.other_user3, email, password = create_test_user_object("OtherUser3")
+        self.other_annotator3, created = Annotator.objects.get_or_create(type="human", human=self.other_user3)
+
+        # Setup objects
+        self.bbox1 = create_test_bboxes(test_image_object=self.test_image, test_user_object=self.annotator, num_boxes=1)
+
+    """
+    Staff/expert rejections should outweigh all regular users' acceptions
+    """
+
+    def test_expert_rejection_overrules_regular_acceptions(self):
+        # Make user expert
+        self.user.is_expert = True
+        self.user.save()
+
+        # Check we're using an expert
+        self.assertTrue(self.user.is_expert)
+
+        # Check the other voters are non-expert and non-staff
+        self.assertFalse(self.other_user1.is_expert)
+        self.assertFalse(self.other_user1.is_staff)
+        self.assertFalse(self.other_user2.is_expert)
+        self.assertFalse(self.other_user2.is_staff)
+        self.assertFalse(self.other_user3.is_expert)
+        self.assertFalse(self.other_user3.is_staff)
+
+        # Make the accepting votes by other annotators
+        species1 = create_test_species_object(self.bbox1, "Mule Deer", "WILD", self.other_annotator1)
+        vote(species1, self.other_annotator2, accept=True)
+        vote(species1, self.other_annotator3, accept=True)
+
+        # Make the rejecting vote by the expert user
+        vote(species1, self.annotator, accept=False)
+
+        # Check the votes were applied as expected
+        self.assertEqual(species1.accepted_by.count(), 2)
+        self.assertEqual(species1.rejected_by.count(), 1)
+
+        # Get the object validity
+        species_obj = Species.objects.filter(id=species1.id)
+        species_values = species_obj.values()
+
+        zipped_species_querysets = list(zip(species_obj, species_values))
+        annotate(zipped_species_querysets)
+
+        self.assertEqual(zipped_species_querysets[0][1].get("status"), "Invalid")
+
+    """
+    Accepting staff/expert votes should overrule any rejections,
+    including from other staff/expert users
+    """
+
+    def test_expert_acception_overrules_expert_rejections(self):
+        # Make users expert
+        self.user.is_expert = True
+        self.user.save()
+
+        self.other_user1.is_expert = True
+        self.other_user1.save()
+
+        # Check we're using experts
+        self.assertTrue(self.user.is_expert)
+        self.assertTrue(self.other_user1.is_expert)
+
+        # Make the rejecting votes by other annotators
+        species1 = create_test_species_object(self.bbox1, "Bobcat", "WILD", self.other_annotator3)
+        vote(species1, self.other_annotator2, accept=False)
+        vote(species1, self.other_annotator1, accept=False)
+
+        # Make the accepting vote by the expert user
+        vote(species1, self.annotator, accept=True)
+
+        # Check the votes were applied as expected
+        self.assertEqual(species1.accepted_by.count(), 1)
+        self.assertEqual(species1.rejected_by.count(), 2)
+
+        # Get the object validity
+        species_obj = Species.objects.filter(id=species1.id)
+        species_values = species_obj.values()
+
+        zipped_species_querysets = list(zip(species_obj, species_values))
+        annotate(zipped_species_querysets)
+
+        self.assertEqual(zipped_species_querysets[0][1].get("status"), "Valid")
+
+    """
+    Correlated objects (i.e. Category, Species, or Activity) should also be invalid
+    if its bounding box is invalid.
+    """
+
+    def test_invalid_bbox_correlated_objects_rejected(self):
+        # Make user expert
+        self.user.is_expert = True
+        self.user.save()
+
+        # Check user states
+        self.assertTrue(self.user.is_expert)
+        self.assertFalse(self.other_user1.is_expert)
+        self.assertFalse(self.other_user1.is_staff)
+
+        # Create the bbox and correlated object
+        bbox2 = create_test_bboxes(
+            test_image_object=self.test_image, test_user_object=self.other_annotator1, num_boxes=1
+        )
+        species1 = create_test_species_object(bbox2, "Human", "HUMAN", self.other_annotator3)
+
+        # Cast the expert reject vote
+        vote(bbox2, self.annotator, accept=False)
+
+        # Get the bbox validity
+        bbox_obj = BoundingBox.objects.filter(id=bbox2.id)
+        bbox_values = bbox_obj.values()
+
+        zipped_bbox_querysets = list(zip(bbox_obj, bbox_values))
+        annotate(zipped_bbox_querysets)
+
+        self.assertEqual(zipped_bbox_querysets[0][1].get("status"), "Invalid")
+
+        # Get the correlated object validity
+        species_obj = Species.objects.filter(id=species1.id)
+        species_values = species_obj.values()
+
+        zipped_species_querysets = list(zip(species_obj, species_values))
+        annotate(zipped_species_querysets)
+
+        self.assertEqual(zipped_species_querysets[0][1].get("status"), "Invalid")

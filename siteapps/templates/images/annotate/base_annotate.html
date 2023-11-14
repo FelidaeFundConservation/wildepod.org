@@ -332,11 +332,12 @@
         $('[data-toggle="popover"]').popover();
 
         document.onkeydown = function (event) {
-            event.preventDefault();
             if (event.key == 'ArrowLeft') {
+                event.preventDefault();
                 $(`#context-images-prev`).click();
             }
             else if (event.key == 'ArrowRight') {
+                event.preventDefault();
                 $(`#context-images-next`).click();
             }
         };

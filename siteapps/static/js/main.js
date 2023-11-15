@@ -326,15 +326,14 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
                 footer.html(`<i>${footer.html()} (Hidden)</i>`);
                 eyeIcon.removeClass("bi-eye").addClass("bi-eye-slash");
                 innerRect.removeClass("preSubmitTooltip")
-
+                rectAnnotation.hide(speed = speed);
             }
             else {
                 footer.html(`${footer.html().replace("<i>", "").replace(" (Hidden)", "").replace("</i>", "")}`);
                 eyeIcon.removeClass("bi-eye-slash").addClass("bi-eye");
                 innerRect.addClass("preSubmitTooltip")
+                rectAnnotation.show(speed = speed);
             }
-            innerRect.toggle(speed = speed);
-            rectAnnotation.find(".a9s-outer").toggle(speed = speed);
 
             hiddenBoxes = $(`[id^=preview-]:not([id*='preview-label-'])`).has("i.bi-eye-slash");
         };
@@ -410,11 +409,15 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
     checkNoAnnotations();
 
     // Hide the previously hidden boxes after each re-render
-    $(hiddenBoxes).each(function () {
-        $(`#${$(this).attr("id") }`).find(`[id^=hide-]`).trigger("persistHide");
-    });
+    reHideBboxes();
 
     $(function () {
         $('[data-toggle="tooltip"]').tooltip();
     })
+}
+
+function reHideBboxes() {
+    $(hiddenBoxes).each(function () {
+        $(`#${$(this).attr("id")}`).find(`[id^=hide-]`).trigger("persistHide");
+    });
 }

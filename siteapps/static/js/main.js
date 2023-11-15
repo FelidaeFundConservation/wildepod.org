@@ -221,8 +221,6 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
 
     let boxNum = 1;
 
-    $(document).unbind("keydown");
-
     $(function () {
         $('[data-toggle="tooltip"]').tooltip('dispose');
         $(`.tooltip`).remove();
@@ -318,26 +316,26 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         hideButton = $(`#hide-${cleanedId}`);
 
         // Handle visual changes for hiding bboxes
-        const hide = function (speed=300) {
+        const hide = function (speed = 300) {
             const footer = preview.find(".card-footer");
             const eyeIcon = preview.find(".bi");
 
-            if (!rectAnnotation.hasClass("bbox-hidden")) {
+            if (!preview.hasClass("bbox-hidden")) {
                 footer.html(`<i>${footer.html()} (Hidden)</i>`);
                 eyeIcon.removeClass("bi-eye").addClass("bi-eye-slash");
                 innerRect.removeClass("preSubmitTooltip")
                 rectAnnotation.hide(speed = speed);
-                rectAnnotation.addClass("bbox-hidden");
+                preview.addClass("bbox-hidden");
             }
             else {
                 footer.html(`${footer.html().replace("<i>", "").replace(" (Hidden)", "").replace("</i>", "")}`);
                 eyeIcon.removeClass("bi-eye-slash").addClass("bi-eye");
                 innerRect.addClass("preSubmitTooltip")
                 rectAnnotation.show(speed = speed);
-                rectAnnotation.removeClass("bbox-hidden");
+                preview.removeClass("bbox-hidden");
             }
 
-            hiddenBoxes = $(`[id^=preview-]:not([id*='preview-label-'])`).has("i.bi-eye-slash");
+            hiddenBoxes = $(`.bbox-hidden`);
         };
         hideButton.click(hide);
 
@@ -420,6 +418,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
 
 function reHideBboxes() {
     $(hiddenBoxes).each(function () {
-        $(`#${$(this).attr("id")}`).find(`[id^=hide-]`).trigger("persistHide");
+        let id = $(this).attr("id").replace("preview-", "");
+        $(`#hide-${id}`).trigger("persistHide");
     });
 }

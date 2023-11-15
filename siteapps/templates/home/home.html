@@ -7,20 +7,27 @@
 {% block nav_home %}active{% endblock nav_home %}
 
 {% block content %}
-<div class="container-fluid p-0 home-banner d-flex justify-content-center align-items-center">
-    <div class="row justify-content-center m-3 p-3 p-md-4 text-center cta">
-        <div class="col-12 col-md-10">
-            <h1>Welcome to WildePod</h1>
+<div class="background"></div>
+<div class="container-fluid p-0 home-banner d-flex justify-content-center align-items-center position-absolute">
+    <div class="row justify-content-left m-3 p-3 p-md-4 text-left cta w-75">
+        <div class="col-2">
+        <img
+            src="{% static 'images/felidae_profile.png' %}"
+            alt="Felidae"
+            class="img-fluid w-100 p-2"
+        ></div>
+        <div class="col-10 col-md-10">
+            <h1>Welcome To WildePod</h1>
             <p>Let's make our community a better place! Help us record trail camera data.</p>
             {% if user.is_authenticated and user.is_active %}
             <a href="{% url 'images:annotate_objects' %}">
-                <button class="btn btn-light">Start Tagging</button>
+                <button class="btn btn-primary w-25">Start Tagging</button>
             </a>
             {% else %}
             <a
                 href="https://felidaefund.org/take-action"
                 target="_blank"
-            ><button class="btn btn-light">Get Involved</button></a>
+            ><button class="btn btn-primary w-25">Get Involved</button></a>
             {% endif %}
         </div>
     </div>
@@ -86,4 +93,5 @@
         </div>
     </div>
 </div>
+<div class="background"></div>
 {% endblock content %}

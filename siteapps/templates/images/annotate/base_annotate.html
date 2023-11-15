@@ -342,11 +342,11 @@
                 if (selected) {
                     target = selected;
                 }
-                if (hoveredAnnotation) {
+                else if (hoveredAnnotation) {
                     target = hoveredAnnotation;
                 }
 
-                if (target) {
+                if (target && target.type == "Annotation") {console.log(target);
                     const annotationText = target.body[0].value && target.body[0].value != 'unannotated' ? target.body[0].value : "(No Annotation)";
                     const messageHtml = `<kbd><i class="bi bi-trash"></i>&nbsp;BACKSPACE</kbd>&nbsp;&nbsp;Deleted box '${annotationText}.'</i>`;
 

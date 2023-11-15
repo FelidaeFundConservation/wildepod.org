@@ -346,19 +346,20 @@
                     target = hoveredAnnotation;
                 }
 
-                if (target && target.type == "Annotation") {console.log(target);
+                if (target && target.type == "Annotation") {
                     const annotationText = target.body[0].value && target.body[0].value != 'unannotated' ? target.body[0].value : "(No Annotation)";
                     const messageHtml = `<kbd><i class="bi bi-trash"></i>&nbsp;BACKSPACE</kbd>&nbsp;&nbsp;Deleted box '${annotationText}.'</i>`;
 
                     anno.removeAnnotation(target.id);
                     anno.cancelSelected();
-                    appendToast(target.id, "delete", messageHtml);
+                    appendToast(target.id.replace("#", ""), "delete", messageHtml);
                     $(`.tooltip`).remove();
+
+                    renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno);
                 }
 
                 hoveredAnnotation = null;
                 selected = null;
-                renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno);
             }
         };
     });

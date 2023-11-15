@@ -367,6 +367,7 @@
                 // Hide all bboxes keyboard shortcut
                 event.preventDefault();
                 let previews = $(`[id^=preview-]:not(.bbox-hidden):not([id^=preview-label-])`);
+                let messageHtml; 
 
                 if (previews.length > 0) {
                     previews.addClass("bbox-hidden");

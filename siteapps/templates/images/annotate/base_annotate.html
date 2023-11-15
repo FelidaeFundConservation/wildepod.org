@@ -147,6 +147,7 @@
                         <div class="accordion-body">
                             <ul class="list-group">
                                 <li class="list-group-item"><small><kbd><i class="bi bi-mouse"> RIGHTCLICK</i></kbd>&nbsp;&nbsp;<i class="bi bi-arrow-right"></i><i>&nbsp;&nbsp;Hide bounding box</i></small></li>
+                                <li class="list-group-item"><small><kbd>SPACE</kbd>&nbsp;&nbsp;<i class="bi bi-arrow-right"></i><i>&nbsp;&nbsp;Hide all boxes</i></small></li>
                                 <li class="list-group-item"><small><kbd>BACKSPACE</kbd>&nbsp;&nbsp;<i class="bi bi-arrow-right"></i><i>&nbsp;&nbsp;Delete bounding box</i></small></li>
                             </ul>
                         </div>
@@ -336,6 +337,7 @@
 
         document.onkeydown = function (event) {
             if (event.key === "Backspace" || event.key === "Delete") {
+                // Delete annotation keyboard shortcut
                 let selected = anno.getSelected();
                 let target = null;
 
@@ -360,6 +362,30 @@
 
                 hoveredAnnotation = null;
                 selected = null;
+            }
+            else if (event.code === "Space") {
+                // Hide all bboxes keyboard shortcut
+                event.preventDefault();
+                let previews = $(`[id^=preview-]:not(.bbox-hidden):not([id^=preview-label-])`);
+
+                if (previews.length > 0) {
+                    previews.addClass("bbox-hidden");
+                    hiddenBoxes.push(...previews);
+
+                    messageHtml = `<kbd><i class="bi bi-eye-slash"></i>&nbsp;SPACE</kbd>&nbsp;&nbsp;Hid all visible bounding boxes.</i>`;
+                    appendToast("id", "hide-all", messageHtml);
+
+                    renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno);
+                }
+                else {
+                    hiddenBoxes = $(`[id^=preview-]`)
+                    reHideBboxes();
+
+                    messageHtml = `<kbd><i class="bi bi-eye"></i>&nbsp;SPACE</kbd>&nbsp;&nbsp;Unhid all bounding boxes.</i>`;
+                    appendToast("id", "unhide-all", messageHtml);
+
+                    hiddenBoxes = [];
+                }
             }
         };
     });

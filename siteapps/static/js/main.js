@@ -190,6 +190,29 @@ function renderBoundingBoxes(imageElementID, annotations, widgets, config) {
 
 // Function to consume an annoatation object, a container element and
 // create a list of preview images from the original image
+function appendToast(cleanedId, type, messageHtml) {
+    $(`.toast.hide`).remove();
+
+    $(".toast-container").append(`
+        <small>
+            <div id="toast-${type}-${cleanedId}"
+                    class="toast align-items-center fade"
+                    role="alert" aria-live="assertive"
+                    aria-atomic="true"
+            >
+                <div class="d-flex">
+                    <div class="toast-body">
+                        ${messageHtml}
+                    </div>
+                </div>
+            </div>
+        </small>`)
+
+    $(document).ready(function () {
+        $(`#toast-${type}-${cleanedId}`).toast('show');
+    });
+}
+
 function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
     let imageElement = document.getElementById(imageElementID);
     let previewContainer = document.getElementById(previewContainerID);
@@ -209,29 +232,6 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         if ($("[id^='preview-']").length == 0) {
             previewContainer.innerHTML = `<h1 class="display-5"><i class="bi bi-bounding-box-circles"></i>&nbsp;&nbsp;<i>(No annotations found on image.)</i></text><br>`;
         }
-    }
-
-    function appendToast(cleanedId, type, messageHtml) {
-        $(`.toast.hide`).remove();
-
-        $(".toast-container").append(`
-        <small>
-            <div id="toast-${type}-${cleanedId}"
-                    class="toast align-items-center fade"
-                    role="alert" aria-live="assertive"
-                    aria-atomic="true"
-            >
-                <div class="d-flex">
-                    <div class="toast-body">
-                        ${messageHtml}
-                    </div>
-                </div>
-            </div>
-        </small>`)
-
-        $(document).ready(function () {
-            $(`#toast-${type}-${cleanedId}`).toast('show');
-        });
     }
 
     for (const annotation of anno.getAnnotations()) {
@@ -297,6 +297,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
                 $(document).keydown(function (event) {
                     if (event.keyCode === 8) {
                         event.preventDefault();
+                        anno.cancelSelected();
                         anno.removeAnnotation(annotation.id);
                         preview.remove();
                         checkNoAnnotations();
@@ -420,7 +421,6 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
     checkNoAnnotations();
 
     // Hide the previously hidden boxes after each re-render
-
     $(hiddenBoxes).each(function () {
         $(`#${$(this).attr("id") }`).find(`[id^=hide-]`).trigger("persistHide");
     });

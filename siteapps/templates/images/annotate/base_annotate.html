@@ -329,7 +329,20 @@
 
     // Initialize popovers
     $(document).ready(function(){
-      $('[data-toggle="popover"]').popover();
+        $('[data-toggle="popover"]').popover();
+
+        document.onkeydown = function (event) {
+            if (event.key === "Backspace" || event.key === "Delete") {
+                event.preventDefault();
+                const selected = anno.getSelected();
+                const annotationText = selected.body[0].value && selected.body[0].value != 'unannotated' ? selected.body[0].value : "(No Annotation)";
+                const messageHtml = `<kbd><i class="bi bi-trash"></i>&nbsp;BACKSPACE</kbd>&nbsp;&nbsp;Deleted box '${annotationText}.'</i>`;
+
+                anno.removeAnnotation(selected.id);
+                anno.cancelSelected();
+                appendToast(selected.id, "delete", messageHtml)
+            }
+        };
     });
 </script>
 

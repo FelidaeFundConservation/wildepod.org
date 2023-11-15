@@ -372,14 +372,14 @@
                     previews.addClass("bbox-hidden");
                     hiddenBoxes.push(...previews);
 
-                    messageHtml = `<kbd><i class="bi bi-eye-slash"></i>&nbsp;SPACE</kbd>&nbsp;&nbsp;Hid all visible bounding boxes.</i>`;
-                    appendToast("id", "hide-all", messageHtml);
-
                     renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno);
+
+                    messageHtml = `<kbd><i class="bi bi-eye-slash"></i>&nbsp;SPACE</kbd>&nbsp;&nbsp;Hid all visible bounding boxes.</i>`;
+                    appendToast("id", "hide-all", messageHtml)
                 }
                 else {
-                    hiddenBoxes = $(`[id^=preview-]`)
-                    reHideBboxes();
+                    hiddenBoxes = $(`[id^=preview-]:not([id^=preview-label-])`);
+                    reHideBboxes(true);
 
                     messageHtml = `<kbd><i class="bi bi-eye"></i>&nbsp;SPACE</kbd>&nbsp;&nbsp;Unhid all bounding boxes.</i>`;
                     appendToast("id", "unhide-all", messageHtml);

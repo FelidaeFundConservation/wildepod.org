@@ -221,10 +221,8 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
 
     let boxNum = 1;
 
-    $(function () {
-        $('[data-toggle="tooltip"]').tooltip('dispose');
-        $(`.tooltip`).remove();
-    })
+    $('[data-toggle="tooltip"]').tooltip('dispose');
+    $(`.tooltip`).remove();
 
     function checkNoAnnotations() {
         if ($("[id^='preview-']").length == 0) {
@@ -417,9 +415,14 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
     })
 }
 
-function reHideBboxes() {
+function reHideBboxes(fade = false) {
     $(hiddenBoxes).each(function () {
         let id = $(this).attr("id").replace("preview-", "");
-        $(`#hide-${id}`).trigger("persistHide");
+
+        if (fade) {
+            $(`#hide-${id}`).trigger("click");
+        } else {
+            $(`#hide-${id}`).trigger("persistHide");
+        }
     });
 }

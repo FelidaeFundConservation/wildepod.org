@@ -20,8 +20,9 @@
     .cta {
         background-color: rgb(0, 0, 0, 0.70);
         border-radius: 1em;
-        text-shadow: 2px 2px rgb(0, 0, 0, 0.50);
+        text-shadow: 4px 4px rgb(0, 0, 0, 0.70);
         overflow: hidden;
+        box-shadow: 0 0 5px 10px #000;
     }
 
     h1 {

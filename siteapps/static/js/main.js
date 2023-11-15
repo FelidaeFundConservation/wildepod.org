@@ -293,26 +293,13 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
                 preview.css("background-color", "rgba(255, 255, 0, 0.5)")
                 $(this).css("background-color", "yellow")
 
-                // Use backspace to delete box when hovered
-                $(document).keydown(function (event) {
-                    if (event.keyCode === 8) {
-                        event.preventDefault();
-                        anno.cancelSelected();
-                        anno.removeAnnotation(annotation.id);
-                        preview.remove();
-                        checkNoAnnotations();
-
-                        $(`.tooltip`).remove();
-
-                        appendToast(cleanedId, "delete", `<kbd><i class="bi bi-trash"></i>&nbsp;BACKSPACE</kbd>&nbsp;&nbsp;Deleted box '${annotationText}.'</i>`)
-                        $(document).unbind("keydown");
-                    }
-                });
+                hoveredAnnotation = annotation;
             },
             function () {
                 preview.css("background-color", "rgba(255, 255, 0, 0.0)")
                 $(this).css("background-color", "transparent")
-                $(document).unbind("keydown");
+
+                hoveredAnnotation = null;
             }
         )
 

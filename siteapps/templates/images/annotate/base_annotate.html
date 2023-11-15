@@ -327,20 +327,38 @@
         event.preventDefault();
     });
 
+
+    let hoveredAnnotation = null;
+
     // Initialize popovers
     $(document).ready(function(){
         $('[data-toggle="popover"]').popover();
 
         document.onkeydown = function (event) {
             if (event.key === "Backspace" || event.key === "Delete") {
-                event.preventDefault();
-                const selected = anno.getSelected();
-                const annotationText = selected.body[0].value && selected.body[0].value != 'unannotated' ? selected.body[0].value : "(No Annotation)";
-                const messageHtml = `<kbd><i class="bi bi-trash"></i>&nbsp;BACKSPACE</kbd>&nbsp;&nbsp;Deleted box '${annotationText}.'</i>`;
+                let selected = anno.getSelected();
+                let target = null;
 
-                anno.removeAnnotation(selected.id);
-                anno.cancelSelected();
-                appendToast(selected.id, "delete", messageHtml)
+                if (selected) {
+                    target = selected;
+                }
+                if (hoveredAnnotation) {
+                    target = hoveredAnnotation;
+                }
+
+                if (target) {
+                    const annotationText = target.body[0].value && target.body[0].value != 'unannotated' ? target.body[0].value : "(No Annotation)";
+                    const messageHtml = `<kbd><i class="bi bi-trash"></i>&nbsp;BACKSPACE</kbd>&nbsp;&nbsp;Deleted box '${annotationText}.'</i>`;
+
+                    anno.removeAnnotation(target.id);
+                    anno.cancelSelected();
+                    appendToast(target.id, "delete", messageHtml);
+                    $(`.tooltip`).remove();
+                }
+
+                hoveredAnnotation = null;
+                selected = null;
+                renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno);
             }
         };
     });

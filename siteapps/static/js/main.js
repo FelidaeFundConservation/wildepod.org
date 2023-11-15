@@ -235,6 +235,8 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
     }
 
     for (const annotation of anno.getAnnotations()) {
+        if (annotation.type !== "Annotation") continue;
+
         let annotationText = annotation.body[0].value && annotation.body[0].value != 'unannotated' ? annotation.body[0].value : "(No Annotation)";
         let highlight = annotationText == "(No Annotation)" ? `style="background-color: #FFCCCB"` : "";
         const confidence = annotation.body[0].confidence && annotation.body[0].confidence !== 1 ? ` | <em>conf: ${annotation.body[0].confidence}</em></text>` : ``;

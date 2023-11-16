@@ -12,7 +12,7 @@
 {% endblock header_includes %}
 
 {% block content %}
-<div class="container mt-2 mt-md-3 species-annotation">
+<div class="container mt-2 mt-md-3 species-annotation rounded bg-white">
     {% if image %}
 
 <div class="container-fluid mt-2 mt-md-3">
@@ -105,7 +105,7 @@
         <div id="side-menu" class="col-xl-4 col-lg-12 col-md-12 col-sm-12 mt-2 overflow-auto">
              <nav id="nav-menu">
                 <div class="tab-content">
-                    <div class="tab-pane fade show active p-3" id="nav-annotate" role="tabpanel" aria-labelledby="nav-annotate-tab">
+                    <div class="tab-pane fade show active p-0" id="nav-annotate" role="tabpanel" aria-labelledby="nav-annotate-tab">
                         {% block missing_annotations_element %}
                         {% endblock missing_annotations_element %}
                         <div
@@ -263,7 +263,7 @@
     </div>
     <div id="image-container" class="col-xl-8 text-center p-2" oncontextmenu="return false;">
         <img id="{{image.id}}"
-                class="img-fluid m-0 p-0"
+                class="img-fluid rounded m-0 px-4"
                 src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}">
     </div>
     </div>
@@ -272,37 +272,38 @@
 <div class="toast-container position-fixed bottom-0 end-0 p-1 mh-1">
 </div>
     {% if user.is_authenticated and user.is_staff %}
-
-    <div class="row mt-3 mt-md-5 text-center">
-        <h2>Annotations Details</h2>
-        <hr />
-    </div>
-    <div class="row mt-2 mt-md-4 justify-content-center text-center">
-        <div class="col-12" id="annotations-details"></div>
-        <div>
-            <p>
-                This session is for staff only, to debug. <br>
-                For visibility, we can include details for the pipeline of the image annotation here,
-                like Bounding Boxes uncertainty, etc.
-            </p>
+    <div class="annotation-details">
+        <div class="row mt-3 mt-md-5 text-center">
+            <h2>Annotations Details</h2>
+            <hr />
         </div>
+        <div class="row mt-2 mt-md-4 justify-content-center text-center">
+            <div class="col-12" id="annotations-details"></div>
+            <div>
+                <p>
+                    This session is for staff only, to debug. <br>
+                    For visibility, we can include details for the pipeline of the image annotation here,
+                    like Bounding Boxes uncertainty, etc.
+                </p>
+            </div>
+        </div>
+        {% include './page_elements/pipeline-debug-info.html' %}
     </div>
-    {% include './page_elements/pipeline-debug-info.html' %}
-
     {% endif %}
 
     {% else %}
-    <div class="row text-center mt-3 mt-md-5 pt-2 pt-md-5">
+    <div class="row text-center mt-2 mt-md-3 pt-2 pt-md-3">
         <h3>There are no more images to annotate! Come back later!</h3>
-        <div class="col-12 col-md-10 offset-md-1 col-lg-8 offset-lg-2 mt-2 mt-md-5 pt-2">
+        <div class="col-12 col-md-10 offset-md-1 col-lg-8 offset-lg-2 mt-2 mt-md-4 pt-3">
             <img
-                class="img-fluid rounded"
+                class="img-fluid rounded w-75"
                 src="{% static 'images/puma_sleeping.jpg' %}"
             >
         </div>
     </div>
     {% endif %}
 </div>
+<div class="background-annotate h-100 mt-5"></div>
 {% endblock content %}
 
 {% block footer_includes %}

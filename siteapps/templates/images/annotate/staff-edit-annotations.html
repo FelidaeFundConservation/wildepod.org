@@ -80,7 +80,10 @@
                                     <text style="border-bottom: 1px solid black;"><b>BBox Checked By</b></text>
                                     {% if image.bbox_checked_by.exists %}
                                         {% for annotator in image.bbox_checked_by.all %}
-                                            <br><text style="font-size: 12px">{{ annotator }}</text>
+                                            <br><text style="font-size: 12px">{{ annotator }}
+                                            {% if annotator.human.is_staff %} (Staff)
+                                            {% elif annotator.human.is_expert %} (Expert)
+                                            {% endif %}</text>
                                         {% endfor %}
                                     {% else %}
                                         <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
@@ -91,7 +94,10 @@
                                     <text style="border-bottom: 1px solid black;"><b>Species Checked By</b></text>
                                     {% if image.species_checked_by.exists %}
                                         {% for annotator in image.species_checked_by.all %}
-                                            <br><text style="font-size: 12px">{{ annotator }}</text>
+                                            <br><text style="font-size: 12px">{{ annotator }}
+                                            {% if annotator.human.is_staff %} (Staff)
+                                            {% elif annotator.human.is_expert%} (Expert)
+                                            {% endif %}</text>
                                         {% endfor %}
                                     {% else %}
                                         <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
@@ -102,7 +108,10 @@
                                     <text style="border-bottom: 1px solid black;"><b>Activity Checked By</b></text>
                                     {% if image.activity_checked_by.exists %}
                                         {% for annotator in image.activity_checked_by.all %}
-                                            <br><text style="font-size: 12px">{{ annotator }}</text>
+                                            <br><text style="font-size: 12px">{{ annotator }}
+                                            {% if annotator.human.is_staff %} (Staff)
+                                            {% elif annotator.human.is_expert %} (Expert)
+                                            {% endif %}</text>
                                         {% endfor %}
                                     {% else %}
                                         <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
@@ -115,8 +124,11 @@
                                     <text style="border-bottom: 1px solid black;"><b>BBox Skipped By</b></text>
                                     {% if image.bbox_skipped_by.exists %}
                                         {% for annotator in image.bbox_skipped_by.all %}
-                                            <br><text style="font-size: 12px">{{ annotator }}</text>
-                                        {% endfor %}
+                                            <br><text style="font-size: 12px">{{ annotator }}
+                                            {% if annotator.human.is_staff %} (Staff)
+                                            {% elif annotator.human.is_expert %} (Expert)
+                                            {% endif %}</text>
+                                            {% endfor %}
                                     {% else %}
                                         <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
                                     {% endif %}
@@ -126,7 +138,10 @@
                                     <text style="border-bottom: 1px solid black;"><b>Species Skipped By</b></text>
                                     {% if image.species_skipped_by.exists %}
                                         {% for annotator in image.species_skipped_by.all %}
-                                            <br><text style="font-size: 12px">{{ annotator }}</text>
+                                            <br><text style="font-size: 12px">{{ annotator }}
+                                            {% if annotator.human.is_staff %} (Staff)
+                                            {% elif annotator.human.is_expert %} (Expert)
+                                            {% endif %}</text>
                                         {% endfor %}
                                     {% else %}
                                         <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
@@ -137,7 +152,10 @@
                                     <text style="border-bottom: 1px solid black;"><b>Activity Skipped By</b></text>
                                     {% if image.activity_skipped_by.exists %}
                                         {% for annotator in image.activity_skipped_by.all %}
-                                            <br><text style="font-size: 12px">{{ annotator }}</text>
+                                            <br><text style="font-size: 12px">{{ annotator }}
+                                            {% if annotator.human.is_staff %} (Staff)
+                                            {% elif annotator.human.is_expert %} (Expert)
+                                            {% endif %}</text>
                                         {% endfor %}
                                     {% else %}
                                         <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
@@ -163,11 +181,17 @@
                                 <div id="bbox-acceptedby-{{ bbox.id }}" style="border: 1px solid black; margin: 10px; width: 33%; border-radius: 5px">
                                     <text style="border-bottom: 1px solid black;"><b>Bbox Accepted By</b></text><br>
                                     {% if bbox.created_by.type == 'human' %}
-                                        <text style="font-size: 12px">{{ bbox.created_by }} (Created)</text><br>
+                                        <text style="font-size: 12px">{{ bbox.created_by }} (Created)
+                                        {% if bbox.created_by.human.is_staff %} (Staff)
+                                        {% elif bbox.created_by.human.is_expert %} (Expert)
+                                        {% endif %}</text><br>
                                     {% endif %}
                                     {% if bbox.accepted_by.exists or bbox.created_by %}
                                         {% for annotator in bbox.accepted_by.all %}
-                                            <text style="font-size: 12px">{{ annotator }}</text><br>
+                                            <text style="font-size: 12px">{{ annotator }}
+                                            {% if annotator.human.is_staff %} (Staff)
+                                            {% elif annotator.human.is_expert %} (Expert)
+                                            {% endif %}</text><br>
                                         {% endfor %}
                                     {% else %}
                                         <text style="font-size: 12px"><i>No annotators yet.</i></text><br>
@@ -177,7 +201,10 @@
                                     <text style="border-bottom: 1px solid black;"><b>Bbox Rejected By</b></text>
                                     {% if bbox.rejected_by.exists %}
                                         {% for annotator in bbox.rejected_by.all %}
-                                            <br><text style="font-size: 12px">{{ annotator }}</text>
+                                            <br><text style="font-size: 12px">{{ annotator }}
+                                            {% if annotator.human.is_staff %} (Staff)
+                                            {% elif annotator.human.is_expert %} (Expert)
+                                            {% endif %}</text>
                                         {% endfor %}
                                     {% else %}
                                         <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
@@ -221,11 +248,17 @@
                                                         <div style="margin: 10px; border: 1px solid silver">
                                                             <text style="font-size: 12px; width: 100%;"><b><u>Accepted</u></b></text><br>
                                                             {% if category.created_by.type == 'human' %}
-                                                                <text style="font-size: 12px">{{ category.created_by }} (Created)</text><br>
+                                                                <text style="font-size: 12px">{{ category.created_by }} (Created)
+                                                                {% if category.created_by.human.is_staff %} (Staff)
+                                                                {% elif category.created_by.human.is_expert %} (Expert)
+                                                                {% endif %}</text><br>
                                                             {% endif %}
                                                             {% if category.accepted_by.exists or category.created_by.type == 'human' %}
                                                                 {% for annotator in category.accepted_by.all %}
-                                                                <text style="font-size: 12px"><i>{{ annotator }}</i></text><br>
+                                                                    <text style="font-size: 12px"><i>{{ annotator }}
+                                                                    {% if annotator.human.is_staff %} (Staff)
+                                                                    {% elif annotator.human.is_expert %} (Expert)
+                                                                    {% endif %}</i></text><br>
                                                                 {% endfor %}
                                                             {% else %}
                                                                 <text style="font-size: 12px"><i>No annotators yet.</i></text>
@@ -235,7 +268,10 @@
                                                             <text style="font-size: 12px; width: 100%"><b><u>Rejected</u></b></text><br>
                                                             {% if category.rejected_by.exists %}
                                                                 {% for annotator in category.rejected_by.all %}
-                                                                <text style="font-size: 12px"><i>{{ annotator }}</i></text><br>
+                                                                    <text style="font-size: 12px"><i>{{ annotator }}
+                                                                    {% if annotator.human.is_staff %} (Staff)
+                                                                    {% elif annotator.human.is_expert %} (Expert)
+                                                                    {% endif %}</i></text><br>
                                                                 {% endfor %}
                                                             {% else %}
                                                                 <text style="font-size: 12px"><i>No annotators yet.</i></text>
@@ -280,11 +316,17 @@
                                                         <div style="margin: 10px; border: 1px solid silver">
                                                             <text style="font-size: 12px; width: 100%;"><b><u>Accepted</u></b></text><br>
                                                             {% if species.created_by.type == 'human' %}
-                                                                <text style="font-size: 12px">{{ species.created_by }} (Created)</text><br>
+                                                                <text style="font-size: 12px">{{ species.created_by }} (Created)
+                                                                {% if species.created_by.human.is_staff %} (Staff)
+                                                                {% elif species.created_by.human.is_expert %} (Expert)
+                                                                {% endif %}</text><br>
                                                             {% endif %}
                                                             {% if species.accepted_by.exists or species.created_by %}
                                                                 {% for annotator in species.accepted_by.all %}
-                                                                <text style="font-size: 12px"><i>{{ annotator }}</i></text><br>
+                                                                    <text style="font-size: 12px"><i>{{ annotator }}
+                                                                    {% if annotator.human.is_staff %} (Staff)
+                                                                    {% elif annotator.human.is_expert %} (Expert)
+                                                                    {% endif %}</i></text><br>
                                                                 {% endfor %}
                                                             {% else %}
                                                                 <text style="font-size: 12px"><i>No annotators yet.</i></text>
@@ -294,7 +336,10 @@
                                                             <text style="font-size: 12px; width: 100%"><b><u>Rejected</u></b></text><br>
                                                             {% if species.rejected_by.exists %}
                                                                 {% for annotator in species.rejected_by.all %}
-                                                                <text style="font-size: 12px"><i>{{ annotator }}</i></text><br>
+                                                                    <text style="font-size: 12px"><i>{{ annotator }}
+                                                                    {% if annotator.human.is_staff %} (Staff)
+                                                                    {% elif annotator.human.is_expert %} (Expert)
+                                                                    {% endif %}</i></text><br>
                                                                 {% endfor %}
                                                             {% else %}
                                                                 <text style="font-size: 12px"><i>No annotators yet.</i></text>
@@ -340,11 +385,17 @@
                                                         <div style="margin: 10px; border: 1px solid silver">
                                                                 <text style="font-size: 12px; width: 100%;"><b><u>Accepted</u></b></text><br>
                                                                 {% if activity.created_by.type == 'human' %}
-                                                                    <text style="font-size: 12px">{{ activity.created_by }} (Created)</text><br>
+                                                                    <text style="font-size: 12px">{{ activity.created_by }} (Created)
+                                                                    {% if activity.created_by.human.is_staff %} (Staff)
+                                                                    {% elif activity.created_by.human.is_expert %} (Expert)
+                                                                    {% endif %}</text><br>
                                                                 {% endif %}
                                                                 {% if activities.accepted_by.exists or activity.created_by %}
                                                                     {% for annotator in activities.accepted_by.all %}
-                                                                    <text style="font-size: 12px"><i>{{ annotator }}</i></text><br>
+                                                                        <text style="font-size: 12px"><i>{{ annotator }}
+                                                                        {% if annotator.human.is_staff %} (Staff)
+                                                                        {% elif annotator.human.is_expert %} (Expert)
+                                                                        {% endif %}</i></text><br>
                                                                     {% endfor %}
                                                                 {% else %}
                                                                     <text style="font-size: 12px"><i>No annotators yet.</i></text>
@@ -354,7 +405,10 @@
                                                             <text style="font-size: 12px; width: 100%"><b><u>Rejected</u></b></text><br>
                                                             {% if activities.rejected_by.exists %}
                                                                 {% for annotator in activities.rejected_by.all %}
-                                                                <text style="font-size: 12px"><i>{{ annotator }}</i></text><br>
+                                                                    <text style="font-size: 12px"><i>{{ annotator }}
+                                                                    {% if annotator.human.is_staff %} (Staff)
+                                                                    {% elif annotator.human.is_expert %} (Expert)
+                                                                    {% endif %}</i></text><br>
                                                                 {% endfor %}
                                                             {% else %}
                                                                 <text style="font-size: 12px"><i>No annotators yet.</i></text>

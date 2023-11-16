@@ -140,12 +140,7 @@
                         </div>
                         <div class="card">
                             <div class="card-header">
-                                <button class="btn" onclick="copyImageID()">
-                                    <i class="bi-clipboard"></i>&nbsp;&nbsp;
-                                    {{ image.upload.camera_station.station_id }} |
-                                    {{ image.upload.camera_station.micro_site.macro_site }} |
-                                    {{ image.upload.camera_station.micro_site.macro_site.county }}
-                                </button>
+                                Instructions
                             </div>
                             <div class="text-center p-3">
                                 {% block instruction_text %}
@@ -262,9 +257,21 @@
             </nav>
     </div>
     <div id="image-container" class="col-xl-8 text-center p-2" oncontextmenu="return false;">
-        <img id="{{image.id}}"
-                class="img-fluid rounded m-0 px-4"
-                src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}">
+        <div class="card h-100">
+            <div class="card-header">
+                <button class="btn" onclick="copyImageID()">
+                    <i class="bi-clipboard"></i>&nbsp;&nbsp;
+                    {{ image.upload.camera_station.station_id }} |
+                    {{ image.upload.camera_station.micro_site.macro_site }} |
+                    {{ image.upload.camera_station.micro_site.macro_site.county }}
+                </button>
+            </div>
+            <div class="card-body">
+                <img id="{{image.id}}"
+                    class="img-fluid rounded m-0"
+                    src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}">
+            </div>
+        </div>
     </div>
     </div>
 </div>

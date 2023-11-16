@@ -297,7 +297,7 @@
             </nav>
     </div>
     <div id="image-container" class="col-xl-8 text-center p-2" oncontextmenu="return false;">
-        <div class="card h-100">
+        <div class="card">
             <div class="card-header">
                 <button class="btn" onclick="copyImageID()">
                     <i class="bi-clipboard"></i>&nbsp;&nbsp;
@@ -308,7 +308,7 @@
             </div>
             <div class="card-body">
                 <img id="{{image.id}}"
-                    class="img-fluid rounded m-0"
+                    class="main-image img-fluid rounded m-0"
                     src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}">
             </div>
         </div>

@@ -542,33 +542,29 @@
                 const sideMenu = $(`#side-menu`);
                 const imageContainer = $(`#image-container`)
 
-                const colSmaller = "col-xl-4"
-                const colBigger = "col-xl-8"
-                const colMax = "col-xl-12"
-                const hide = "hidden";
+                const colSmaller = "col-xl-4";
+                const colBigger = "col-xl-8";
+                const colMax = "col-xl-12";
 
-                if (e.target.id === "nav-bboxes-tab") {
-                    sideMenu.removeClass(colSmaller);
-                    sideMenu.addClass(colBigger);
-                    imageContainer.removeClass(colBigger)
-                    imageContainer.addClass(colSmaller);
-                }
-                else {
+                function resetClasses() {
                     sideMenu.removeClass(colBigger);
+                    sideMenu.removeClass(colMax);
                     sideMenu.addClass(colSmaller);
                     imageContainer.removeClass(colSmaller)
                     imageContainer.addClass(colBigger);
                 }
-
-                if (e.target.id === "nav-admin-tab") {
+                resetClasses();
+                if (e.target.id === "nav-bboxes-tab") {
+                    sideMenu.removeClass(colSmaller);
+                    sideMenu.addClass(colBigger);
+                    imageContainer.removeClass(colBigger);
+                    imageContainer.addClass(colSmaller);
+                }
+                else if (e.target.id === "nav-admin-tab") {
                     sideMenu.removeClass(colSmaller);
                     sideMenu.addClass(colMax);
                     imageContainer.removeClass(colBigger)
-                }
-                else {
-                    sideMenu.removeClass(colMax);
-                    sideMenu.addClass(colSmaller);
-                    imageContainer.addClass(colBigger);
+                    imageContainer.addClass(colSmaller);
                 }
             })
 

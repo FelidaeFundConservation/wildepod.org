@@ -20,6 +20,18 @@
         <div class="col-8">
             <nav>
                 <div class="nav nav-tabs" id="nav-tab" role="tablist">
+                    {% if user.is_staff %}
+                    <a class="nav-link"
+                       id="nav-admin-tab"
+                       data-bs-toggle="tab"
+                       href="#nav-admin"
+                       role="tab"
+                       aria-controls="nav-admin"
+                       aria-selected="false"
+                    >
+                        <text class="small text-warning">Admin</text>
+                    </a>
+                    {% endif %}
                     <a class="nav-link active"
                        id="nav-annotate-tab"
                        data-bs-toggle="tab"
@@ -49,7 +61,7 @@
                        aria-selected="false"
                     >
                         <text class="small">
-                            <span class="d-none d-md-inline">Bounding </span>Boxes
+                            <span class="d-none d-lg-inline">Bounding </span>Boxes
                         </text>
                     </a>
                     <a class="nav-link"
@@ -60,9 +72,9 @@
                        aria-controls="nav-context-images"
                        aria-selected="false"
                     >
-                        <text class="small"><span class="d-none d-md-inline">Context</span><span class="d-inline d-md-none">Cxt.</span></text>
+                        <text class="small"><span class="d-none d-lg-inline">Context</span><span class="d-inline d-lg-none">Cxt.</span></text>
                     </a>
-                    <a class="nav-link d-none d-lg-inline"
+                    <a class="nav-link d-none d-xl-inline"
                         id="nav-shortcuts-tab"
                         data-bs-toggle="tab"
                         href="#nav-shortcuts"
@@ -105,6 +117,9 @@
         <div id="side-menu" class="col-xl-4 col-lg-12 col-md-12 col-sm-12 mt-2 overflow-auto">
              <nav id="nav-menu">
                 <div class="tab-content">
+                    <div class="tab-pane fade p-0 text-center" id="nav-admin" role="tabpanel" aria-labelledby="nav-admin-tab">
+                        {% include './page_elements/staff-edit-annotations.html' %}
+                    </div>
                     <div class="tab-pane fade show active p-0" id="nav-annotate" role="tabpanel" aria-labelledby="nav-annotate-tab">
                         {% block missing_annotations_element %}
                         {% endblock missing_annotations_element %}
@@ -529,6 +544,8 @@
 
                 const colSmaller = "col-xl-4"
                 const colBigger = "col-xl-8"
+                const colMax = "col-xl-12"
+                const hide = "hidden";
 
                 if (e.target.id === "nav-bboxes-tab") {
                     sideMenu.removeClass(colSmaller);
@@ -540,6 +557,17 @@
                     sideMenu.removeClass(colBigger);
                     sideMenu.addClass(colSmaller);
                     imageContainer.removeClass(colSmaller)
+                    imageContainer.addClass(colBigger);
+                }
+
+                if (e.target.id === "nav-admin-tab") {
+                    sideMenu.removeClass(colSmaller);
+                    sideMenu.addClass(colMax);
+                    imageContainer.removeClass(colBigger)
+                }
+                else {
+                    sideMenu.removeClass(colMax);
+                    sideMenu.addClass(colSmaller);
                     imageContainer.addClass(colBigger);
                 }
             })

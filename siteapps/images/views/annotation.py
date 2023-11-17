@@ -913,95 +913,6 @@ def calculateSpeciesAnnotationFlags(image):
 
     all_bboxes_have_species = not species_objs.filter(name__name=UNANNOTATED_CATEGORY).exists()
 
-    # TODO: Use the SpeciesName species_group field instead once they're set for all objects.
-    NON_WILD_SPECIES = [
-        "Cyclist",
-        "Domestic cat",
-        "Domestic dog",
-        "Domestic horse",
-        "Goat (domestic)",
-        "Horse rider",
-        "Human",
-        "Motorized vehicle",
-        "Non motorized vehicle (bike)",
-        "Sheep (domestic)",
-        "Unknown",
-    ]
-
-    # Fix the object annotation retroactively if applicable
-    # If species is tagged 'human,' but object is marked 'animal,' change to 'person,' and vice versa.
-    ANIMAL_CATEGORY_LIST = list(SpeciesName.objects.filter(species_group__in=["WILD", "DOMESTIC"]))
-    HUMAN_CATEGORY_LIST = list(SpeciesName.objects.filter(species_group="HUMAN"))
-
-    for species in species_valid_annotations:
-        try:
-            # Get the valid category to replace (assuming there should only ever be 1)
-            category = (
-                Category.objects.filter(bounding_box=species.bounding_box)
-                .annotate(
-                    accepted_count=Count("accepted_by"),
-                    rejected_count=Count("rejected_by"),
-                    expert_accepted_count=Count(
-                        Case(
-                            When(
-                                Q(created_by__human__is_staff=True)
-                                | Q(accepted_by__human__is_staff=True)
-                                | Q(created_by__human__is_expert=True)
-                                | Q(accepted_by__human__is_expert=True),
-                                then=1,
-                            ),
-                            output_field=IntegerField(),
-                        )
-                    ),
-                    expert_rejected_count=Count(
-                        Case(
-                            When(Q(rejected_by__human__is_staff=True) | Q(rejected_by__human__is_expert=True), then=1),
-                            output_field=IntegerField(),
-                        )
-                    ),
-                    has_staff_vote=Count(
-                        Case(
-                            When(Q(created_by__human__is_staff=True) | Q(accepted_by__human__is_staff=True), then=1),
-                            output_field=BooleanField(),
-                        )
-                    ),
-                    vote_difference=(
-                        (F("accepted_count") - F("expert_accepted_count"))
-                        + (F("expert_accepted_count") * STAFF_OR_EXPERT_VOTE_MULTIPLIER)
-                    )
-                    - (
-                        (F("rejected_count") - F("expert_rejected_count"))
-                        + (F("expert_rejected_count") * STAFF_OR_EXPERT_VOTE_MULTIPLIER)
-                    ),
-                    status=Case(
-                        When(
-                            Q(vote_difference__gt=VOTE_THRESHOLD) | Q(has_staff_vote=True),
-                            then=Value("Valid"),
-                        ),
-                        When(vote_difference__lt=-VOTE_THRESHOLD, then=Value("Invalid")),
-                        default=Value("Uncertain"),
-                        output_field=models.CharField(),
-                    ),
-                )
-                .get(status="Valid")
-            )
-
-        except Exception as e:
-            logging.error(f"Couldn't find the valid category for the bbox: {e}")
-            # This should only happen if the category wasn't valid
-            # and shouldn't have been in the species pipeline in the first place
-            continue
-
-        # Replace the category based on the valid species annotated
-        is_same_bbox = category.bounding_box == species.bounding_box
-
-        if category and category.name == "person" and species.name in ANIMAL_CATEGORY_LIST and is_same_bbox:
-            category.name = "animal"
-        elif category and category.name == "animal" and species.name in HUMAN_CATEGORY_LIST and is_same_bbox:
-            category.name = "person"
-
-        category.save()
-
     if (
         not species_has_uncertain_annotation
         and species_has_valid_annotation
@@ -1011,7 +922,7 @@ def calculateSpeciesAnnotationFlags(image):
         and all_bboxes_have_species
         or (has_staff_or_expert_vote and all_bboxes_have_species)
     ):
-        image.has_wild_animals = species_annotations.filter(~Q(name__name__in=NON_WILD_SPECIES)).exists()
+        image.has_wild_animals = species_annotations.filter(name__species_group="WILD").exists()
         image.species_pipeline_complete = True
     else:
         # Reset the flags if conditions not met (i.e. retroactively send image back)

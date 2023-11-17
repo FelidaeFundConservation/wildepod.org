@@ -291,7 +291,7 @@ def skip_ineligible_images(queue_name, queue):
         if pipeline_completed:
             queue["index"] += 1
             logging.info(f"Queue image {image.id} was completed by another annotator. Skipping to next image.")
-        if not pipeline_eligible:
+        elif not pipeline_eligible:
             queue["index"] += 1
             logging.info(f"Queue image {image.id} was made ineligible by another annotator. Skipping to next image.")
 

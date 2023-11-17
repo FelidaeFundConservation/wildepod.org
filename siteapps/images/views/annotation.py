@@ -281,7 +281,7 @@ def skip_ineligible_images(queue_name, queue):
             pipeline_eligible = BoundingBox.objects.filter(image=image).exists()
         elif SPECIES_QUEUE_NAME in queue_name:
             pipeline_completed = image.species_pipeline_complete
-            pipeline_eligible = (image.has_animals,)
+            pipeline_eligible = image.has_animals
         elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
             pipeline_completed = image.activity_pipeline_complete
             pipeline_eligible = image.has_humans or image.has_wild_animals

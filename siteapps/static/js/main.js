@@ -231,6 +231,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
     function checkNoAnnotations() {
         if ($("[class^='preview-']").length == 0) {
             annotationPreviewContainer.html(`<h1 class="display-5"><i class="bi bi-bounding-box-circles"></i>&nbsp;&nbsp;<i>(No annotations found on image.)</i></text><br>`);
+            bboxesPreviewContainer.html(`<h1 class="display-5"><i class="bi bi-bounding-box-circles"></i>&nbsp;&nbsp;<i>(No annotations found on image.)</i></text><br>`);
         }
     }
 
@@ -336,11 +337,9 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         // Handle visual changes for hiding bboxes
         const hide = function (speed = 300) {
             $(`.tooltip`).remove();
-            const footer = preview.find(".card-footer");
             const eyeIcon = preview.find(".bi");
 
             if (!preview.hasClass("bbox-hidden")) {
-                footer.html(`<i>${footer.html()} (Hidden)</i>`);
                 eyeIcon.removeClass("bi-eye").addClass("bi-eye-slash");
                 innerRect.removeClass("preSubmitTooltip");
                 rectAnnotation.hide(speed = speed);

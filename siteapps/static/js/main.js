@@ -190,31 +190,10 @@ function renderBoundingBoxes(imageElementID, annotations, widgets, config) {
 
 // Function to consume an annoatation object, a container element and
 // create a list of preview images from the original image
-function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
-    let imageElement = document.getElementById(imageElementID);
-    let previewContainer = document.getElementById(previewContainerID);
+function appendToast(cleanedId, type, messageHtml) {
+    $(`.toast.hide`).remove();
 
-    previewContainer.innerHTML = ""
-
-    let boxNum = 1;
-
-    $(document).unbind("keydown");
-
-    $(function () {
-        $('[data-toggle="tooltip"]').tooltip('dispose');
-        $(`.tooltip`).remove();
-    })
-
-    function checkNoAnnotations() {
-        if ($("[id^='preview-']").length == 0) {
-            previewContainer.innerHTML = `<h1 class="display-5"><i class="bi bi-bounding-box-circles"></i>&nbsp;&nbsp;<i>(No annotations found on image.)</i></text><br>`;
-        }
-    }
-
-    function appendToast(cleanedId, type, messageHtml) {
-        $(`.toast.hide`).remove();
-
-        $(".toast-container").append(`
+    $(".toast-container").append(`
         <small>
             <div id="toast-${type}-${cleanedId}"
                     class="toast align-items-center fade"
@@ -229,12 +208,31 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
             </div>
         </small>`)
 
-        $(document).ready(function () {
-            $(`#toast-${type}-${cleanedId}`).toast('show');
-        });
+    $(document).ready(function () {
+        $(`#toast-${type}-${cleanedId}`).toast('show');
+    });
+}
+
+function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
+    let imageElement = document.getElementById(imageElementID);
+    let previewContainer = document.getElementById(previewContainerID);
+
+    previewContainer.innerHTML = ""
+
+    let boxNum = 1;
+
+    $('[data-toggle="tooltip"]').tooltip('dispose');
+    $(`.tooltip`).remove();
+
+    function checkNoAnnotations() {
+        if ($("[id^='preview-']").length == 0) {
+            previewContainer.innerHTML = `<h1 class="display-5"><i class="bi bi-bounding-box-circles"></i>&nbsp;&nbsp;<i>(No annotations found on image.)</i></text><br>`;
+        }
     }
 
     for (const annotation of anno.getAnnotations()) {
+        if (annotation.type !== "Annotation") continue;
+
         let annotationText = annotation.body[0].value && annotation.body[0].value != 'unannotated' ? annotation.body[0].value : "(No Annotation)";
         let highlight = annotationText == "(No Annotation)" ? `style="background-color: #FFCCCB"` : "";
         const confidence = annotation.body[0].confidence && annotation.body[0].confidence !== 1 ? ` | <em>conf: ${annotation.body[0].confidence}</em></text>` : ``;
@@ -293,25 +291,13 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
                 preview.css("background-color", "rgba(255, 255, 0, 0.5)")
                 $(this).css("background-color", "yellow")
 
-                // Use backspace to delete box when hovered
-                $(document).keydown(function (event) {
-                    if (event.keyCode === 8) {
-                        event.preventDefault();
-                        anno.removeAnnotation(annotation.id);
-                        preview.remove();
-                        checkNoAnnotations();
-
-                        $(`.tooltip`).remove();
-
-                        appendToast(cleanedId, "delete", `<kbd><i class="bi bi-trash"></i>&nbsp;BACKSPACE</kbd>&nbsp;&nbsp;Deleted box '${annotationText}.'</i>`)
-                        $(document).unbind("keydown");
-                    }
-                });
+                hoveredAnnotation = annotation;
             },
             function () {
                 preview.css("background-color", "rgba(255, 255, 0, 0.0)")
                 $(this).css("background-color", "transparent")
-                $(document).unbind("keydown");
+
+                hoveredAnnotation = null;
             }
         )
 
@@ -328,25 +314,27 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         hideButton = $(`#hide-${cleanedId}`);
 
         // Handle visual changes for hiding bboxes
-        const hide = function (speed=300) {
+        const hide = function (speed = 300) {
+            $(`.tooltip`).remove();
             const footer = preview.find(".card-footer");
             const eyeIcon = preview.find(".bi");
 
-            if (innerRect.is(':visible')) {
+            if (!preview.hasClass("bbox-hidden")) {
                 footer.html(`<i>${footer.html()} (Hidden)</i>`);
                 eyeIcon.removeClass("bi-eye").addClass("bi-eye-slash");
-                innerRect.removeClass("preSubmitTooltip")
-
+                innerRect.removeClass("preSubmitTooltip");
+                rectAnnotation.hide(speed = speed);
+                preview.addClass("bbox-hidden");
             }
             else {
                 footer.html(`${footer.html().replace("<i>", "").replace(" (Hidden)", "").replace("</i>", "")}`);
                 eyeIcon.removeClass("bi-eye-slash").addClass("bi-eye");
-                innerRect.addClass("preSubmitTooltip")
+                innerRect.addClass("preSubmitTooltip");
+                rectAnnotation.show(speed = speed);
+                preview.removeClass("bbox-hidden");
             }
-            innerRect.toggle(speed = speed);
-            rectAnnotation.find(".a9s-outer").toggle(speed = speed);
 
-            hiddenBoxes = $(`[id^=preview-]:not([id*='preview-label-'])`).has("i.bi-eye-slash");
+            hiddenBoxes = $(`.bbox-hidden`);
         };
         hideButton.click(hide);
 
@@ -420,12 +408,21 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
     checkNoAnnotations();
 
     // Hide the previously hidden boxes after each re-render
-
-    $(hiddenBoxes).each(function () {
-        $(`#${$(this).attr("id") }`).find(`[id^=hide-]`).trigger("persistHide");
-    });
+    reHideBboxes();
 
     $(function () {
         $('[data-toggle="tooltip"]').tooltip();
     })
+}
+
+function reHideBboxes(fade = false) {
+    $(hiddenBoxes).each(function () {
+        let id = $(this).attr("id").replace("preview-", "");
+
+        if (fade) {
+            $(`#hide-${id}`).trigger("click");
+        } else {
+            $(`#hide-${id}`).trigger("persistHide");
+        }
+    });
 }

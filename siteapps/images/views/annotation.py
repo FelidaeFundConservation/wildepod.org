@@ -268,25 +268,32 @@ def get_next_queue_image(self, context, queue):
     return return_to_image_id if return_to_image_id else queue["images"][queue["index"]], return_to_image_id
 
 
-# Skip images completed by other annotators since the queue was built
-def skip_completed_images(queue_name, queue):
+# Skip images completed or made ineligible by other annotators since the queue was built
+def skip_ineligible_images(queue_name, queue):
     pipeline_completed = True
+    pipeline_eligible = True
 
-    while pipeline_completed and queue["index"] < len(queue["images"]):
+    while (pipeline_completed or not pipeline_eligible) and queue["index"] < len(queue["images"]):
         image = Image.objects.get(id=queue["images"][queue["index"]])
 
         if OBJECTS_QUEUE_NAME in queue_name:
             pipeline_completed = image.category_pipeline_complete
+            pipeline_eligible = BoundingBox.objects.filter(image=image).exists()
         elif SPECIES_QUEUE_NAME in queue_name:
             pipeline_completed = image.species_pipeline_complete
+            pipeline_eligible = image.has_animals
         elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
             pipeline_completed = image.activity_pipeline_complete
+            pipeline_eligible = image.has_humans or image.has_wild_animals
         else:
             break
 
         if pipeline_completed:
             queue["index"] += 1
             logging.info(f"Queue image {image.id} was completed by another annotator. Skipping to next image.")
+        elif not pipeline_eligible:
+            queue["index"] += 1
+            logging.info(f"Queue image {image.id} was made ineligible by another annotator. Skipping to next image.")
 
     settings.DATASTORE_CLIENT.put(queue)
 
@@ -370,7 +377,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         image = Image.objects.get(id=image_id)
 
         if return_to_image_id is None:
-            skip_result = skip_completed_images(queue_name=queue_name, queue=queue)
+            skip_result = skip_ineligible_images(queue_name=queue_name, queue=queue)
             image = skip_result if skip_result else image
 
         context["image"] = image

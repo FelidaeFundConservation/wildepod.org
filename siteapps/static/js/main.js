@@ -221,10 +221,8 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
 
     let boxNum = 1;
 
-    $(function () {
-        $('[data-toggle="tooltip"]').tooltip('dispose');
-        $(`.tooltip`).remove();
-    })
+    $('[data-toggle="tooltip"]').tooltip('dispose');
+    $(`.tooltip`).remove();
 
     function checkNoAnnotations() {
         if ($("[id^='preview-']").length == 0) {
@@ -317,20 +315,21 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
 
         // Handle visual changes for hiding bboxes
         const hide = function (speed = 300) {
+            $(`.tooltip`).remove();
             const footer = preview.find(".card-footer");
             const eyeIcon = preview.find(".bi");
 
             if (!preview.hasClass("bbox-hidden")) {
                 footer.html(`<i>${footer.html()} (Hidden)</i>`);
                 eyeIcon.removeClass("bi-eye").addClass("bi-eye-slash");
-                innerRect.removeClass("preSubmitTooltip")
+                innerRect.removeClass("preSubmitTooltip");
                 rectAnnotation.hide(speed = speed);
                 preview.addClass("bbox-hidden");
             }
             else {
                 footer.html(`${footer.html().replace("<i>", "").replace(" (Hidden)", "").replace("</i>", "")}`);
                 eyeIcon.removeClass("bi-eye-slash").addClass("bi-eye");
-                innerRect.addClass("preSubmitTooltip")
+                innerRect.addClass("preSubmitTooltip");
                 rectAnnotation.show(speed = speed);
                 preview.removeClass("bbox-hidden");
             }
@@ -416,9 +415,14 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
     })
 }
 
-function reHideBboxes() {
+function reHideBboxes(fade = false) {
     $(hiddenBoxes).each(function () {
         let id = $(this).attr("id").replace("preview-", "");
-        $(`#hide-${id}`).trigger("persistHide");
+
+        if (fade) {
+            $(`#hide-${id}`).trigger("click");
+        } else {
+            $(`#hide-${id}`).trigger("persistHide");
+        }
     });
 }

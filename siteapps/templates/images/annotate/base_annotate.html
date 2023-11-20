@@ -12,9 +12,12 @@
 {% endblock header_includes %}
 
 {% block content %}
-<div class="container mt-2 mt-md-3 species-annotation rounded bg-white">
-    {% if image %}
 
+<div class="container mt-2 mt-md-3 species-annotation rounded bg-white">
+{% block depreciation_notice %}
+{% endblock depreciation_notice %}
+
+{% if image %}
 <div class="container-fluid mt-2 mt-md-3">
     <div class="row">
         <div class="col-8">
@@ -230,6 +233,7 @@
                             <div class="card-body">
                                 <ul class="list-group">
                                     <li class="list-group-item"><small><kbd><i class="bi bi-mouse"> RIGHTCLICK</i></kbd>&nbsp;&nbsp;<i class="bi bi-arrow-right"></i><i>&nbsp;&nbsp;Hide bounding box</i></small></li>
+                                    <li class="list-group-item"><small><kbd>SPACE</kbd>&nbsp;&nbsp;<i class="bi bi-arrow-right"></i><i>&nbsp;&nbsp;Hide all bboxes</i></small></li>
                                     <li class="list-group-item"><small><kbd>BACKSPACE</kbd>&nbsp;&nbsp;<i class="bi bi-arrow-right"></i><i>&nbsp;&nbsp;Delete bounding box</i></small></li>
                                 </ul>
                             </div>
@@ -356,12 +360,68 @@
         event.preventDefault();
     });
 
+
+    let hoveredAnnotation = null;
+
     // Initialize popovers
-    $(document).ready(function () {
+    $(document).ready(function(){
         $('[data-toggle="popover"]').popover();
 
         document.onkeydown = function (event) {
-            if (event.key == 'ArrowLeft') {
+            if (event.key === "Backspace" || event.key === "Delete") {
+                // Delete annotation keyboard shortcut
+                let selected = anno.getSelected();
+                let target = null;
+
+                if (selected) {
+                    target = selected;
+                }
+                if (hoveredAnnotation) {
+                    target = hoveredAnnotation;
+                }
+
+                if (target && target.type == "Annotation") {
+                    const annotationText = target.body[0].value && target.body[0].value != 'unannotated' ? target.body[0].value : "(No Annotation)";
+                    const messageHtml = `<kbd><i class="bi bi-trash"></i>&nbsp;BACKSPACE</kbd>&nbsp;&nbsp;Deleted box '${annotationText}.'</i>`;
+
+                    anno.removeAnnotation(target.id);
+                    anno.cancelSelected();
+                    appendToast(target.id.replace("#", ""), "delete", messageHtml);
+                    $(`.tooltip`).remove();
+
+                    renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno);
+                }
+
+                hoveredAnnotation = null;
+                selected = null;
+            }
+            else if (event.code === "Space") {
+                // Hide all bboxes keyboard shortcut
+                event.preventDefault();
+                let previews = $(`[class^=preview-]:not(.bbox-hidden):not(.preview-lite)`);
+                let messageHtml; 
+
+                if (previews.length > 0) {
+                    previews.addClass("bbox-hidden");
+                    hiddenBoxes.push(...previews);
+
+                    renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno);
+
+                    messageHtml = `<kbd><i class="bi bi-eye-slash"></i>&nbsp;SPACE</kbd>&nbsp;&nbsp;Hid all visible bounding boxes.</i>`;
+                    appendToast("id", "hide-all", messageHtml)
+                }
+                else {
+                    hiddenBoxes = $(`[class^=preview-]:not(.preview-lite)`);
+                    reHideBboxes(true);
+
+                    messageHtml = `<kbd><i class="bi bi-eye"></i>&nbsp;SPACE</kbd>&nbsp;&nbsp;Unhid all bounding boxes.</i>`;
+                    appendToast("id", "unhide-all", messageHtml);
+
+                    hiddenBoxes = [];
+                }
+            }
+
+            else if (event.key == 'ArrowLeft') {
                 event.preventDefault();
                 $(`#context-images-prev`).click();
             }

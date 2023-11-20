@@ -230,7 +230,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
 
     function checkNoAnnotations() {
         if ($("[class^='preview-']").length == 0) {
-            previewContainer.innerHTML = `<h1 class="display-5"><i class="bi bi-bounding-box-circles"></i>&nbsp;&nbsp;<i>(No annotations found on image.)</i></text><br>`;
+            annotationPreviewContainer.html(`<h1 class="display-5"><i class="bi bi-bounding-box-circles"></i>&nbsp;&nbsp;<i>(No annotations found on image.)</i></text><br>`);
         }
     }
 
@@ -450,4 +450,3 @@ function reHideBboxes(fade = false) {
         }
     }
 }
-

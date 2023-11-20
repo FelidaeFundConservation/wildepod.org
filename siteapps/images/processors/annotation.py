@@ -16,6 +16,10 @@ ACTIVITY_ANNOTATION_TYPE = "ACTIVITY"
 
 UNANNOTATED_CATEGORY = "unannotated"
 
+PERSON_CATEGORY = "person"
+ANIMAL_CATEGORY = "animal"
+VEHICLE_CATEGORY = "vehicle"
+
 
 def flatten_annotorious_annotations(annotations: list) -> dict:
     """Function to take an annotorious formatted list and flatten it with numerical bounding boxes"""
@@ -131,38 +135,13 @@ def create_bbox(annotation_type: str, annotation_dict: Dict[str, Any], image_obj
     if annotation_type == OBJECT_ANNOTATION_TYPE:
         create_category(annotation_dict, bbox_obj, annotator)
     elif annotation_type == SPECIES_ANNOTATION_TYPE:
-        # Create 'unannotated' placeholder objects for new bboxes past Object stage
-        # for compatibility and to send the image back. Will be deleted upon making a proper annotation.
         create_species(annotation_dict, bbox_obj, annotator)
-
-        groupless_species = SpeciesName.objects.filter(species_group=None)
 
         logging.info("New bounding box created in Species stage.")
 
-        if groupless_species.exists():
-            # All SpeciesName objects must have a species_group to infer.
-            logging.error(
-                f"Cannot infer category from new bbox because SpeciesName objects without a grouping exist. "
-                f"Admin should set the species_group fields for these objects: {list(groupless_species)}"
-            )
-            create_category({"category": UNANNOTATED_CATEGORY, "confidence": 1}, bbox_obj, annotator)
-            logging.info("'unannotated' Category object added.")
-        else:
-            species_group = SpeciesName.objects.get(name=annotation_dict["category"]).species_group
-
-            # Infer the Category based on the Species annotation if possible
-            if species_group == "HUMAN":
-                create_category({"category": "human", "confidence": 1}, bbox_obj, annotator)
-                logging.info(f"Category for {annotation_dict['category']} inferred as 'human.'")
-            elif species_group in ["WILD", "DOMESTIC"]:
-                create_category({"category": "animal", "confidence": 1}, bbox_obj, annotator)
-                logging.info(f"Category for {annotation_dict['category']} inferred as 'animal.'")
-            elif species_group == "VEHICLE":
-                create_category({"category": "vehicle", "confidence": 1}, bbox_obj, annotator)
-                logging.info(f"Category for {annotation_dict['category']} inferred as 'vehicle.'")
-            else:
-                create_category({"category": UNANNOTATED_CATEGORY, "confidence": 1}, bbox_obj, annotator)
-                logging.info("Unable to infer category. 'unannotated' Category object added.")
+        # Based on species_group field, set the category if possible.
+        # If not, set category as 'unannotated.'
+        infer_category(species_name=annotation_dict["category"], bbox_obj=bbox_obj, annotator=annotator)
 
     elif annotation_type == ACTIVITY_ANNOTATION_TYPE:
         create_category({"category": UNANNOTATED_CATEGORY, "confidence": 1}, bbox_obj, annotator)
@@ -283,6 +262,44 @@ def handle_changes(annotation_type, initial_bboxes, formatted_annotations, image
     return True
 
 
+# Create or vote on the category after inferring it
+def handle_inference(category, bbox_obj, annotator):
+    target_category = Category.objects.filter(bounding_box=bbox_obj, name=category)
+
+    if target_category.exists():
+        vote(target_category.first(), annotator, accept=True)
+        logging.info(f"Voted on existing '{category}' object from inference.")
+    else:
+        create_category({"category": category, "confidence": 1}, bbox_obj, annotator)
+        logging.info(f"Created new '{category}' object from inference.")
+
+    # Cast a reject vote for all other annotations
+    other_categories = Category.objects.filter(bounding_box=bbox_obj).exclude(name=category)
+
+    for category in other_categories:
+        vote(category, annotator, accept=False)
+
+
+# Infer the Category based on the Species annotation if possible
+def infer_category(species_name, bbox_obj, annotator):
+    species_group = SpeciesName.objects.get(name=species_name).species_group
+
+    if species_group == "HUMAN":
+        logging.info(f"Category for '{species_name}' inferred as 'person.'")
+        handle_inference(category=PERSON_CATEGORY, bbox_obj=bbox_obj, annotator=annotator)
+
+    elif species_group in ["WILD", "DOMESTIC"]:
+        logging.info(f"Category for '{species_name}' inferred as 'animal.'")
+        handle_inference(category=ANIMAL_CATEGORY, bbox_obj=bbox_obj, annotator=annotator)
+
+    elif species_group == "VEHICLE":
+        logging.info(f"Category for '{species_name}' inferred as 'vehicle.'")
+        handle_inference(category=VEHICLE_CATEGORY, bbox_obj=bbox_obj, annotator=annotator)
+    else:
+        logging.info(f"Unable to infer category for {species_name}. Adding 'unannotated' Category object.")
+        create_category({"category": UNANNOTATED_CATEGORY, "confidence": 1}, bbox_obj, annotator)
+
+
 def process_category(initial_bboxes, formatted_annotations, image, bbox_id, bbox_obj, user, annotator):
     # Category with name "unannotated" is created when a bbox is created in Species stage or beyond.
     # Delete this object once a proper annotation has been made
@@ -388,6 +405,9 @@ def process_species(formatted_annotations, bbox_id, bbox_obj, annotator):
         # Cast a reject vote for all other annotations
         for species in Species.objects.filter(~Q(id=species_obj.id), bounding_box=bbox_obj):
             vote(species, annotator, accept=False)
+
+        # Infer the category based on selected Species
+        infer_category(species_name=species_name_obj.name, bbox_obj=bbox_obj, annotator=annotator)
     else:
         species_obj = None
 

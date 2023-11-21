@@ -14,9 +14,11 @@ from django.urls import reverse
 from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
 from django.views.generic.base import TemplateView, View
 from images.forms import UploadCompleteForm, UploadForm
-from images.models import BoundingBox, Image, Upload
+from images.models import Annotator, BoundingBox, Image, Upload
 from images.processors import process_upload
 from images.processors.upload import get_dropbox_item_count
+from locations.models import CameraStation, MacroSite, MicroSite
+from users.models import User
 
 # Pagination size for images displayed for the upload detail page
 IMAGE_PAGINATION_LIMIT = 24
@@ -42,7 +44,7 @@ class UploadListView(LoginRequiredMixin, ListView):
     # Non-staff users can see only their uploads
     def get_queryset(self):
         if self.request.user.is_staff or self.request.user.is_superuser:
-            return super().get_queryset()[:10]
+            return super().get_queryset()
         else:
             return super().get_queryset().filter(volunteer=self.request.user)
 
@@ -50,9 +52,59 @@ class UploadListView(LoginRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
         if self.request.user.is_staff or self.request.user.is_superuser:
-            context["num_pending"] = Upload.objects.filter(upload_complete=False).count()
-            context["num_processing"] = Upload.objects.filter(upload_complete=True, processed=False).count()
-            context["num_completed"] = Upload.objects.filter(upload_complete=True, processed=True).count()
+            context["pending"] = Upload.objects.filter(upload_complete=False)
+            context["processing"] = Upload.objects.filter(upload_complete=True, processed=False)
+
+            context["num_pending"] = context["pending"].count()
+            context["num_processing"] = context["processing"].count()
+
+            query_kwargs = {}
+
+            # Query volunteers
+            context["volunteers"] = Annotator.objects.all()
+
+            volunteer = self.request.GET.get("volunteer")
+            volunteer = None if volunteer == "" else volunteer
+            volunteer = User.objects.get(name=volunteer) if volunteer else None
+
+            if volunteer:
+                query_kwargs["volunteer"] = volunteer
+
+            # Query macrosites
+            context["macrosites"] = MacroSite.objects.all()
+
+            macrosite = self.request.GET.get("macrosite")
+            macrosite = None if macrosite == "" else macrosite
+            macrosite = MacroSite.objects.get(name=macrosite) if macrosite else None
+
+            if macrosite:
+                query_kwargs["camera_station__micro_site__macro_site"] = macrosite
+
+            # Query microsite
+            context["microsites"] = MicroSite.objects.all()
+
+            microsite = self.request.GET.get("microsite")
+            microsite = None if microsite == "" else microsite
+            microsite = MicroSite.objects.get(name=microsite) if microsite else None
+
+            if microsite:
+                query_kwargs["camera_station__micro_site"] = microsite
+
+            # Query camera station
+            context["camera_stations"] = CameraStation.objects.all()
+
+            camera_station = self.request.GET.get("camera_station")
+            camera_station = None if camera_station == "" else camera_station
+            camera_station = CameraStation.objects.get(station_id=camera_station) if camera_station else None
+
+            if camera_station:
+                query_kwargs["camera_station"] = camera_station
+
+            # Filter results
+            context["object_list"] = (
+                context["object_list"].filter(**query_kwargs) if len(query_kwargs) > 0 else context["object_list"][:99]
+            )
+            context["num_completed"] = context["object_list"].count()
         else:
             context["num_pending"] = Upload.objects.filter(upload_complete=False, volunteer=self.request.user).count()
             context["num_processing"] = Upload.objects.filter(

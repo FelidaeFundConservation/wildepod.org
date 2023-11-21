@@ -40,6 +40,62 @@
     </div>
 </div>
 
+{% if user.is_staff %}
+<div class="container mt-2 mt-md-3 rounded bg-white p-3">
+    <h1>Filter Uploads</h1>
+    <p class="small">You can see this because you're a staff user. Applies only to 'Complete' upload section.</p>
+    <hr>
+    <form id="form_uploads" method="get">
+            <div class="form-group p-2">
+                <div class="row d-flex px-2">
+                    <div class="mb-2 col-6">
+                            <label for="select_volunteer">Volunteer</label>
+                            <select id="select_volunteer" name="volunteer" class="form-select">
+                            <option value="" selected>---------------</option>
+                            {% for volunteer in volunteers %}
+                                <option value="{{ volunteer }}">{{ volunteer.human }}</option>
+                            {% endfor %}
+                    </select>
+                    </div>
+                    <div class="mb-2 col-6">
+                        <label for="select_macrosite">Macrosite</label>
+                        <select id="select_macrosite" name="macrosite" class="form-select">
+                                <option value="" selected>---------------</option>
+                                {% for macrosite in macrosites %}
+                                    <option value="{{ macrosite }}">{{ macrosite }}</option>
+                                {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+
+                <div class="row d-flex px-2">
+                    <div class="mb-2 col-6">
+                        <label for="select_microsite">Microsite</label>
+                        <select id="select_microsite" name="microsite" class="form-select">
+                                <option value="" selected>---------------</option>
+                                {% for microsite in microsites %}
+                                    <option value="{{ microsite.name }}">{{ microsite }}</option>
+                                {% endfor %}
+                        </select>
+                     </div>
+                    <div class="mb-2 col-6">
+                        <label for="select_camstation">Camera Station</label>
+                        <select id="select_camstation" name="camera_station" class="form-select">
+                                <option value="" selected>---------------</option>
+                                {% for camera_station in camera_stations %}
+                                    <option value="{{ camera_station.station_id }}">{{ camera_station }}</option>
+                                {% endfor %}
+                        </select>
+                     </div>
+                </div>
+            </div>
+            <br>
+            <button type="submit" class="btn btn-primary">Query</button>
+    </form>
+</div>
+{% endif %}
+
 <div class="container mt-2 mt-md-3 rounded bg-white p-3">
     <nav>
         <div class="nav nav-tabs" id="nav-tab" role="tablist">
@@ -52,7 +108,7 @@
                 aria-selected="false"
             >
                 <text class="small">
-                    Pending
+                    Pending ({{ num_pending }})
                 </text>
             </a>
             <a class="nav-link"
@@ -63,7 +119,7 @@
                 aria-controls="nav-processing"
                 aria-selected="false"
             >
-                <text class="small">Processing</text>
+                <text class="small">Processing ({{ num_processing }})</text>
             </a>
             <a class="nav-link"
                 id="nav-complete-tab"
@@ -73,16 +129,16 @@
                 aria-controls="nav-complete"
                 aria-selected="false"
             >
-                <text class="small">Complete</text>
+                <text class="small">Complete ({{ num_completed }}+)</text>
             </a>
         </div>
-        <div class="tab-content">
+        <div class="tab-content upload-container">
             <div class="tab-pane fade show active p-0 text-center" id="nav-pending" role="tabpanel" aria-labelledby="nav-pending-tab">
                 {% csrf_token %}
                 <div class="row p-3 text-center">
                     {% if user.is_staff %}
-                    <p class="small"><i>Hey, {{user.name}}! Since you're a staff member, you can see the list of all pending uploads for all
-                        volunteers.
+                    <p class="small"><i>Hey, {{user.name}}! Since you're a staff member, you can see all pending uploads for all
+                        volunteers.<br>
                         You can also find this on the <a
                             href="{% url 'admin:images_upload_changelist'%}"
                             class="text-decoration-none"
@@ -96,7 +152,7 @@
                 </div>
                 {% if num_pending > 0 %}
                 <div class="row p-3 text-center pt-0 overflow-auto upload-list">
-                    {% for object in object_list %}
+                    {% for object in pending %}
                     {% if not object.upload_complete %}
                     {% endif %}
                     <div class="card w-32 text-center m-1 p-0">
@@ -133,7 +189,7 @@
                 </div>
                 {% else %}
                     <div class="text-center">
-                    <p><i>(No upload sets pending.)</i></p>
+                    <p><i>(No pending upload sets found.)</i></p>
                     </div>
                 {% endif %}
             </div>
@@ -141,47 +197,44 @@
                 <div class="row p-3 text-center">
                     {% if user.is_staff %}
                     <p class="small"><i>
-                        Hey, {{user.name}}! Since you're a staff member, this is the list of all processing uploads from all users.<br>
-                        Dropbox urls are not public and will only be available if you are logged into the dropbox org account.
+                        Hey, {{user.name}}! Since you're a staff member, you can see processing uploads from all users.<br>
+                        Dropbox urls are not public and will only be available if you're logged into the dropbox org account.
                     </i></p>
-                    <p class="text-center"><button
-                            class="btn btn-light"
-                            id="stuck-upload"
-                        >Upload Stuck?</button></p>
-                    <div
-                        id="stuck-toggle"
-                        class="d-none text-center"
-                        style="background-color: #f5f5f5; padding: 1rem; border-radius: 5px;"
-                    >
-                        <p>
-                            <small>
-                                Large uploads occasionally can get stuck in between and is expected behavior at the
-                                moment.<br />
-                                If your upload is stuck i.e. the numbers have not changed in over 30 minutes even after refreshing
-                                the page, click the button
-                                below to manually retrigger processing.
-                            </small>
-                        </p>
-                        <p>
-                            <form method="POST">
-                                {% csrf_token %}
-                                <input
-                                    type="submit"
-                                    class="btn btn-primary"
-                                    id="upload_resume_processing"
-                                    name="upload_resume_processing"
-                                    value="Resume Processing"
-                                >
-                            </form>
-                    </div>
                     {% else %}
                     <p>Hey, {{user.name}}! Here is a list of all your currently processing uploads</p>
                     {% endif %}
                     <hr>
                 </div>
                 {% if num_processing > 0 %}
+                <div
+                    id="stuck-toggle"
+                    class="text-center"
+                    style="background-color: #f5f5f5; padding: 1rem; border-radius: 5px;"
+                >
+                    <p>
+                        <small>
+                            Large uploads occasionally can get stuck in between and is expected behavior at the
+                            moment.<br />
+                            If your upload is stuck i.e. the numbers have not changed in over 30 minutes even after refreshing
+                            the page, click the button
+                            below to manually retrigger processing.
+                        </small>
+                    </p>
+                    <p>
+                        <form method="POST">
+                            {% csrf_token %}
+                            <input
+                                type="submit"
+                                class="btn btn-primary"
+                                id="upload_resume_processing"
+                                name="upload_resume_processing"
+                                value="Resume Processing"
+                            >
+                        </form>
+                    </p>
+                </div>
                 <div class="row mt-2 mt-md-5 upload-list overflow-auto">
-                    {% for object in object_list %}
+                    {% for object in processing %}
                         {% if object.upload_complete and not object.processed %}
                             <div class="card w-32 text-center m-1 p-0">
                                 <div class="card-header">
@@ -226,58 +279,62 @@
                 </div>
                 {% else %}
                 <div class="text-center">
-                    <p><i>(No upload sets currently processing.)</i></p>
+                    <p><i>(No currently processing upload sets found.)</i></p>
                 </div>
                 {% endif %}
             </div>
             <div class="tab-pane fade p-0 text-center" id="nav-complete" role="tabpanel" aria-labelledby="nav-complete-tab">
-                {% if num_completed > 0 %}
-                <div class="row p-3 text-center">
-                    {% if user.is_staff %}
-                    <p class="small"><i>
-                        Hey, {{user.name}}! Since you're a staff member, this is the list of all completed uploads from all users.<br>
-                        Dropbox urls are not public and will only be available if you are logged into the dropbox org account.
-                    </i></p>
-                    {% else %}
-                    <p>Hey, {{user.name}}! Here is a list of all your completed uploads</p>
-                    {% endif %}
-                    <hr>
-                </div>
-                <div class="row pt-0 upload-list overflow-auto">
-                    {% for object in object_list %}
-                        {% if object.upload_complete and object.processed %}
-                            <div class="card w-32 text-center m-1 p-0">
-                                <div class="card-header">
-                                    <h1 class="small mb-0">{{ object.camera_station.station_id }} | {{ object.camera_station.micro_site }} | {{ object.camera_station.micro_site.macro_site }}</h1>
-                                </div>
-                                <div class="card-body">
-                                    {% if user.is_staff %}
-                                    <text><b>Volunteer: {{object.volunteer.name}}</b></text><br>
-                                    {% endif %}
-
-                                    <text class="small"><i>Last Action: {{ object.last_action }}</i></text>
-                                    {% if user.is_staff %}
-                                    <br><br><a href="{% url 'admin:images_upload_change' object.id %}" target="_blank">
-                                        Priority {{object.priority}}
-                                    </a><br>
-                                    {% endif %}
-                                    <hr>
-                                    <div><b>Retrieved {{ object.date_retrieved }}</b></div>
-                                </div>
-                                <div class="card-footer">
-                                    <a
-                                        href="{{object.dropbox_request_url}}"
-                                        target="_blank"
-                                        class="btn btn-light"
-                                    ><i class="bi bi-dropbox"></i></a>
-                                    <a href="{% url 'images:view_upload' object.id %}"><button
-                                            type="button"
-                                            class="btn btn-light"
-                                    >View</button></a>
-                                </div>
-                            </div>
+                    <div class="row p-3 text-center">
+                        {% if user.is_staff %}
+                        <p class="small"><i>
+                            Hey, {{user.name}}! Since you're a staff member, you can query for uploads from all users.<br>
+                            Dropbox urls are not public and will only be available if you are logged into the dropbox org account.
+                        </i></p>
+                        {% else %}
+                        <p class="small"><i>Hey, {{user.name}}! Here is a list of all your completed uploads</i></p>
                         {% endif %}
-                    {% endfor %}
+                        <hr>
+                    </div>
+                    {% if num_completed > 0 %}
+                    <div class="row pt-0 upload-list overflow-auto">
+                        {% for object in object_list %}
+                            {% if object.upload_complete and object.processed %}
+                                <div class="card w-32 text-center m-1 p-0">
+                                    <div class="card-header">
+                                        <h1 class="small mb-0">{{ object.camera_station.station_id }} | {{ object.camera_station.micro_site }} | {{ object.camera_station.micro_site.macro_site }}</h1>
+                                    </div>
+                                    <div class="card-body">
+                                        {% if user.is_staff %}
+                                        <text><b>Volunteer: {{object.volunteer.name}}</b></text><br>
+                                        {% endif %}
+
+                                        <text class="small"><i>Last Action: {{ object.last_action }}</i></text>
+                                        {% if user.is_staff %}
+                                        <br><br><a href="{% url 'admin:images_upload_change' object.id %}" target="_blank">
+                                            Priority {{object.priority}}
+                                        </a><br>
+                                        {% endif %}
+                                        <hr>
+                                        <div><b>Retrieved {{ object.date_retrieved }}</b></div>
+                                    </div>
+                                    <div class="card-footer">
+                                        <a
+                                            href="{{object.dropbox_request_url}}"
+                                            target="_blank"
+                                            class="btn btn-light"
+                                        ><i class="bi bi-dropbox"></i></a>
+                                        <a href="{% url 'images:view_upload' object.id %}"><button
+                                                type="button"
+                                                class="btn btn-light"
+                                        >View</button></a>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% else %}
+                <div class="text-center">
+                    <p><i>(No completed upload sets found.)</i></p>
                 </div>
                 {% endif %}
             </div>
@@ -295,13 +352,6 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
 
 <script>
-    $("#stuck-upload").click(function(e){
-        $("#stuck-toggle").toggleClass("d-none");
-        let cta_text = $("#stuck-upload").text();
-        $("#stuck-upload").text(
-            cta_text == "Upload Stuck?" ? "Close" : "Upload Stuck?"
-        );
-    });
     // Submit annotations to the server
     $("#upload_resume_processing").click(function(e){
         // First, prevent the default action of the form

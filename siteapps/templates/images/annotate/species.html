@@ -86,7 +86,7 @@ Species
     // If it is not a single species, make sure every entry has a species
     if (!species & !skip) {
         for (const annotation of anno.getAnnotations()) {
-            if (annotation.body[0].value === undefined) {
+            if (annotation.body[0].value === undefined || annotation.body[0].value === "unannotated") {
                 $(".spinner-border").hide();
                 $("#status-missing-species").removeClass("d-none");
                 setTimeout(function(){

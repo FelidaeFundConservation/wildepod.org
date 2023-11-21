@@ -4,6 +4,7 @@
 .navbar {
     background-color: core.$color-nav-bg;
     box-shadow: 0px 3px 10px rgba(core.$color-base, 0.1);
+    text-shadow: 1px 1px rgb(0, 0, 0, 0.15);
 }
 
 .nav-link {

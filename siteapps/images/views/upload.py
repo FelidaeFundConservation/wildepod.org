@@ -42,7 +42,7 @@ class UploadListView(LoginRequiredMixin, ListView):
     # Non-staff users can see only their uploads
     def get_queryset(self):
         if self.request.user.is_staff or self.request.user.is_superuser:
-            return super().get_queryset()
+            return super().get_queryset()[:10]
         else:
             return super().get_queryset().filter(volunteer=self.request.user)
 
@@ -51,9 +51,13 @@ class UploadListView(LoginRequiredMixin, ListView):
         context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
         if self.request.user.is_staff or self.request.user.is_superuser:
             context["num_pending"] = Upload.objects.filter(upload_complete=False).count()
-            context["num_completed"] = Upload.objects.filter(upload_complete=True).count()
+            context["num_processing"] = Upload.objects.filter(upload_complete=True, processed=False).count()
+            context["num_completed"] = Upload.objects.filter(upload_complete=True, processed=True).count()
         else:
             context["num_pending"] = Upload.objects.filter(upload_complete=False, volunteer=self.request.user).count()
+            context["num_processing"] = Upload.objects.filter(
+                upload_complete=True, processed=False, volunteer=self.request.user
+            ).count()
             context["num_completed"] = Upload.objects.filter(upload_complete=True, volunteer=self.request.user).count()
         return context
 

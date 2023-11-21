@@ -431,9 +431,7 @@
     </script>
     <script>
     let uploads_in_process = [
-        {% for object in object_list %}
-            {% if object.upload_complete and not object.processed %}"{{object.id}}",{% endif %}
-        {% endfor %}
+        {% for object in processing %}"{{object.id}}",{% endfor %}
     ];
 
     let periodic_check;
@@ -467,7 +465,7 @@
 
                                 const bar = $(`#bar-${upload_id}`);
                                 const progress = $(`#progress-${upload_id}`);
-                                console.log(upload_status["processed_images"])
+
                                 if (percentage) {
                                     progress.html(`${percentage}%`);
                                     progress.removeClass("bg-danger");

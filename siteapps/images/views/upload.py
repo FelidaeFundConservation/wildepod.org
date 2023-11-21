@@ -52,8 +52,10 @@ class UploadListView(LoginRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
         if self.request.user.is_staff or self.request.user.is_superuser:
-            context["pending"] = Upload.objects.filter(upload_complete=False)
-            context["processing"] = Upload.objects.filter(upload_complete=True, processed=False)
+            context["pending"] = Upload.objects.filter(upload_complete=False).order_by("-date_retrieved")
+            context["processing"] = Upload.objects.filter(upload_complete=True, processed=False).order_by(
+                "-date_retrieved"
+            )
 
             context["num_pending"] = context["pending"].count()
             context["num_processing"] = context["processing"].count()
@@ -111,8 +113,11 @@ class UploadListView(LoginRequiredMixin, ListView):
 
             # Filter results
             context["object_list"] = (
-                context["object_list"].filter(**query_kwargs) if len(query_kwargs) > 0 else context["object_list"][:99]
+                context["object_list"].filter(**query_kwargs).order_by("-date_retrieved")
+                if len(query_kwargs) > 0
+                else context["object_list"].order_by("-date_retrieved")[:99]
             )
+
             context["num_completed"] = context["object_list"].count()
         else:
             context["num_pending"] = Upload.objects.filter(upload_complete=False, volunteer=self.request.user).count()

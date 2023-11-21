@@ -271,17 +271,20 @@
                                                 <button type="button" class="btn btn-light">View</button>
                                             </a>
                                             <button class="btn btn-light">
-                                                <div class="progress"
-                                                     role="progressbar"
-                                                     aria-label="Animated striped example"
-                                                     aria-valuenow="75"
-                                                     aria-valuemin="0"
-                                                     aria-valuemax="100">
-                                                    <div class="progress-bar progress-bar-striped progress-bar-animated"
-                                                         style="width: 75%"></div>
-                                                </div>
                                                 <span id="status-{{ object.id }}" class="text-center">?/? (..checking)</span>
                                             </button>
+                                            <div id="bar-{{ object.id }}"
+                                                 class="progress mt-2"
+                                                 role="progressbar"
+                                                 aria-label="Upload Progress {{ object.id }}"
+                                                 aria-valuenow="0"
+                                                 aria-valuemin="0"
+                                                 aria-valuemax="100">
+                                                <div id="progress-{{ object.id }}"
+                                                     class="progress-bar progress-bar-striped progress-bar-animated bg-warning">
+                                                    ?
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 {% endif %}
@@ -439,8 +442,27 @@
                                 $("#view-" + upload_id).toggleClass("d-none");
                             }
                             else {
+                                let percentage = upload_status["processed_images"] / upload_status["total_images"];
+                                percentage = Math.trunc(percentage * 10000) / 100;
                                 $("#status-" + upload_id).html(upload_status["processed_images"] + "/" + upload_status["total_images"]);
                                 uploads_in_process.push(upload_id)
+
+                                const bar = $(`#bar-${upload_id}`);
+                                const progress = $(`#progress-${upload_id}`);
+                                console.log(upload_status["processed_images"])
+                                if (percentage) {
+                                    progress.html(`${percentage}%`);
+                                    progress.removeClass("bg-danger");
+                                    progress.addClass("bg-warning");
+                                    progress.css("width", `${percentage}%`);
+                                    bar.attr("aria-valuenow", `${percentage}`);
+                                }
+                                else {
+                                    progress.html(`Stalled`);
+                                    progress.removeClass("bg-warning");
+                                    progress.addClass("bg-danger");
+                                    progress.css("width", `100%`);
+                                }
                             }
                         }
                     }

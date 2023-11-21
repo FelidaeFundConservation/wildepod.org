@@ -337,6 +337,7 @@
                                             <h1 class="small mb-0">
                                                 {{ object.camera_station.station_id }} | {{ object.camera_station.micro_site }} | {{ object.camera_station.micro_site.macro_site }}
                                             </h1>
+                                            <text class="small">(<i class="bi bi-images"></i>&nbsp;&nbsp;{{ object.images.all.count }})</text>
                                         </div>
                                         <div class="card-body">
                                             {% if user.is_staff %}

@@ -24,6 +24,18 @@
         <div class="col-8">
             <nav>
                 <div class="nav nav-tabs" id="nav-tab" role="tablist">
+                    <a class="nav-link d-none d-lg-inline"
+                        id="nav-info-tab"
+                        data-bs-toggle="tab"
+                        href="#nav-info"
+                        role="tab"
+                        aria-controls="nav-info"
+                        aria-selected="false"
+                    >
+                        <text class="small">
+                            <i class="bi bi-info-circle"></i>
+                        </text>
+                    </a>
                     {% if user.is_staff %}
                     <a class="nav-link d-none d-lg-inline"
                        id="nav-debug-tab"
@@ -87,19 +99,7 @@
                        aria-selected="false"
                     >
                         <text class="small"><span class="d-none d-lg-inline">Context</span><span class="d-inline d-lg-none">Cxt.</span></text>
-                    </a>
-                    <a class="nav-link d-none d-lg-inline"
-                        id="nav-info-tab"
-                        data-bs-toggle="tab"
-                        href="#nav-info"
-                        role="tab"
-                        aria-controls="nav-info"
-                        aria-selected="false"
-                    >
-                        <text class="small">
-                            Information
-                        </text>
-                    </a>
+                    </a>             
                 </div>
             </nav>
         </div>

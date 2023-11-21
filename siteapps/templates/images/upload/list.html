@@ -46,24 +46,32 @@
     <p class="small">You can see this because you're a staff user. Applies only to 'Complete' upload section.</p>
     <hr>
     <form id="form_uploads" method="get">
-            <div class="form-group p-2">
-                <div class="row d-flex px-2">
+            <div class="form-group">
+                <div class="row px-2">
                     <div class="mb-2 col-6">
-                            <label for="select_volunteer">Volunteer</label>
-                            <select id="select_volunteer" name="volunteer" class="form-select">
-                            <option value="" selected>---------------</option>
-                            {% for volunteer in volunteers %}
-                                <option value="{{ volunteer }}">{{ volunteer.human }}</option>
-                            {% endfor %}
-                    </select>
+                        <label for="select_volunteer">Volunteer</label>
+                        <select id="select_volunteer" name="volunteer" class="form-select">
+                        <option
+                            value=""
+                            disabled
+                            selected
+                        ></option>
+                        {% for volunteer in volunteers %}
+                            <option value="{{ volunteer }}">{{ volunteer.human }}</option>
+                        {% endfor %}
+                        </select>
                     </div>
                     <div class="mb-2 col-6">
                         <label for="select_macrosite">Macrosite</label>
                         <select id="select_macrosite" name="macrosite" class="form-select">
-                                <option value="" selected>---------------</option>
-                                {% for macrosite in macrosites %}
-                                    <option value="{{ macrosite }}">{{ macrosite }}</option>
-                                {% endfor %}
+                            <option
+                                value=""
+                                disabled
+                                selected
+                            ></option>
+                            {% for macrosite in macrosites %}
+                                <option value="{{ macrosite }}">{{ macrosite }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                 </div>
@@ -73,19 +81,27 @@
                     <div class="mb-2 col-6">
                         <label for="select_microsite">Microsite</label>
                         <select id="select_microsite" name="microsite" class="form-select">
-                                <option value="" selected>---------------</option>
-                                {% for microsite in microsites %}
-                                    <option value="{{ microsite.name }}">{{ microsite }}</option>
-                                {% endfor %}
+                            <option
+                                value=""
+                                disabled
+                                selected
+                            ></option>
+                            {% for microsite in microsites %}
+                                <option value="{{ microsite.name }}">{{ microsite }}</option>
+                            {% endfor %}
                         </select>
                      </div>
                     <div class="mb-2 col-6">
                         <label for="select_camstation">Camera Station</label>
                         <select id="select_camstation" name="camera_station" class="form-select">
-                                <option value="" selected>---------------</option>
-                                {% for camera_station in camera_stations %}
-                                    <option value="{{ camera_station.station_id }}">{{ camera_station }}</option>
-                                {% endfor %}
+                            <option
+                                value=""
+                                disabled
+                                selected
+                            ></option>
+                            {% for camera_station in camera_stations %}
+                                <option value="{{ camera_station.station_id }}">{{ camera_station }}</option>
+                            {% endfor %}
                         </select>
                      </div>
                 </div>
@@ -129,7 +145,7 @@
                 aria-controls="nav-complete"
                 aria-selected="false"
             >
-                <text class="small">Complete ({{ num_completed }}+)</text>
+                <text class="small">Complete ({{ num_completed }})</text>
             </a>
         </div>
         <div class="tab-content upload-container">
@@ -350,6 +366,11 @@
 {% block footer_includes %}
 <!-- Jquery -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+<link
+    href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+    rel="stylesheet"
+/>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 <script>
     // Submit annotations to the server
@@ -378,6 +399,10 @@
             },
         })
     });
+    $(`.form-select`).select2({
+        placeholder: 'Choose filter target',
+        multiple: true,
+    })
 </script>
 
 <script>

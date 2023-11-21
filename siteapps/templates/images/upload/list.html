@@ -80,6 +80,22 @@
                             </select>
                         </div>
                     </div>
+                    <div class="row d-flex px-2 pt-2">
+                        <div class="mb-2 col-2">
+                            <label for="select_start_date">Retrieval Start Date</label>
+                        </div>
+                        <div class="mb-2 col-1">
+                            <input type="datetime-local" id="select_start_date" name="start_date">
+                        </div>
+                    </div>
+                    <div class="row d-flex px-2 pt-2">
+                        <div class="mb-2 col-2">
+                            <label for="select_end_date">Retrieval End Date</label>
+                        </div>
+                        <div class="mb-2 col-1">
+                            <input type="datetime-local" id="select_end_date" name="end_date">
+                        </div>
+                    </div>
                 </div>
                 <br>
                 <button type="submit" class="btn btn-primary">Query</button>
@@ -203,7 +219,9 @@
                                 </i>
                             </p>
                         {% else %}
-                            <p>Hey, {{ user.name }}! Here is a list of all your currently processing uploads</p>
+                            <p class="small">
+                                <i>Hey, {{ user.name }}! Here is a list of all your currently processing uploads</i>
+                            </p>
                         {% endif %}
                         <hr>
                     </div>
@@ -407,7 +425,7 @@
         })
     });
     $(`.form-select`).select2({
-        placeholder: 'Choose filter target',
+        placeholder: '',
         multiple: true,
     })
     </script>

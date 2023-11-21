@@ -413,7 +413,7 @@
                 else {
                     hiddenBoxes = $(`[class^=preview-]:not(.preview-lite)`);
                     reHideBboxes(true);
-
+                    console.log("showing");
                     messageHtml = `<kbd><i class="bi bi-eye"></i>&nbsp;SPACE</kbd>&nbsp;&nbsp;Unhid all bounding boxes.</i>`;
                     appendToast("id", "unhide-all", messageHtml);
 
@@ -576,7 +576,7 @@
 
 
         // Save state of hidden boxes
-        window.hiddenBoxes = new Set();
+        window.hiddenBoxes = [];
 
         // Set up annotations, rendering and submit hooks after the window has fully loaded
         window.addEventListener('load', function () {

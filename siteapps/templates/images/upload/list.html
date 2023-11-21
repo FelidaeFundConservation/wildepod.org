@@ -210,35 +210,24 @@
                      role="tabpanel"
                      aria-labelledby="nav-processing-tab">
                     <div class="row p-3 text-center">
-                        {% if user.is_staff %}
-                            <p class="small">
-                                <i>
-                                    Hey, {{ user.name }}! Since you're a staff member, you can see processing uploads from all users.
-                                    <br>
-                                    Dropbox urls are not public and will only be available if you're logged into the dropbox org account.
-                                </i>
-                            </p>
-                        {% else %}
-                            <p class="small">
-                                <i>Hey, {{ user.name }}! Here is a list of all your currently processing uploads</i>
-                            </p>
-                        {% endif %}
-                        <hr>
-                    </div>
-                    {% if num_processing > 0 %}
-                        <div id="stuck-toggle"
-                             class="text-center"
-                             style="background-color: #f5f5f5;
-                                    padding: 1rem;
-                                    border-radius: 5px">
+                        <div class="text-center" style="padding: 1rem; border-radius: 5px">
+                            {% if user.is_staff %}
+                                <p class="small">
+                                    <i>
+                                        Hey, {{ user.name }}! Since you're a staff member, you can see processing uploads from all users.
+                                        <br>
+                                        Dropbox urls are not public and will only be available if you're logged into the dropbox org account.
+                                    </i>
+                                </p>
+                            {% else %}
+                                <p class="small">
+                                    <i>Hey, {{ user.name }}! Here is a list of all your currently processing uploads</i>
+                                </p>
+                            {% endif %}
                             <p>
                                 <small>
-                                    Large uploads occasionally can get stuck in between and is expected behavior at the
-                                    moment.
-                                    <br />
                                     If your upload is stuck i.e. the numbers have not changed in over 30 minutes even after refreshing
-                                    the page, click the button
-                                    below to manually retrigger processing.
+                                    the page, click the button below.
                                 </small>
                             </p>
                             <p>
@@ -252,7 +241,10 @@
                                 </form>
                             </p>
                         </div>
-                        <div class="row mt-2 mt-md-5 upload-list overflow-auto">
+                        <hr>
+                    </div>
+                    {% if num_processing > 0 %}
+                        <div class="row pt-0 upload-list overflow-auto">
                             {% for object in processing %}
                                 {% if object.upload_complete and not object.processed %}
                                     <div class="card w-32 text-center m-1 p-0">

@@ -306,25 +306,32 @@ def get_next_queue_image(self, context, queue):
     return return_to_image_id if return_to_image_id else queue["images"][queue["index"]], return_to_image_id
 
 
-# Skip images completed by other annotators since the queue was built
-def skip_completed_images(queue_name, queue):
+# Skip images completed or made ineligible by other annotators since the queue was built
+def skip_ineligible_images(queue_name, queue):
     pipeline_completed = True
+    pipeline_eligible = True
 
-    while pipeline_completed and queue["index"] < len(queue["images"]):
+    while (pipeline_completed or not pipeline_eligible) and queue["index"] < len(queue["images"]):
         image = Image.objects.get(id=queue["images"][queue["index"]])
 
         if OBJECTS_QUEUE_NAME in queue_name:
             pipeline_completed = image.category_pipeline_complete
+            pipeline_eligible = BoundingBox.objects.filter(image=image).exists()
         elif SPECIES_QUEUE_NAME in queue_name:
             pipeline_completed = image.species_pipeline_complete
+            pipeline_eligible = image.has_animals
         elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
             pipeline_completed = image.activity_pipeline_complete
+            pipeline_eligible = image.has_humans or image.has_wild_animals
         else:
             break
 
         if pipeline_completed:
             queue["index"] += 1
             logging.info(f"Queue image {image.id} was completed by another annotator. Skipping to next image.")
+        elif not pipeline_eligible:
+            queue["index"] += 1
+            logging.info(f"Queue image {image.id} was made ineligible by another annotator. Skipping to next image.")
 
     settings.DATASTORE_CLIENT.put(queue)
 
@@ -408,7 +415,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         image = Image.objects.get(id=image_id)
 
         if return_to_image_id is None:
-            skip_result = skip_completed_images(queue_name=queue_name, queue=queue)
+            skip_result = skip_ineligible_images(queue_name=queue_name, queue=queue)
             image = skip_result if skip_result else image
 
         context["image"] = image
@@ -452,7 +459,7 @@ def get_valid_or_uncertain_bboxes(image):
     zipped_querysets = list(zip(bounding_boxes, bounding_box_values))
     annotate(zipped_querysets)
 
-    return [bbox_obj for bbox_obj, bbox_values in zipped_querysets if bbox_values.get("status") != "Rejected"]
+    return [bbox_obj for bbox_obj, bbox_values in zipped_querysets if bbox_values.get("status") != "Invalid"]
 
 
 def get_context_images(queue, context):
@@ -835,13 +842,31 @@ def annotate(zipped_querysets):
         annotation["vote_difference"] = annotation.get("accepted_count") - annotation.get("rejected_count")
 
         annotation["has_staff_or_expert_vote"] = bool(
-            obj.accepted_by.filter(Q(human__is_staff=True) | Q(human__is_expert=True)).exists()
+            obj.accepted_by.filter(STAFF_OR_EXPERT_CHECK).exists()
             or (obj.created_by.human and (obj.created_by.human.is_staff or obj.created_by.human.is_expert))
         )
 
-        if annotation.get("vote_difference") > VOTE_THRESHOLD:
+        staff_or_expert_rejection = obj.rejected_by.filter(STAFF_OR_EXPERT_CHECK).exists()
+        correlated_obj_rejected = False
+
+        if hasattr(obj, "bounding_box"):
+            bbox_obj = BoundingBox.objects.filter(id=obj.bounding_box.id)
+            bbox_values = bbox_obj.values()
+
+            zipped_bbox_querysets = list(zip(bbox_obj, bbox_values))
+            annotate(zipped_bbox_querysets)
+
+            correlated_obj_rejected = zipped_bbox_querysets[0][1].get("status") == "Invalid"
+
+        if (
+            annotation.get("vote_difference") > VOTE_THRESHOLD
+            and not staff_or_expert_rejection
+            and not correlated_obj_rejected
+        ) or annotation["has_staff_or_expert_vote"]:
             annotation["status"] = "Valid"
-        elif annotation.get("vote_difference") < -VOTE_THRESHOLD:
+        elif (
+            annotation.get("vote_difference") < -VOTE_THRESHOLD or staff_or_expert_rejection or correlated_obj_rejected
+        ):
             annotation["status"] = "Invalid"
         else:
             annotation["status"] = "Uncertain"
@@ -871,13 +896,7 @@ def calculateCategoryAnnotationFlags(image):
 
     all_bboxes_have_category = not category_objs.filter(name=UNANNOTATED_CATEGORY).exists()
 
-    if (
-        not category_has_uncertain_annotation
-        and image.processed
-        and bbox_count_gt
-        and all_bboxes_have_category
-        or (has_staff_or_expert_vote and all_bboxes_have_category)
-    ):
+    if not category_has_uncertain_annotation and image.processed and bbox_count_gt and all_bboxes_have_category:
         image.has_humans = category_annotations.filter(name="person").exists()
         image.has_animals = category_annotations.filter(name="animal").exists()
         image.has_vehicles = category_annotations.filter(name="vehicle").exists()
@@ -965,105 +984,15 @@ def calculateSpeciesAnnotationFlags(image):
 
     all_bboxes_have_species = not species_objs.filter(name__name=UNANNOTATED_CATEGORY).exists()
 
-    # TODO: Use the SpeciesName species_group field instead once they're set for all objects.
-    NON_WILD_SPECIES = [
-        "Cyclist",
-        "Domestic cat",
-        "Domestic dog",
-        "Domestic horse",
-        "Goat (domestic)",
-        "Horse rider",
-        "Human",
-        "Motorized vehicle",
-        "Non motorized vehicle (bike)",
-        "Sheep (domestic)",
-        "Unknown",
-    ]
-
-    # Fix the object annotation retroactively if applicable
-    # If species is tagged 'human,' but object is marked 'animal,' change to 'person,' and vice versa.
-    ANIMAL_CATEGORY_LIST = list(SpeciesName.objects.filter(species_group__in=["WILD", "DOMESTIC"]))
-    HUMAN_CATEGORY_LIST = list(SpeciesName.objects.filter(species_group="HUMAN"))
-
-    for species in species_valid_annotations:
-        try:
-            # Get the valid category to replace (assuming there should only ever be 1)
-            category = (
-                Category.objects.filter(bounding_box=species.bounding_box)
-                .annotate(
-                    accepted_count=Count("accepted_by"),
-                    rejected_count=Count("rejected_by"),
-                    expert_accepted_count=Count(
-                        Case(
-                            When(
-                                Q(created_by__human__is_staff=True)
-                                | Q(accepted_by__human__is_staff=True)
-                                | Q(created_by__human__is_expert=True)
-                                | Q(accepted_by__human__is_expert=True),
-                                then=1,
-                            ),
-                            output_field=IntegerField(),
-                        )
-                    ),
-                    expert_rejected_count=Count(
-                        Case(
-                            When(Q(rejected_by__human__is_staff=True) | Q(rejected_by__human__is_expert=True), then=1),
-                            output_field=IntegerField(),
-                        )
-                    ),
-                    has_staff_vote=Count(
-                        Case(
-                            When(Q(created_by__human__is_staff=True) | Q(accepted_by__human__is_staff=True), then=1),
-                            output_field=BooleanField(),
-                        )
-                    ),
-                    vote_difference=(
-                        (F("accepted_count") - F("expert_accepted_count"))
-                        + (F("expert_accepted_count") * STAFF_OR_EXPERT_VOTE_MULTIPLIER)
-                    )
-                    - (
-                        (F("rejected_count") - F("expert_rejected_count"))
-                        + (F("expert_rejected_count") * STAFF_OR_EXPERT_VOTE_MULTIPLIER)
-                    ),
-                    status=Case(
-                        When(
-                            Q(vote_difference__gt=VOTE_THRESHOLD) | Q(has_staff_vote=True),
-                            then=Value("Valid"),
-                        ),
-                        When(vote_difference__lt=-VOTE_THRESHOLD, then=Value("Invalid")),
-                        default=Value("Uncertain"),
-                        output_field=models.CharField(),
-                    ),
-                )
-                .get(status="Valid")
-            )
-
-        except Exception as e:
-            logging.error(f"Couldn't find the valid category for the bbox: {e}")
-            # This should only happen if the category wasn't valid
-            # and shouldn't have been in the species pipeline in the first place
-            continue
-
-        # Replace the category based on the valid species annotated
-        is_same_bbox = category.bounding_box == species.bounding_box
-
-        if category and category.name == "person" and species.name in ANIMAL_CATEGORY_LIST and is_same_bbox:
-            category.name = "animal"
-        elif category and category.name == "animal" and species.name in HUMAN_CATEGORY_LIST and is_same_bbox:
-            category.name = "person"
-
-        category.save()
-
     if (
         not species_has_uncertain_annotation
         and species_has_valid_annotation
         and image.has_animals
-        and annotation_checked_by_gte
+        and (annotation_checked_by_gte or has_staff_or_expert_vote)
         and image.processed
         and all_bboxes_have_species
-        or (has_staff_or_expert_vote and all_bboxes_have_species)
     ):
-        image.has_wild_animals = species_annotations.filter(~Q(name__name__in=NON_WILD_SPECIES)).exists()
+        image.has_wild_animals = species_annotations.filter(name__species_group="WILD").exists()
         image.species_pipeline_complete = True
     else:
         # Reset the flags if conditions not met (i.e. retroactively send image back)
@@ -1127,9 +1056,8 @@ def calculateActivityAnnotationFlags(image):
         not activity_has_uncertain_annotation
         and activity_has_valid_annotation
         and image.has_wild_animals
-        and annotation_checked_by_gte
+        and (annotation_checked_by_gte or has_staff_or_expert_vote)
         and image.processed
-        or has_staff_or_expert_vote
     ):
         image.activity_pipeline_complete = True
     else:

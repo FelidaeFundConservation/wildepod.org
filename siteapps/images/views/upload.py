@@ -100,6 +100,15 @@ class UploadListView(LoginRequiredMixin, ListView):
             if camera_station:
                 query_kwargs["camera_station"] = camera_station
 
+            # Query timerange
+            start_date = self.request.GET.get("start_date")
+            end_date = self.request.GET.get("end_date")
+
+            if start_date:
+                query_kwargs["date_retrieved__gte"] = start_date
+            if end_date:
+                query_kwargs["date_retrieved__lt"] = end_date
+
             # Filter results
             context["object_list"] = (
                 context["object_list"].filter(**query_kwargs) if len(query_kwargs) > 0 else context["object_list"][:99]
@@ -161,6 +170,7 @@ class UploadDetailView(LoginRequiredMixin, DetailView):
         context["paged_images_w_boxes"] = [
             [image_obj, BoundingBox.objects.valid_or_uncertain().filter(image=image_obj)] for image_obj in paged_images
         ]
+
         return context
 
 

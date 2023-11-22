@@ -38,7 +38,7 @@ svg.a9s-annotationlayer .a9s-inner.pink {
     outline-color: pink;
 }
 
-.species-annotation {
+.annotation-container {
     padding-top: 1px;
     min-height: 89vh;
     max-height: 89vh;
@@ -53,20 +53,6 @@ svg.a9s-annotationlayer .a9s-inner.pink {
             font-size: 0.85em;
         }
     }
-}
-
-.background-annotate {
-    height: 95vh;
-    background-image: url('https://felidaefund.org/media/cache/autosized/images/igallery/original/801-900/jlm-9184-20--20denoise-832-1920.webp');
-    background-size: cover;
-    background-position: center;
-    filter: blur(5px) sepia(100%);
-    background-attachment: fixed;
-    background-repeat: no-repeat;
-    background-size: cover;
-    position: relative;
-    transform: translate(0%, -100%);
-    z-index: -1;
 }
 
 .main-image {

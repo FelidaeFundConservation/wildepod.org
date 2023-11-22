@@ -134,3 +134,12 @@ repos:
           - "--max-line-length=120"
           - "--max-complexity=12"
           - "--ignore=E501,W503,E203,F405,F403,F401,SIM105,C901,SIM113"
+
+
+  - repo: https://github.com/Riverside-Healthcare/djLint
+    rev: v1.33.0
+    hooks:
+      - id: djlint-reformat-django
+      - id: djlint-django
+        args:
+          - "--ignore=T002,H021,H029"

@@ -35,6 +35,65 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
         return reverse("images:complete_upload", args=(self.object.id,))
 
 
+def filter_uploads(context, self):
+    context["macrosites"] = MacroSite.objects.all()
+    context["microsites"] = MicroSite.objects.all()
+    context["camera_stations"] = CameraStation.objects.all()
+
+    query_kwargs = {}
+
+    # Query volunteers
+    context["volunteers"] = Annotator.objects.all()
+
+    volunteer = self.request.GET.get("volunteer")
+    volunteer = None if volunteer == "" else volunteer
+    volunteer = User.objects.get(name=volunteer) if volunteer else None
+
+    if volunteer:
+        query_kwargs["volunteer"] = volunteer
+
+    # Query macrosites
+    macrosite = self.request.GET.get("macrosite")
+    macrosite = None if macrosite == "" else macrosite
+    macrosite = MacroSite.objects.get(name=macrosite) if macrosite else None
+
+    if macrosite:
+        query_kwargs["camera_station__micro_site__macro_site"] = macrosite
+
+    # Query microsite
+    microsite = self.request.GET.get("microsite")
+    microsite = None if microsite == "" else microsite
+    microsite = MicroSite.objects.get(name=microsite) if microsite else None
+
+    if microsite:
+        query_kwargs["camera_station__micro_site"] = microsite
+
+    # Query camera station
+    camera_station = self.request.GET.get("camera_station")
+    camera_station = None if camera_station == "" else camera_station
+    camera_station = CameraStation.objects.get(station_id=camera_station) if camera_station else None
+
+    if camera_station:
+        query_kwargs["camera_station"] = camera_station
+
+    # Query timerange
+    start_date = self.request.GET.get("start_date")
+    end_date = self.request.GET.get("end_date")
+
+    if start_date:
+        query_kwargs["date_retrieved__gte"] = start_date
+    if end_date:
+        query_kwargs["date_retrieved__lt"] = end_date
+
+    # Filter results
+    context["num_completed"] = context["object_list"].count()
+    context["object_list"] = (
+        context["object_list"].filter(**query_kwargs).order_by("-date_retrieved")
+        if len(query_kwargs) > 0
+        else context["object_list"].order_by("-date_retrieved")
+    )
+
+
 class UploadListView(LoginRequiredMixin, ListView):
     model = Upload
     login_url = settings.LOGIN_URL
@@ -51,80 +110,35 @@ class UploadListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
+
+        # Get macrosite, microsite, and station info,
+        # and filter based on previous submission's arguments
+        filter_uploads(context, self)
+
         if self.request.user.is_staff or self.request.user.is_superuser:
             context["pending"] = Upload.objects.filter(upload_complete=False).order_by("-date_retrieved")
             context["processing"] = Upload.objects.filter(upload_complete=True, processed=False).order_by(
                 "-date_retrieved"
             )
 
-            context["num_pending"] = context["pending"].count()
-            context["num_processing"] = context["processing"].count()
-
-            query_kwargs = {}
-
-            # Query volunteers
-            context["volunteers"] = Annotator.objects.all()
-
-            volunteer = self.request.GET.get("volunteer")
-            volunteer = None if volunteer == "" else volunteer
-            volunteer = User.objects.get(name=volunteer) if volunteer else None
-
-            if volunteer:
-                query_kwargs["volunteer"] = volunteer
-
-            # Query macrosites
-            context["macrosites"] = MacroSite.objects.all()
-
-            macrosite = self.request.GET.get("macrosite")
-            macrosite = None if macrosite == "" else macrosite
-            macrosite = MacroSite.objects.get(name=macrosite) if macrosite else None
-
-            if macrosite:
-                query_kwargs["camera_station__micro_site__macro_site"] = macrosite
-
-            # Query microsite
-            context["microsites"] = MicroSite.objects.all()
-
-            microsite = self.request.GET.get("microsite")
-            microsite = None if microsite == "" else microsite
-            microsite = MicroSite.objects.get(name=microsite) if microsite else None
-
-            if microsite:
-                query_kwargs["camera_station__micro_site"] = microsite
-
-            # Query camera station
-            context["camera_stations"] = CameraStation.objects.all()
-
-            camera_station = self.request.GET.get("camera_station")
-            camera_station = None if camera_station == "" else camera_station
-            camera_station = CameraStation.objects.get(station_id=camera_station) if camera_station else None
-
-            if camera_station:
-                query_kwargs["camera_station"] = camera_station
-
-            # Query timerange
-            start_date = self.request.GET.get("start_date")
-            end_date = self.request.GET.get("end_date")
-
-            if start_date:
-                query_kwargs["date_retrieved__gte"] = start_date
-            if end_date:
-                query_kwargs["date_retrieved__lt"] = end_date
-
-            # Filter results
+        else:
+            context["pending"] = Upload.objects.filter(upload_complete=False, volunteer=self.request.user).order_by(
+                "-date_retrieved"
+            )
+            context["processing"] = Upload.objects.filter(
+                upload_complete=True, processed=False, volunteer=self.request.user
+            ).order_by("-date_retrieved")
             context["object_list"] = (
-                context["object_list"].filter(**query_kwargs).order_by("-date_retrieved")
-                if len(query_kwargs) > 0
-                else context["object_list"].order_by("-date_retrieved")[:99]
+                context["object_list"]
+                .filter(upload_complete=True, processed=True, volunteer=self.request.user)
+                .order_by("-date_retrieved")
             )
 
-            context["num_completed"] = context["object_list"].count()
-        else:
-            context["num_pending"] = Upload.objects.filter(upload_complete=False, volunteer=self.request.user).count()
-            context["num_processing"] = Upload.objects.filter(
-                upload_complete=True, processed=False, volunteer=self.request.user
-            ).count()
-            context["num_completed"] = Upload.objects.filter(upload_complete=True, volunteer=self.request.user).count()
+        context["object_list"] = context["object_list"][:99]
+
+        context["num_pending"] = context["pending"].count()
+        context["num_processing"] = context["processing"].count()
+
         return context
 
 

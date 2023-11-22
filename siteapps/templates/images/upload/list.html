@@ -39,14 +39,14 @@
             {% endif %}
         </div>
     </div>
-    {% if user.is_staff %}
-        <div class="container mt-2 mt-md-3 rounded bg-white p-3">
-            <h1>Filter Uploads</h1>
-            <p class="small">You can see this because you're a staff user. Applies only to 'Complete' upload section.</p>
-            <hr>
-            <form id="form_uploads" method="get">
-                <div class="form-group">
-                    <div class="row px-2">
+    <div class="container mt-2 mt-md-3 rounded bg-white p-3">
+        <h1>Filter Uploads</h1>
+        <p class="small">Applies only to 'Complete' upload section.</p>
+        <hr>
+        <form id="form_uploads" method="get">
+            <div class="form-group">
+                <div class="row px-2">
+                    {% if user.is_staff %}
                         <div class="mb-2 col-6">
                             <label for="select_volunteer">Volunteer</label>
                             <select id="select_volunteer" name="volunteer" class="form-select">
@@ -54,54 +54,54 @@
                                 {% for volunteer in volunteers %}<option value="{{ volunteer }}">{{ volunteer.human }}</option>{% endfor %}
                             </select>
                         </div>
-                        <div class="mb-2 col-6">
-                            <label for="select_macrosite">Macrosite</label>
-                            <select id="select_macrosite" name="macrosite" class="form-select">
-                                <option value="" disabled selected></option>
-                                {% for macrosite in macrosites %}<option value="{{ macrosite }}">{{ macrosite }}</option>{% endfor %}
-                            </select>
-                        </div>
-                    </div>
-                    <div class="row d-flex px-2">
-                        <div class="mb-2 col-6">
-                            <label for="select_microsite">Microsite</label>
-                            <select id="select_microsite" name="microsite" class="form-select">
-                                <option value="" disabled selected></option>
-                                {% for microsite in microsites %}<option value="{{ microsite.name }}">{{ microsite }}</option>{% endfor %}
-                            </select>
-                        </div>
-                        <div class="mb-2 col-6">
-                            <label for="select_camstation">Camera Station</label>
-                            <select id="select_camstation" name="camera_station" class="form-select">
-                                <option value="" disabled selected></option>
-                                {% for camera_station in camera_stations %}
-                                    <option value="{{ camera_station.station_id }}">{{ camera_station }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                    </div>
-                    <div class="row d-flex px-2 pt-2">
-                        <div class="mb-2 col-2">
-                            <label for="select_start_date">Retrieval Start Date</label>
-                        </div>
-                        <div class="mb-2 col-1">
-                            <input type="datetime-local" id="select_start_date" name="start_date">
-                        </div>
-                    </div>
-                    <div class="row d-flex px-2 pt-2">
-                        <div class="mb-2 col-2">
-                            <label for="select_end_date">Retrieval End Date</label>
-                        </div>
-                        <div class="mb-2 col-1">
-                            <input type="datetime-local" id="select_end_date" name="end_date">
-                        </div>
+                    {% endif %}
+                    <div class="mb-2 col-6">
+                        <label for="select_macrosite">Macrosite</label>
+                        <select id="select_macrosite" name="macrosite" class="form-select">
+                            <option value="" disabled selected></option>
+                            {% for macrosite in macrosites %}<option value="{{ macrosite }}">{{ macrosite }}</option>{% endfor %}
+                        </select>
                     </div>
                 </div>
-                <br>
-                <button type="submit" class="btn btn-primary">Query</button>
-            </form>
-        </div>
-    {% endif %}
+                <div class="row d-flex px-2">
+                    <div class="mb-2 col-6">
+                        <label for="select_microsite">Microsite</label>
+                        <select id="select_microsite" name="microsite" class="form-select">
+                            <option value="" disabled selected></option>
+                            {% for microsite in microsites %}<option value="{{ microsite.name }}">{{ microsite }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-2 col-6">
+                        <label for="select_camstation">Camera Station</label>
+                        <select id="select_camstation" name="camera_station" class="form-select">
+                            <option value="" disabled selected></option>
+                            {% for camera_station in camera_stations %}
+                                <option value="{{ camera_station.station_id }}">{{ camera_station }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="row d-flex px-2 pt-2">
+                    <div class="mb-2 col-2">
+                        <label for="select_start_date">Retrieval Start Date</label>
+                    </div>
+                    <div class="mb-2 col-1">
+                        <input type="datetime-local" id="select_start_date" name="start_date">
+                    </div>
+                </div>
+                <div class="row d-flex px-2 pt-2">
+                    <div class="mb-2 col-2">
+                        <label for="select_end_date">Retrieval End Date</label>
+                    </div>
+                    <div class="mb-2 col-1">
+                        <input type="datetime-local" id="select_end_date" name="end_date">
+                    </div>
+                </div>
+            </div>
+            <br>
+            <button type="submit" class="btn btn-primary">Query</button>
+        </form>
+    </div>
     <div class="container mt-2 mt-md-3 rounded bg-white p-3">
         <nav>
             <div class="nav nav-tabs" id="nav-tab" role="tablist">
@@ -132,7 +132,7 @@
                    role="tab"
                    aria-controls="nav-complete"
                    aria-selected="false">
-                    <text class="small">Complete ({{ num_completed }})</text>
+                    <text class="small">Complete ({{ object_list|length }} of {{ num_completed }} shown)</text>
                 </a>
             </div>
             <div class="tab-content upload-container">

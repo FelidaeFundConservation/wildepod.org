@@ -2,3 +2,22 @@
 @use 'components';
 @use 'layout';
 @use 'pages';
+
+.page-background {
+    height: 95vh;
+    background-image: url('https://felidaefund.org/media/cache/autosized/images/igallery/original/801-900/jlm-9184-20--20denoise-832-1920.webp');
+    background-size: cover;
+    background-position: center;
+    filter: blur(5px) sepia(100%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    background-size: cover;
+    position: relative;
+    transform: translate(0%, -100%);
+    z-index: -1;
+}
+
+.card-emphasis {
+    filter: drop-shadow(10px 4px 4px #0000004c);
+    box-shadow: 0px 0px 3px 5px #0000007f;
+}

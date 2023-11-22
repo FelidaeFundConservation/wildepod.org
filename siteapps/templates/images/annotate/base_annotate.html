@@ -1,5 +1,6 @@
 {% extends '_base.html' %}
 {% load static %}
+{% load humanize %}
 
 <!-- Set corresponding nav pill to active -->
 {% block nav_tag %}active{% endblock nav_tag %}
@@ -16,13 +17,25 @@
 {% block depreciation_notice %}
 {% endblock depreciation_notice %}
 
-<div class="container mt-2 mt-md-3 species-annotation rounded bg-white">
+<div class="container mt-2 mt-md-3 annotation-container card-emphasis rounded bg-white">
 {% if image %}
 <div class="container-fluid mt-2 mt-md-3">
     <div class="row">
         <div class="col-8">
             <nav>
                 <div class="nav nav-tabs" id="nav-tab" role="tablist">
+                    <a class="nav-link d-none d-sm-inline"
+                        id="nav-info-tab"
+                        data-bs-toggle="tab"
+                        href="#nav-info"
+                        role="tab"
+                        aria-controls="nav-info"
+                        aria-selected="false"
+                    >
+                        <text class="small">
+                            <i class="bi bi-info-circle"></i>
+                        </text>
+                    </a>
                     {% if user.is_staff %}
                     <a class="nav-link d-none d-lg-inline"
                        id="nav-debug-tab"
@@ -34,7 +47,7 @@
                     >
                         <text class="small text-danger">Debug</text>
                     </a>
-                    <a class="nav-link d-none d-md-inline"
+                    <a class="nav-link d-none d-lg-inline"
                        id="nav-admin-tab"
                        data-bs-toggle="tab"
                        href="#nav-admin"
@@ -53,7 +66,7 @@
                        aria-controls="nav-annotate"
                        aria-selected="true"
                     >
-                        <text class="small"><span class="d-none d-md-inline">Annotations</span><span class="d-inline d-md-none">Tags</span></text>
+                        <text class="small"><span class="d-none d-xl-inline">Annotations</span><span class="d-inline d-xl-none">Tags</span></text>
                     </a>
                     <a class="nav-link"
                        id="nav-image-tab"
@@ -63,7 +76,7 @@
                        aria-controls="nav-image"
                        aria-selected="false"
                     >
-                        <text class="small">Image</text>
+                        <text class="small"><span class="d-none d-md-inline">Image</span><span class="d-inline d-md-none">Img</span></text>
                     </a>
                     <a class="nav-link"
                        id="nav-bboxes-tab"
@@ -74,7 +87,7 @@
                        aria-selected="false"
                     >
                         <text class="small">
-                            <span class="d-none d-lg-inline">Bounding </span>Boxes
+                            <span class="d-none d-xl-inline">Bounding </span>Boxes
                         </text>
                     </a>
                     <a class="nav-link"
@@ -87,20 +100,7 @@
                     >
                         <text class="small"><span class="d-none d-lg-inline">Context</span><span class="d-inline d-lg-none">Cxt.</span></text>
                     </a>
-                    <a class="nav-link d-none d-xl-inline"
-                        id="nav-shortcuts-tab"
-                        data-bs-toggle="tab"
-                        href="#nav-shortcuts"
-                        role="tab"
-                        aria-controls="nav-shortcuts"
-                        aria-selected="false"
-                    >
-                        <text class="small">
-                            Keyboard Shortcuts
-                        </text>
-                    </a>
                 </div>
-
             </nav>
         </div>
         <div class="col-4 border rounded py-2 m-0 text-center d-flex">
@@ -111,7 +111,7 @@
                 name="save_annotations"
                 value="Save Annotations"
                 disabled
-            ><i class="bi bi-save2"></i><span class="d-none d-md-inline">&nbsp;&nbsp;&nbsp;Save<span class="d-none d-xl-inline"> Tags&nbsp;&nbsp;</span></span>
+            ><i class="bi bi-save2"></i><span class="d-none d-lg-inline">&nbsp;&nbsp;&nbsp;Save<span class="d-none d-xl-inline"> Tags&nbsp;&nbsp;</span></span>
             <div id="save-spinner" class="spinner-border" role="status" style="width: 12px; height: 12px; display: none"></div>
             </button>
              <button
@@ -121,7 +121,7 @@
                 name="skip_annotations"
                 value="Skip Image"
                 disabled
-            ><i class="bi bi-skip-end"></i><span class="d-none d-md-inline">&nbsp;&nbsp;&nbsp;Skip<span class="d-none d-xl-inline"> Image&nbsp;&nbsp;</span></span>
+            ><i class="bi bi-skip-end"></i><span class="d-none d-lg-inline">&nbsp;&nbsp;&nbsp;Skip<span class="d-none d-xl-inline"> Image&nbsp;&nbsp;</span></span>
             <div id="skip-spinner" class="spinner-border" role="status" style="width: 12px; height: 12px; display: none"></div>
             </button>
         </div>
@@ -223,12 +223,25 @@
                             </div>
                         </div>
                     </div>
-                    <div class="tab-pane fade p-3" id="nav-image" role="tabpanel" aria-labelledby="nav-image-tab">
+                    <div class="tab-pane fade" id="nav-image" role="tabpanel" aria-labelledby="nav-image-tab">
                         {% include './page_elements/options.html' %}
                         {% include './page_elements/image-manipulators.html' %}
                     </div>
-                    <div class="tab-pane fade mt-3" id="nav-shortcuts" role="tabpanel" aria-labelledby="nav-shortcuts-tab">
+                    <div class="tab-pane fade" id="nav-info" role="tabpanel" aria-labelledby="nav-info-tab">
                         <div class="card">
+                            <div class="card-header">
+                                Your Stats
+                            </div>
+                            <div class="card-body text-center">
+                                <h1 class="display-1">{{ user_annotation_count|intcomma }}</h1>
+                                <p class="lead">{% block annotation_count_type %}{% endblock annotation_count_type %} Annotations so far.</p>
+
+                            </div>
+                            <div class="card-footer text-center">
+                                <text>Keep up the good work!&nbsp;&nbsp;<i class="bi bi-emoji-smile"></i></text>
+                            </div>
+                        </div>
+                        <div class="card mt-3">
                             <div class="card-header">Keybindings</div>
                             <div class="card-body">
                                 <ul class="list-group">
@@ -239,7 +252,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="tab-pane fade mt-3" id="nav-context-images" role="tabpanel" aria-labelledby="nav-context-images-tab">
+                    <div class="tab-pane fade" id="nav-context-images" role="tabpanel" aria-labelledby="nav-context-images-tab">
                         <div class="card d-flex w-100">
                             <div class="card-header">Context Images</div>
                             <div class="card-body">
@@ -335,7 +348,7 @@
     </div>
     {% endif %}
 </div>
-<div class="background-annotate h-100 mt-5"></div>
+<div class="page-background h-100 mt-5"></div>
 {% endblock content %}
 
 {% block footer_includes %}

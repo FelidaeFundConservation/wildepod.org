@@ -163,7 +163,7 @@
                             {% for object in pending %}
                                 {% if not object.upload_complete %}{% endif %}
                                 <div class="card w-32 text-center m-1 p-0">
-                                    <div class="card-header">
+                                    <div class="card-header h-100">
                                         <h1 class="small mb-0">
                                             {{ object.camera_station.station_id }} | {{ object.camera_station.micro_site }} | {{ object.camera_station.micro_site.macro_site }}
                                         </h1>
@@ -248,7 +248,7 @@
                             {% for object in processing %}
                                 {% if object.upload_complete and not object.processed %}
                                     <div class="card w-32 text-center m-1 p-0">
-                                        <div class="card-header">
+                                        <div class="card-header h-100">
                                             <h1 class="small mb-0">
                                                 {{ object.camera_station.station_id }} | {{ object.camera_station.micro_site }} | {{ object.camera_station.micro_site.macro_site }}
                                             </h1>
@@ -329,28 +329,28 @@
                         <hr>
                     </div>
                     {% if num_completed > 0 %}
-                        <div class="row pt-0 upload-list overflow-auto">
+                        <div class="row pt-0 upload-list overflow-auto p-2">
                             {% for object in object_list %}
                                 {% if object.upload_complete and object.processed %}
-                                    <div class="card w-32 text-center m-1 p-0">
-                                        <div class="card-header">
-                                            <h1 class="small mb-0">
+                                    <div class="card w-32 text-center m-1 p-0 mb-3">
+                                        <div class="card-header h-100 p-2 pb-0">
+                                            <h1 class="small">
                                                 {{ object.camera_station.station_id }} | {{ object.camera_station.micro_site }} | {{ object.camera_station.micro_site.macro_site }}
                                             </h1>
-                                            <text class="small">(<i class="bi bi-images"></i>&nbsp;&nbsp;{{ object.images.all.count }})</text>
                                         </div>
                                         <div class="card-body">
                                             {% if user.is_staff %}
                                                 <text><b>Volunteer: {{ object.volunteer.name }}</b></text>
                                                 <br>
                                             {% endif %}
-                                            <text class="small"><i>Last Action: {{ object.last_action }}</i></text>
+                                            <text class="d-inline-block small text-truncate" style="max-width: 100%"><i>Last Action: {{ object.last_action }}</i></text>
                                             {% if user.is_staff %}
+                                                <br>
+                                                <text><i class="bi bi-images"></i>&nbsp;&nbsp;{{ object.images.all.count }}</text>
                                                 <br>
                                                 <br>
                                                 <a href="{% url 'admin:images_upload_change' object.id %}"
                                                    target="_blank">Priority {{ object.priority }}</a>
-                                                <br>
                                             {% endif %}
                                             <hr>
                                             <div>

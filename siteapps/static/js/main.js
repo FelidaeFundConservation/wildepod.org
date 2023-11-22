@@ -190,6 +190,7 @@ function renderBoundingBoxes(imageElementID, annotations, widgets, config) {
 
 // Function to consume an annoatation object, a container element and
 // create a list of preview images from the original image
+const uniqueColors = ["red", "orange", "lightgreen", "lightsteelblue", "cyan", "mediumpurple", "pink"]
 function appendToast(cleanedId, type, messageHtml) {
     $(`.toast.hide`).remove();
 
@@ -215,9 +216,12 @@ function appendToast(cleanedId, type, messageHtml) {
 
 function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
     let imageElement = document.getElementById(imageElementID);
-    let previewContainer = document.getElementById(previewContainerID);
 
-    previewContainer.innerHTML = ""
+    let annotationPreviewContainer = $(`#${previewContainerID}`);
+    let bboxesPreviewContainer = $(`#bboxes-preview`);
+
+    bboxesPreviewContainer.empty();
+    annotationPreviewContainer.empty()
 
     let boxNum = 1;
 
@@ -225,9 +229,14 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
     $(`.tooltip`).remove();
 
     function checkNoAnnotations() {
-        if ($("[id^='preview-']").length == 0) {
-            previewContainer.innerHTML = `<h1 class="display-5"><i class="bi bi-bounding-box-circles"></i>&nbsp;&nbsp;<i>(No annotations found on image.)</i></text><br>`;
+        if ($("[class^='preview-']").length == 0) {
+            annotationPreviewContainer.html(`<h1 class="display-5"><i class="bi bi-bounding-box-circles"></i>&nbsp;&nbsp;<i>(No annotations found on image.)</i></text><br>`);
+            bboxesPreviewContainer.html(`<h1 class="display-5"><i class="bi bi-bounding-box-circles"></i>&nbsp;&nbsp;<i>(No annotations found on image.)</i></text><br>`);
         }
+    }
+
+    function updateAnnotationCount() {
+        $(`#annotations-card-header`).text(`Annotations (${anno.getAnnotations().length})`)
     }
 
     for (const annotation of anno.getAnnotations()) {
@@ -239,27 +248,40 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
 
         // Remove the pound sign to work with Jquery
         const cleanedId = annotation.id.replace("#", "");
+        const boxColor = uniqueColors[(boxNum - 1) % uniqueColors.length];
 
         // Setup the basic card
-        let annotationHtml = `<div id="preview-${cleanedId}" class="card p-0 m-1" style="width: 250px">
-        <div id="preview-label-${cleanedId}" class="card-header py-2">
-            <text id="annotation-text-${cleanedId}" class="my-0 py-0" ${highlight}><i class="bi bi-eye"></i>&nbsp;&nbsp;<b>${annotationText}</b>${confidence}
-            </div>
-            <div class="card-body">
-            </div>
-            <div class="card-footer text-muted border-bottom">Box ${boxNum}</div>
-            <div class="btn-group" role="group">
-                <button id="hide-${cleanedId}" class="btn btn-outline-secondary w-50 m-0 border-0 bg-light">Hide Box</button>
-                <button id="delete-${cleanedId}" class="btn btn-outline-danger w-50 m-0 border-0 bg-light">Delete Box</button>
+        let annotationHtml = `<div class="preview-${cleanedId} preview-lite card p-0 mb-3" style="outline-width: 8px; outline-style: groove; outline-color: ${boxColor}">
+            <div class="card-body m-0 fw-bold">
+                <button class="hide-${cleanedId} border-0 bg-transparent"><i class="bi bi-eye"></i></button>
+                <button class="delete-${cleanedId} border-0 bg-transparent"><i class="bi bi-trash text-danger"></i></button>
+                <span ${highlight} class="annotation-label-${cleanedId}"> ${annotationText}${confidence}</span>
             </div>
         </div>`
 
         $(`#${previewContainerID}`).append(annotationHtml);
 
-        const preview = $(`#preview-${cleanedId}`);
-        const rectAnnotation = $(`[data-id='${annotation.id}']`);
-        let innerRect = rectAnnotation.find(".a9s-inner");
+        // Setup the bbox preview card
+        let bboxHtml = `<div class="preview-${cleanedId} card p-0 m-2" style="width: 250px; outline-width: 8px; outline-style: groove; outline-color: ${boxColor}">
+        <div class="card-header py-2">
+            <text class="annotation-label-${cleanedId} my-0 py-0" ${highlight}><i class="bi bi-eye"></i>&nbsp;&nbsp;<b>${annotationText}</b>${confidence}
+            </div>
+            <div id="bbox-preview-body-${cleanedId}" class="card-body">
+            </div>
+            <div class="card-footer text-muted border-bottom">Box ${boxNum}</div>
+            <div class="btn-group" role="group">
+                <button class="hide-${cleanedId} btn btn-outline-secondary w-50 m-0 border-0 bg-light">Hide Box</button>
+                <button class="delete-${cleanedId} btn btn-outline-danger w-50 m-0 border-0 bg-light">Delete Box</button>
+            </div>
+        </div>`
 
+        $(`#bboxes-preview`).append(bboxHtml);
+
+        const preview = $(`.preview-${cleanedId}`);
+        const rectAnnotation = $(`[data-id='${annotation.id}']`);
+
+        let innerRect = rectAnnotation.find(".a9s-inner");
+        innerRect.addClass(`${boxColor}`);
         // Show tooltips on submit button hover
         innerRect.attr("data-toggle", "tooltip")
             .attr("title", annotationText)
@@ -274,23 +296,23 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
             }
         )
 
+        timeout = null;
+
         // Highlighting the preview on hover
         preview.hover(
             function () {
-                $(this).css("background-color", "rgba(255, 255, 0, 0.5)")
-                innerRect.css("background-color", "yellow")
+                $(this).css("background-color", "rgba(255, 255, 0, 0.5)");
+                innerRect.css("fill", "rgba(255, 255, 0, 0.2)")
             },
             function () {
-                $(this).css("background-color", "rgba(0, 0, 0, 0.0)")
-                innerRect.css("background-color", "transparent")
+                $(this).css("background-color", "rgba(255, 255, 255, 1.0)");
+                innerRect.css("fill", "transparent")
             }
         );
 
         innerRect.hover(
             function () {
                 preview.css("background-color", "rgba(255, 255, 0, 0.5)")
-                $(this).css("background-color", "yellow")
-
                 hoveredAnnotation = annotation;
             },
             function () {
@@ -311,45 +333,44 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
             }
         })
 
-        hideButton = $(`#hide-${cleanedId}`);
 
         // Handle visual changes for hiding bboxes
         const hide = function (speed = 300) {
             $(`.tooltip`).remove();
-            const footer = preview.find(".card-footer");
             const eyeIcon = preview.find(".bi");
 
             if (!preview.hasClass("bbox-hidden")) {
-                footer.html(`<i>${footer.html()} (Hidden)</i>`);
                 eyeIcon.removeClass("bi-eye").addClass("bi-eye-slash");
                 innerRect.removeClass("preSubmitTooltip");
                 rectAnnotation.hide(speed = speed);
                 preview.addClass("bbox-hidden");
+                preview.addClass("opacity-50");
             }
             else {
-                footer.html(`${footer.html().replace("<i>", "").replace(" (Hidden)", "").replace("</i>", "")}`);
                 eyeIcon.removeClass("bi-eye-slash").addClass("bi-eye");
                 innerRect.addClass("preSubmitTooltip");
                 rectAnnotation.show(speed = speed);
                 preview.removeClass("bbox-hidden");
+                preview.removeClass("opacity-50");
             }
 
-            hiddenBoxes = $(`.bbox-hidden`);
+            hiddenBoxes = $(`.bbox-hidden:not(.preview-lite)`);
         };
+
+        hideButton = $(`.hide-${cleanedId}`);
         hideButton.click(hide);
 
         hideButton.on('persistHide', function () {
             hide(0);
         });
 
-        $(`#delete-${cleanedId}`).click(function () {
+        $(`.delete-${cleanedId}`).click(function () {
             anno.removeAnnotation(annotation.id);
             preview.remove();
+            updateAnnotationCount();
 
             checkNoAnnotations();
         });
-
-        let col = document.getElementById(`preview-${cleanedId}`);
 
         // Get the bounding box for the annotation
         let x, y, w, h;
@@ -360,29 +381,29 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
         let canvas = document.createElement('canvas');
         let context = canvas.getContext("2d");
         canvas.id = 'canvas-' + cleanedId;
-        canvas.width = col.offsetWidth;
+        canvas.width = 250;
         canvas.style.maxWidth = '100%';
-        canvas.height = col.offsetWidth;
+        canvas.height = canvas.width;
 
         // Calculate height of destination canvas to maintain aspect ratio
         let dx, dy, dw, dh;
         if (w > h) {
             dx = 0;
             dy = 0;
-            dw = col.offsetWidth;
+            dw = canvas.width;
             dh = Math.round(h * (dw / w));
         } else {
             dy = 0;
-            dh = col.offsetWidth;
+            dh = canvas.width;
             dw = Math.round(w * (dh / h));
-            dx = Math.round((col.offsetWidth - dw) / 2);
+            dx = Math.round((canvas.width - dw) / 2);
         }
 
         context.drawImage(imageElement, x, y, w, h, dx, dy, dw, dh);
-        col.querySelector(".card-body").appendChild(canvas);
+        $(`#bbox-preview-body-${cleanedId}`).append(canvas);
 
         // Open the annotation widget when the label is clicked
-        previewLabel = $(`#preview-label-${cleanedId}`);
+        previewLabel = $(`.annotation-label-${cleanedId}`);
         previewLabel.click(function () {
             anno.selectAnnotation(annotation.id);
         })
@@ -396,7 +417,8 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
             canvasClone.id = `canvas-clone-${annotation.id}`;
             let cloneContext = canvasClone.getContext("2d");
             cloneContext.drawImage(imageElement, x, y, w, h, dx, dy, dw, dh);
-            document.getElementById(`staff-modal-card-${annotation.id}`).appendChild(canvasClone);
+            $(`#staff-modal-card-${annotation.id}`).empty();
+            $(`#staff-modal-card-${annotation.id}`).append(canvasClone);
         }
         catch {
 
@@ -406,6 +428,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
     }
 
     checkNoAnnotations();
+    updateAnnotationCount();
 
     // Hide the previously hidden boxes after each re-render
     reHideBboxes();
@@ -416,13 +439,13 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
 }
 
 function reHideBboxes(fade = false) {
-    $(hiddenBoxes).each(function () {
-        let id = $(this).attr("id").replace("preview-", "");
+    for (box of hiddenBoxes) {
+        let id = $(box).attr("class").split(" ")[0].replace("preview-", "");
 
         if (fade) {
-            $(`#hide-${id}`).trigger("click");
+            $(`.hide-${id}`).first().trigger("click");
         } else {
-            $(`#hide-${id}`).trigger("persistHide");
+            $(`.hide-${id}`).first().trigger("persistHide");
         }
-    });
+    }
 }

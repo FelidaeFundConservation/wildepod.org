@@ -13,19 +13,21 @@
 
 
 {% block instruction_text %}
-<p>
+<p class="label-toggle lead">
     {% if activity_category == "human" %}
         What activity/behavior are people in the image engaged in?
     {% else %}
         What activity are the animals in the image exhibiting?
     {% endif %}
 </p>
+<p class="d-none label-toggle lead"><b>Click on each box and select the activity. Then, click Save when
+complete!</b></p>
 {% endblock instruction_text %}
 
 
 {% block category_list %}
-<div class="pb-3 label-toggle">
-    <select id="activity-list">
+<div class="pb-1 label-toggle">
+    <select id="activity-list" class="w-100">
         <option
             value=""
             disabled
@@ -33,21 +35,26 @@
         ></option>
         {% for activity in activity_list%}
         <option value="{{activity}}">{{activity}}</option>
-        {% endfor%}
-        <hr>
+        {% endfor %}
     </select>
 </div>
-<p class="fw-bold d-none label-toggle">Click on each box and select the activity. Then, click Save when
-    complete!</p>
+{% endblock category_list %}
+
+{% block category_button %}
 <span
-    class="btn btn-primary label-toggle"
+    class="btn btn-secondary label-toggle"
     id="multiple-activity"
-><i class="bi bi-journal-plus">&nbsp;&nbsp;&nbsp;</i>Multiple activity?</span>
+><i class="bi bi-journal-plus">&nbsp;&nbsp;&nbsp;</i>Multiple activities?</span>
 <span
-    class="btn btn-primary label-toggle d-none"
+    class="btn btn-secondary label-toggle d-none"
     id="single-activity"
 ><i class="bi bi-journal-minus">&nbsp;&nbsp;&nbsp;</i>Single activity?</span>
-{% endblock category_list %}
+{% endblock category_button %}
+
+
+{% block annotation_count_type %}
+Activity
+{% endblock annotation_count_type %}
 
 
 {% block missing_annotations_element %}
@@ -131,6 +138,7 @@ $('#activity-list').select2({
 // Show the single activity on all annotation previews.
 $('#activity-list').on('change', function () {
     const selectedOption = $('#activity-list').val();
+    annotations = anno.getAnnotations();
 
     for (annotation of annotations) {
         annotation.body[0].value = selectedOption;

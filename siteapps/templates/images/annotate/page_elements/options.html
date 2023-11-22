@@ -1,0 +1,58 @@
+<div class="card" id="options-card">
+    <div class="card-header">
+        <text>Options</text>
+    </div>
+    <div class="card-body">
+        <button class="social-media-worthy-upvote"
+            data-vote="1"
+            onclick=stageSocialMediaWorthyVote("upvote")
+            id="social-media-worthy-up"
+            style="font-size: 10px; border: 1px solid lightgray; border-radius: 2px; background-color: transparent"
+        >
+        <i class="bi bi-hand-thumbs-up"></i>
+        </button>
+        <button class="social-media-worthy-downvote"
+                data-vote="-1"
+                onclick=stageSocialMediaWorthyVote("downvote")
+                id="social-media-worthy-down"
+                style="font-size: 10px; border: 1px solid lightgray; border-radius: 2px; background-color: transparent">
+            <i class="bi bi-hand-thumbs-down"></i>
+        </button>
+        <label
+            style="font-size: 12px; margin-bottom: 8px"
+        >
+            &nbsp;Social Media Worthy? ({{ image.social_media_worthy }})
+        </label>
+        <br>
+        <input
+            class="form-check-input"
+            type="checkbox"
+            {% if staff_review_needed %}checked="checked"{% endif %}
+            id="staff-review-needed"
+        >
+        <label
+            class="form-check-label"
+            for="staff-review-needed"
+            style="font-size: 14px"
+        >
+            &nbsp; Flag for Staff Review?
+        </label>
+        <br>
+        {% if user.is_staff %}
+        <div>
+        <input
+            class="form-check-input"
+            type="checkbox"
+            id="staff-debug-mode"
+        >
+        <label
+            class="form-check-label"
+            for="staff-debug-mode"
+            style="font-size: 11px;"
+        ><i>
+            &nbsp; Disable refresh on submit (debug)
+        </i></label>
+        </div>
+        {% endif %}
+    </div>
+</div>

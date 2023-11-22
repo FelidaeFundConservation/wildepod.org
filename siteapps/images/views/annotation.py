@@ -114,6 +114,44 @@ def calculate_image_luma(image, bboxes):
         return adjustment_percentage
 
 
+# Get the users annotation counts to increment
+def get_or_set_annotation_count(request, queue_name, annotator, annotation_num=0):
+    user_annotations_q_filter = (
+        Q(created_by__in=[annotator]) | Q(accepted_by__in=[annotator]) | Q(rejected_by__in=[annotator])
+    )
+
+    if OBJECTS_QUEUE_NAME in queue_name:
+        count = request.session.get("user_object_annotation_count")
+
+        if count is None:
+            count = Category.objects.filter(user_annotations_q_filter).count()
+
+        count += annotation_num
+        request.session["user_object_annotation_count"] = count
+
+    elif SPECIES_QUEUE_NAME in queue_name:
+        count = request.session.get("user_species_annotation_count")
+
+        if count is None:
+            count = Species.objects.filter(user_annotations_q_filter).count()
+
+        count += annotation_num
+        request.session["user_species_annotation_count"] = count
+
+    elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
+        count = request.session.get("user_activity_annotation_count")
+
+        if count is None:
+            count = Activity.objects.filter(user_annotations_q_filter).count()
+
+        count += annotation_num
+        request.session["user_activity_annotation_count"] = count
+    else:
+        return None
+
+    return count
+
+
 # Filter criteria for an image to appear in the Object/Blank pipeline
 def object_pipeline_query(images, annotator):
     images = images.filter(
@@ -301,7 +339,7 @@ def skip_ineligible_images(queue_name, queue):
 
 
 def get_annotation_history(context, queue, queue_name, annotator):
-    HISTORY_LENGTH = 10
+    HISTORY_LENGTH = 5
 
     context["previous_queue_images"] = Image.objects.filter(
         id__in=queue["images"][max(0, queue["index"] - HISTORY_LENGTH) : queue["index"]]
@@ -398,6 +436,11 @@ def populate_view_context(queue_name, context, self, activity_category=None):
 
         # Gather all annotations for bounding boxes to display in admin view.
         get_all_annotations(image=image, context=context)
+
+        # Get user annotation count
+        context["user_annotation_count"] = get_or_set_annotation_count(
+            request=self.request, queue_name=queue_name, annotator=annotator
+        )
     else:
         image = None
         context["image"] = None
@@ -426,13 +469,13 @@ def get_context_images(queue, context):
         Image.objects.filter(
             upload__camera_station=context["image"].upload.camera_station,
             trigger_timestamp__lt=context["image"].trigger_timestamp,
-            trigger_timestamp__gt=context["image"].trigger_timestamp - datetime.timedelta(hours=1),
+            trigger_timestamp__gt=context["image"].trigger_timestamp - datetime.timedelta(minutes=10),
         )[:CONTEXT_AMOUNT]
     ) + list(
         Image.objects.filter(
             upload__camera_station=context["image"].upload.camera_station,
             trigger_timestamp__gte=context["image"].trigger_timestamp,
-            trigger_timestamp__lt=context["image"].trigger_timestamp + datetime.timedelta(hours=1),
+            trigger_timestamp__lt=context["image"].trigger_timestamp + datetime.timedelta(minutes=10),
         )[:CONTEXT_AMOUNT]
     )
 
@@ -673,6 +716,15 @@ def annotation_processor(queue_name, request):
 
         # Update the datastore
         settings.DATASTORE_CLIENT.put(queue)
+
+        # Update the cached annotation count
+        if not skip:
+            get_or_set_annotation_count(
+                request=request,
+                queue_name=queue_name,
+                annotator=Annotator.objects.get_or_create(type="human", human=request.user),
+                annotation_num=len(annotations),
+            )
     else:
         category_debug_data = None
         species_debug_data = None

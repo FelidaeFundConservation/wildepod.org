@@ -7,7 +7,7 @@
 {% block depreciation_notice %}
 <div class="alert alert-info" role="alert">
 <i class="bi bi-info-circle"></i>&nbsp;&nbsp;
-<b>Notice:</b> Categories will be set automatically when annotating Species, and only in a select few cases will images be sent back here.&nbsp;&nbsp;&nbsp;&nbsp;
+<b>Notice:</b> Categories are now set automatically when annotating Species, and only in a few select cases will images appear in Blanks.&nbsp;&nbsp;&nbsp;&nbsp;
 <a href="/images/annotate/species">
     <button class="btn btn-outline-primary">Annotate Species</button>
 </a>
@@ -15,7 +15,7 @@
 {% endblock depreciation_notice %}
 
 {% block instruction_text %}
-<p>
+<p class="lead">
     Select all objects in the image if it isn't already!
 </p>
 {% endblock instruction_text %}
@@ -23,11 +23,11 @@
 {% block delete_all_boxes_button %}
 <button
     type="submit"
-    class="btn btn-primary me-2"
+    class="btn btn-danger"
     id="clear_annotations"
     name="clear_annotations"
     value="Delete all boxes"
-><i class="bi bi-x-circle">&nbsp;&nbsp;&nbsp;</i>Delete all boxes</button>
+><i class="bi bi-x-circle">&nbsp;&nbsp;&nbsp;</i>Delete All Boxes&nbsp;</button>
 {% endblock delete_all_boxes_button %}
 
 
@@ -36,6 +36,10 @@
 "confidence": "{{bbox.category_set.all.0.confidence}}",
 {% endblock show_bbox_category_and_confidence %}
 
+
+{% block annotation_count_type %}
+Category
+{% endblock annotation_count_type %}
 
 {% comment %}<script>{% endcomment %}
 {% block set_categories %}

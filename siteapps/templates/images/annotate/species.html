@@ -1,94 +1,63 @@
 {% extends './base_annotate.html' %}
 {% load static %}
-
 <!-- Set corresponding nav pill to active -->
-{% block nav_tag %}active{% endblock nav_tag %}
-
+{% block nav_tag %}
+    active
+{% endblock nav_tag %}
 {% block header_includes %}
-<link
-    href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
-    rel="stylesheet"
-/>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+          rel="stylesheet" />
 {% endblock header_includes %}
-
-
 {% block instruction_text %}
-<p class="label-toggle lead">
-    What species does the image have?
-</p>
-<p class="d-none label-toggle lead"><b>Click on each box and select the species. Then, click Save when
-    complete!</b></p>
+    <p class="label-toggle lead">What species does the image have?</p>
+    <p class="d-none label-toggle lead">
+        <b>Click on each box and select the species. Then, click Save when
+        complete!</b>
+    </p>
 {% endblock instruction_text %}
-
-
 {% block missing_annotations_element %}
-<div
-    class="row py-3 justify-content-center d-none"
-    id="status-missing-species"
->
-    <div class="col-12">
-        <div
-            class="alert alert-danger text-center"
-            role="alert"
-        >
-            <i class="bi bi-exclamation-triangle-fill"></i>&nbsp;
-            <strong>Error!</strong> Some of your the bounding boxes don't have a species. Please try again.
+    <div class="row py-3 justify-content-center d-none"
+         id="status-missing-species">
+        <div class="col-12">
+            <div class="alert alert-danger text-center" role="alert">
+                <i class="bi bi-exclamation-triangle-fill"></i>&nbsp;
+                <strong>Error!</strong> Some of your the bounding boxes don't have a species. Please try again.
+            </div>
         </div>
     </div>
-</div>
 {% endblock missing_annotations_element %}
-
-
 {% block category_list %}
-<div class="pb-1 label-toggle">
-    <select id="species-list" class="w-100">
-        <option
-            value=""
-            disabled
-            selected
-        ></option>
-        {% for species in species_list %}
-        <option value="{{species}}">{{species}}</option>
-        {% endfor %}
-    </select>
-</div>
+    <div class="pb-1 label-toggle">
+        <select id="species-list" class="w-100">
+            <option value="" disabled selected></option>
+            {% for species in species_list %}<option value="{{ species }}">{{ species }}</option>{% endfor %}
+        </select>
+    </div>
 {% endblock category_list %}
-
 {% block category_button %}
-<span
-    class="btn btn-secondary label-toggle"
-    id="multiple-species"
-><i class="bi bi-journal-plus"></i>&nbsp;&nbsp;&nbsp;Multiple species?</span>
-<span
-    class="btn btn-secondary label-toggle d-none"
-    id="single-species"
-><i class="bi bi-journal-minus"></i>&nbsp;&nbsp;&nbsp;Single species?</span>
+    <span class="btn btn-secondary label-toggle" id="multiple-species"><i class="bi bi-journal-plus"></i>&nbsp;&nbsp;&nbsp;Multiple species?</span>
+    <span class="btn btn-secondary label-toggle d-none" id="single-species"><i class="bi bi-journal-minus"></i>&nbsp;&nbsp;&nbsp;Single species?</span>
 {% endblock category_button %}
-
-
 {% block annotation_count_type %}
-Species
+    Species
 {% endblock annotation_count_type %}
-
-
 {% comment %}<script>{% endcomment %}
-    {% block set_categories %}
+{% block set_categories %}
     let categories = [
-        {% for species in species_list %}"{{species}}", {% endfor %}
+        {% for species in species_list %}"{{ species }}",{% endfor %}
     ];
-    {% endblock set_categories %}
-
-
-    {% block processor_url %} `{% url 'images:species_annotation_processor'%}`{% endblock processor_url %}
-
-
-    {% block multiple_category_check %}
+{% endblock set_categories %}
+{% block processor_url %}
+    `{% url 'images:species_annotation_processor' %}`
+{% endblock processor_url %}
+{% block multiple_category_check %}
     // If it is not a single species, make sure every entry has a species
     if (!species & !skip) {
         for (const annotation of anno.getAnnotations()) {
             if (annotation.body[0].value === undefined || annotation.body[0].value === "unannotated") {
                 $(".spinner-border").hide();
                 $("#status-missing-species").removeClass("d-none");
+
                 setTimeout(function(){
                     $("#status-missing-species").addClass("d-none");
                 }, 5000);
@@ -103,10 +72,8 @@ Species
             annotation.body[0].confidence = 1.0
         }
     }
-    {% endblock multiple_category_check %}
-
-
-    {% block save_recent_tags %}
+{% endblock multiple_category_check %}
+{% block save_recent_tags %}
     saveRecentTags(
         JSON.stringify(
             anno.getAnnotations().map(function (annotation) {
@@ -114,15 +81,12 @@ Species
             })
         )
     );
-    {% endblock save_recent_tags %}
-
-
-    {% block recent_tags_handling %}
+{% endblock save_recent_tags %}
+{% block recent_tags_handling %}
     // Retrieve recent tags
     (async () => {
         try {
             window.recentTags = await getRecentTags();
-
             // Move recent tag to first place in species list
             let speciesList = $("#species-list");
             let recentTagOption = speciesList.find(`option[value='${recentTags[0]}']`);
@@ -159,18 +123,18 @@ Species
         }
     });
 
-    observer.observe(document, {attributes: false, childList: true, characterData: false, subtree:true});
+    observer.observe(document, { attributes: false, childList: true, characterData: false, subtree: true });
 
     // Get the recent tags from the last image.
     function getRecentTags() {
         return new Promise(function(resolve, reject) {
             const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
             let data = {
-                'csrfmiddlewaretoken': csrftoken,
+            'csrfmiddlewaretoken': csrftoken,
             }
 
             $.ajax({
-                url: '{% url 'images:get_recent_tags'%}',
+                url: '{% url 'images:get_recent_tags' %}',
                 method: 'POST',
                 data: data,
                 dataType: 'json',
@@ -189,7 +153,6 @@ Species
             });
         });
     }
-
     // Set the tags used to pre-populate the next image's annotations.
     function saveRecentTags(annotations) {
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -199,7 +162,7 @@ Species
         }
 
         $.ajax({
-            url: '{% url 'images:save_recent_tags'%}',
+            url: '{% url 'images:save_recent_tags' %}',
             method: 'POST',
             data: data,
             dataType: 'json',
@@ -210,52 +173,45 @@ Species
             }
         });
     }
-    {% endblock recent_tags_handling %}
-
-
-    {% block submit_annotations %}
+{% endblock recent_tags_handling %}
+{% block submit_annotations %}
     if ($('#species-list').val() === null) {
         submitAnnotations(skip=false, species=false);
     }
     else {
         submitAnnotations(skip=false, species=$('#species-list').val(), activity=false);
     }
-    {% endblock submit_annotations %}
-
-
-    {% block additional_event_handlers %}
+{% endblock submit_annotations %}
+{% block additional_event_handlers %}
     // Toggle between single & multiple species annotations
     $("#single-species").click(function(e){
         $(".label-toggle").toggleClass("d-none");
     });
 
-    $("#multiple-species").click(function(e){
+    $("#multiple-species").click(function (e) {
         $(".label-toggle").toggleClass("d-none");
-        $('#species-list').val(null).trigger("change");
+    $('#species-list').val(null).trigger("change");
     });
 
     $('#species-list').select2({
         placeholder: 'Select a species',
     });
 
-
     // Show the single species annotation on all annotation previews.
     $('#species-list').on('change', function () {
         const selectedOption = $('#species-list').val();
         annotations = anno.getAnnotations();
-
         for (annotation of annotations) {
             annotation.body[0].value = selectedOption;
         }
 
         anno.setAnnotations(annotations);
-        renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno);
+        renderBoundingBoxPreviews("{{ image.id }}", anno);
     });
-
 
     // Focus on text input field in dropdown upon opening species list.
     $('#species-list').on('select2:open', function () {
         $('.select2-search__field')[0].focus();
     });
-    {% endblock additional_event_handlers %}
+{% endblock additional_event_handlers %}
 {% comment %}</script>{% endcomment %}

@@ -410,7 +410,7 @@ function renderBoundingBoxPreviews(imageElementID, anno) {
 
     // Hide the previously hidden boxes after each re-render
     reHideBboxes();
-
+    adjustImage();
     $(function () {
         $('[data-toggle="tooltip"]').tooltip();
     })

@@ -446,17 +446,18 @@ function createMaintainedAspectRatioCanvas(annotation, cleanedId, imageElement) 
     let dx, dy, dw, dh;
     if (w > h) {
         dx = 0;
-        dy = 0;
         dw = canvas.width;
         dh = Math.round(h * (dw / w));
+        dy = canvas.height / 2 - dh / 2;
     } else {
         dy = 0;
         dh = canvas.width;
         dw = Math.round(w * (dh / h));
         dx = Math.round((canvas.width - dw) / 2);
     }
-
     context.drawImage(imageElement, x, y, w, h, dx, dy, dw, dh);
+
+    canvas.style.backdropFilter = "brightness(0%)";
 
     return canvas;
 }

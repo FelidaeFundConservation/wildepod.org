@@ -214,10 +214,24 @@ function appendToast(cleanedId, type, messageHtml) {
     });
 }
 
-function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
+function checkNoAnnotations() {
+    let annotationPreviewContainer = $(`#annotations-preview`);
+    let bboxesPreviewContainer = $(`#bboxes-preview`);
+
+    if ($("[class^='preview-']").length == 0) {
+        annotationPreviewContainer.html(`<h6 class="display-6 small"><i class="bi bi-bounding-box-circles"></i>&nbsp;&nbsp;<i>(No annotations found on image.)</i></text><br>`);
+        bboxesPreviewContainer.html(`<h5 class="display-5"><i class="bi bi-bounding-box-circles"></i>&nbsp;&nbsp;<i>(No annotations found on image.)</i></text><br>`);
+    }
+}
+
+function updateAnnotationCount() {
+    $(`#annotations-card-header`).text(`Annotations (${anno.getAnnotations().length})`)
+}
+
+function renderBoundingBoxPreviews(imageElementID, anno) {
     let imageElement = document.getElementById(imageElementID);
 
-    let annotationPreviewContainer = $(`#${previewContainerID}`);
+    let annotationPreviewContainer = $(`#annotations-preview`);
     let bboxesPreviewContainer = $(`#bboxes-preview`);
 
     bboxesPreviewContainer.empty();
@@ -228,16 +242,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
     $('[data-toggle="tooltip"]').tooltip('dispose');
     $(`.tooltip`).remove();
 
-    function checkNoAnnotations() {
-        if ($("[class^='preview-']").length == 0) {
-            annotationPreviewContainer.html(`<h6 class="display-6 small"><i class="bi bi-bounding-box-circles"></i>&nbsp;&nbsp;<i>(No annotations found on image.)</i></text><br>`);
-            bboxesPreviewContainer.html(`<h5 class="display-5"><i class="bi bi-bounding-box-circles"></i>&nbsp;&nbsp;<i>(No annotations found on image.)</i></text><br>`);
-        }
-    }
-
-    function updateAnnotationCount() {
-        $(`#annotations-card-header`).text(`Annotations (${anno.getAnnotations().length})`)
-    }
+    displayOverlappingPairs(anno, imageElement);
 
     for (const annotation of anno.getAnnotations()) {
         if (annotation.type !== "Annotation") continue;
@@ -259,7 +264,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
             </div>
         </div>`
 
-        $(`#${previewContainerID}`).append(annotationHtml);
+        annotationPreviewContainer.append(annotationHtml);
 
         // Setup the bbox preview card
         let bboxHtml = `<div class="preview-${cleanedId} card p-0 m-2" style="width: 250px; outline-width: 8px; outline-style: groove; outline-color: ${boxColor}">
@@ -372,34 +377,7 @@ function renderBoundingBoxPreviews(imageElementID, previewContainerID, anno) {
             checkNoAnnotations();
         });
 
-        // Get the bounding box for the annotation
-        let x, y, w, h;
-        [x, y, w, h] = annotation.target.selector.value.split(':')[1].split(',').map(function (x) { return parseFloat(x).toFixed(5) });
-        [x, y, w, h] = [x * 0.01 * imageElement.naturalWidth, y * 0.01 * imageElement.naturalHeight, w * 0.01 * imageElement.naturalWidth, h * 0.01 * imageElement.naturalHeight].map(Math.round)
-
-        // Next, create a canvas element & add to the column
-        let canvas = document.createElement('canvas');
-        let context = canvas.getContext("2d");
-        canvas.id = 'canvas-' + cleanedId;
-        canvas.width = 250;
-        canvas.style.maxWidth = '100%';
-        canvas.height = canvas.width;
-
-        // Calculate height of destination canvas to maintain aspect ratio
-        let dx, dy, dw, dh;
-        if (w > h) {
-            dx = 0;
-            dy = 0;
-            dw = canvas.width;
-            dh = Math.round(h * (dw / w));
-        } else {
-            dy = 0;
-            dh = canvas.width;
-            dw = Math.round(w * (dh / h));
-            dx = Math.round((canvas.width - dw) / 2);
-        }
-
-        context.drawImage(imageElement, x, y, w, h, dx, dy, dw, dh);
+        let canvas = createMaintainedAspectRatioCanvas(annotation, cleanedId, imageElement);
         $(`#bbox-preview-body-${cleanedId}`).append(canvas);
 
         // Open the annotation widget when the label is clicked
@@ -447,5 +425,161 @@ function reHideBboxes(fade = false) {
         } else {
             $(`.hide-${id}`).first().trigger("persistHide");
         }
+    }
+}
+
+function createMaintainedAspectRatioCanvas(annotation, cleanedId, imageElement) {
+    // Get the bounding box for the annotation
+    let x, y, w, h;
+    [x, y, w, h] = annotation.target.selector.value.split(':')[1].split(',').map(function (x) { return parseFloat(x).toFixed(5) });
+    [x, y, w, h] = [x * 0.01 * imageElement.naturalWidth, y * 0.01 * imageElement.naturalHeight, w * 0.01 * imageElement.naturalWidth, h * 0.01 * imageElement.naturalHeight].map(Math.round)
+
+    // Next, create a canvas element & add to the column
+    let canvas = document.createElement('canvas');
+    let context = canvas.getContext("2d");
+    canvas.id = 'canvas-' + cleanedId;
+    canvas.width = 250;
+    canvas.style.maxWidth = '100%';
+    canvas.height = canvas.width;
+
+    // Calculate height of destination canvas to maintain aspect ratio
+    let dx, dy, dw, dh;
+    if (w > h) {
+        dx = 0;
+        dy = 0;
+        dw = canvas.width;
+        dh = Math.round(h * (dw / w));
+    } else {
+        dy = 0;
+        dh = canvas.width;
+        dw = Math.round(w * (dh / h));
+        dx = Math.round((canvas.width - dw) / 2);
+    }
+
+    context.drawImage(imageElement, x, y, w, h, dx, dy, dw, dh);
+
+    return canvas;
+}
+
+// Detect bounding boxes pair with a high percentage overlap.
+// User can confirm if pairings are unique or duplicates
+const overlapThreshold = 0.55;
+function getOverlappingBboxes(anno) {
+    let annotations = anno.getAnnotations();
+    const uniqueOverlappingPairings = new Set();
+
+
+    for (let firstIndex = 0; firstIndex < annotations.length; firstIndex++) {
+        for (let secondIndex = firstIndex + 1; secondIndex < annotations.length; secondIndex++) {
+            var [bbox1X1, bbox1Y1, bbox1W, bbox1H] = annotations[firstIndex].target.selector.value.split(":")[1].split(",");
+            var [bbox2X1, bbox2Y1, bbox2W, bbox2H] = annotations[secondIndex].target.selector.value.split(":")[1].split(",");
+
+            // Get the ending x and y coord of each bbox
+            let bbox1X2 = parseFloat(bbox1X1) + parseFloat(bbox1W);
+            let bbox1Y2 = parseFloat(bbox1Y1) + parseFloat(bbox1H);
+            let bbox2X2 = parseFloat(bbox2X1) + parseFloat(bbox2W);
+            let bbox2Y2 = parseFloat(bbox2Y1) + parseFloat(bbox2H);
+
+            // Calculate points of overlapping area
+            let overlapX1 = Math.max(bbox1X1, bbox2X1);
+            let overlapY1 = Math.max(bbox1Y1, bbox2Y1);
+            let overlapX2 = Math.min(bbox1X2, bbox2X2);
+            let overlapY2 = Math.min(bbox1Y2, bbox2Y2);
+
+            // Calculate area of bboxes
+            let overlapWidth = overlapX2 - overlapX1;
+            let overlapHeight = overlapY2 - overlapY1;
+
+            if (overlapWidth > 0 && overlapHeight > 0) {
+                overlapArea = overlapWidth * overlapHeight;
+
+                let bbox1Area = parseFloat(bbox1W) * parseFloat(bbox1H);
+                let bbox2Area = parseFloat(bbox2W) * parseFloat(bbox2H);
+
+                let bbox1OverlapPercentage = overlapArea / bbox1Area;
+                let bbox2OverlapPercentage = overlapArea / bbox2Area;
+
+                let maxOverlap = Math.max(bbox1OverlapPercentage, bbox2OverlapPercentage);
+
+                if (maxOverlap >= overlapThreshold) {
+                    uniqueOverlappingPairings.add([[annotations[firstIndex], annotations[secondIndex]], maxOverlap]);
+                }
+            }
+        }
+    }
+    return uniqueOverlappingPairings;
+}
+
+
+// Show overlapping bboxes for user to check if they're the same subject
+function displayOverlappingPairs(anno, imageElement) {
+    const uniqueOverlappingPairings = getOverlappingBboxes(anno);
+    const container = $(`#deduplicate-bboxes`);
+    container.empty();
+
+    let count = 1;
+
+    const noDuplicatesTextHtml = `<h6 class="small"><i class="bi bi-check"></i>&nbsp;&nbsp;No overlapping boxes with similarity >${Math.round(overlapThreshold * 100)}% found.</h6>`;
+
+    if (uniqueOverlappingPairings.size > 0) {
+        for (pairing of uniqueOverlappingPairings) {
+            let overlapPercentage = Math.round(pairing[1] * 100);
+
+            let cleanedId1 = pairing[0][0].id.replace("#", "");
+            let cleanedId2 = pairing[0][1].id.replace("#", "");
+
+            const canvas1 = createMaintainedAspectRatioCanvas(pairing[0][0], `duplicate-check-${cleanedId1}-${count}`, imageElement);
+            const canvas2 = createMaintainedAspectRatioCanvas(pairing[0][1], `duplicate-check-${cleanedId2}-${count}`, imageElement);
+
+            const duplicateEntryHtml = `<div id="duplicate-compare-${count}" data-first=${cleanedId1} data-second=${cleanedId2} class="card w-100 mt-0 p-0 mb-3">
+                <div class="card-header">${overlapPercentage}% Overlap</div>
+                <div class="card-body">
+                    <div id="duplicate-canvases-${count}" class="row"></div>
+                </div>
+                <div class="card-footer py-2">
+                    <div id="duplicate-delete-${count}" class="row"></div>
+                </div>
+            </div>`
+
+            container.append(duplicateEntryHtml);
+
+            let entryCanvasSection = $(`#duplicate-canvases-${count}`);
+            entryCanvasSection.append(canvas1);
+            entryCanvasSection.append(canvas2);
+
+            $(canvas1).addClass("w-50");
+            $(canvas2).addClass("w-50");
+
+            let entryDeleteSection = $(`#duplicate-delete-${count}`);
+            let deleteButton1 = `<div class="col-6"><button class="remove-former-${count}-${cleanedId1} btn btn-outline-danger w-50">Delete</button></div>`
+            let deleteButton2 = `<div class="col-6"><button class="remove-latter-${count}-${cleanedId2} btn btn-outline-danger col-6 w-50">Delete</button></div>`
+
+            entryDeleteSection.append(deleteButton1);
+            entryDeleteSection.append(deleteButton2);
+
+            function clearElements () {
+                updateAnnotationCount();
+
+                if (container.children().length == 0) {
+                    container.append(noDuplicatesTextHtml);
+                }
+                renderBoundingBoxPreviews(imageElement.id, anno);
+            }
+
+            $(`[class^=remove-former-${count}-]`).click(function () {
+                anno.removeAnnotation(pairing[0][0].id);
+                clearElements();
+            });
+
+            $(`[class^=remove-latter-${count}-]`).click(function () {
+                anno.removeAnnotation(pairing[0][1].id);
+                clearElements();
+            });
+
+            count++;
+        }
+    }
+    else {
+        container.append(noDuplicatesTextHtml);
     }
 }

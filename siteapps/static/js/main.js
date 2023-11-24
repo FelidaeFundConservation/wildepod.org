@@ -381,17 +381,10 @@ function renderBoundingBoxPreviews(imageElementID, anno) {
             .attr("title", "Click To Annotate");
 
         // Show the previews in the staff annotation overview modal as well.
-        try {
-            let canvasClone = canvas.cloneNode();
-            canvasClone.id = `canvas-clone-${annotation.id}`;
-            let cloneContext = canvasClone.getContext("2d");
-            cloneContext.drawImage(imageElement, x, y, w, h, dx, dy, dw, dh);
-            $(`#staff-modal-card-${annotation.id}`).empty();
-            $(`#staff-modal-card-${annotation.id}`).append(canvasClone);
-        }
-        catch {
+        let canvasClone = createMaintainedAspectRatioCanvas(annotation, `-clone-${cleanedId}`, imageElement);
+        $(`#staff-modal-card-${annotation.id}`).empty();
+        $(`#staff-modal-card-${annotation.id}`).append(canvasClone);
 
-        }
 
         boxNum++;
     }

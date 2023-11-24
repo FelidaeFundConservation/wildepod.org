@@ -566,41 +566,35 @@ function displayOverlappingPairs(anno, imageElement) {
 
             let entryDeleteSection = $(`#duplicate-delete-${count}`);
 
-            const deleteClass1 = `remove-former-${count}-${cleanedId1}`;
-            const deleteClass2 = `remove-latter-${count}-${cleanedId2}`;
-
-            let deleteButton1 = `<div class="col-6"><button class="${deleteClass1} btn btn-outline-danger w-50">Delete</button></div>`
-            let deleteButton2 = `<div class="col-6"><button class="${deleteClass2} btn btn-outline-danger col-6 w-50">Delete</button></div>`
+            let deleteButton1 = `<div class="col-6"><button class="btn btn-outline-danger w-50 remove-duplicate" data-target="${pairing[0][0].id}">Delete</button></div>`
+            let deleteButton2 = `<div class="col-6"><button class="btn btn-outline-danger w-50 remove-duplicate" data-target="${pairing[0][1].id}">Delete</button></div>`
 
             entryDeleteSection.append(deleteButton1);
             entryDeleteSection.append(deleteButton2);
 
             setRectHighlight(pairing[0][0].id, canvas1, backgroundColor = false);
             setRectHighlight(pairing[0][1].id, canvas2, backgroundColor = false);
-            setRectHighlight(pairing[0][0].id, $(`.${deleteClass1}`), backgroundColor = false);
-            setRectHighlight(pairing[0][1].id, $(`.${deleteClass2}`), backgroundColor = false);
-
-            function clearElements () {
-                updateAnnotationCount();
-
-                if (container.children().length == 0) {
-                    container.append(noDuplicatesTextHtml);
-                }
-                renderBoundingBoxPreviews(imageElement.id, anno);
-            }
-
-            $(`[class^=remove-former-${count}-]`).click(function () {
-                anno.removeAnnotation(pairing[0][0].id);
-                clearElements();
-            });
-
-            $(`[class^=remove-latter-${count}-]`).click(function () {
-                anno.removeAnnotation(pairing[0][1].id);
-                clearElements();
-            });
 
             count++;
         }
+
+        // Set the delete event handlers
+        function clearElements() {
+            updateAnnotationCount();
+
+            if (container.children().length == 0) {
+                container.append(noDuplicatesTextHtml);
+            }
+            renderBoundingBoxPreviews(imageElement.id, anno);
+        }
+
+        $(`.remove-duplicate`).each(function () {
+            setRectHighlight($(this).attr("data-target"), $(this), backgroundColor = false);
+        })
+        $(`.remove-duplicate`).click(function () {
+            anno.removeAnnotation($(this).attr("data-target"));
+            clearElements();
+        });
     }
     else {
         container.append(noDuplicatesTextHtml);

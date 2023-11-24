@@ -304,16 +304,7 @@ function renderBoundingBoxPreviews(imageElementID, anno) {
         timeout = null;
 
         // Highlighting the preview on hover
-        preview.hover(
-            function () {
-                $(this).css("background-color", "rgba(255, 255, 0, 0.5)");
-                innerRect.css("fill", "rgba(255, 255, 0, 0.2)")
-            },
-            function () {
-                $(this).css("background-color", "rgba(255, 255, 255, 1.0)");
-                innerRect.css("fill", "transparent")
-            }
-        );
+        setRectHighlight(annotation.id, preview, backgroundColor = true);
 
         innerRect.hover(
             function () {
@@ -414,6 +405,28 @@ function renderBoundingBoxPreviews(imageElementID, anno) {
     $(function () {
         $('[data-toggle="tooltip"]').tooltip();
     })
+}
+
+function setRectHighlight(annotationId, element, backgroundColor=false) {
+    const rectAnnotation = $(`[data-id='${annotationId}']`);
+    let innerRect = rectAnnotation.find(".a9s-inner");
+
+    function hover() {
+        if (backgroundColor) {
+            $(this).css("background-color", "rgba(255, 255, 0, 0.5)");
+        }
+        innerRect.css("fill", "rgba(255, 255, 0, 0.2)")
+    }
+
+    function unhover() {
+        if (backgroundColor) {
+            $(this).css("background-color", "rgba(255, 255, 255, 1.0)");
+        }
+        innerRect.css("fill", "transparent")
+    }
+
+
+    $(element).hover(hover, unhover);
 }
 
 function reHideBboxes(fade = false) {
@@ -552,11 +565,20 @@ function displayOverlappingPairs(anno, imageElement) {
             $(canvas2).addClass("w-50");
 
             let entryDeleteSection = $(`#duplicate-delete-${count}`);
-            let deleteButton1 = `<div class="col-6"><button class="remove-former-${count}-${cleanedId1} btn btn-outline-danger w-50">Delete</button></div>`
-            let deleteButton2 = `<div class="col-6"><button class="remove-latter-${count}-${cleanedId2} btn btn-outline-danger col-6 w-50">Delete</button></div>`
+
+            const deleteClass1 = `remove-former-${count}-${cleanedId1}`;
+            const deleteClass2 = `remove-latter-${count}-${cleanedId2}`;
+
+            let deleteButton1 = `<div class="col-6"><button class="${deleteClass1} btn btn-outline-danger w-50">Delete</button></div>`
+            let deleteButton2 = `<div class="col-6"><button class="${deleteClass2} btn btn-outline-danger col-6 w-50">Delete</button></div>`
 
             entryDeleteSection.append(deleteButton1);
             entryDeleteSection.append(deleteButton2);
+
+            setRectHighlight(pairing[0][0].id, canvas1, backgroundColor = false);
+            setRectHighlight(pairing[0][1].id, canvas2, backgroundColor = false);
+            setRectHighlight(pairing[0][0].id, $(`.${deleteClass1}`), backgroundColor = false);
+            setRectHighlight(pairing[0][1].id, $(`.${deleteClass2}`), backgroundColor = false);
 
             function clearElements () {
                 updateAnnotationCount();

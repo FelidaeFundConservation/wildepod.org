@@ -31,7 +31,17 @@ from django.urls import reverse
 from django.views.generic import FormView
 from django.views.generic.base import TemplateView, View
 from images.forms import AnnotationForm
-from images.models import Activity, ActivityType, Annotator, BoundingBox, Category, Image, Species, SpeciesName
+from images.models import (
+    Activity,
+    ActivityType,
+    AnnotationCounter,
+    Annotator,
+    BoundingBox,
+    Category,
+    Image,
+    Species,
+    SpeciesName,
+)
 from images.models.custom_fields import get_filter_params
 from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
 from locations.models import CameraStation, MacroSite, MicroSite
@@ -616,7 +626,7 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
 
 
 # Handles annotation processing for each queue type
-def annotation_processor(queue_name, request):
+def annotation_processor(queue_name, annotation_type, request):
     # Get the image id
     image_id = request.POST.get("image_id")
     skip = request.POST.get("skip") == "true"
@@ -719,11 +729,17 @@ def annotation_processor(queue_name, request):
 
         # Update the cached annotation count
         if not skip:
+            annotator, created = Annotator.objects.get_or_create(type="human", human=request.user)
+            count = len(annotations)
+
             get_or_set_annotation_count(
                 request=request,
                 queue_name=queue_name,
-                annotator=Annotator.objects.get_or_create(type="human", human=request.user),
-                annotation_num=len(annotations),
+                annotator=annotator,
+                annotation_num=count,
+            )
+            AnnotationCounter.objects.create(
+                annotator=annotator, annotation_type=annotation_type, annotation_count=count
             )
     else:
         category_debug_data = None
@@ -742,12 +758,12 @@ def annotation_processor(queue_name, request):
 
 class MDAnnotationProcessorView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
-        return annotation_processor(OBJECTS_QUEUE_NAME, request)
+        return annotation_processor(OBJECTS_QUEUE_NAME, "category", request)
 
 
 class SpeciesAnnotationProcessorView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
-        return annotation_processor(SPECIES_QUEUE_NAME, request)
+        return annotation_processor(SPECIES_QUEUE_NAME, "species", request)
 
 
 class ActivityAnnotationProcessorView(LoginRequiredMixin, View):
@@ -763,7 +779,7 @@ class ActivityAnnotationProcessorView(LoginRequiredMixin, View):
         else:
             queue_name = None
 
-        return annotation_processor(queue_name, request)
+        return annotation_processor(queue_name, "activity", request)
 
 
 class DeleteAnnotationView(LoginRequiredMixin, View):

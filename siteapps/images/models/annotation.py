@@ -382,3 +382,14 @@ class Activity(TimeStampedModel):
             .values("activity")
             .annotate(total=Count(1))
         )
+
+
+# Used to keep track of time annotations were made for volunteer engagement metrics
+class AnnotationCounter(TimeStampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    annotation_type = models.CharField(
+        max_length=10,
+        choices=[("category", "category"), ("species", "species"), ("activity", "activity")],
+    )
+    annotator = models.ForeignKey(Annotator, on_delete=models.PROTECT, related_name="recent_annotations")
+    annotation_count = models.IntegerField()

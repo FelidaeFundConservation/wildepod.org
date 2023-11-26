@@ -4,7 +4,7 @@
 {% load crispy_forms_tags %}
 {% block title %}Track Volunteer Engagement |{% endblock %}
 {% block content %}
-    <div class="container mt-2 mt-md-3 rounded bg-white p-3">
+    <div class="container mt-2 mt-md-3 rounded bg-white p-3 card-emphasis">
         <div class="row text-center">
             <h2>Volunteer Engagement</h2>
             <text>(Only volunteers who made an annotation in the past month are shown.)</text>
@@ -15,9 +15,9 @@
                 <thead>
                     <tr>
                         <th scope="col">Name</th>
-                        <th scope="col"># Of Annotations (All Time)</th>
-                        <th scope="col"># Of Annotations (Past Month)</th>
                         <th scope="col"># Of Annotations (Past Week)</th>
+                        <th scope="col"># Of Annotations (Past Month)</th>
+                        <th scope="col"># Of Annotations (All Time)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -25,9 +25,9 @@
                         <tr id="row-{{ volunteer.name_no_spaces }}"
                             onclick="toggleRowDetailedBreakdown('{{ volunteer.name_no_spaces }}')">
                             <td>{{ volunteer.name }}</td>
-                            <td>{{ volunteer.annotations_all_time }}</td>
-                            <td>{{ volunteer.annotations_past_month }}</td>
                             <td>{{ volunteer.annotations_past_week }}</td>
+                            <td>{{ volunteer.annotations_past_month }}</td>
+                            <td>{{ volunteer.annotations_all_time }}</td>
                         </tr>
                         <tr id="detailedBreakdown-{{ volunteer.name_no_spaces }}" hidden>
                             <td colspan="4" style="text-align: center">
@@ -102,17 +102,17 @@
             </table>
         </div>
     </div>
-    <div class="container mt-2 mt-md-3 rounded bg-white p-3">
+    <div class="container mt-2 mt-md-3 rounded bg-white p-3 card-emphasis">
         <div class="row text-center">
             <h2>Annotations (Past 30 Days)</h2>
         </div>
         <div class="row mt-3">
-            <canvas id="daily-annotations-chart"></canvas>
+            <canvas id="daily-annotations-chart" class="w-100"></canvas>
         </div>
         <hr>
         <div class="row justify-content-center">
             <div class="card col-3 p-0 mx-2">
-                <div class="card-header">Category Average</div>
+                <div class="card-header">Category Rates</div>
                 <div class="card-body text-center">
                     <h1>{{ daily_category_avg }} boxes/day</h1>
                     <p class="small">
@@ -123,7 +123,7 @@
                 </div>
             </div>
             <div class="card col-3 p-0 mx-2">
-                <div class="card-header">Species Average</div>
+                <div class="card-header">Species Rates</div>
                 <div class="card-body text-center">
                     <h1>{{ daily_species_avg }} boxes/day</h1>
                     <p class="small">
@@ -134,7 +134,7 @@
                 </div>
             </div>
             <div class="card col-3 p-0 mx-2">
-                <div class="card-header">Activity Average</div>
+                <div class="card-header">Activity Rates</div>
                 <div class="card-body text-center">
                     <h1>{{ daily_activity_avg }} boxes/day</h1>
                     <p class="small">
@@ -159,7 +159,7 @@
             $(this).css('border-left', '10px solid transparent');
         });
 
-        $(`#volunteer-engagement-table`).DataTable({ order: [[3, 'desc']] });
+        $(`#volunteer-engagement-table`).DataTable({ order: [[1, 'desc']] });
 
         // Daily annotations chart
         const days = []

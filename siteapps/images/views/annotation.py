@@ -139,6 +139,9 @@ def get_or_set_annotation_count(request, queue_name, annotator, annotation_num=0
         count += annotation_num
         request.session["user_object_annotation_count"] = count
 
+        annotator.total_category_annotations = count
+        annotator.save()
+
     elif SPECIES_QUEUE_NAME in queue_name:
         count = request.session.get("user_species_annotation_count")
 
@@ -148,6 +151,9 @@ def get_or_set_annotation_count(request, queue_name, annotator, annotation_num=0
         count += annotation_num
         request.session["user_species_annotation_count"] = count
 
+        annotator.total_species_annotations = count
+        annotator.save()
+
     elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
         count = request.session.get("user_activity_annotation_count")
 
@@ -156,6 +162,9 @@ def get_or_set_annotation_count(request, queue_name, annotator, annotation_num=0
 
         count += annotation_num
         request.session["user_activity_annotation_count"] = count
+
+        annotator.total_activity_annotations = count
+        annotator.save()
     else:
         return None
 

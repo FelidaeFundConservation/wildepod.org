@@ -142,7 +142,7 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
         activity_image_count = activity_counters.count() + 1
 
         context["category_finish_time"] = min(
-            round(context["category_pipeline_images"] / (category_image_count / 30)), 365
+            round(context["category_pipeline_images"] / (category_image_count * 10000 / 30)), 365
         )
         context["species_finish_time"] = min(
             round(context["species_pipeline_images"] / (species_image_count / 30)), 365

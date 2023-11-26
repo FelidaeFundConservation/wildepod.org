@@ -96,6 +96,12 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
         daily_species_counts = []
         daily_activity_counts = []
 
+        # Number of images annotated
+        category_image_count = 0
+        species_image_count = 0
+        activity_image_count = 0
+
+        # Get annotation counts for last 30 days
         for days in reversed(range(0, 31)):
             start = now - timedelta(days=days)
             end = now - timedelta(days=days) + timedelta(days=1)
@@ -105,16 +111,19 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
             category_counters = counters.filter(annotation_type="category")
             category_counter_sum = category_counters.aggregate(Sum("annotation_count"))["annotation_count__sum"]
             category_count = category_counter_sum if category_counter_sum else 0
+            category_image_count += category_counters.count()
             daily_category_counts.append(category_count)
 
             species_counters = counters.filter(annotation_type="species")
             species_counter_sum = species_counters.aggregate(Sum("annotation_count"))["annotation_count__sum"]
             species_count = species_counter_sum if species_counter_sum else 0
+            species_image_count += species_counters.count()
             daily_species_counts.append(species_count)
 
             activity_counters = counters.filter(annotation_type="activity")
             activity_counter_sum = activity_counters.aggregate(Sum("annotation_count"))["annotation_count__sum"]
             activity_count = activity_counter_sum if activity_counter_sum else 0
+            activity_image_count += activity_counters.count()
             daily_activity_counts.append(activity_count)
 
             daily_total_counts.append(category_count + species_count + activity_count)
@@ -124,11 +133,13 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
         context["daily_activity_counts"] = daily_activity_counts
         context["daily_total_counts"] = daily_total_counts
 
+        # Daily average
         context["daily_category_avg"] = round(sum(daily_category_counts) / len(daily_category_counts), 2)
         context["daily_species_avg"] = round(sum(daily_species_counts) / len(daily_species_counts), 2)
         context["daily_activity_avg"] = round(sum(daily_activity_counts) / len(daily_activity_counts), 2)
         context["daily_total_avg"] = round(sum(daily_total_counts) / len(daily_total_counts), 2)
 
+        # Total pipeline eligible images
         images = Image.objects.all()
         context["category_pipeline_images"] = object_pipeline_query(images=images, annotator=None).count()
         context["species_pipeline_images"] = species_pipeline_query(images=images, annotator=None).count()
@@ -137,27 +148,29 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
             + activity_pipeline_query(images=images, annotator=None, activity_category="human").count()
         )
 
-        category_image_count = category_counters.count() + 1
-        species_image_count = species_counters.count() + 1
-        activity_image_count = activity_counters.count() + 1
+        # Images per day rate
+        context["daily_category_img_avg"] = round((category_image_count / 30), 2)
+        context["daily_species_img_avg"] = round((species_image_count / 30), 2)
+        context["daily_activity_img_avg"] = round((activity_image_count / 30), 2)
 
+        # Estimated time to finish all eligible images
         context["category_finish_time"] = min(
-            round(context["category_pipeline_images"] / (category_image_count * 10000 / 30)), 365
+            round(context["category_pipeline_images"] / (context["daily_category_img_avg"] + 1)), 365
         )
         context["species_finish_time"] = min(
-            round(context["species_pipeline_images"] / (species_image_count / 30)), 365
+            round(context["species_pipeline_images"] / (context["daily_species_img_avg"] + 1)), 365
         )
         context["activity_finish_time"] = min(
-            round(context["activity_pipeline_images"] / (activity_image_count / 30)), 365
+            round(context["activity_pipeline_images"] / (context["daily_activity_img_avg"] + 1)), 365
         )
 
+        # Only volunteers who annotated in the last month will be shown
         volunteers = list(
             Annotator.objects.filter(recent_annotations__created__gte=past_month_start_time, type="human").distinct()
         )
         volunteer_info = []
 
         for volunteer in volunteers:
-
             annotations_past_week_category = (
                 AnnotationCounter.objects.filter(
                     annotator=volunteer, annotation_type="category", created__gte=past_week_start_time

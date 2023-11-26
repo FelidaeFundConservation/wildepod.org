@@ -114,7 +114,8 @@
             <div class="card col-3 p-0 mx-2">
                 <div class="card-header">Category Rates</div>
                 <div class="card-body text-center">
-                    <h1>{{ daily_category_avg }} boxes/day</h1>
+                    <h1>{{ daily_category_img_avg }} images/day</h1>
+                    <h5 class="small">{{ daily_category_avg }} boxes/day</h5>
                     <p class="small">
                         Est.
                         {% if category_finish_time == 365 %}>{% endif %}
@@ -125,7 +126,8 @@
             <div class="card col-3 p-0 mx-2">
                 <div class="card-header">Species Rates</div>
                 <div class="card-body text-center">
-                    <h1>{{ daily_species_avg }} boxes/day</h1>
+                    <h1>{{ daily_species_img_avg }} images/day</h1>
+                    <h5 class="small">{{ daily_species_avg }} boxes/day</h5>
                     <p class="small">
                         Est.
                         {% if species_finish_time == 365 %}>{% endif %}
@@ -136,7 +138,8 @@
             <div class="card col-3 p-0 mx-2">
                 <div class="card-header">Activity Rates</div>
                 <div class="card-body text-center">
-                    <h1>{{ daily_activity_avg }} boxes/day</h1>
+                    <h1>{{ daily_activity_img_avg }} images/day</h1>
+                    <h5 class="small">{{ daily_activity_avg }} boxes/day</h5>
                     <p class="small">
                         Est.
                         {% if activity_finish_time == 365 %}>{% endif %}

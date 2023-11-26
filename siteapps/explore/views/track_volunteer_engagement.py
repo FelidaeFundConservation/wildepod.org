@@ -87,7 +87,7 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
 
         # Clear counters older than 1 month
         counters = AnnotationCounter.objects.filter(created__lt=past_month_start_time)
-        if counters:
+        if counters.exists():
             counters.delete()
 
         # Get daily annotation counts across all users

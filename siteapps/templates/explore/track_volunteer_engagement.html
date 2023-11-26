@@ -1,16 +1,9 @@
 {% extends "_base.html" %}
 {% load static %}
+{% load humanize %}
 {% load crispy_forms_tags %}
 {% block title %}Track Volunteer Engagement |{% endblock %}
 {% block content %}
-    <div class="container mt-2 mt-md-3 rounded bg-white p-3">
-        <div class="row text-center">
-            <h2>Annotations (Past 30 Days)</h2>
-        </div>
-        <div class="row mt-3">
-            <canvas id="daily-annotations-chart"></canvas>
-        </div>
-    </div>
     <div class="container mt-2 mt-md-3 rounded bg-white p-3">
         <div class="row text-center">
             <h2>Volunteer Engagement</h2>
@@ -109,6 +102,50 @@
             </table>
         </div>
     </div>
+    <div class="container mt-2 mt-md-3 rounded bg-white p-3">
+        <div class="row text-center">
+            <h2>Annotations (Past 30 Days)</h2>
+        </div>
+        <div class="row mt-3">
+            <canvas id="daily-annotations-chart"></canvas>
+        </div>
+        <hr>
+        <div class="row justify-content-center">
+            <div class="card col-3 p-0 mx-2">
+                <div class="card-header">Category Average</div>
+                <div class="card-body text-center">
+                    <h1>{{ daily_category_avg }} boxes/day</h1>
+                    <p class="small">
+                        Est.
+                        {% if category_finish_time == 365 %}>{% endif %}
+                        {{ category_finish_time|intcomma }} days to finish {{ category_pipeline_images|intcomma }} images
+                    </p>
+                </div>
+            </div>
+            <div class="card col-3 p-0 mx-2">
+                <div class="card-header">Species Average</div>
+                <div class="card-body text-center">
+                    <h1>{{ daily_species_avg }} boxes/day</h1>
+                    <p class="small">
+                        Est.
+                        {% if species_finish_time == 365 %}>{% endif %}
+                        {{ species_finish_time|intcomma }} days to finish {{ species_pipeline_images|intcomma }} images
+                    </p>
+                </div>
+            </div>
+            <div class="card col-3 p-0 mx-2">
+                <div class="card-header">Activity Average</div>
+                <div class="card-body text-center">
+                    <h1>{{ daily_activity_avg }} boxes/day</h1>
+                    <p class="small">
+                        Est.
+                        {% if activity_finish_time == 365 %}>{% endif %}
+                        {{ activity_finish_time|intcomma }} days to finish {{ activity_pipeline_images|intcomma }} images
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="page-background h-100 mt-5"></div>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.min.js"></script>
@@ -122,7 +159,7 @@
             $(this).css('border-left', '10px solid transparent');
         });
 
-        $(`#volunteer-engagement-table`).DataTable();
+        $(`#volunteer-engagement-table`).DataTable({ order: [[3, 'desc']] });
 
         // Daily annotations chart
         const days = []
@@ -130,37 +167,44 @@
         for (let day = 30; day > 0; day--) {
             let date = new Date();
             date.setDate(date.getDate() - day + 1)
-            days.push(`${date.getMonth()}/${date.getDate()}/${date.getFullYear()}`);
+            days.push(`${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`);
         }
 
+        Chart.defaults.font.family = "Alata";
+        const pointRadius = 7;
         const ctx = document.getElementById("daily-annotations-chart").getContext("2d");
         const dailyAnnotationsCount = new Chart(ctx, {
             type: "line",
             data: {
                 labels: days,
                 datasets: [{
-                  backgroundColor:"rgba(0,0,255,1.0)",
-                  borderColor: "rgba(0,0,255,0.5)",
+                    backgroundColor:"rgba(0,0,255,1.0)",
+                    borderColor: "rgba(0,0,255,0.5)",
+                    pointRadius: pointRadius,
                     data: {{ daily_total_counts }},
-                  label: "Total Annotations"
+                    label: "Total Annotations"
                 },
                 {
-                  backgroundColor:"rgba(0,128,0,1.0)",
-                  borderColor: "rgba(0,128,0,0.5)",
+                    backgroundColor:"rgba(0,128,0,1.0)",
+                    borderColor: "rgba(0,128,0,0.5)",
+                    pointRadius: pointRadius,
                     data: {{ daily_category_counts }},
-                  label: "Category Annotations"
+                    label: "Category Annotations",
+
                 },
                 {
-                  backgroundColor:"rgba(255,0,0,1.0)",
-                  borderColor: "rgba(255,0,0,0.5)",
+                    backgroundColor:"rgba(255,0,0,1.0)",
+                    borderColor: "rgba(255,0,0,0.5)",
+                    pointRadius: pointRadius,
                     data: {{ daily_species_counts }},
-                  label: "Species Annotations"
+                    label: "Species Annotations"
                 },
                 {
-                  backgroundColor:"rgba(255,165,0,1.0)",
-                  borderColor: "rgba(255,165,0,0.5)",
+                    backgroundColor:"rgba(255,165,0,1.0)",
+                    borderColor: "rgba(255,165,0,0.5)",
+                    pointRadius: pointRadius,
                     data: {{ daily_activity_counts }},
-                  label: "Activity Annotations"
+                    label: "Activity Annotations"
                 }]
             },
         });

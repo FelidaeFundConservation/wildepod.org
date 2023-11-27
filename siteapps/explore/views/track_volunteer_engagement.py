@@ -104,7 +104,9 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
         # Get annotation counts for last 30 days
         for days in reversed(range(0, 31)):
             start = now - timedelta(days=days)
+            start = timezone.make_aware(timezone.datetime(start.year, start.month, start.day))
             end = now - timedelta(days=days) + timedelta(days=1)
+            end = timezone.make_aware(timezone.datetime(end.year, end.month, end.day))
 
             counters = AnnotationCounter.objects.filter(created__gte=start, created__lt=end)
 

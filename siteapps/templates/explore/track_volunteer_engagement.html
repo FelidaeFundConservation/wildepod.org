@@ -170,7 +170,7 @@
         for (let day = 30; day > 0; day--) {
             let date = new Date();
             date.setDate(date.getDate() - day + 1)
-            days.push(`${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`);
+            days.push(`${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear() % 100}`);
         }
 
         Chart.defaults.font.family = "Alata";

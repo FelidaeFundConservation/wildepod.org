@@ -747,9 +747,21 @@ def annotation_processor(queue_name, annotation_type, request):
                 annotator=annotator,
                 annotation_num=count,
             )
-            AnnotationCounter.objects.create(
-                annotator=annotator, annotation_type=annotation_type, annotation_count=count
-            )
+
+            # Use an object to track each day, for each annotator, for each pipeline
+            today = datetime.datetime.today()
+
+            counter = AnnotationCounter.objects.filter(
+                annotator=annotator, annotation_type=annotation_type, created__day=today.day, created__month=today.month
+            ).first()
+
+            if counter:
+                counter.annotation_count += count
+                counter.save()
+            else:
+                AnnotationCounter.objects.create(
+                    annotator=annotator, annotation_type=annotation_type, annotation_count=count
+                )
     else:
         category_debug_data = None
         species_debug_data = None

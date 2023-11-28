@@ -393,3 +393,4 @@ class AnnotationCounter(TimeStampedModel):
     )
     annotator = models.ForeignKey(Annotator, on_delete=models.PROTECT, related_name="recent_annotations")
     annotation_count = models.IntegerField()
+    image_count = models.IntegerField()

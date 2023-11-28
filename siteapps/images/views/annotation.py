@@ -360,9 +360,7 @@ def skip_ineligible_images(queue_name, queue):
 def get_annotation_history(context, queue, queue_name, annotator):
     HISTORY_LENGTH = 10
 
-    image_history = Image.objects.filter(
-        id__in=queue["images"][max(0, queue["index"] - HISTORY_LENGTH) : queue["index"]]
-    ).order_by("modified")
+    image_history = Image.objects.filter(id__in=queue["images"])
     context["previous_annotations"] = []
 
     if OBJECTS_QUEUE_NAME in queue_name:
@@ -372,7 +370,7 @@ def get_annotation_history(context, queue, queue_name, annotator):
     elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
         image_history.filter(Q(activity_checked_by__in=[annotator]) | Q(activity_skipped_by__in=[annotator]))
 
-    context["previous_queue_images"] = image_history
+    context["previous_queue_images"] = image_history.order_by("-modified")[:HISTORY_LENGTH]
 
     for image in context["previous_queue_images"]:
         if OBJECTS_QUEUE_NAME in queue_name:
@@ -397,9 +395,7 @@ def get_annotation_history(context, queue, queue_name, annotator):
                 ", ".join(anno for anno in set(list(annotation.values())[0] for annotation in previous_annotations))
             )
 
-    context["previous_annotation_info"] = zip(
-        reversed(context["previous_queue_images"]), reversed(context["previous_annotations"])
-    )
+    context["previous_annotation_info"] = zip(context["previous_queue_images"], context["previous_annotations"])
 
 
 # Retrieves data to pass to the views through context (namely queue images and annotations info).

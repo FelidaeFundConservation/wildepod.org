@@ -761,7 +761,7 @@ def annotation_processor(queue_name, annotation_type, request):
                 counter.save()
             else:
                 AnnotationCounter.objects.create(
-                    annotator=annotator, annotation_type=annotation_type, annotation_count=count
+                    annotator=annotator, annotation_type=annotation_type, annotation_count=count, image_count=1
                 )
     else:
         category_debug_data = None

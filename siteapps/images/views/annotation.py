@@ -358,12 +358,21 @@ def skip_ineligible_images(queue_name, queue):
 
 
 def get_annotation_history(context, queue, queue_name, annotator):
-    HISTORY_LENGTH = 5
+    HISTORY_LENGTH = 10
 
-    context["previous_queue_images"] = Image.objects.filter(
+    image_history = Image.objects.filter(
         id__in=queue["images"][max(0, queue["index"] - HISTORY_LENGTH) : queue["index"]]
-    )
+    ).order_by("modified")
     context["previous_annotations"] = []
+
+    if OBJECTS_QUEUE_NAME in queue_name:
+        image_history.filter(Q(bbox_checked_by__in=[annotator]) | Q(bbox_skipped_by__in=[annotator]))
+    elif SPECIES_QUEUE_NAME in queue_name:
+        image_history.filter(Q(species_checked_by__in=[annotator]) | Q(species_skipped_by__in=[annotator]))
+    elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
+        image_history.filter(Q(activity_checked_by__in=[annotator]) | Q(activity_skipped_by__in=[annotator]))
+
+    context["previous_queue_images"] = image_history
 
     for image in context["previous_queue_images"]:
         if OBJECTS_QUEUE_NAME in queue_name:

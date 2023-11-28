@@ -113,19 +113,19 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
             category_counters = counters.filter(annotation_type="category")
             category_counter_sum = category_counters.aggregate(Sum("annotation_count"))["annotation_count__sum"]
             category_count = category_counter_sum if category_counter_sum else 0
-            category_image_count += category_counters.count()
+            category_image_count += category_counters.aggregate(Sum("image_count"))["image_count__sum"]
             daily_category_counts.append(category_count)
 
             species_counters = counters.filter(annotation_type="species")
             species_counter_sum = species_counters.aggregate(Sum("annotation_count"))["annotation_count__sum"]
             species_count = species_counter_sum if species_counter_sum else 0
-            species_image_count += species_counters.count()
+            species_image_count += species_counters.aggregate(Sum("image_count"))["image_count__sum"]
             daily_species_counts.append(species_count)
 
             activity_counters = counters.filter(annotation_type="activity")
             activity_counter_sum = activity_counters.aggregate(Sum("annotation_count"))["annotation_count__sum"]
             activity_count = activity_counter_sum if activity_counter_sum else 0
-            activity_image_count += activity_counters.count()
+            activity_image_count += activity_counters.aggregate(Sum("image_count"))["image_count__sum"]
             daily_activity_counts.append(activity_count)
 
             daily_total_counts.append(category_count + species_count + activity_count)

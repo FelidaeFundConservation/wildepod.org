@@ -757,6 +757,7 @@ def annotation_processor(queue_name, annotation_type, request):
 
             if counter:
                 counter.annotation_count += count
+                counter.image_count += 1
                 counter.save()
             else:
                 AnnotationCounter.objects.create(

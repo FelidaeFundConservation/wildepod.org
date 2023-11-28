@@ -138,7 +138,7 @@ def get_or_set_annotation_count(request, queue_name, annotator, annotation_num=0
 
         count += annotation_num
         request.session["user_object_annotation_count"] = count
-        print(count)
+
         annotator.total_category_annotations = count
         annotator.save()
 

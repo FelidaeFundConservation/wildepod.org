@@ -51,7 +51,7 @@
                             <label for="select_volunteer">Volunteer</label>
                             <select id="select_volunteer" name="volunteer" class="form-select">
                                 <option value="" disabled selected></option>
-                                {% for volunteer in volunteers %}<option value="{{ volunteer }}">{{ volunteer.human }}</option>{% endfor %}
+                                {% for volunteer in volunteers %}<option value="{{ volunteer.name }}">{{ volunteer.name }}</option>{% endfor %}
                             </select>
                         </div>
                     {% endif %}
@@ -99,13 +99,18 @@
                 </div>
             </div>
             <br>
-            <button type="submit" class="btn btn-primary">Query</button>
+            <div class="d-flex">
+                <button type="submit" class="btn btn-primary mx-2">
+                    <i class="bi bi-search"></i>&nbsp;&nbsp;Query
+                </button>
+                <a href="{% url 'images:list_uploads' %}" class="btn btn-primary mx-2"><i class="bi bi-eraser-fill"></i>&nbsp;&nbsp;Clear Filters</a>
+            </div>
         </form>
     </div>
     <div class="container mt-2 mt-md-3 rounded bg-white p-3">
         <nav>
             <div class="nav nav-tabs" id="nav-tab" role="tablist">
-                <a class="nav-link active"
+                <a class="nav-link"
                    id="nav-pending-tab"
                    data-bs-toggle="tab"
                    href="#nav-pending"
@@ -125,7 +130,7 @@
                    aria-selected="false">
                     <text class="small">Processing ({{ num_processing }})</text>
                 </a>
-                <a class="nav-link"
+                <a class="nav-link active"
                    id="nav-complete-tab"
                    data-bs-toggle="tab"
                    href="#nav-complete"
@@ -136,7 +141,7 @@
                 </a>
             </div>
             <div class="tab-content upload-container">
-                <div class="tab-pane fade show active p-0 text-center"
+                <div class="tab-pane fade p-0 text-center"
                      id="nav-pending"
                      role="tabpanel"
                      aria-labelledby="nav-pending-tab">
@@ -308,7 +313,7 @@
                         </div>
                     {% endif %}
                 </div>
-                <div class="tab-pane fade p-0 text-center"
+                <div class="tab-pane fade show active p-0 text-center"
                      id="nav-complete"
                      role="tabpanel"
                      aria-labelledby="nav-complete-tab">
@@ -327,6 +332,7 @@
                             </p>
                         {% endif %}
                     </div>
+                    <hr>
                     {% if object_list|length > 0 %}
                         <div class="btn-group btn-group-sm pt-0 mt-0 mb-2 text-center w-25"
                              role="group"
@@ -343,9 +349,6 @@
                                 <i class="bi bi-card-heading"></i>&nbsp;&nbsp;Cards
                             </button>
                         </div>
-                    {% endif %}
-                    <hr>
-                    {% if object_list|length > 0 %}
                         <div id="upload-complete-cards"
                              class="row pt-0 upload-list overflow-auto p-2">
                             {% for object in object_list %}
@@ -430,6 +433,27 @@
                                 </tbody>
                             </table>
                         </div>
+                        {% if object_list|length > 0 and object_list.paginator.page_range|length > 1 %}
+                            <p class="d-flex">
+                                <div>
+                                    {% if object_list.has_previous %}
+                                        <a href="?page={{ object_list.previous_page_number }}"
+                                           class="btn btn-primary mx-2">Prev</a>
+                                    {% endif %}
+                                    {% for pg in object_list.paginator.page_range %}
+                                        {% if object_list.number == pg %}
+                                            <a href="?page={{ pg }}" class="btn btn-secondary">{{ pg }}</a>
+                                        {% else %}
+                                            <a href="?page={{ pg }}" class="btn btn-light">{{ pg }}</a>
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% if object_list.has_next %}
+                                        <a href="?page={{ object_list.next_page_number }}"
+                                           class="btn btn-primary mx-2">Next</a>&nbsp;&nbsp;
+                                    {% endif %}
+                                </div>
+                            </p>
+                        {% endif %}
                     {% else %}
                         <div class="text-center">
                             <p>

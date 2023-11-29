@@ -331,27 +331,6 @@
                                 <i>Hey, {{ user.name }}! Here is a list of all your completed uploads</i>
                             </p>
                         {% endif %}
-                        {% if object_list|length > 0 and object_list.paginator.page_range|length > 1 %}
-                            <p class="d-flex">
-                                <div>
-                                    {% if object_list.has_previous %}
-                                        <a href="?page={{ object_list.previous_page_number }}"
-                                           class="btn btn-primary mx-2">Prev</a>
-                                    {% endif %}
-                                    {% for pg in object_list.paginator.page_range %}
-                                        {% if object_list.number == pg %}
-                                            <a href="?page={{ pg }}" class="btn btn-secondary">{{ pg }}</a>
-                                        {% else %}
-                                            <a href="?page={{ pg }}" class="btn btn-light">{{ pg }}</a>
-                                        {% endif %}
-                                    {% endfor %}
-                                    {% if object_list.has_next %}
-                                        <a href="?page={{ object_list.next_page_number }}"
-                                           class="btn btn-primary mx-2">Next</a>&nbsp;&nbsp;
-                                    {% endif %}
-                                </div>
-                            </p>
-                        {% endif %}
                     </div>
                     <hr>
                     {% if object_list|length > 0 %}
@@ -454,6 +433,27 @@
                                 </tbody>
                             </table>
                         </div>
+                        {% if object_list|length > 0 and object_list.paginator.page_range|length > 1 %}
+                            <p class="d-flex">
+                                <div>
+                                    {% if object_list.has_previous %}
+                                        <a href="?page={{ object_list.previous_page_number }}"
+                                           class="btn btn-primary mx-2">Prev</a>
+                                    {% endif %}
+                                    {% for pg in object_list.paginator.page_range %}
+                                        {% if object_list.number == pg %}
+                                            <a href="?page={{ pg }}" class="btn btn-secondary">{{ pg }}</a>
+                                        {% else %}
+                                            <a href="?page={{ pg }}" class="btn btn-light">{{ pg }}</a>
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% if object_list.has_next %}
+                                        <a href="?page={{ object_list.next_page_number }}"
+                                           class="btn btn-primary mx-2">Next</a>&nbsp;&nbsp;
+                                    {% endif %}
+                                </div>
+                            </p>
+                        {% endif %}
                     {% else %}
                         <div class="text-center">
                             <p>

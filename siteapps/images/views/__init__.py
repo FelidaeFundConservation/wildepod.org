@@ -11,7 +11,10 @@ from .annotation import (
     SavePreviousImageToReturnToView,
     SaveRecentTagsView,
     SpeciesAnnotationProcessorView,
+    activity_pipeline_query,
     annotate,
+    object_pipeline_query,
+    species_pipeline_query,
 )
 from .image import ImageDetailView
 from .search_images import SearchImagesView

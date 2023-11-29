@@ -9,9 +9,8 @@
     background-size: cover;
     background-position: center;
     filter: blur(5px) sepia(100%);
-    background-attachment: fixed;
+    background-attachment: local;
     background-repeat: no-repeat;
-    background-size: cover;
     position: relative;
     transform: translate(0%, -100%);
     z-index: -1;

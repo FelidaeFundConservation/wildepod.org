@@ -322,7 +322,7 @@
                                             <div>
                                                 {% for queue_image, annotations in previous_annotation_info %}
                                                     <div class="card m-3">
-                                                        <div class="card-header">{{ queue_image.modified }}</div>
+                                                        <div class="card-header">{{ queue_image.modified|date:'M. d Y, g:i:s a' }}</div>
                                                         <div class="card-body">
                                                             <img class="img-fluid m-0 p-0"
                                                                  src="{% get_media_prefix %}{{ queue_image.thumbnail_gcloud_path }}"

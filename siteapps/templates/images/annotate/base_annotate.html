@@ -75,9 +75,7 @@
                                    role="tab"
                                    aria-controls="nav-bboxes"
                                    aria-selected="false">
-                                    <text class="small">
-                                    <span class="d-none d-xl-inline">Bounding&nbsp;</span>Boxes
-                                    </text>
+                                    <text class="small">Boxes</text>
                                 </a>
                                 <a class="nav-link"
                                    id="nav-context-images-tab"
@@ -87,6 +85,15 @@
                                    aria-controls="nav-context-images"
                                    aria-selected="false">
                                     <text class="small"><span class="d-none d-lg-inline">Context</span><span class="d-inline d-lg-none">Cxt.</span></text>
+                                </a>
+                                <a class="nav-link"
+                                   id="nav-deduplicate-helper-tab"
+                                   data-bs-toggle="tab"
+                                   href="#nav-deduplicate-helper"
+                                   role="tab"
+                                   aria-controls="nav-deduplicate-helper"
+                                   aria-selected="false">
+                                    <text class="small"><span class="d-none d-xl-inline">Deduplicate</span><span class="d-inline d-xl-none">Dedup.</span></text>
                                 </a>
                             </div>
                         </nav>
@@ -98,7 +105,7 @@
                                 name="save_annotations"
                                 value="Save Annotations"
                                 disabled>
-                            <i class="bi bi-save2"></i><span class="d-none d-lg-inline">&nbsp;&nbsp;&nbsp;Save<span class="d-none d-xl-inline">Tags&nbsp;&nbsp;</span></span>
+                            <i class="bi bi-save2"></i><span class="d-none d-lg-inline">&nbsp;&nbsp;&nbsp;Save<span class="d-none d-xl-inline">&nbsp;Tags&nbsp;&nbsp;</span></span>
                             <div id="save-spinner"
                                  class="spinner-border"
                                  role="status"
@@ -112,7 +119,7 @@
                                 name="skip_annotations"
                                 value="Skip Image"
                                 disabled>
-                            <i class="bi bi-skip-end"></i><span class="d-none d-lg-inline">&nbsp;&nbsp;&nbsp;Skip<span class="d-none d-xl-inline">Image&nbsp;&nbsp;</span></span>
+                            <i class="bi bi-skip-end"></i><span class="d-none d-lg-inline">&nbsp;&nbsp;&nbsp;Skip<span class="d-none d-xl-inline">&nbsp;Image&nbsp;&nbsp;</span></span>
                             <div id="skip-spinner"
                                  class="spinner-border"
                                  role="status"
@@ -335,6 +342,24 @@
                                         </div>
                                     </div>
                                 </div>
+                                <div class="tab-pane fade"
+                                     id="nav-deduplicate-helper"
+                                     role="tabpanel"
+                                     aria-labelledby="nav-deduplicate-helper-tab">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <text id="deduplicate-card-header">Deduplicate Helper</text>
+                                        </div>
+                                        <div class="card-body p-4">
+                                            <div>
+                                                <p>Too crowded? Compare overlapping boxes on a pair-by-pair basis, to see if the object is the same.</p>
+                                            </div>
+                                            <hr>
+                                            <div id="deduplicate-bboxes"
+                                                 class="row mt-2 mt-md-4 p-2 justify-content-center text-center"></div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </nav>
                     </div>
@@ -419,7 +444,7 @@
                     appendToast(target.id.replace("#", ""), "delete", messageHtml);
                     $(`.tooltip`).remove();
 
-                    renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno);
+                    renderBoundingBoxPreviews("{{image.id}}", anno);
                 }
 
                 hoveredAnnotation = null;
@@ -435,7 +460,7 @@
                     previews.addClass("bbox-hidden");
                     hiddenBoxes.push(...previews);
 
-                    renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno);
+                    renderBoundingBoxPreviews("{{image.id}}", anno);
 
                     messageHtml = `<kbd><i class="bi bi-eye-slash"></i>&nbsp;SPACE</kbd>&nbsp;&nbsp;Hid all visible bounding boxes.</i>`;
                     appendToast("id", "hide-all", messageHtml)
@@ -443,7 +468,6 @@
                 else {
                     hiddenBoxes = $(`[class^=preview-]:not(.preview-lite)`);
                     reHideBboxes(true);
-                    console.log("showing");
                     messageHtml = `<kbd><i class="bi bi-eye"></i>&nbsp;SPACE</kbd>&nbsp;&nbsp;Unhid all bounding boxes.</i>`;
                     appendToast("id", "unhide-all", messageHtml);
 
@@ -647,7 +671,7 @@
                     imageContainer.addClass(colBigger);
                 }
                 resetClasses();
-                if (e.target.id === "nav-bboxes-tab") {
+                if (e.target.id === "nav-bboxes-tab" || e.target.id === "nav-deduplicate-helper-tab") {
                     sideMenu.removeClass(colSmaller);
                     sideMenu.addClass(colBigger);
                     imageContainer.removeClass(colBigger);
@@ -666,11 +690,11 @@
             anno = renderBoundingBoxes("{{image.id}}", bboxes = bboxes, widgets = [ClassSelectorWidget]);
 
             // Render bounding boxes
-            renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)
-            anno.on("createAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
-            anno.on("deleteAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
-            anno.on("updateAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno)})
-            anno.on('cancelSelected', function (selection) { return renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno) });
+            renderBoundingBoxPreviews("{{image.id}}", anno)
+            anno.on("createAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", anno)})
+            anno.on("deleteAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", anno)})
+            anno.on("updateAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", anno)})
+            anno.on('cancelSelected', function (selection) { return renderBoundingBoxPreviews("{{image.id}}",  anno) });
 
             // Set default brightness value based on luma value
             const lumaAdjustment = "{{ luma_adjustment }}";
@@ -853,7 +877,7 @@
                 e.preventDefault();
                 // Then, save the annotations
                 anno.clearAnnotations()
-                renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno);
+                renderBoundingBoxPreviews("{{image.id}}", anno);
             });
 
             // Event listeners unique to the annotation stage

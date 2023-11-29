@@ -1,94 +1,158 @@
 {% extends "_base.html" %}
 {% load static %}
+{% load humanize %}
 {% load crispy_forms_tags %}
-
-{% block title %}Track Volunteer Engagement | {% endblock %}
-
+{% block title %}Track Volunteer Engagement |{% endblock %}
 {% block content %}
-<div class="container mt-3 pt-3 mt-md-4 pt-md-4">
-    <div class="row text-center">
-        <h2>Volunteer Engagement</h2>
-        <text>(Click rows to view detailed annotation breakdowns.)</text>
-    </div>
-    <div class="row">
-        <table id="volunteer-engagement-table" class="table mt-2 mt-md-4 align-middle text-center">
-            <thead>
-                <tr>
-                    <th scope="col">Name</th>
-                    <th scope="col">Last Login</th>
-                    <th scope="col"># Of Annotations (All Time)</th>
-                    <th scope="col"># Of Annotations (Past Month)</th>
-                    <th scope="col"># Of Annotations (Past Week)</th>
-                    <th scope="col">All-Time Data Updated At</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for volunteer in volunteer_info %}
-                    {% if volunteer.name != 'MegaDetector' %}
+    <div class="container mt-2 mt-md-3 rounded bg-white p-3 card-emphasis">
+        <div class="row text-center">
+            <h2>Volunteer Engagement</h2>
+            <text>(Only volunteers who made an annotation in the past month are shown.)</text>
+        </div>
+        <div class="row">
+            <table id="volunteer-engagement-table"
+                   class="table mt-2 mt-md-4 align-middle text-center">
+                <thead>
+                    <tr>
+                        <th scope="col">Name</th>
+                        <th scope="col"># Of Annotations (Past Week)</th>
+                        <th scope="col"># Of Annotations (Past Month)</th>
+                        <th scope="col"># Of Annotations (All Time)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for volunteer in volunteer_info %}
                         <tr id="row-{{ volunteer.name_no_spaces }}"
-                            onclick="toggleRowDetailedBreakdown('{{ volunteer.name_no_spaces }}')"
-                        >
+                            onclick="toggleRowDetailedBreakdown('{{ volunteer.name_no_spaces }}')">
                             <td>{{ volunteer.name }}</td>
-                            <td>{{ volunteer.last_login }}</td>
-                            <td>{{ volunteer.annotations_all_time }}</td>
-                            <td>{{ volunteer.annotations_past_month }}</td>
                             <td>{{ volunteer.annotations_past_week }}</td>
-                            <td>{{ volunteer.last_update_time }}</td>
+                            <td>{{ volunteer.annotations_past_month }}</td>
+                            <td>{{ volunteer.annotations_all_time }}</td>
                         </tr>
                         <tr id="detailedBreakdown-{{ volunteer.name_no_spaces }}" hidden>
-                            <td colspan="6" style="text-align: center">
+                            <td colspan="4" style="text-align: center">
                                 <div style="display: flex;">
                                     <div style="flex: 1; padding: 10px; border: 1px solid #ccc;">
-                                        <p><b>{{ volunteer.name }}'s Activity</b></p>
+                                        <p>
+                                            <b>{{ volunteer.name }}'s Activity</b>
+                                        </p>
                                     </div>
                                     <div style="flex: 1; padding: 10px; border: 1px solid #ccc;">
                                         <h5>Category Annotations</h5>
                                         <hr>
-                                        <p><b>Past Week</b></p>
+                                        <p>
+                                            <b>Past Week</b>
+                                        </p>
                                         <p>{{ volunteer.annotations_past_week_category }}</p>
                                         <br>
-                                        <p><b>Past Month</b></p>
+                                        <p>
+                                            <b>Past Month</b>
+                                        </p>
                                         <p>{{ volunteer.annotations_past_month_category }}</p>
                                         <br>
-                                        <p><b>All Time</b></p>
+                                        <p>
+                                            <b>All Time</b>
+                                        </p>
                                         <p>{{ volunteer.annotations_all_time_category }}</p>
                                     </div>
                                     <div style="flex: 1; padding: 10px; border: 1px solid #ccc;">
                                         <h5>Species Annotations</h5>
                                         <hr>
-                                        <p><b>Past Week</b></p>
+                                        <p>
+                                            <b>Past Week</b>
+                                        </p>
                                         <p>{{ volunteer.annotations_past_week_species }}</p>
                                         <br>
-                                        <p><b>Past Month</b></p>
+                                        <p>
+                                            <b>Past Month</b>
+                                        </p>
                                         <p>{{ volunteer.annotations_past_month_species }}</p>
                                         <br>
-                                        <p><b>All Time</b></p>
+                                        <p>
+                                            <b>All Time</b>
+                                        </p>
                                         <p>{{ volunteer.annotations_all_time_species }}</p>
                                     </div>
                                     <div style="flex: 1; padding: 10px; border: 1px solid #ccc;">
                                         <h5>Activity Annotations</h5>
                                         <hr>
-                                        <p><b>Past Week</b></p>
+                                        <p>
+                                            <b>Past Week</b>
+                                        </p>
                                         <p>{{ volunteer.annotations_past_week_activity }}</p>
                                         <br>
-                                        <p><b>Past Month</b></p>
+                                        <p>
+                                            <b>Past Month</b>
+                                        </p>
                                         <p>{{ volunteer.annotations_past_month_activity }}</p>
                                         <br>
-                                        <p><b>All Time</b></p>
+                                        <p>
+                                            <b>All Time</b>
+                                        </p>
                                         <p>{{ volunteer.annotations_all_time_activity }}</p>
                                     </div>
                                 </div>
                             </td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
                         </tr>
-                    {% endif %}
-                {% endfor %}
-            </tbody>
-        </table>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
-</div>
-
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
+    <div class="container mt-2 mt-md-3 rounded bg-white p-3 card-emphasis">
+        <div class="row text-center">
+            <h2>Annotations (Past 30 Days)</h2>
+        </div>
+        <div class="row mt-3">
+            <canvas id="daily-annotations-chart" class="w-100"></canvas>
+        </div>
+        <hr>
+        <div class="row justify-content-center">
+            <div class="card col-3 p-0 mx-2">
+                <div class="card-header">Category Rates</div>
+                <div class="card-body text-center">
+                    <h1>{{ daily_category_img_avg }} images/day</h1>
+                    <h5 class="small">{{ daily_category_avg }} boxes/day</h5>
+                    <p class="small">
+                        Est.
+                        {% if category_finish_time == 365 %}>{% endif %}
+                        {{ category_finish_time|intcomma }} days to finish {{ category_pipeline_images|intcomma }} images
+                    </p>
+                </div>
+            </div>
+            <div class="card col-3 p-0 mx-2">
+                <div class="card-header">Species Rates</div>
+                <div class="card-body text-center">
+                    <h1>{{ daily_species_img_avg }} images/day</h1>
+                    <h5 class="small">{{ daily_species_avg }} boxes/day</h5>
+                    <p class="small">
+                        Est.
+                        {% if species_finish_time == 365 %}>{% endif %}
+                        {{ species_finish_time|intcomma }} days to finish {{ species_pipeline_images|intcomma }} images
+                    </p>
+                </div>
+            </div>
+            <div class="card col-3 p-0 mx-2">
+                <div class="card-header">Activity Rates</div>
+                <div class="card-body text-center">
+                    <h1>{{ daily_activity_img_avg }} images/day</h1>
+                    <h5 class="small">{{ daily_activity_avg }} boxes/day</h5>
+                    <p class="small">
+                        Est.
+                        {% if activity_finish_time == 365 %}>{% endif %}
+                        {{ activity_finish_time|intcomma }} days to finish {{ activity_pipeline_images|intcomma }} images
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="page-background h-100 mt-5"></div>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.min.js"></script>
+    <script>
     $(document).ready(function () {
         $('tr[id^="row-"]').css('border-left', '10px solid transparent');
 
@@ -96,6 +160,56 @@
             $(this).css('border-left', '10px solid lightgreen');
         }, function () {
             $(this).css('border-left', '10px solid transparent');
+        });
+
+        $(`#volunteer-engagement-table`).DataTable({ order: [[1, 'desc']] });
+
+        // Daily annotations chart
+        const days = []
+
+        for (let day = 30; day > 0; day--) {
+            let date = new Date();
+            date.setDate(date.getDate() - day + 1)
+            days.push(`${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear() % 100}`);
+        }
+
+        Chart.defaults.font.family = "Alata";
+        const pointRadius = 7;
+        const ctx = document.getElementById("daily-annotations-chart").getContext("2d");
+        const dailyAnnotationsCount = new Chart(ctx, {
+            type: "line",
+            data: {
+                labels: days,
+                datasets: [{
+                    backgroundColor:"rgba(0,0,255,1.0)",
+                    borderColor: "rgba(0,0,255,0.5)",
+                    pointRadius: pointRadius,
+                    data: {{ daily_total_counts }},
+                    label: "Total Annotations"
+                },
+                {
+                    backgroundColor:"rgba(0,128,0,1.0)",
+                    borderColor: "rgba(0,128,0,0.5)",
+                    pointRadius: pointRadius,
+                    data: {{ daily_category_counts }},
+                    label: "Category Annotations",
+
+                },
+                {
+                    backgroundColor:"rgba(255,0,0,1.0)",
+                    borderColor: "rgba(255,0,0,0.5)",
+                    pointRadius: pointRadius,
+                    data: {{ daily_species_counts }},
+                    label: "Species Annotations"
+                },
+                {
+                    backgroundColor:"rgba(255,165,0,1.0)",
+                    borderColor: "rgba(255,165,0,0.5)",
+                    pointRadius: pointRadius,
+                    data: {{ daily_activity_counts }},
+                    label: "Activity Annotations"
+                }]
+            },
         });
     });
 
@@ -111,5 +225,5 @@
             rowElement.css('background-color', '');
         }
     }
-</script>
+    </script>
 {% endblock content %}

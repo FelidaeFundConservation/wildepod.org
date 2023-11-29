@@ -31,7 +31,17 @@ from django.urls import reverse
 from django.views.generic import FormView
 from django.views.generic.base import TemplateView, View
 from images.forms import AnnotationForm
-from images.models import Activity, ActivityType, Annotator, BoundingBox, Category, Image, Species, SpeciesName
+from images.models import (
+    Activity,
+    ActivityType,
+    AnnotationCounter,
+    Annotator,
+    BoundingBox,
+    Category,
+    Image,
+    Species,
+    SpeciesName,
+)
 from images.models.custom_fields import get_filter_params
 from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
 from locations.models import CameraStation, MacroSite, MicroSite
@@ -129,6 +139,9 @@ def get_or_set_annotation_count(request, queue_name, annotator, annotation_num=0
         count += annotation_num
         request.session["user_object_annotation_count"] = count
 
+        annotator.total_category_annotations = count
+        annotator.save()
+
     elif SPECIES_QUEUE_NAME in queue_name:
         count = request.session.get("user_species_annotation_count")
 
@@ -138,6 +151,9 @@ def get_or_set_annotation_count(request, queue_name, annotator, annotation_num=0
         count += annotation_num
         request.session["user_species_annotation_count"] = count
 
+        annotator.total_species_annotations = count
+        annotator.save()
+
     elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
         count = request.session.get("user_activity_annotation_count")
 
@@ -146,6 +162,9 @@ def get_or_set_annotation_count(request, queue_name, annotator, annotation_num=0
 
         count += annotation_num
         request.session["user_activity_annotation_count"] = count
+
+        annotator.total_activity_annotations = count
+        annotator.save()
     else:
         return None
 
@@ -339,12 +358,19 @@ def skip_ineligible_images(queue_name, queue):
 
 
 def get_annotation_history(context, queue, queue_name, annotator):
-    HISTORY_LENGTH = 5
+    HISTORY_LENGTH = 10
 
-    context["previous_queue_images"] = Image.objects.filter(
-        id__in=queue["images"][max(0, queue["index"] - HISTORY_LENGTH) : queue["index"]]
-    )
+    image_history = Image.objects.filter(id__in=queue["images"])
     context["previous_annotations"] = []
+
+    if OBJECTS_QUEUE_NAME in queue_name:
+        image_history.filter(Q(bbox_checked_by__in=[annotator]) | Q(bbox_skipped_by__in=[annotator]))
+    elif SPECIES_QUEUE_NAME in queue_name:
+        image_history.filter(Q(species_checked_by__in=[annotator]) | Q(species_skipped_by__in=[annotator]))
+    elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
+        image_history.filter(Q(activity_checked_by__in=[annotator]) | Q(activity_skipped_by__in=[annotator]))
+
+    context["previous_queue_images"] = image_history.order_by("-modified")[:HISTORY_LENGTH]
 
     for image in context["previous_queue_images"]:
         if OBJECTS_QUEUE_NAME in queue_name:
@@ -369,9 +395,7 @@ def get_annotation_history(context, queue, queue_name, annotator):
                 ", ".join(anno for anno in set(list(annotation.values())[0] for annotation in previous_annotations))
             )
 
-    context["previous_annotation_info"] = zip(
-        reversed(context["previous_queue_images"]), reversed(context["previous_annotations"])
-    )
+    context["previous_annotation_info"] = zip(context["previous_queue_images"], context["previous_annotations"])
 
 
 # Retrieves data to pass to the views through context (namely queue images and annotations info).
@@ -616,7 +640,7 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
 
 
 # Handles annotation processing for each queue type
-def annotation_processor(queue_name, request):
+def annotation_processor(queue_name, annotation_type, request):
     # Get the image id
     image_id = request.POST.get("image_id")
     skip = request.POST.get("skip") == "true"
@@ -719,12 +743,31 @@ def annotation_processor(queue_name, request):
 
         # Update the cached annotation count
         if not skip:
+            annotator, created = Annotator.objects.get_or_create(type="human", human=request.user)
+            count = len(annotations)
+
             get_or_set_annotation_count(
                 request=request,
                 queue_name=queue_name,
-                annotator=Annotator.objects.get_or_create(type="human", human=request.user),
-                annotation_num=len(annotations),
+                annotator=annotator,
+                annotation_num=count,
             )
+
+            # Use an object to track each day, for each annotator, for each pipeline
+            today = datetime.datetime.today()
+
+            counter = AnnotationCounter.objects.filter(
+                annotator=annotator, annotation_type=annotation_type, created__day=today.day, created__month=today.month
+            ).first()
+
+            if counter:
+                counter.annotation_count += count
+                counter.image_count += 1
+                counter.save()
+            else:
+                AnnotationCounter.objects.create(
+                    annotator=annotator, annotation_type=annotation_type, annotation_count=count, image_count=1
+                )
     else:
         category_debug_data = None
         species_debug_data = None
@@ -742,12 +785,12 @@ def annotation_processor(queue_name, request):
 
 class MDAnnotationProcessorView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
-        return annotation_processor(OBJECTS_QUEUE_NAME, request)
+        return annotation_processor(OBJECTS_QUEUE_NAME, "category", request)
 
 
 class SpeciesAnnotationProcessorView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
-        return annotation_processor(SPECIES_QUEUE_NAME, request)
+        return annotation_processor(SPECIES_QUEUE_NAME, "species", request)
 
 
 class ActivityAnnotationProcessorView(LoginRequiredMixin, View):
@@ -763,7 +806,7 @@ class ActivityAnnotationProcessorView(LoginRequiredMixin, View):
         else:
             queue_name = None
 
-        return annotation_processor(queue_name, request)
+        return annotation_processor(queue_name, "activity", request)
 
 
 class DeleteAnnotationView(LoginRequiredMixin, View):

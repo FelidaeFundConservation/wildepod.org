@@ -1,426 +1,580 @@
 {% load static %}
-      <div class="modal-body">
-        <div class="my-content">
-          <!-- Modal content here -->
-            <div id="staff-edit-annotations">
-                <div id="staff-bbox-list">
-                    <div id="image-information-entry"
-                         style="border: 2px solid black; margin-bottom: 30px;">
-                        <h2 style="text-align: left; border-bottom: 2px solid black; width: 100%">&nbsp;&nbsp;Image</h2>
-                        <div>
-                            <div style="text-align: center">
-                                <text style="font-size: 20px"><strong>Pipeline Progress</strong></text>
+<div id="staff-edit-annotations">
+    <div id="staff-bbox-list">
+        <div id="image-information-entry"
+             style="border: 2px solid black;
+                    margin-bottom: 30px">
+            <h2 style="text-align: left; border-bottom: 2px solid black; width: 100%">&nbsp;&nbsp;Image</h2>
+            <div>
+                <div style="text-align: center">
+                    <text style="font-size: 20px"><strong>Pipeline Progress</strong></text>
+                    <br>
+                    <progress style="width: 50%;
+                                     height: 40px;
+                                     accent-color: Plum"
+                              value="{% if image.activity_pipeline_complete %}100{% elif image.species_pipeline_complete %}65{% elif image.category_pipeline_complete %}34{% else %}2{% endif %}"
+                              max="100"></progress>
+                    <div class="label-container"
+                         style="display: flex;
+                                justify-content: space-between;
+                                width: 55%;
+                                margin: auto;
+                                margin-top: -10px">
+                        <div class="label">Category</div>
+                        <div class="label">Species</div>
+                        <div class="label">Activity</div>
+                        <div class="label">Complete!</div>
+                    </div>
+                </div>
+                <br>
+                <div class="label-container"
+                     style="display: flex;
+                            justify-content: space-between;
+                            width: 80%;
+                            margin: auto">
+                    <div class="custom-control custom-checkbox">
+                        {% if image.has_animals %}
+                            <i class="bi bi-check-circle text-success checked-icon"></i>
+                        {% else %}
+                            <i class="bi bi-x-circle text-danger checked-icon"></i>
+                        {% endif %}
+                        <label class="custom-control-label">Has Animals</label>
+                    </div>
+                    <div class="custom-control custom-checkbox">
+                        {% if image.has_humans %}
+                            <i class="bi bi-check-circle text-success checked-icon"></i>
+                        {% else %}
+                            <i class="bi bi-x-circle text-danger checked-icon"></i>
+                        {% endif %}
+                        <label class="custom-control-label">Has Humans</label>
+                    </div>
+                    <div class="custom-control custom-checkbox">
+                        {% if image.has_vehicles %}
+                            <i class="bi bi-check-circle text-success checked-icon"></i>
+                        {% else %}
+                            <i class="bi bi-x-circle text-danger checked-icon"></i>
+                        {% endif %}
+                        <label class="custom-control-label">Has Vehicles</label>
+                    </div>
+                    <div class="custom-control custom-checkbox">
+                        {% if image.has_wild_animals %}
+                            <i class="bi bi-check-circle text-success checked-icon"></i>
+                        {% else %}
+                            <i class="bi bi-x-circle text-danger checked-icon"></i>
+                        {% endif %}
+                        <label class="custom-control-label">Has Wild Animals</label>
+                    </div>
+                </div>
+                <br>
+                <text><i>Last modified {{ image.modified }}</i></text>
+                <hr>
+                <text style="font-size: 20px"><strong>Annotators</strong></text>
+                <div style="display: flex">
+                    <div id="image-bbox-checkedby"
+                         style="border: 1px solid gray;
+                                margin: 10px;
+                                width: 33.3%;
+                                border-radius: 5px">
+                        <text style="border-bottom: 1px solid black;"><b>BBox Checked By</b></text>
+                        {% if image.bbox_checked_by.exists %}
+                            {% for annotator in image.bbox_checked_by.all %}
                                 <br>
-                                <progress style="width: 50%; height: 40px; accent-color: Plum"
-                                          value="{% if image.activity_pipeline_complete %}100{% elif image.species_pipeline_complete %}65{% elif image.category_pipeline_complete %}34{% else %}2{% endif %}" max="100"
-                                ></progress>
-                                <div class="label-container"
-                                     style="display: flex; justify-content: space-between; width: 55%; margin: auto; margin-top: -10px"
-                                >
-                                    <div class="label">Category</div>
-                                    <div class="label">Species</div>
-                                    <div class="label">Activity</div>
-                                    <div class="label">Complete!</div>
-                                </div>
-                            </div>
+                                <text style="font-size: 12px">{{ annotator }}
+                                {% if annotator.human.is_staff %}
+                                    (Staff)
+                                {% elif annotator.human.is_expert %}
+                                    (Expert)
+                                {% endif %}
+                                </text>
+                            {% endfor %}
+                        {% else %}
                             <br>
-                            <div class="label-container"
-                                 style="display: flex; justify-content: space-between; width: 80%; margin: auto;"
-                            >
-                                <div class="custom-control custom-checkbox">
-                                    {% if image.has_animals %}
-                                        <i class="bi bi-check-circle text-success checked-icon"></i>
-                                    {% else %}
-                                        <i class="bi bi-x-circle text-danger checked-icon"></i>
-                                    {% endif %}
-                                    <label class="custom-control-label">Has Animals</label>
-                                </div>
-                                <div class="custom-control custom-checkbox">
-                                    {% if image.has_humans %}
-                                        <i class="bi bi-check-circle text-success checked-icon"></i>
-                                    {% else %}
-                                        <i class="bi bi-x-circle text-danger checked-icon"></i>
-                                    {% endif %}
-                                    <label class="custom-control-label">Has Humans</label>
-                                </div>
-                                <div class="custom-control custom-checkbox">
-                                    {% if image.has_vehicles %}
-                                        <i class="bi bi-check-circle text-success checked-icon"></i>
-                                    {% else %}
-                                        <i class="bi bi-x-circle text-danger checked-icon"></i>
-                                    {% endif %}
-                                    <label class="custom-control-label">Has Vehicles</label>
-                                </div>
-                                <div class="custom-control custom-checkbox">
-                                    {% if image.has_wild_animals %}
-                                        <i class="bi bi-check-circle text-success checked-icon"></i>
-                                    {% else %}
-                                        <i class="bi bi-x-circle text-danger checked-icon"></i>
-                                    {% endif %}
-                                    <label class="custom-control-label">Has Wild Animals</label>
-                                </div>
-                            </div>
+                            <text style="font-size: 12px"><i>No annotators yet.</i></text>
+                        {% endif %}
+                    </div>
+                    <div id="image-species-checkedby"
+                         style="border: 1px solid gray;
+                                margin: 10px;
+                                width: 33.3%;
+                                border-radius: 5px">
+                        <text style="border-bottom: 1px solid black;"><b>Species Checked By</b></text>
+                        {% if image.species_checked_by.exists %}
+                            {% for annotator in image.species_checked_by.all %}
+                                <br>
+                                <text style="font-size: 12px">{{ annotator }}
+                                {% if annotator.human.is_staff %}
+                                    (Staff)
+                                {% elif annotator.human.is_expert %}
+                                    (Expert)
+                                {% endif %}
+                                </text>
+                            {% endfor %}
+                        {% else %}
                             <br>
-                            <text><i>Last modified {{ image.modified }}</i></text>
-                            <hr>
-                            <text style="font-size: 20px"><strong>Annotators</strong></text>
-                            <div style="display: flex">
-                                <div id="image-bbox-checkedby"
-                                     style="border: 1px solid gray; margin: 10px; width: 33.3%; border-radius: 5px">
-                                    <text style="border-bottom: 1px solid black;"><b>BBox Checked By</b></text>
-                                    {% if image.bbox_checked_by.exists %}
-                                        {% for annotator in image.bbox_checked_by.all %}
-                                            <br><text style="font-size: 12px">{{ annotator }}
-                                            {% if annotator.human.is_staff %} (Staff)
-                                            {% elif annotator.human.is_expert %} (Expert)
-                                            {% endif %}</text>
-                                        {% endfor %}
-                                    {% else %}
-                                        <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
-                                    {% endif %}
-                                </div>
-                                <div id="image-species-checkedby"
-                                     style="border: 1px solid gray; margin: 10px; width: 33.3%; border-radius: 5px">
-                                    <text style="border-bottom: 1px solid black;"><b>Species Checked By</b></text>
-                                    {% if image.species_checked_by.exists %}
-                                        {% for annotator in image.species_checked_by.all %}
-                                            <br><text style="font-size: 12px">{{ annotator }}
-                                            {% if annotator.human.is_staff %} (Staff)
-                                            {% elif annotator.human.is_expert%} (Expert)
-                                            {% endif %}</text>
-                                        {% endfor %}
-                                    {% else %}
-                                        <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
-                                    {% endif %}
-                                </div>
-                                 <div id="image-activity-checkedby"
-                                      style="border: 1px solid gray; margin: 10px; width: 33.3%; border-radius: 5px">
-                                    <text style="border-bottom: 1px solid black;"><b>Activity Checked By</b></text>
-                                    {% if image.activity_checked_by.exists %}
-                                        {% for annotator in image.activity_checked_by.all %}
-                                            <br><text style="font-size: 12px">{{ annotator }}
-                                            {% if annotator.human.is_staff %} (Staff)
-                                            {% elif annotator.human.is_expert %} (Expert)
-                                            {% endif %}</text>
-                                        {% endfor %}
-                                    {% else %}
-                                        <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            <div style="display: flex">
-                                <div id="image-bbox-skippedby"
-                                     style="border: 1px solid gray; margin: 10px; width: 33.3%; border-radius: 5px">
-                                    <text style="border-bottom: 1px solid black;"><b>BBox Skipped By</b></text>
-                                    {% if image.bbox_skipped_by.exists %}
-                                        {% for annotator in image.bbox_skipped_by.all %}
-                                            <br><text style="font-size: 12px">{{ annotator }}
-                                            {% if annotator.human.is_staff %} (Staff)
-                                            {% elif annotator.human.is_expert %} (Expert)
-                                            {% endif %}</text>
-                                            {% endfor %}
-                                    {% else %}
-                                        <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
-                                    {% endif %}
-                                </div>
-                                <div id="image-species-skippedby"
-                                     style="border: 1px solid gray; margin: 10px; width: 33.3%; border-radius: 5px">
-                                    <text style="border-bottom: 1px solid black;"><b>Species Skipped By</b></text>
-                                    {% if image.species_skipped_by.exists %}
-                                        {% for annotator in image.species_skipped_by.all %}
-                                            <br><text style="font-size: 12px">{{ annotator }}
-                                            {% if annotator.human.is_staff %} (Staff)
-                                            {% elif annotator.human.is_expert %} (Expert)
-                                            {% endif %}</text>
-                                        {% endfor %}
-                                    {% else %}
-                                        <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
-                                    {% endif %}
-                                </div>
-                                 <div id="image-activity-skippedby"
-                                      style="border: 1px solid gray; margin: 10px; width: 33.3%; border-radius: 5px">
-                                    <text style="border-bottom: 1px solid black;"><b>Activity Skipped By</b></text>
-                                    {% if image.activity_skipped_by.exists %}
-                                        {% for annotator in image.activity_skipped_by.all %}
-                                            <br><text style="font-size: 12px">{{ annotator }}
-                                            {% if annotator.human.is_staff %} (Staff)
-                                            {% elif annotator.human.is_expert %} (Expert)
-                                            {% endif %}</text>
-                                        {% endfor %}
-                                    {% else %}
-                                        <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                     </div>
-
-                     {% for bbox in bounding_boxes %}
-                     <div id="bbox-information-entry-{{ bbox.id }}"
-                          style="border: 2px solid black; margin-bottom: 30px; width: 100%; border-radius: 5px">
-                         <h2 style="text-align: left; border-bottom: 2px solid black; width: 100%;">&nbsp;&nbsp;Bounding Box {{ forloop.counter }}</h2>
-                         <text style="font-size: 20px;"><strong>Annotations Info</strong></text>
-                         <div style="width: 100%;">
-                            <div style="display: flex;">
-                                <div style="border: 1px solid black; margin: 10px; width: 33%; border-radius: 5px">
-                                    <text style="border-bottom: 1px solid black;"><b>Preview Image</b></text>
-                                    <div id="staff-modal-card-{{ bbox.id }}"
-                                         style="margin: 10px;">
-                                    </div>
-                                </div>
-                                <div id="bbox-acceptedby-{{ bbox.id }}" style="border: 1px solid black; margin: 10px; width: 33%; border-radius: 5px">
-                                    <text style="border-bottom: 1px solid black;"><b>Bbox Accepted By</b></text><br>
-                                    {% if bbox.created_by.type == 'human' %}
-                                        <text style="font-size: 12px">{{ bbox.created_by }} (Created)
-                                        {% if bbox.created_by.human.is_staff %} (Staff)
-                                        {% elif bbox.created_by.human.is_expert %} (Expert)
-                                        {% endif %}</text><br>
-                                    {% endif %}
-                                    {% if bbox.accepted_by.exists or bbox.created_by %}
-                                        {% for annotator in bbox.accepted_by.all %}
-                                            <text style="font-size: 12px">{{ annotator }}
-                                            {% if annotator.human.is_staff %} (Staff)
-                                            {% elif annotator.human.is_expert %} (Expert)
-                                            {% endif %}</text><br>
-                                        {% endfor %}
-                                    {% else %}
-                                        <text style="font-size: 12px"><i>No annotators yet.</i></text><br>
-                                    {% endif %}
-                                </div>
-                                <div id="bbox-rejectedby-{{ bbox.id }}" style="border: 1px solid black; margin: 10px; width: 33%; border-radius: 5px">
-                                    <text style="border-bottom: 1px solid black;"><b>Bbox Rejected By</b></text>
-                                    {% if bbox.rejected_by.exists %}
-                                        {% for annotator in bbox.rejected_by.all %}
-                                            <br><text style="font-size: 12px">{{ annotator }}
-                                            {% if annotator.human.is_staff %} (Staff)
-                                            {% elif annotator.human.is_expert %} (Expert)
-                                            {% endif %}</text>
-                                        {% endfor %}
-                                    {% else %}
-                                        <br><text style="font-size: 12px"><i>No annotators yet.</i></text>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            <div style="display: flex">
-                                <div id="bbox-category-{{ bbox.id }}"
-                                     style="border: 1px solid black; margin: 10px; width: 100%; border-radius: 5px">
-                                    <text style="border-bottom: 1px solid black;"><b>Category Annotations</b></text><br>
-                                    {% for info in bbox_all_annotations %}
-                                        {% if bbox.id == info.id %}
-                                            {% if info.categories.exists %}
-                                                {% for category in info.categories.all %}
-                                                    <div id="category-{{ bbox.id }}-{{ category.name }}"
-                                                         style="border: 1px solid gray; margin: 10px">
-                                                        <div style="display: flex;">
-                                                            <div style="border-bottom: 1px solid gray; width: 100%" >
-                                                                <select id="category-list-{{ bbox.id }}"
-                                                                        style="border: none; font-size: 18px; width: 70%"
-                                                                        onchange="staffChangeAnnotation('category', '{{ bbox.id }}', '{{ category.name }}', this.value, this.parentNode);
-                                                                                  deleteAnnotationEntry('category-{{ bbox.id }}-{{ category.name }}', `{{ category.name }}`);">
-                                                                    <option
-                                                                        value=""
-                                                                        disabled
-                                                                        selected
-                                                                    ></option>
-                                                                    <option value="animal" {% if category.name == 'animal' %}selected{% endif %}>animal</option>
-                                                                    <option value="person" {% if category.name == 'person' %}selected{% endif %}>person</option>
-                                                                    <option value="vehicle" {% if category.name == 'vehicle' %}selected{% endif %}>vehicle</option>
-                                                                    <option value="unannotated" {% if category.name == 'unannotated' %}selected{% endif %}>unannotated</option>
-                                                                    <hr>
-                                                                </select>
-                                                                <button type="button" style="width: 20%; color: red; border: none; background-color: transparent"
-                                                                    onclick="staffDeleteAnnotation('category', '{{ bbox.id }}', '{{ category.name }}');
-                                                                             deleteAnnotationEntry('category-{{ bbox.id }}-{{ category.name }}', `{{ category.name }}`);">
-                                                                    (Delete)
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                        <div style="margin: 10px; border: 1px solid silver">
-                                                            <text style="font-size: 12px; width: 100%;"><b><u>Accepted</u></b></text><br>
-                                                            {% if category.created_by.type == 'human' %}
-                                                                <text style="font-size: 12px">{{ category.created_by }} (Created)
-                                                                {% if category.created_by.human.is_staff %} (Staff)
-                                                                {% elif category.created_by.human.is_expert %} (Expert)
-                                                                {% endif %}</text><br>
-                                                            {% endif %}
-                                                            {% if category.accepted_by.exists or category.created_by.type == 'human' %}
-                                                                {% for annotator in category.accepted_by.all %}
-                                                                    <text style="font-size: 12px"><i>{{ annotator }}
-                                                                    {% if annotator.human.is_staff %} (Staff)
-                                                                    {% elif annotator.human.is_expert %} (Expert)
-                                                                    {% endif %}</i></text><br>
-                                                                {% endfor %}
-                                                            {% else %}
-                                                                <text style="font-size: 12px"><i>No annotators yet.</i></text>
-                                                            {% endif %}
-                                                        </div>
-                                                        <div style="margin: 10px; border: 1px solid silver">
-                                                            <text style="font-size: 12px; width: 100%"><b><u>Rejected</u></b></text><br>
-                                                            {% if category.rejected_by.exists %}
-                                                                {% for annotator in category.rejected_by.all %}
-                                                                    <text style="font-size: 12px"><i>{{ annotator }}
-                                                                    {% if annotator.human.is_staff %} (Staff)
-                                                                    {% elif annotator.human.is_expert %} (Expert)
-                                                                    {% endif %}</i></text><br>
-                                                                {% endfor %}
-                                                            {% else %}
-                                                                <text style="font-size: 12px"><i>No annotators yet.</i></text>
-                                                            {% endif %}
-                                                        </div>
-                                                    </div>
-                                                {% endfor %}
-                                            {% else %}
-                                                <text style="font-size: 12px"><i>No annotations yet.</i></text>
-                                            {% endif %}
-                                        {% endif %}
-                                    {% endfor %}
-                                </div>
-                                <div id="bbox-species-{{ bbox.id }}"
-                                     style="border: 1px solid black; margin: 10px; width: 100%; border-radius: 5px">
-                                    <text style="border-bottom: 1px solid black;"><b>Species Annotations</b></text><br>
-                                    {% for info in bbox_all_annotations %}
-                                        {% if bbox.id == info.id %}
-                                            {% if info.species.exists %}
-                                                {% for species in info.species.all %}
-                                                    <div id="species-{{ bbox.id }}-{{ species.name }}"
-                                                         style="border: 1px solid gray; margin: 10px">
-                                                        <div style="display: flex;">
-                                                            <div style="border-bottom: 1px solid gray; width: 100%">
-                                                                <select id="species-list-{{ bbox.id }}"
-                                                                        style="border: none; font-size: 18px; width: 70%"
-                                                                        onchange="staffChangeAnnotation('species', '{{ bbox.id }}', '{{ species.name }}', this.value, this.parentNode);
-                                                                                  deleteAnnotationEntry('species-{{ bbox.id }}-{{ species.name }}', `{{ species.name }}`);">
-                                                                    <option value="" disabled></option>
-                                                                    {% for species_name in species_list %}
-                                                                    <option value="{{ species_name }}" {% if species_name == species.name %}selected{% endif %}>{{ species_name }}</option>
-                                                                    {% endfor %}
-                                                                    <hr>
-                                                                </select>
-                                                                <button type="button" style="width: 20%; color: red; border: none; background-color: transparent"
-                                                                    onclick="staffDeleteAnnotation('species', '{{ bbox.id }}', '{{ species.name }}');
-                                                                             deleteAnnotationEntry('species-{{ bbox.id }}-{{ species.name }}', `{{ species.name }}`);">
-                                                                    (Delete)
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                        <div style="margin: 10px; border: 1px solid silver">
-                                                            <text style="font-size: 12px; width: 100%;"><b><u>Accepted</u></b></text><br>
-                                                            {% if species.created_by.type == 'human' %}
-                                                                <text style="font-size: 12px">{{ species.created_by }} (Created)
-                                                                {% if species.created_by.human.is_staff %} (Staff)
-                                                                {% elif species.created_by.human.is_expert %} (Expert)
-                                                                {% endif %}</text><br>
-                                                            {% endif %}
-                                                            {% if species.accepted_by.exists or species.created_by %}
-                                                                {% for annotator in species.accepted_by.all %}
-                                                                    <text style="font-size: 12px"><i>{{ annotator }}
-                                                                    {% if annotator.human.is_staff %} (Staff)
-                                                                    {% elif annotator.human.is_expert %} (Expert)
-                                                                    {% endif %}</i></text><br>
-                                                                {% endfor %}
-                                                            {% else %}
-                                                                <text style="font-size: 12px"><i>No annotators yet.</i></text>
-                                                            {% endif %}
-                                                        </div>
-                                                        <div style="margin: 10px; border: 1px solid silver">
-                                                            <text style="font-size: 12px; width: 100%"><b><u>Rejected</u></b></text><br>
-                                                            {% if species.rejected_by.exists %}
-                                                                {% for annotator in species.rejected_by.all %}
-                                                                    <text style="font-size: 12px"><i>{{ annotator }}
-                                                                    {% if annotator.human.is_staff %} (Staff)
-                                                                    {% elif annotator.human.is_expert %} (Expert)
-                                                                    {% endif %}</i></text><br>
-                                                                {% endfor %}
-                                                            {% else %}
-                                                                <text style="font-size: 12px"><i>No annotators yet.</i></text>
-                                                            {% endif %}
-                                                        </div>
-                                                    </div>
-                                                {% endfor %}
-                                            {% else %}
-                                                <text style="font-size: 12px"><i>No annotations yet.</i></text>
-                                            {% endif %}
-                                        {% endif %}
-                                    {% endfor %}
-                                </div>
-                                 <div id="bbox-activity-{{ bbox.id }}"
-                                      style="border: 1px solid black; margin: 10px; width: 100%; border-radius: 5px">
-                                    <text style="border-bottom: 1px solid black;"><b>Activity Annotations</b></text><br>
-                                    {% for info in bbox_all_annotations %}
-                                        {% if bbox.id == info.id %}
-                                            {% if info.activities.exists %}
-                                                {% for activity in info.activities.all %}
-                                                    <div id="activity-{{ bbox.id }}-{{ activity.name }}"
-                                                         style="border: 1px solid gray; margin: 10px">
-                                                        <div style="display: flex;">
-                                                            <div style="border-bottom: 1px solid gray; width: 100%" >
-                                                                <select id="activity-list-{{ bbox.id }}"
-                                                                        style="border: none; font-size: 18px; width: 70%"
-                                                                        onchange="staffChangeAnnotation('activity', '{{ bbox.id }}', '{{ activity.name }}', this.value, this.parentNode);
-                                                                                  deleteAnnotationEntry('activity-{{ bbox.id }}-{{ activity.name }}', `{{ activity.name }}`);">
-                                                                    <option value="" disabled></option>
-                                                                    {% for activity_name in activity_list %}
-                                                                    <option value="{{ activity_name }}" {% if activity_name == activity.name %}selected{% endif %}>{{ activity_name }}</option>
-                                                                    {% endfor %}
-                                                                    <hr>
-                                                                </select>
-                                                                <button type="button"
-                                                                        style="width: 20%; color: red; border: none; background-color: transparent"
-                                                                    onclick="staffDeleteAnnotation('activity', '{{ bbox.id }}', '{{ activity.name }}');
-                                                                             deleteAnnotationEntry('activity-{{ bbox.id }}-{{ activity.name }}', `{{ activity.name }}`);">
-                                                                    (Delete)
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                        <div style="margin: 10px; border: 1px solid silver">
-                                                                <text style="font-size: 12px; width: 100%;"><b><u>Accepted</u></b></text><br>
-                                                                {% if activity.created_by.type == 'human' %}
-                                                                    <text style="font-size: 12px">{{ activity.created_by }} (Created)
-                                                                    {% if activity.created_by.human.is_staff %} (Staff)
-                                                                    {% elif activity.created_by.human.is_expert %} (Expert)
-                                                                    {% endif %}</text><br>
-                                                                {% endif %}
-                                                                {% if activities.accepted_by.exists or activity.created_by %}
-                                                                    {% for annotator in activities.accepted_by.all %}
-                                                                        <text style="font-size: 12px"><i>{{ annotator }}
-                                                                        {% if annotator.human.is_staff %} (Staff)
-                                                                        {% elif annotator.human.is_expert %} (Expert)
-                                                                        {% endif %}</i></text><br>
-                                                                    {% endfor %}
-                                                                {% else %}
-                                                                    <text style="font-size: 12px"><i>No annotators yet.</i></text>
-                                                                {% endif %}
-                                                            </div>
-                                                        <div style="margin: 10px; border: 1px solid silver">
-                                                            <text style="font-size: 12px; width: 100%"><b><u>Rejected</u></b></text><br>
-                                                            {% if activities.rejected_by.exists %}
-                                                                {% for annotator in activities.rejected_by.all %}
-                                                                    <text style="font-size: 12px"><i>{{ annotator }}
-                                                                    {% if annotator.human.is_staff %} (Staff)
-                                                                    {% elif annotator.human.is_expert %} (Expert)
-                                                                    {% endif %}</i></text><br>
-                                                                {% endfor %}
-                                                            {% else %}
-                                                                <text style="font-size: 12px"><i>No annotators yet.</i></text>
-                                                            {% endif %}
-                                                        </div>
-                                                    </div>
-                                                {% endfor %}
-                                            {% else %}
-                                                <text style="font-size: 12px"><i>No annotations yet.</i></text>
-                                            {% endif %}
-                                        {% endif %}
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        </div>
-                     </div>
-                     {% endfor %}
+                            <text style="font-size: 12px"><i>No annotators yet.</i></text>
+                        {% endif %}
+                    </div>
+                    <div id="image-activity-checkedby"
+                         style="border: 1px solid gray;
+                                margin: 10px;
+                                width: 33.3%;
+                                border-radius: 5px">
+                        <text style="border-bottom: 1px solid black;"><b>Activity Checked By</b></text>
+                        {% if image.activity_checked_by.exists %}
+                            {% for annotator in image.activity_checked_by.all %}
+                                <br>
+                                <text style="font-size: 12px">{{ annotator }}
+                                {% if annotator.human.is_staff %}
+                                    (Staff)
+                                {% elif annotator.human.is_expert %}
+                                    (Expert)
+                                {% endif %}
+                                </text>
+                            {% endfor %}
+                        {% else %}
+                            <br>
+                            <text style="font-size: 12px"><i>No annotators yet.</i></text>
+                        {% endif %}
+                    </div>
+                </div>
+                <div style="display: flex">
+                    <div id="image-bbox-skippedby"
+                         style="border: 1px solid gray;
+                                margin: 10px;
+                                width: 33.3%;
+                                border-radius: 5px">
+                        <text style="border-bottom: 1px solid black;"><b>BBox Skipped By</b></text>
+                        {% if image.bbox_skipped_by.exists %}
+                            {% for annotator in image.bbox_skipped_by.all %}
+                                <br>
+                                <text style="font-size: 12px">{{ annotator }}
+                                {% if annotator.human.is_staff %}
+                                    (Staff)
+                                {% elif annotator.human.is_expert %}
+                                    (Expert)
+                                {% endif %}
+                                </text>
+                            {% endfor %}
+                        {% else %}
+                            <br>
+                            <text style="font-size: 12px"><i>No annotators yet.</i></text>
+                        {% endif %}
+                    </div>
+                    <div id="image-species-skippedby"
+                         style="border: 1px solid gray;
+                                margin: 10px;
+                                width: 33.3%;
+                                border-radius: 5px">
+                        <text style="border-bottom: 1px solid black;"><b>Species Skipped By</b></text>
+                        {% if image.species_skipped_by.exists %}
+                            {% for annotator in image.species_skipped_by.all %}
+                                <br>
+                                <text style="font-size: 12px">{{ annotator }}
+                                {% if annotator.human.is_staff %}
+                                    (Staff)
+                                {% elif annotator.human.is_expert %}
+                                    (Expert)
+                                {% endif %}
+                                </text>
+                            {% endfor %}
+                        {% else %}
+                            <br>
+                            <text style="font-size: 12px"><i>No annotators yet.</i></text>
+                        {% endif %}
+                    </div>
+                    <div id="image-activity-skippedby"
+                         style="border: 1px solid gray;
+                                margin: 10px;
+                                width: 33.3%;
+                                border-radius: 5px">
+                        <text style="border-bottom: 1px solid black;"><b>Activity Skipped By</b></text>
+                        {% if image.activity_skipped_by.exists %}
+                            {% for annotator in image.activity_skipped_by.all %}
+                                <br>
+                                <text style="font-size: 12px">{{ annotator }}
+                                {% if annotator.human.is_staff %}
+                                    (Staff)
+                                {% elif annotator.human.is_expert %}
+                                    (Expert)
+                                {% endif %}
+                                </text>
+                            {% endfor %}
+                        {% else %}
+                            <br>
+                            <text style="font-size: 12px"><i>No annotators yet.</i></text>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
-      </div>
-
+        {% for bbox in bounding_boxes %}
+            <div id="bbox-information-entry-{{ bbox.id }}"
+                 style="border: 2px solid black;
+                        margin-bottom: 30px;
+                        width: 100%;
+                        border-radius: 5px">
+                <h2 style="text-align: left; border-bottom: 2px solid black; width: 100%">
+                    &nbsp;&nbsp;Bounding Box {{ forloop.counter }}
+                </h2>
+                <text style="font-size: 20px;"><strong>Annotations Info</strong></text>
+                <div style="width: 100%;">
+                    <div style="display: flex;">
+                        <div style="border: 1px solid black;
+                                    margin: 10px;
+                                    width: 33%;
+                                    border-radius: 5px">
+                            <text style="border-bottom: 1px solid black;"><b>Preview Image</b></text>
+                            <div id="staff-modal-card-{{ bbox.id }}" style="margin: 10px;"></div>
+                        </div>
+                        <div id="bbox-acceptedby-{{ bbox.id }}"
+                             style="border: 1px solid black;
+                                    margin: 10px;
+                                    width: 33%;
+                                    border-radius: 5px">
+                            <text style="border-bottom: 1px solid black;"><b>Bbox Accepted By</b></text>
+                            <br>
+                            {% if bbox.created_by.type == 'human' %}
+                                <text style="font-size: 12px">{{ bbox.created_by }} (Created)
+                                {% if bbox.created_by.human.is_staff %}
+                                    (Staff)
+                                {% elif bbox.created_by.human.is_expert %}
+                                    (Expert)
+                                {% endif %}
+                                </text>
+                                <br>
+                            {% endif %}
+                            {% if bbox.accepted_by.exists or bbox.created_by %}
+                                {% for annotator in bbox.accepted_by.all %}
+                                    <text style="font-size: 12px">{{ annotator }}
+                                    {% if annotator.human.is_staff %}
+                                        (Staff)
+                                    {% elif annotator.human.is_expert %}
+                                        (Expert)
+                                    {% endif %}
+                                    </text>
+                                    <br>
+                                {% endfor %}
+                            {% else %}
+                                <text style="font-size: 12px"><i>No annotators yet.</i></text>
+                                <br>
+                            {% endif %}
+                        </div>
+                        <div id="bbox-rejectedby-{{ bbox.id }}"
+                             style="border: 1px solid black;
+                                    margin: 10px;
+                                    width: 33%;
+                                    border-radius: 5px">
+                            <text style="border-bottom: 1px solid black;"><b>Bbox Rejected By</b></text>
+                            {% if bbox.rejected_by.exists %}
+                                {% for annotator in bbox.rejected_by.all %}
+                                    <br>
+                                    <text style="font-size: 12px">{{ annotator }}
+                                    {% if annotator.human.is_staff %}
+                                        (Staff)
+                                    {% elif annotator.human.is_expert %}
+                                        (Expert)
+                                    {% endif %}
+                                    </text>
+                                {% endfor %}
+                            {% else %}
+                                <br>
+                                <text style="font-size: 12px"><i>No annotators yet.</i></text>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div style="display: flex">
+                        <div id="bbox-category-{{ bbox.id }}"
+                             style="border: 1px solid black;
+                                    margin: 10px;
+                                    width: 100%;
+                                    border-radius: 5px">
+                            <text style="border-bottom: 1px solid black;"><b>Category Annotations</b></text>
+                            <br>
+                            {% for info in bbox_all_annotations %}
+                                {% if bbox.id == info.id %}
+                                    {% if info.categories.exists %}
+                                        {% for category in info.categories.all %}
+                                            <div id="category-{{ bbox.id }}-{{ category.name }}"
+                                                 style="border: 1px solid gray;
+                                                        margin: 10px">
+                                                <div style="display: flex;">
+                                                    <div style="border-bottom: 1px solid gray; width: 100%">
+                                                        <select id="category-list-{{ bbox.id }}"
+                                                                style="border: none;
+                                                                       font-size: 18px;
+                                                                       width: 70%"
+                                                                onchange="staffChangeAnnotation('category', '{{ bbox.id }}', '{{ category.name }}', this.value, this.parentNode); deleteAnnotationEntry('category-{{ bbox.id }}-{{ category.name }}', `{{ category.name }}`);">
+                                                            <option value="" disabled selected></option>
+                                                            <option value="animal" {% if category.name == 'animal' %}selected{% endif %}>animal</option>
+                                                            <option value="person" {% if category.name == 'person' %}selected{% endif %}>person</option>
+                                                            <option value="vehicle"
+                                                                    {% if category.name == 'vehicle' %}selected{% endif %}>
+                                                                vehicle
+                                                            </option>
+                                                            <option value="unannotated"
+                                                                    {% if category.name == 'unannotated' %}selected{% endif %}>
+                                                                unannotated
+                                                            </option>
+                                                            <hr>
+                                                        </select>
+                                                        <button type="button"
+                                                                style="width: 20%;
+                                                                       color: red;
+                                                                       border: none;
+                                                                       background-color: transparent"
+                                                                onclick="staffDeleteAnnotation('category', '{{ bbox.id }}', '{{ category.name }}'); deleteAnnotationEntry('category-{{ bbox.id }}-{{ category.name }}', `{{ category.name }}`);">
+                                                            (Delete)
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div style="margin: 10px; border: 1px solid silver">
+                                                    <text style="font-size: 12px; width: 100%;"><b><u>Accepted</u></b></text>
+                                                    <br>
+                                                    {% if category.created_by.type == 'human' %}
+                                                        <text style="font-size: 12px">{{ category.created_by }} (Created)
+                                                        {% if category.created_by.human.is_staff %}
+                                                            (Staff)
+                                                        {% elif category.created_by.human.is_expert %}
+                                                            (Expert)
+                                                        {% endif %}
+                                                        </text>
+                                                        <br>
+                                                    {% endif %}
+                                                    {% if category.accepted_by.exists or category.created_by.type == 'human' %}
+                                                        {% for annotator in category.accepted_by.all %}
+                                                            <text style="font-size: 12px"><i>{{ annotator }}
+                                                            {% if annotator.human.is_staff %}
+                                                                (Staff)
+                                                            {% elif annotator.human.is_expert %}
+                                                                (Expert)
+                                                            {% endif %}
+                                                        </i></text>
+                                                        <br>
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <text style="font-size: 12px"><i>No annotators yet.</i></text>
+                                                {% endif %}
+                                            </div>
+                                            <div style="margin: 10px; border: 1px solid silver">
+                                                <text style="font-size: 12px; width: 100%"><b><u>Rejected</u></b></text>
+                                                <br>
+                                                {% if category.rejected_by.exists %}
+                                                    {% for annotator in category.rejected_by.all %}
+                                                        <text style="font-size: 12px"><i>{{ annotator }}
+                                                        {% if annotator.human.is_staff %}
+                                                            (Staff)
+                                                        {% elif annotator.human.is_expert %}
+                                                            (Expert)
+                                                        {% endif %}
+                                                    </i></text>
+                                                    <br>
+                                                {% endfor %}
+                                            {% else %}
+                                                <text style="font-size: 12px"><i>No annotators yet.</i></text>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <text style="font-size: 12px"><i>No annotations yet.</i></text>
+                            {% endif %}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                <div id="bbox-species-{{ bbox.id }}"
+                     style="border: 1px solid black;
+                            margin: 10px;
+                            width: 100%;
+                            border-radius: 5px">
+                    <text style="border-bottom: 1px solid black;"><b>Species Annotations</b></text>
+                    <br>
+                    {% for info in bbox_all_annotations %}
+                        {% if bbox.id == info.id %}
+                            {% if info.species.exists %}
+                                {% for species in info.species.all %}
+                                    <div id="species-{{ bbox.id }}-{{ species.name }}"
+                                         style="border: 1px solid gray;
+                                                margin: 10px">
+                                        <div style="display: flex;">
+                                            <div style="border-bottom: 1px solid gray; width: 100%">
+                                                <select id="species-list-{{ bbox.id }}"
+                                                        style="border: none;
+                                                               font-size: 18px;
+                                                               width: 70%"
+                                                        onchange="staffChangeAnnotation('species', '{{ bbox.id }}', '{{ species.name }}', this.value, this.parentNode); deleteAnnotationEntry('species-{{ bbox.id }}-{{ species.name }}', `{{ species.name }}`);">
+                                                    <option value="" disabled></option>
+                                                    {% for species_name in species_list %}
+                                                        <option value="{{ species_name }}"
+                                                                {% if species_name == species.name %}selected{% endif %}>
+                                                            {{ species_name }}
+                                                        </option>
+                                                    {% endfor %}
+                                                    <hr>
+                                                </select>
+                                                <button type="button"
+                                                        style="width: 20%;
+                                                               color: red;
+                                                               border: none;
+                                                               background-color: transparent"
+                                                        onclick="staffDeleteAnnotation('species', '{{ bbox.id }}', '{{ species.name }}'); deleteAnnotationEntry('species-{{ bbox.id }}-{{ species.name }}', `{{ species.name }}`);">
+                                                    (Delete)
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div style="margin: 10px; border: 1px solid silver">
+                                            <text style="font-size: 12px; width: 100%;"><b><u>Accepted</u></b></text>
+                                            <br>
+                                            {% if species.created_by.type == 'human' %}
+                                                <text style="font-size: 12px">{{ species.created_by }} (Created)
+                                                {% if species.created_by.human.is_staff %}
+                                                    (Staff)
+                                                {% elif species.created_by.human.is_expert %}
+                                                    (Expert)
+                                                {% endif %}
+                                                </text>
+                                                <br>
+                                            {% endif %}
+                                            {% if species.accepted_by.exists or species.created_by %}
+                                                {% for annotator in species.accepted_by.all %}
+                                                    <text style="font-size: 12px"><i>{{ annotator }}
+                                                    {% if annotator.human.is_staff %}
+                                                        (Staff)
+                                                    {% elif annotator.human.is_expert %}
+                                                        (Expert)
+                                                    {% endif %}
+                                                </i></text>
+                                                <br>
+                                            {% endfor %}
+                                        {% else %}
+                                            <text style="font-size: 12px"><i>No annotators yet.</i></text>
+                                        {% endif %}
+                                    </div>
+                                    <div style="margin: 10px; border: 1px solid silver">
+                                        <text style="font-size: 12px; width: 100%"><b><u>Rejected</u></b></text>
+                                        <br>
+                                        {% if species.rejected_by.exists %}
+                                            {% for annotator in species.rejected_by.all %}
+                                                <text style="font-size: 12px"><i>{{ annotator }}
+                                                {% if annotator.human.is_staff %}
+                                                    (Staff)
+                                                {% elif annotator.human.is_expert %}
+                                                    (Expert)
+                                                {% endif %}
+                                            </i></text>
+                                            <br>
+                                        {% endfor %}
+                                    {% else %}
+                                        <text style="font-size: 12px"><i>No annotators yet.</i></text>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <text style="font-size: 12px"><i>No annotations yet.</i></text>
+                    {% endif %}
+                {% endif %}
+            {% endfor %}
+        </div>
+        <div id="bbox-activity-{{ bbox.id }}"
+             style="border: 1px solid black;
+                    margin: 10px;
+                    width: 100%;
+                    border-radius: 5px">
+            <text style="border-bottom: 1px solid black;"><b>Activity Annotations</b></text>
+            <br>
+            {% for info in bbox_all_annotations %}
+                {% if bbox.id == info.id %}
+                    {% if info.activities.exists %}
+                        {% for activity in info.activities.all %}
+                            <div id="activity-{{ bbox.id }}-{{ activity.name }}"
+                                 style="border: 1px solid gray;
+                                        margin: 10px">
+                                <div style="display: flex;">
+                                    <div style="border-bottom: 1px solid gray; width: 100%">
+                                        <select id="activity-list-{{ bbox.id }}"
+                                                style="border: none;
+                                                       font-size: 18px;
+                                                       width: 70%"
+                                                onchange="staffChangeAnnotation('activity', '{{ bbox.id }}', '{{ activity.name }}', this.value, this.parentNode); deleteAnnotationEntry('activity-{{ bbox.id }}-{{ activity.name }}', `{{ activity.name }}`);">
+                                            <option value="" disabled></option>
+                                            {% for activity_name in activity_list %}
+                                                <option value="{{ activity_name }}"
+                                                        {% if activity_name == activity.name %}selected{% endif %}>
+                                                    {{ activity_name }}
+                                                </option>
+                                            {% endfor %}
+                                            <hr>
+                                        </select>
+                                        <button type="button"
+                                                style="width: 20%;
+                                                       color: red;
+                                                       border: none;
+                                                       background-color: transparent"
+                                                onclick="staffDeleteAnnotation('activity', '{{ bbox.id }}', '{{ activity.name }}'); deleteAnnotationEntry('activity-{{ bbox.id }}-{{ activity.name }}', `{{ activity.name }}`);">
+                                            (Delete)
+                                        </button>
+                                    </div>
+                                </div>
+                                <div style="margin: 10px; border: 1px solid silver">
+                                    <text style="font-size: 12px; width: 100%;"><b><u>Accepted</u></b></text>
+                                    <br>
+                                    {% if activity.created_by.type == 'human' %}
+                                        <text style="font-size: 12px">{{ activity.created_by }} (Created)
+                                        {% if activity.created_by.human.is_staff %}
+                                            (Staff)
+                                        {% elif activity.created_by.human.is_expert %}
+                                            (Expert)
+                                        {% endif %}
+                                        </text>
+                                        <br>
+                                    {% endif %}
+                                    {% if activities.accepted_by.exists or activity.created_by %}
+                                        {% for annotator in activities.accepted_by.all %}
+                                            <text style="font-size: 12px"><i>{{ annotator }}
+                                            {% if annotator.human.is_staff %}
+                                                (Staff)
+                                            {% elif annotator.human.is_expert %}
+                                                (Expert)
+                                            {% endif %}
+                                        </i></text>
+                                        <br>
+                                    {% endfor %}
+                                {% else %}
+                                    <text style="font-size: 12px"><i>No annotators yet.</i></text>
+                                {% endif %}
+                            </div>
+                            <div style="margin: 10px; border: 1px solid silver">
+                                <text style="font-size: 12px; width: 100%"><b><u>Rejected</u></b></text>
+                                <br>
+                                {% if activities.rejected_by.exists %}
+                                    {% for annotator in activities.rejected_by.all %}
+                                        <text style="font-size: 12px"><i>{{ annotator }}
+                                        {% if annotator.human.is_staff %}
+                                            (Staff)
+                                        {% elif annotator.human.is_expert %}
+                                            (Expert)
+                                        {% endif %}
+                                    </i></text>
+                                    <br>
+                                {% endfor %}
+                            {% else %}
+                                <text style="font-size: 12px"><i>No annotators yet.</i></text>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <text style="font-size: 12px"><i>No annotations yet.</i></text>
+            {% endif %}
+        {% endif %}
+    {% endfor %}
+</div>
+</div>
+</div>
+</div>
+{% endfor %}
+</div>
+</div>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
     function deleteAnnotationEntry(parentId, annotationName) {

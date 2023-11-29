@@ -1,151 +1,121 @@
 {% extends './base_annotate.html' %}
 {% load static %}
-
 <!-- Set corresponding nav pill to active -->
-{% block nav_tag %}active{% endblock nav_tag %}
-
+{% block nav_tag %}
+    active
+{% endblock nav_tag %}
 {% block header_includes %}
-<link
-    href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
-    rel="stylesheet"
-/>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+          rel="stylesheet" />
 {% endblock header_includes %}
-
-
 {% block instruction_text %}
-<p class="label-toggle lead">
-    {% if activity_category == "human" %}
-        What activity/behavior are people in the image engaged in?
-    {% else %}
-        What activity are the animals in the image exhibiting?
-    {% endif %}
-</p>
-<p class="d-none label-toggle lead"><b>Click on each box and select the activity. Then, click Save when
-complete!</b></p>
+    <p class="label-toggle lead">
+        {% if activity_category == "human" %}
+            What activity/behavior are people in the image engaged in?
+        {% else %}
+            What activity are the animals in the image exhibiting?
+        {% endif %}
+    </p>
+    <p class="d-none label-toggle lead">
+        <b>Click on each box and select the activity. Then, click Save when
+        complete!</b>
+    </p>
 {% endblock instruction_text %}
-
-
 {% block category_list %}
-<div class="pb-1 label-toggle">
-    <select id="activity-list" class="w-100">
-        <option
-            value=""
-            disabled
-            selected
-        ></option>
-        {% for activity in activity_list%}
-        <option value="{{activity}}">{{activity}}</option>
-        {% endfor %}
-    </select>
-</div>
+    <div class="pb-1 label-toggle">
+        <select id="activity-list" class="w-100">
+            <option value="" disabled selected></option>
+            {% for activity in activity_list %}<option value="{{ activity }}">{{ activity }}</option>{% endfor %}
+        </select>
+    </div>
 {% endblock category_list %}
-
 {% block category_button %}
-<span
-    class="btn btn-secondary label-toggle"
-    id="multiple-activity"
-><i class="bi bi-journal-plus">&nbsp;&nbsp;&nbsp;</i>Multiple activities?</span>
-<span
-    class="btn btn-secondary label-toggle d-none"
-    id="single-activity"
-><i class="bi bi-journal-minus">&nbsp;&nbsp;&nbsp;</i>Single activity?</span>
+    <span class="btn btn-secondary label-toggle" id="multiple-activity"><i class="bi bi-journal-plus">&nbsp;&nbsp;&nbsp;</i>Multiple activities?</span>
+    <span class="btn btn-secondary label-toggle d-none" id="single-activity"><i class="bi bi-journal-minus">&nbsp;&nbsp;&nbsp;</i>Single activity?</span>
 {% endblock category_button %}
-
-
 {% block annotation_count_type %}
-Activity
+    Activity
 {% endblock annotation_count_type %}
-
-
 {% block missing_annotations_element %}
-<div
-    class="row py-3 justify-content-center d-none"
-    id="status-missing-activity"
->
-    <div class="col-12">
-        <div
-            class="alert alert-warning text-center"
-            role="alert"
-        >
-            <i class="bi bi-exclamation-triangle-fill"></i>&nbsp;
-            <strong>Warning! Some of your bounding boxes don't have a activity.</strong><br>If you are sure you want to submit, click "Save" again.
+    <div class="row py-3 justify-content-center d-none"
+         id="status-missing-activity">
+        <div class="col-12">
+            <div class="alert alert-warning text-center" role="alert">
+                <i class="bi bi-exclamation-triangle-fill"></i>&nbsp;
+                <strong>Warning! Some of your bounding boxes don't have a activity.</strong>
+                <br>
+                If you are sure you want to submit, click "Save" again.
+            </div>
         </div>
     </div>
-</div>
 {% endblock missing_annotations_element %}
-
 {% comment %}<script>{% endcomment %}
 {% block set_categories %}
-let categories = [
-        {% for activity in activity_list %}"{{activity}}",{% endfor %}
-];
+    let categories = [
+        {% for activity in activity_list %}"{{ activity }}",{% endfor %}
+    ];
 {% endblock set_categories %}
-
-
-{% block processor_url %} `{% url 'images:activity_annotation_processor'%}`{% endblock processor_url %}
-
-
+{% block processor_url %}
+    `{% url 'images:activity_annotation_processor' %}`
+{% endblock processor_url %}
 {% block multiple_category_check %}
-// If it is not a single activity, make sure every entry has a activity
-if (!activity & !skip) {
-    if ($("#status-missing-activity").hasClass("d-none")) {
-        for (const annotation of anno.getAnnotations()) {
-            if (annotation.body[0].value === undefined) {
-                $(".spinner-border").hide();
-                $("#status-missing-activity").removeClass("d-none");
-                setTimeout(function () {
-                    $("#status-missing-activity").addClass("d-none");
-                }, 8000);
-                return false;
+    // If it is not a single activity, make sure every entry has a activity
+    if (!activity & !skip) {
+        if ($("#status-missing-activity").hasClass("d-none")) {
+            for (const annotation of anno.getAnnotations()) {
+                if (annotation.body[0].value === undefined) {
+                    $(".spinner-border").hide();
+                    $("#status-missing-activity").removeClass("d-none");
+                    setTimeout(function () {
+                        $("#status-missing-activity").addClass("d-none");
+                    }, 8000);
+                    return false;
+                }
             }
         }
     }
-}
 
-if (activity) {
-    for (const annotation of anno.getAnnotations()) {
-        annotation.body[0].value = activity
-        annotation.body[0].confidence = 1.0
+    if (activity) {
+        for (const annotation of anno.getAnnotations()) {
+            annotation.body[0].value = activity
+            annotation.body[0].confidence = 1.0
+        }
     }
-}
 {% endblock multiple_category_check %}
-
-
 {% block submit_annotations %}
-if ($('#activity-list').val() === null) {
-    submitAnnotations(skip=false, activity=false);
-}
-else {
-    submitAnnotations(skip=false, species=false, activity=$('#activity-list').val());
-}
-{% endblock submit_annotations %}
-
-
-{% block additional_event_handlers %}
-// Toggle between single & multiple activity annotations
-$("#single-activity").click(function(e){
-    $(".label-toggle").toggleClass("d-none");
-});
-$("#multiple-activity").click(function(e){
-    $(".label-toggle").toggleClass("d-none");
-    $('#activity-list').val(null).trigger("change");
-});
-
-$('#activity-list').select2({
-    placeholder: 'Select a activity',
-});
-
-// Show the single activity on all annotation previews.
-$('#activity-list').on('change', function () {
-    const selectedOption = $('#activity-list').val();
-    annotations = anno.getAnnotations();
-
-    for (annotation of annotations) {
-        annotation.body[0].value = selectedOption;
+    if ($('#activity-list').val() === null) {
+        submitAnnotations(skip=false, activity=false);
     }
+    else {
+        submitAnnotations(skip=false, species=false, activity=$('#activity-list').val());
+    }
+{% endblock submit_annotations %}
+{% block additional_event_handlers %}
+    // Toggle between single & multiple activity annotations
+    $("#single-activity").click(function(e){
+        $(".label-toggle").toggleClass("d-none");
+    });
 
-    anno.setAnnotations(annotations);
-    renderBoundingBoxPreviews("{{image.id}}", "annotations-preview", anno);
-});
+    $("#multiple-activity").click(function(e){
+        $(".label-toggle").toggleClass("d-none");
+        $('#activity-list').val(null).trigger("change");
+    });
+
+    $('#activity-list').select2({
+        placeholder: 'Select a activity',
+    });
+
+    // Show the single activity on all annotation previews.
+    $('#activity-list').on('change', function () {
+        const selectedOption = $('#activity-list').val();
+        annotations = anno.getAnnotations();
+
+        for (annotation of annotations) {
+            annotation.body[0].value = selectedOption;
+        }
+
+        anno.setAnnotations(annotations);
+        renderBoundingBoxPreviews("{{ image.id }}", anno);
+    });
 {% endblock additional_event_handlers %}
 {% comment %}</script>{% endcomment %}

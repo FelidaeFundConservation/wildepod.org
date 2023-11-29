@@ -1,13 +1,13 @@
 <div class="card mt-3" id="image-manipulators-card">
-                <div class="card-header">
-                    <text>Image Manipulators</text>
-                </div>
-                <div id="image-manipulators">
-                    <div class="card-body p-3">
-                        <text style="font-size: 14px; margin-top: -30px">Adjust the sliders as needed to make details easier to see.</text>
-                        <hr>
-                        <div id="image-manipulator-sliders" class="p-2"></div>
-                        <script>
+    <div class="card-header">
+        <text>Image Manipulators</text>
+    </div>
+    <div id="image-manipulators">
+        <div class="card-body p-3">
+            <text style="font-size: 14px; margin-top: -30px">Adjust the sliders as needed to make details easier to see.</text>
+            <hr>
+            <div id="image-manipulator-sliders" class="p-2"></div>
+            <script>
                             let imageManipulatorSliders = document.getElementById("image-manipulator-sliders");
 
                             // Contains information for each filter type.
@@ -62,6 +62,7 @@
                                 image.style.filter = filterString;
 
                                 $("[id^='canvas-']").css("filter", filterString);
+                                $("[class^='canvas-']").css("filter", filterString);
                                 $(".context-image").css("filter", filterString);
 
                             }
@@ -87,7 +88,7 @@
                             });
 
                             imageManipulatorSliders.appendChild(resetFiltersButton);
-                        </script>
-                    </div>
-                </div>
-            </div>
+            </script>
+        </div>
+    </div>
+</div>

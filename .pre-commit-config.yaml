@@ -1,7 +1,7 @@
 default_language_version:
   python: python3.10
 default_stages: [commit]
-exclude: ^siteapps/.*/migrations/.*
+exclude: ^siteapps/.*/migrations/.|^siteapps/templates/images/annotate/activity.html|^siteapps/templates/images/annotate/species.html|^siteapps/templates/images/annotate/objects.html
 
 repos:
   # Common pre-commit hooks
@@ -142,4 +142,4 @@ repos:
       - id: djlint-reformat-django
       - id: djlint-django
         args:
-          - "--ignore=T002,H021,H029"
+          - "--ignore=T002,H013,H021,H029"

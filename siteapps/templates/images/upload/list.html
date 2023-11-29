@@ -312,9 +312,9 @@
                      id="nav-complete"
                      role="tabpanel"
                      aria-labelledby="nav-complete-tab">
-                    <div class="row p-3 text-center">
+                    <div class="row p-3 pb-0 text-center">
                         {% if user.is_staff %}
-                            <p class="small">
+                            <p class="small pb-0">
                                 <i>
                                     Hey, {{ user.name }}! Since you're a staff member, you can query for uploads from all users.
                                     <br>
@@ -326,6 +326,7 @@
                                 <i>Hey, {{ user.name }}! Here is a list of all your completed uploads</i>
                             </p>
                         {% endif %}
+                        {% if object_list|length > 0 %}
                         <p class="d-flex">
                             <div>
                                 {% if object_list.has_previous %}
@@ -345,10 +346,29 @@
                                 {% endif %}
                             </div>
                         </p>
-                        <hr>
+                        {% endif %}
                     </div>
-                    {% if num_completed > 0 %}
-                        <div class="row pt-0 upload-list overflow-auto p-2">
+                    {% if object_list|length > 0 %}
+                        <div class="btn-group btn-group-sm pt-0 mt-0 mb-2 text-center w-25"
+                             role="group"
+                             aria-label="List type">
+                            <button type="button"
+                                    class="btn btn-primary"
+                                    onclick="$(`#upload-complete-list`).show(); $(`#upload-complete-cards`).hide();"
+                                    selected>
+                                <i class="bi bi-list-ul"></i>&nbsp;&nbsp;List
+                            </button>
+                            <button type="button"
+                                    class="btn btn-primary"
+                                    onclick="$(`#upload-complete-cards`).show(); $(`#upload-complete-list`).hide();">
+                                <i class="bi bi-card-heading"></i>&nbsp;&nbsp;Cards
+                            </button>
+                        </div>
+                    {% endif %}
+                    <hr>
+                    {% if object_list|length > 0 %}
+                        <div id="upload-complete-cards"
+                             class="row pt-0 upload-list overflow-auto p-2">
                             {% for object in object_list %}
                                 {% if object.upload_complete and object.processed %}
                                     <div class="card w-32 text-center m-1 p-0 mb-3 {% if forloop.counter|divisibleby:2 %}bg-light{% endif %}">
@@ -388,6 +408,49 @@
                                 {% endif %}
                             {% endfor %}
                         </div>
+                        <div id="upload-complete-list"
+                             class="row pt-0 upload-list overflow-auto p-2">
+                            <table id="upload-list" class="display">
+                                <thead>
+                                    <tr>
+                                        <th>Priority</th>
+                                        <th>Retrieval Date</th>
+                                        <th>Camera Station</th>
+                                        <th>Microsite</th>
+                                        <th>Macrosite</th>
+                                        <th>Volunteer</th>
+                                        <th>Last Action</th>
+                                        <th>Images</th>
+                                        <th>Dropbox</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for object in object_list %}
+                                        {% if object.upload_complete and object.processed %}
+                                            <tr>
+                                                <td>{{ object.priority }}</td>
+                                                <td>{{ object.date_retrieved }}</td>
+                                                <td>{{ object.camera_station.station_id }}</td>
+                                                <td>{{ object.camera_station.micro_site }}</td>
+                                                <td>{{ object.camera_station.micro_site.macro_site }}</td>
+                                                <td>{{ object.volunteer.name }}</td>
+                                                <td>{{ object.last_action }}</td>
+                                                <td>
+                                                    <a href="{% url 'images:view_upload' object.id %}">
+                                                        <text type="button" class="btn btn-light">{{ object.images.all.count }}</text>
+                                                    </a>
+                                                </td>
+                                                <td>
+                                                    <a href="{{ object.dropbox_request_url }}"
+                                                       target="_blank"
+                                                       class="btn btn-light"><i class="bi bi-dropbox"></i></a>
+                                                </td>
+                                            </tr>
+                                        {% endif %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
                     {% else %}
                         <div class="text-center">
                             <p>
@@ -402,10 +465,6 @@
     <div class="page-background h-100 mt-5"></div>
 {% endblock content %}
 {% block footer_includes %}
-    <!-- Jquery -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"
-            integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4="
-            crossorigin="anonymous"></script>
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
           rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
@@ -436,10 +495,19 @@
             },
         })
     });
-    $(`.form-select`).select2({
-        placeholder: '',
-        multiple: true,
-    })
+
+        $(document).ready(function () {
+            $(`.form-select`).select2({
+                placeholder: '',
+                multiple: true,
+            })
+
+            $(`#upload-list`).DataTable({"bPaginate": false});
+            $(`#upload-complete-list`).show();
+            $(`#upload-complete-cards`).hide();
+
+        })
+
     </script>
     <script>
     let uploads_in_process = [

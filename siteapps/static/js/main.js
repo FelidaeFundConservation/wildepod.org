@@ -319,13 +319,14 @@ function renderBoundingBoxPreviews(imageElementID, anno) {
             }
         )
 
-        // Right click hides the bbox
         innerRect.mousedown(function (event) {
             switch (event.which) {
+                // Right click hides the bbox
                 case 3:
                     hide();
                     appendToast(cleanedId, "hide", `<kbd><i class="bi bi-eye-slash"></i>&nbsp;(<i class="bi bi-mouse"> RIGHTCLICK</i>)</kbd>&nbsp;&nbsp;Hid box '${annotationText}.'</i>`)
                     break;
+
             }
         })
 

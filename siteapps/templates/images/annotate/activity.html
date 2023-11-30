@@ -102,20 +102,22 @@
     });
 
     $('#activity-list').select2({
-        placeholder: 'Select a activity',
+        placeholder: 'Select to tag all boxes',
     });
 
     // Show the single activity on all annotation previews.
     $('#activity-list').on('change', function () {
-        const selectedOption = $('#activity-list').val();
-        annotations = anno.getAnnotations();
+        if ($(this).val() !== null) {
+            const selectedOption = $('#activity-list').val();
+            annotations = anno.getAnnotations();
 
-        for (annotation of annotations) {
-            annotation.body[0].value = selectedOption;
+            for (annotation of annotations) {
+                annotation.body[0].value = selectedOption;
+            }
+
+            anno.setAnnotations(annotations);
+            renderBoundingBoxPreviews("{{ image.id }}", anno);
         }
-
-        anno.setAnnotations(annotations);
-        renderBoundingBoxPreviews("{{ image.id }}", anno);
     });
 {% endblock additional_event_handlers %}
 {% comment %}</script>{% endcomment %}

@@ -54,7 +54,7 @@
     // If it is not a single species, make sure every entry has a species
     if (!species & !skip) {
         for (const annotation of anno.getAnnotations()) {
-            if (annotation.body[0].value === undefined || annotation.body[0].value === "unannotated") {
+            if (annotation.body[0].value === undefined || annotation.body[0].value === "unannotated" || annotation.body[0].value === null) {
                 $(".spinner-border").hide();
                 $("#status-missing-species").removeClass("d-none");
 
@@ -190,23 +190,25 @@
 
     $("#multiple-species").click(function (e) {
         $(".label-toggle").toggleClass("d-none");
-    $('#species-list').val(null).trigger("change");
+        $('#species-list').val(null).trigger("change");
     });
 
     $('#species-list').select2({
-        placeholder: 'Select a species',
+        placeholder: 'Select to tag all boxes',
     });
 
     // Show the single species annotation on all annotation previews.
     $('#species-list').on('change', function () {
-        const selectedOption = $('#species-list').val();
-        annotations = anno.getAnnotations();
-        for (annotation of annotations) {
-            annotation.body[0].value = selectedOption;
-        }
+        if ($(this).val() !== null) {
+            const selectedOption = $('#species-list').val();
+            annotations = anno.getAnnotations();
+            for (annotation of annotations) {
+                annotation.body[0].value = selectedOption;
+            }
 
-        anno.setAnnotations(annotations);
-        renderBoundingBoxPreviews("{{ image.id }}", anno);
+            anno.setAnnotations(annotations);
+            renderBoundingBoxPreviews("{{ image.id }}", anno);
+        }
     });
 
     // Focus on text input field in dropdown upon opening species list.

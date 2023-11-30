@@ -691,10 +691,18 @@
 
             // Render bounding boxes
             renderBoundingBoxPreviews("{{image.id}}", anno)
-            anno.on("createAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", anno)})
+            anno.on("createAnnotation", function () {
+                $('#species-list').val("").trigger('change');
+                $('#activity-list').val("").trigger('change');
+                return renderBoundingBoxPreviews("{{image.id}}", anno)
+            })
             anno.on("deleteAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", anno)})
-            anno.on("updateAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", anno)})
-            anno.on('cancelSelected', function (selection) { return renderBoundingBoxPreviews("{{image.id}}",  anno) });
+            anno.on("updateAnnotation", function () {
+                $('#species-list').val("").trigger('change');
+                $('#activity-list').val("").trigger('change');
+                return renderBoundingBoxPreviews("{{image.id}}", anno)
+            })
+            anno.on('cancelSelected', function (selection) { return renderBoundingBoxPreviews("{{image.id}}", anno) });
 
             // Set default brightness value based on luma value
             const lumaAdjustment = "{{ luma_adjustment }}";

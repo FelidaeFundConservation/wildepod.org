@@ -27,10 +27,10 @@ jupyter # https://github.com/jupyter/
 # Testing
 # ------------------------------------------------------------------------------
 mypy==0.931  # https://github.com/python/mypy
+onnx==1.15.0
 
 # Pandas is used only for loading data initially. This should be removed when things move to prod
 pandas
-
 pip-upgrader
 pre-commit==2.17.0  # https://github.com/pre-commit/pre-commit
 pylint-django==2.5.0  # https://github.com/PyCQA/pylint-django
@@ -38,3 +38,4 @@ pytest==7.0.1  # https://github.com/pytest-dev/pytest
 pytest-django==4.5.2  # https://github.com/pytest-dev/pytest-django
 pytest-sugar==0.9.4  # https://github.com/Frozenball/pytest-sugar
 types-requests==2.27.15 # https://github.com/python/typeshed/stargazers
+ultralytics==8.0.220

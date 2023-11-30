@@ -21,7 +21,7 @@
         <div class="col-12">
             <div class="alert alert-danger text-center" role="alert">
                 <i class="bi bi-exclamation-triangle-fill"></i>&nbsp;
-                <strong>Error!</strong> Some of your the bounding boxes don't have a species. Please try again.
+                <strong>Error!</strong> Some bounding boxes don't have a species. Please try again.
             </div>
         </div>
     </div>
@@ -54,7 +54,7 @@
     // If it is not a single species, make sure every entry has a species
     if (!species & !skip) {
         for (const annotation of anno.getAnnotations()) {
-            if (annotation.body[0].value === undefined || annotation.body[0].value === "unannotated") {
+            if (annotation.body[0].value === undefined || annotation.body[0].value === "unannotated" || annotation.body[0].value === null) {
                 $(".spinner-border").hide();
                 $("#status-missing-species").removeClass("d-none");
 
@@ -81,6 +81,13 @@
             })
         )
     );
+
+
+{% block observer_init %}
+observer.observe(document, { attributes: false, childList: true, characterData: false, subtree: true });
+{% endblock observer_init %}
+
+
 {% endblock save_recent_tags %}
 {% block recent_tags_handling %}
     // Retrieve recent tags
@@ -190,23 +197,26 @@
 
     $("#multiple-species").click(function (e) {
         $(".label-toggle").toggleClass("d-none");
-    $('#species-list').val(null).trigger("change");
+        $('#species-list').val(null).trigger("change");
     });
 
     $('#species-list').select2({
-        placeholder: 'Select a species',
+        placeholder: 'Select to tag all boxes',
     });
 
     // Show the single species annotation on all annotation previews.
     $('#species-list').on('change', function () {
-        const selectedOption = $('#species-list').val();
-        annotations = anno.getAnnotations();
-        for (annotation of annotations) {
-            annotation.body[0].value = selectedOption;
-        }
+        if ($(this).val() !== null) {
+            const selectedOption = $('#species-list').val();
+            annotations = anno.getAnnotations();
+            for (annotation of annotations) {
+                annotation.body[0].value = selectedOption;
+                annotation.body[0].confidence = 1.0;
+            }
 
-        anno.setAnnotations(annotations);
-        renderBoundingBoxPreviews("{{ image.id }}", anno);
+            anno.setAnnotations(annotations);
+            renderBoundingBoxPreviews("{{ image.id }}", anno);
+        }
     });
 
     // Focus on text input field in dropdown upon opening species list.

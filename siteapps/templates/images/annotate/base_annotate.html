@@ -12,6 +12,30 @@
 {% block content %}
     {% block depreciation_notice %}
     {% endblock depreciation_notice %}
+    {% block missing_annotations_element %}
+    {% endblock missing_annotations_element %}
+    <div class="row py-3 justify-content-center d-none" id="status-success">
+        <div class="col-12">
+            <div class="alert alert-success" role="alert">
+                <i class="bi bi-check-circle-fill"></i>&nbsp;
+                <strong>Success!</strong> Your annotations have been saved.
+                <div class="spinner-border"
+                     role="status"
+                     style="height: 20px;
+                            width: 20px"></div>
+            </div>
+        </div>
+    </div>
+    <div class="row py-3 justify-content-center d-none" id="status-failure">
+        <div class="col-12">
+            <div class="alert alert-danger text-center" role="alert">
+                {% comment %} TODO: Link to a spreadsheet error form here {% endcomment %}
+                <i class="bi bi-exclamation-triangle-fill"></i>&nbsp;
+                <strong>Error!</strong> Your annotations could not be saved. Please refresh page & try again or report a
+                bug here.
+            </div>
+        </div>
+    </div>
     <div class="container mt-2 mt-md-3 annotation-container card-emphasis rounded bg-white">
         {% if image %}
             <div class="container-fluid mt-2 mt-md-3">
@@ -163,30 +187,6 @@
                                      id="nav-annotate"
                                      role="tabpanel"
                                      aria-labelledby="nav-annotate-tab">
-                                    {% block missing_annotations_element %}
-                                    {% endblock missing_annotations_element %}
-                                    <div class="row py-3 justify-content-center d-none" id="status-success">
-                                        <div class="col-12">
-                                            <div class="alert alert-success" role="alert">
-                                                <i class="bi bi-check-circle-fill"></i>&nbsp;
-                                                <strong>Success!</strong> Your annotations have been saved.
-                                                <div class="spinner-border"
-                                                     role="status"
-                                                     style="height: 20px;
-                                                            width: 20px"></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="row py-3 justify-content-center d-none" id="status-failure">
-                                        <div class="col-12">
-                                            <div class="alert alert-danger text-center" role="alert">
-                                                {% comment %} TODO: Link to a spreadsheet error form here {% endcomment %}
-                                                <i class="bi bi-exclamation-triangle-fill"></i>&nbsp;
-                                                <strong>Error!</strong> Your annotations could not be saved. Please refresh page & try again or report a
-                                                bug here.
-                                            </div>
-                                        </div>
-                                    </div>
                                     <div class="card">
                                         <div class="card-header">Instructions</div>
                                         <div class="text-center p-3">
@@ -384,7 +384,6 @@
                     </div>
                 </div>
             </div>
-            <div class="toast-container position-fixed bottom-0 end-0 p-1 mh-1"></div>
         {% else %}
             <div class="row text-center mt-2 mt-md-3 pt-2 pt-md-3">
                 <h3>There are no more images to annotate! Come back later!</h3>
@@ -395,6 +394,7 @@
             </div>
         {% endif %}
     </div>
+    <div class="toast-container position-fixed bottom-0 end-0 p-1 mh-1"></div>
     <div class="page-background h-100 mt-5"></div>
 {% endblock content %}
 {% block footer_includes %}
@@ -482,6 +482,10 @@
             else if (event.key == 'ArrowRight') {
                 event.preventDefault();
                 $(`#context-images-next`).click();
+            }
+
+            else if (event.key == 'Enter') {
+                $('button.r6o-btn:contains("Ok")').click()
             }
         };
     });
@@ -691,10 +695,21 @@
 
             // Render bounding boxes
             renderBoundingBoxPreviews("{{image.id}}", anno)
-            anno.on("createAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", anno)})
+            anno.on("createAnnotation", function () {
+                $('#species-list').val("").trigger('change');
+                $('#activity-list').val("").trigger('change');
+                return renderBoundingBoxPreviews("{{image.id}}", anno)
+            })
             anno.on("deleteAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", anno)})
-            anno.on("updateAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", anno)})
-            anno.on('cancelSelected', function (selection) { return renderBoundingBoxPreviews("{{image.id}}",  anno) });
+            anno.on("updateAnnotation", function () {
+                $('#species-list').val("").trigger('change');
+                $('#activity-list').val("").trigger('change');
+                return renderBoundingBoxPreviews("{{image.id}}", anno)
+            })
+            anno.on('cancelSelected', function (selection) {
+                {% block observer_init %}{% endblock observer_init %}
+                return renderBoundingBoxPreviews("{{image.id}}", anno)
+            });
 
             // Set default brightness value based on luma value
             const lumaAdjustment = "{{ luma_adjustment }}";

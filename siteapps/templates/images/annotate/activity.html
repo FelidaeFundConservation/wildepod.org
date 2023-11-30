@@ -113,6 +113,7 @@
 
             for (annotation of annotations) {
                 annotation.body[0].value = selectedOption;
+                annotation.body[0].confidence = 1.0;
             }
 
             anno.setAnnotations(annotations);

@@ -21,7 +21,7 @@
         <div class="col-12">
             <div class="alert alert-danger text-center" role="alert">
                 <i class="bi bi-exclamation-triangle-fill"></i>&nbsp;
-                <strong>Error!</strong> Some of your the bounding boxes don't have a species. Please try again.
+                <strong>Error!</strong> Some bounding boxes don't have a species. Please try again.
             </div>
         </div>
     </div>
@@ -211,6 +211,7 @@ observer.observe(document, { attributes: false, childList: true, characterData: 
             annotations = anno.getAnnotations();
             for (annotation of annotations) {
                 annotation.body[0].value = selectedOption;
+                annotation.body[0].confidence = 1.0;
             }
 
             anno.setAnnotations(annotations);

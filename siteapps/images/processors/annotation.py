@@ -57,7 +57,18 @@ def vote(obj, annotator: Annotator, accept: bool):
     else:
         obj.accepted_by.remove(annotator)
         obj.rejected_by.add(annotator)
-    obj.save()
+
+        # Undo creation if reannotating
+        if obj.created_by == annotator:
+            if obj.accepted_by.count() == 0:
+                obj.delete()
+            else:
+                other_annotator = obj.accepted_by.first()
+                obj.created_by = other_annotator
+                obj.accepted_by.remove(other_annotator)
+                obj.save()
+        else:
+            obj.save()
     return
 
 
@@ -393,7 +404,6 @@ def process_species(formatted_annotations, bbox_id, bbox_obj, annotator):
 
             if species_obj.created_by != annotator:
                 vote(species_obj, annotator, accept=True)
-
         except ObjectDoesNotExist:
             species_obj = Species.objects.create(
                 bounding_box=bbox_obj,

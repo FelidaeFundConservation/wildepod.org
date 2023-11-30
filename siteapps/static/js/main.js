@@ -71,7 +71,7 @@ function createCategoryWidget(categories, speciesVotes){
         let buttonsHtml = "";
         let birdsHtml = "";
         for (const category of categories) {
-            if (birdsList.includes(category.replace(" ", "").replace("\’", "").toLowerCase())) {
+            if (birdsList.includes(category)) {
                 birdsHtml += createButton(category);
             }
             else {
@@ -82,10 +82,10 @@ function createCategoryWidget(categories, speciesVotes){
         let displayTextHtml = "";
         if (currentClassValue) {
             if (currentUpdateStatus) {
-                displayTextHtml = `<em>Classified as <b> ${currentClassValue} </b></em>`;
+                displayTextHtml = `<em>Classified as <b> <mark>${currentClassValue}</mark> </b></em>`;
             }
             else {
-                displayTextHtml = `<em>Classified as: <b> ${currentClassValue} </b><br/>Confidence: <b>${currentClassConfidence}</b></em>`;
+                displayTextHtml = `<em>Classified as: <b> <mark>${currentClassValue}</mark> </b><br/>Confidence: <b>${currentClassConfidence}</b></em>`;
             }
         }
         else {
@@ -99,7 +99,7 @@ function createCategoryWidget(categories, speciesVotes){
             <div class="accordion" id="birds-accordion">
               <div class="accordion-item">
                 <h2 class="accordion-header" id="birds-header">
-                  <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#birds-collapse" aria-expanded="true" aria-controls="birds-collapse">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#birds-collapse" aria-expanded="false" aria-controls="birds-collapse">
                     Specify Bird Species (optional)
                   </button>
                 </h2>
@@ -112,7 +112,7 @@ function createCategoryWidget(categories, speciesVotes){
             </div>
             <div class="category-widget m-2 p-2 ${row}">
                 ${buttonsHtml}
-                <hr>
+                <hr class="mt-2">
                 <div class="selected-display-text pt-3">
                     ${displayTextHtml}
                 </div>
@@ -123,6 +123,8 @@ function createCategoryWidget(categories, speciesVotes){
                 addTag(event);
             }
         });
+
+        $(`.tooltip`).remove();
 
         return container;
     }

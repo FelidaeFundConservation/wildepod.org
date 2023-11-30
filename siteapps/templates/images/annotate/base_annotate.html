@@ -629,7 +629,12 @@
             {% endfor %}
         ];
 
-
+        birdsList = [
+            {% for bird in birds_list %}
+            "{{ bird.name }}",
+            {% endfor %}
+        ]
+        console.log(birdsList)
         // Save state of hidden boxes
         window.hiddenBoxes = [];
 

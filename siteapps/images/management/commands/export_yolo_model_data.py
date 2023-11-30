@@ -14,7 +14,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         try:
-            IMAGE_COUNT = 10
+            IMAGE_COUNT = 1000
             PATH = "./siteapps/images/management/commands/export/"
 
             logging.info(f"Gathering data from {IMAGE_COUNT} images...")
@@ -35,7 +35,7 @@ class Command(BaseCommand):
                         pillow_image = PILImage.open(BytesIO(response.content)).convert("RGB")
                         pillow_image.save(f"{PATH}/datasets/wildepod/images/{directory}/{image.id}.jpg", "JPEG")
                         with open(f"{PATH}/datasets/wildepod/labels/{directory}/{image.id}.txt", "w+") as file:
-                            for bbox in image.boundingbox_set.all():
+                            for bbox in image.boundingbox_set.valid().all():
                                 species = (
                                     Species.objects.filter(
                                         Q(created_by__human__is_staff=True)
@@ -49,7 +49,9 @@ class Command(BaseCommand):
                                 )
 
                                 if species:
-                                    file.write(f"{species.name.id} {bbox.x} {bbox.y} {bbox.w} {bbox.h}\n")
+                                    info = f"{species.name.id} {bbox.x + (bbox.w / 2)} {bbox.y + (bbox.h / 2)} {bbox.w} {bbox.h}\n"
+                                    print(info)
+                                    file.write(info)
 
             get_data(training, "train")
             get_data(validation, "val")
@@ -67,7 +69,9 @@ class Command(BaseCommand):
                     "test: ./wildepod/images/test/\n",
                     "val: ./wildepod/images/val/\n",
                     "\n",
-                    f"nc: {len(classes_list)}\n" "\n" f"names: {str(classes_list)}\n",
+                    f"nc: {len(classes_list)}\n",
+                    "\n",
+                    f"names: {str(classes_list)}\n",
                 ]
                 file.writelines(lines)
 

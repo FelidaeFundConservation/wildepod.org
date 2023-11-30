@@ -483,6 +483,10 @@
                 event.preventDefault();
                 $(`#context-images-next`).click();
             }
+
+            else if (event.key == 'Enter') {
+                $('button.r6o-btn:contains("Ok")').click()
+            }
         };
     });
 
@@ -702,7 +706,10 @@
                 $('#activity-list').val("").trigger('change');
                 return renderBoundingBoxPreviews("{{image.id}}", anno)
             })
-            anno.on('cancelSelected', function (selection) { return renderBoundingBoxPreviews("{{image.id}}", anno) });
+            anno.on('cancelSelected', function (selection) {
+                {% block observer_init %}{% endblock observer_init %}
+                return renderBoundingBoxPreviews("{{image.id}}", anno)
+            });
 
             // Set default brightness value based on luma value
             const lumaAdjustment = "{{ luma_adjustment }}";

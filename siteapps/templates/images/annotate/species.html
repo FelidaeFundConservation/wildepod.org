@@ -81,6 +81,13 @@
             })
         )
     );
+
+
+{% block observer_init %}
+observer.observe(document, { attributes: false, childList: true, characterData: false, subtree: true });
+{% endblock observer_init %}
+
+
 {% endblock save_recent_tags %}
 {% block recent_tags_handling %}
     // Retrieve recent tags

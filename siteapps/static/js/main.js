@@ -15,108 +15,117 @@ function createCategoryWidget(categories, speciesVotes){
         let currentUpdateStatus = currentClassBody ? currentClassBody.updated : false;
 
         // 3. Triggers callbacks on user action
-        let addTag = function(evt) {
-          if (currentClassBody) {
-            args.onUpdateBody(currentClassBody, {
-              type: 'TextualBody',
-              purpose: 'classifying',
-              value: evt.target.dataset.tag,
-              confidence: 1.0,
-              updated: true
-            });
-          } else {
-            args.onAppendBody({
-              type: 'TextualBody',
-              purpose: 'classifying',
-              value: evt.target.dataset.tag,
-              confidence: 1.0,
-              updated: true
-            });
-          }
+        let addTag = function (evt) {
+            if (currentClassBody) {
+                args.onUpdateBody(currentClassBody, {
+                    type: 'TextualBody',
+                    purpose: 'classifying',
+                    value: evt.target.dataset.tag,
+                    confidence: 1.0,
+                    updated: true
+                });
+            } else {
+                args.onAppendBody({
+                    type: 'TextualBody',
+                    purpose: 'classifying',
+                    value: evt.target.dataset.tag,
+                    confidence: 1.0,
+                    updated: true
+                });
+            }
         }
 
         // 4. This part renders the UI elements
         // Render the classes as clickable buttons
-        let createButton = function(value) {
-          let button = document.createElement('button');
-          button.className = 'btn btn-light align-items-center m-1 btn-tag';
-          if (value == currentClassValue)
-            button.className = 'btn btn-primary align-items-center m-1 btn-tag selected';
-          // Set the tag value & the text content
-          button.dataset.tag = value;
-          button.textContent = value;
-          // Add an event listener to update the class on click
-          button.addEventListener('click', addTag);
+        let createButton = function (value) {
+            let selected = value == currentClassValue ? "btn-primary" : "btn-light";
+            let colClass = categories.length > 5 ? 'col-3 p-0 m-0 d-flex' : "";
 
-          if(categories.length > 5){
-            let col = document.createElement("div")
-            col.className = 'col-3 p-0 m-0 d-flex';
+            let recentTagBadge = typeof recentTags !== 'undefined' && recentTags.includes(value) ? `
+                <span style="position:absolute; font-size: 8px;"
+                      class="badge rounded-pill bg-dark"
+                >
+                    <text style="font-size: 8px">Recent Tag</text>
+                </span>` : "";
 
-            if (recentTags.includes(`${button.textContent}`)) {
-                col.innerHTML += `${col.innerHTML}<span style="position:absolute; font-size: 8px;" class="badge rounded-pill bg-dark"><text style="font-size: 8px">Recent Tag</text></span>`
-            }
-            else if (speciesVotes.includes(`${button.textContent}`)) {
-                col.innerHTML += `${col.innerHTML}<span style="position:absolute; font-size: 8px;" class="badge rounded-pill bg-secondary"><text style="font-size: 8px">Has Vote In Image</text></span>`
-              }
+            let hasVoteBadge = (recentTagBadge == "" && speciesVotes.includes(value)) ? `
+                <span style="position:absolute; font-size: 8px;"
+                      class="badge rounded-pill bg-secondary"
+                >
+                      <text style="font-size: 8px">Has Vote In Image</text>
+                </span>` : "";
 
-            col.appendChild(button);
-            return col;
-          }
-          else {
-            return button;
-          }
-        }
+            let buttonHtml = `
+                <div class="${colClass}">
+                    <button class="btn ${selected} align-items-center m-1 btn-tag" data-tag="${value}">
+                        ${value}
+                    </button>
+                    ${recentTagBadge}
+                    ${hasVoteBadge}
+                </div>`;
 
-        let createStatusElement = function() {
-          // Create display element
-          let displayText = document.createElement('div');
-          displayText.className = 'selected-display-text pt-3';
-          // If a selection exists, display it else display a message
-
-          if (currentClassValue) {
-            if (currentUpdateStatus) {
-                displayText.innerHTML = `<em>Classified as <b> ${currentClassValue} </b></em>`;
-            }
-            else {
-                displayText.innerHTML = `<em>Classified as: <b> ${currentClassValue} </b><br/>Confidence: <b>${currentClassConfidence}</b></em>`;
-            }
-          } else {
-            displayText.innerHTML = "<em>Select the type of object and click save</em>";
-          }
-          return displayText;
+            return buttonHtml;
         }
 
         // Render the entire widget
-        let container = document.createElement('div');
-        if (categories.length > 5) {
-            container.className = 'category-widget m-2 p-2 row';
-        }
-        else {
-            container.className = 'category-widget m-2 p-2';
-        }
-
+        let buttonsHtml = "";
+        let birdsHtml = "";
         for (const category of categories) {
-            let categoryButton = createButton(category);
-
-            container.appendChild(categoryButton);
-
-            // Get button for recent tag for this bbox
-            if (typeof bboxes !== "undefined" && typeof recentTags !== "undefined") {
-                const index = bboxes.findIndex(bbox => bbox.id == args.annotation.id);
-
-                if (index != -1) {
-                    let tag = recentTags[index];
-
-                    if (category == tag) {
-                        categoryButton.setAttribute("id", "recent-tag-div");
-                    }
-                }
+            if (birdsList.includes(category.replace(" ", "").replace("\’", "").toLowerCase())) {
+                birdsHtml += createButton(category);
+            }
+            else {
+                buttonsHtml += createButton(category);
             }
         }
-        container.appendChild(createStatusElement())
+
+        let displayTextHtml = "";
+        if (currentClassValue) {
+            if (currentUpdateStatus) {
+                displayTextHtml = `<em>Classified as <b> ${currentClassValue} </b></em>`;
+            }
+            else {
+                displayTextHtml = `<em>Classified as: <b> ${currentClassValue} </b><br/>Confidence: <b>${currentClassConfidence}</b></em>`;
+            }
+        }
+        else {
+            displayTextHtml = "<em>Select the type of object and click save</em>";
+        }
+
+        const row = categories.length > 5 ? "row" : "";
+
+        let container = document.createElement("div");
+        container.innerHTML = `
+            <div class="accordion" id="birds-accordion">
+              <div class="accordion-item">
+                <h2 class="accordion-header" id="birds-header">
+                  <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#birds-collapse" aria-expanded="true" aria-controls="birds-collapse">
+                    Specify Bird Species (optional)
+                  </button>
+                </h2>
+                <div id="birds-collapse" class="accordion-collapse collapse" aria-labelledby="birds-collapse" data-bs-parent="#birds-accordion">
+                  <div id="birds-list" class="accordion-body m-2 p-2 row">
+                       ${birdsHtml}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="category-widget m-2 p-2 ${row}">
+                ${buttonsHtml}
+                <hr>
+                <div class="selected-display-text pt-3">
+                    ${displayTextHtml}
+                </div>
+            </div>`;
+
+        container.addEventListener('click', function (event) {
+            if (event.target.classList.contains('btn-tag')) {
+                addTag(event);
+            }
+        });
 
         return container;
-      }
+    }
 }
 
 

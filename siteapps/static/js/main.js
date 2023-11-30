@@ -48,27 +48,6 @@ function createCategoryWidget(categories, speciesVotes){
           // Add an event listener to update the class on click
           button.addEventListener('click', addTag);
 
-
-          button.addEventListener('click', function () {
-                // Focus the ok button if a selection is made.
-              const okButton = $('button.r6o-btn:contains("Ok")');
-              if (okButton.length) {
-                  okButton['0'].focus({preventScroll: true});
-              }
-
-              // Restart the observer when menu is closed (for handling recent tags auto-selection)
-              if (typeof observer !== "undefined") {
-                  okButton.on('click', function () {
-                      observer.observe(document, { attributes: false, childList: true, characterData: false, subtree: true });
-                  });
-
-                  const cancelButton = $('button.r6o-btn:contains("Cancel")');
-                  cancelButton.on('click', function () {
-                      observer.observe(document, { attributes: false, childList: true, characterData: false, subtree: true });
-                  });
-              }
-          });
-
           if(categories.length > 5){
             let col = document.createElement("div")
             col.className = 'col-3 p-0 m-0 d-flex';
@@ -319,13 +298,14 @@ function renderBoundingBoxPreviews(imageElementID, anno) {
             }
         )
 
-        // Right click hides the bbox
         innerRect.mousedown(function (event) {
             switch (event.which) {
+                // Right click hides the bbox
                 case 3:
                     hide();
                     appendToast(cleanedId, "hide", `<kbd><i class="bi bi-eye-slash"></i>&nbsp;(<i class="bi bi-mouse"> RIGHTCLICK</i>)</kbd>&nbsp;&nbsp;Hid box '${annotationText}.'</i>`)
                     break;
+
             }
         })
 

@@ -694,7 +694,7 @@
                 }
             })
 
-            let ClassSelectorWidget = createCategoryWidget(categories, speciesVotes);
+            let ClassSelectorWidget = createCategoryWidget(categories, speciesVotes, "{{ pipeline }}");
 
             anno = renderBoundingBoxes("{{image.id}}", bboxes = bboxes, widgets = [ClassSelectorWidget]);
 

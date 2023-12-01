@@ -1,7 +1,7 @@
 // Widget for category selection
 // Modified example from here - https://recogito.github.io/guides/editor-widgets/
 // This is a second order function that takes a list of categories and returns a category selection widget
-function createCategoryWidget(categories, speciesVotes){
+function createCategoryWidget(categories, speciesVotes, pipeline){
     return function(args) {
         // 1. Find the current class in the annotation, if any
         let currentClassBody = args.annotation ?
@@ -95,8 +95,8 @@ function createCategoryWidget(categories, speciesVotes){
         const row = categories.length > 5 ? "row" : "";
 
         let container = document.createElement("div");
-        container.innerHTML = `
-            <div class="accordion" id="birds-accordion">
+
+        birdsSectionHtml = pipeline == "species" ? `<div class="accordion" id="birds-accordion">
               <div class="accordion-item">
                 <h2 class="accordion-header" id="birds-header">
                   <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#birds-collapse" aria-expanded="false" aria-controls="birds-collapse">
@@ -109,7 +109,10 @@ function createCategoryWidget(categories, speciesVotes){
                   </div>
                 </div>
               </div>
-            </div>
+            </div>` : "";
+
+        container.innerHTML = `
+            ${birdsSectionHtml}
             <div class="category-widget m-2 p-2 ${row}">
                 ${buttonsHtml}
                 <hr class="mt-2">

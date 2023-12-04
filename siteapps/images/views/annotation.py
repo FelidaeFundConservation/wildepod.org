@@ -171,6 +171,17 @@ def get_or_set_annotation_count(request, queue_name, annotator, annotation_num=0
     return count
 
 
+def staff_review_query_filter(images, annotator):
+    if annotator.human.is_staff:
+        # Show images needing review first
+        images = images.order_by("-staff_review_needed")
+    else:
+        # Image hasn't been marked for staff review
+        images = images.filter(staff_review_needed=False)
+
+    return images
+
+
 # Filter criteria for an image to appear in the Object/Blank pipeline
 def object_pipeline_query(images, annotator):
     images = images.filter(
@@ -231,9 +242,9 @@ def object_pipeline_query(images, annotator):
         category_pipeline_complete=False,
         # Image has been preprocessed and we can use precomputed flags
         use_precomputed_flags=True,
-        # Image isn't flagged for staff
-        staff_review_needed=False,
     ).order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
+
+    images = staff_review_query_filter(images, annotator)
 
     return images
 
@@ -249,9 +260,9 @@ def species_pipeline_query(images, annotator):
         has_animals=True,
         # Image has been preprocessed and we can use precomputed flags
         use_precomputed_flags=True,
-        # Image isn't flagged for staff
-        staff_review_needed=False,
     ).order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
+
+    images = staff_review_query_filter(images, annotator)
 
     return images
 
@@ -265,8 +276,6 @@ def activity_pipeline_query(images, annotator, activity_category):
         activity_pipeline_complete=False,
         # Image has been preprocessed and we can use precomputed flags
         use_precomputed_flags=True,
-        # Image isn't flagged for staff
-        staff_review_needed=False,
     )
 
     # Filter for animals or humans based on the category passed into the view
@@ -276,6 +285,8 @@ def activity_pipeline_query(images, annotator, activity_category):
         images = images.filter(has_wild_animals=True)
 
     images = images.order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
+
+    images = staff_review_query_filter(images, annotator)
 
     return images
 

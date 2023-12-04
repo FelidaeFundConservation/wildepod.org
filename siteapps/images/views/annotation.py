@@ -231,6 +231,8 @@ def object_pipeline_query(images, annotator):
         category_pipeline_complete=False,
         # Image has been preprocessed and we can use precomputed flags
         use_precomputed_flags=True,
+        # Image isn't flagged for staff
+        staff_review_needed=False,
     ).order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
 
     return images
@@ -247,6 +249,8 @@ def species_pipeline_query(images, annotator):
         has_animals=True,
         # Image has been preprocessed and we can use precomputed flags
         use_precomputed_flags=True,
+        # Image isn't flagged for staff
+        staff_review_needed=False,
     ).order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
 
     return images
@@ -261,6 +265,8 @@ def activity_pipeline_query(images, annotator, activity_category):
         activity_pipeline_complete=False,
         # Image has been preprocessed and we can use precomputed flags
         use_precomputed_flags=True,
+        # Image isn't flagged for staff
+        staff_review_needed=False,
     )
 
     # Filter for animals or humans based on the category passed into the view
@@ -351,6 +357,11 @@ def skip_ineligible_images(queue_name, queue):
         elif not pipeline_eligible:
             queue["index"] += 1
             logging.info(f"Queue image {image.id} was made ineligible by another annotator. Skipping to next image.")
+        elif auto_flag_for_staff(image):
+            queue["index"] += 1
+            logging.info(
+                f"Queue image {image.id} skipped by many annotators. Flagging for staff and skipping to next image."
+            )
 
     settings.DATASTORE_CLIENT.put(queue)
 
@@ -473,6 +484,23 @@ def populate_view_context(queue_name, context, self, activity_category=None):
     context["species_list"] = SpeciesName.objects.filter(~Q(name=UNANNOTATED_CATEGORY))
     context["activity_list"] = ActivityType.objects.filter(category=activity_category)
     context["custom_annotations"] = custom_annotations
+
+
+def auto_flag_for_staff(image):
+    AUTO_REVIEW_FLAG_THRESHOLD = 2
+
+    if (
+        image.bbox_skipped_by.count() > AUTO_REVIEW_FLAG_THRESHOLD
+        or image.species_skipped_by.count() > AUTO_REVIEW_FLAG_THRESHOLD
+        or image.activity_skipped_by.count() > AUTO_REVIEW_FLAG_THRESHOLD
+    ):
+        image.staff_review_needed = True
+        image.save()
+        logging.info(f"Image {image.id} autoflagged for staff review due to many annotators skipping.")
+
+        return True
+    else:
+        return False
 
 
 # Filter out the rejected bboxes
@@ -716,6 +744,10 @@ def annotation_processor(queue_name, annotation_type, request):
         logging.info(
             f"{annotation_description} annotations for image '{image_id}' was skipped by user - '{request.user.name}'"
         )
+
+        # Flag image for review if many annotators have skipped
+        image = Image.objects.get(id=image_id)
+        auto_flag_for_staff(image)
 
     # If success, update image index in the datastore
     if success:

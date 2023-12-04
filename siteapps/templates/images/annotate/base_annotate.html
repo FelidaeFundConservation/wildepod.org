@@ -10,8 +10,14 @@
           rel="stylesheet" />
 {% endblock header_includes %}
 {% block content %}
-    {% block depreciation_notice %}
-    {% endblock depreciation_notice %}
+    {% block notice %}
+        {% if image.staff_review_needed %}
+            <div class="alert alert-warning" role="alert">
+                <i class="bi bi-info-circle"></i>&nbsp;&nbsp;
+                Staff review has been requested for this image.&nbsp;&nbsp;&nbsp;&nbsp;
+            </div>
+        {% endif %}
+    {% endblock notice %}
     {% block missing_annotations_element %}
     {% endblock missing_annotations_element %}
     <div class="row py-3 justify-content-center d-none" id="status-success">

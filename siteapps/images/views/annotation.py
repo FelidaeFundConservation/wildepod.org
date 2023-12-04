@@ -784,9 +784,16 @@ def annotation_processor(queue_name, annotation_type, request):
         # Update the datastore
         settings.DATASTORE_CLIENT.put(queue)
 
-        # Update the cached annotation count
         if not skip:
             annotator, created = Annotator.objects.get_or_create(type="human", human=request.user)
+
+            # Unflag if checked by staff
+            if annotator.human.is_staff:
+                logging.info(f"Image {image.id} checked by staff. Resetting review flag.")
+                image.staff_review_needed = False
+                image.save()
+
+            # Update the cached annotation count
             count = len(annotations)
 
             get_or_set_annotation_count(

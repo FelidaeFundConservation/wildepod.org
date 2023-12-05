@@ -1,11 +1,10 @@
 import logging
-import random
 from io import BytesIO
 
 import requests
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
-from django.db.models import Q
+from django.db.models import Count, Q
 from images.models import Image, Species, SpeciesName
 from PIL import Image as PILImage
 
@@ -15,26 +14,29 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         try:
-            IMAGE_COUNT = 1000
             PATH = "./siteapps/images/management/commands/export/"
 
-            logging.info(f"Gathering data from {IMAGE_COUNT} images...")
+            logging.info(f"Gathering data from images...")
 
             speciesname_list = SpeciesName.objects.all()
 
             images = []
 
             for name in speciesname_list:
-                name_results = list(
+                name_results = (
                     Image.objects.filter(
-                        Q(has_wild_animals=True)
-                        | Q(species_checked_by__human__is_staff=True)
-                        | Q(species_checked_by__human__is_expert=True),
+                        # Q(has_wild_animals=True)
+                        # | Q(species_checked_by__human__is_staff=True)
+                        # | Q(species_checked_by__human__is_expert=True),
                         boundingbox__species__name__id=name.id,
-                    ).distinct()[:IMAGE_COUNT]
+                    )
+                    .distinct()
+                    .order_by("?")
                 )
-                images += name_results
-                print(f"Got {len(name_results)} images for class {name.name}.")
+
+                images += list(name_results)
+                print(f"Got {name_results.count()} images for class {name.name}.")
+                # print(f"Current total of {images.count()}.")
 
             with open(f"{PATH}config.yaml", "w+") as file:
                 classes = list(SpeciesName.objects.all())
@@ -64,13 +66,18 @@ class Command(BaseCommand):
 
                 file.writelines(lines)
 
-            input("Do you want to retrieve this data? [ENTER]")
-
-            random.shuffle(images)
             split_index = int(len(images) * 0.7)
+
+            print(f"Total images: {len(images)}")
+            print(f"Split index: {split_index}")
 
             training = images[:split_index]
             validation = images[split_index:]
+
+            print(f"Training: {len(training)}")
+            print(f"Validation: {len(validation)}")
+
+            input("Do you want to retrieve this data? [ENTER]")
 
             def get_data(images, directory):
                 length = len(images)

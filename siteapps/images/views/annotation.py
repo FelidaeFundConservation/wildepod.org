@@ -171,6 +171,17 @@ def get_or_set_annotation_count(request, queue_name, annotator, annotation_num=0
     return count
 
 
+def staff_review_query_filter(images, annotator):
+    if annotator.human.is_staff:
+        # Show images needing review first
+        images = images.order_by("-staff_review_needed")
+    else:
+        # Image hasn't been marked for staff review
+        images = images.filter(staff_review_needed=False)
+
+    return images
+
+
 # Filter criteria for an image to appear in the Object/Blank pipeline
 def object_pipeline_query(images, annotator):
     images = images.filter(
@@ -233,6 +244,8 @@ def object_pipeline_query(images, annotator):
         use_precomputed_flags=True,
     ).order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
 
+    images = staff_review_query_filter(images, annotator)
+
     return images
 
 
@@ -248,6 +261,8 @@ def species_pipeline_query(images, annotator):
         # Image has been preprocessed and we can use precomputed flags
         use_precomputed_flags=True,
     ).order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
+
+    images = staff_review_query_filter(images, annotator)
 
     return images
 
@@ -270,6 +285,8 @@ def activity_pipeline_query(images, annotator, activity_category):
         images = images.filter(has_wild_animals=True)
 
     images = images.order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
+
+    images = staff_review_query_filter(images, annotator)
 
     return images
 
@@ -351,6 +368,11 @@ def skip_ineligible_images(queue_name, queue):
         elif not pipeline_eligible:
             queue["index"] += 1
             logging.info(f"Queue image {image.id} was made ineligible by another annotator. Skipping to next image.")
+        elif auto_flag_for_staff(image):
+            queue["index"] += 1
+            logging.info(
+                f"Queue image {image.id} skipped by many annotators. Flagging for staff and skipping to next image."
+            )
 
     settings.DATASTORE_CLIENT.put(queue)
 
@@ -483,6 +505,23 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         context["pipeline"] = "animal activity"
     elif ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
         context["pipeline"] = "human activity"
+
+
+def auto_flag_for_staff(image):
+    AUTO_REVIEW_FLAG_THRESHOLD = 2
+
+    if (
+        image.bbox_skipped_by.count() > AUTO_REVIEW_FLAG_THRESHOLD
+        or image.species_skipped_by.count() > AUTO_REVIEW_FLAG_THRESHOLD
+        or image.activity_skipped_by.count() > AUTO_REVIEW_FLAG_THRESHOLD
+    ):
+        image.staff_review_needed = True
+        image.save()
+        logging.info(f"Image {image.id} autoflagged for staff review due to many annotators skipping.")
+
+        return True
+    else:
+        return False
 
 
 # Filter out the rejected bboxes
@@ -727,6 +766,10 @@ def annotation_processor(queue_name, annotation_type, request):
             f"{annotation_description} annotations for image '{image_id}' was skipped by user - '{request.user.name}'"
         )
 
+        # Flag image for review if many annotators have skipped
+        image = Image.objects.get(id=image_id)
+        auto_flag_for_staff(image)
+
     # If success, update image index in the datastore
     if success:
         # Calculate and set the flags
@@ -751,9 +794,16 @@ def annotation_processor(queue_name, annotation_type, request):
         # Update the datastore
         settings.DATASTORE_CLIENT.put(queue)
 
-        # Update the cached annotation count
         if not skip:
             annotator, created = Annotator.objects.get_or_create(type="human", human=request.user)
+
+            # Unflag if checked by staff
+            if annotator.human.is_staff:
+                logging.info(f"Image {image.id} checked by staff. Resetting review flag.")
+                image.staff_review_needed = False
+                image.save()
+
+            # Update the cached annotation count
             count = len(annotations)
 
             get_or_set_annotation_count(

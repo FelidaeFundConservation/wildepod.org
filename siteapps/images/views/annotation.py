@@ -471,8 +471,18 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         context["bounding_boxes"] = []
 
     context["species_list"] = SpeciesName.objects.filter(~Q(name=UNANNOTATED_CATEGORY))
+    context["birds_list"] = SpeciesName.objects.filter(is_bird=True)
     context["activity_list"] = ActivityType.objects.filter(category=activity_category)
     context["custom_annotations"] = custom_annotations
+
+    if OBJECTS_QUEUE_NAME in queue_name:
+        context["pipeline"] = "blanks"
+    elif SPECIES_QUEUE_NAME in queue_name:
+        context["pipeline"] = "species"
+    elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name:
+        context["pipeline"] = "animal activity"
+    elif ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
+        context["pipeline"] = "human activity"
 
 
 # Filter out the rejected bboxes

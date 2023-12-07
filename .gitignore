@@ -4,6 +4,9 @@ media/
 staticfiles/
 siteapps/static/css/main.css.map
 .ipynb_checkpoints/
+siteapps/images/management/commands/export/datasets
+siteapps/images/management/commands/export/runs
+siteapps/images/management/commands/export/yolov8n.pt
 db.sqlite3
 db.sqlite3-journal
 

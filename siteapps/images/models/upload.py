@@ -35,6 +35,8 @@ class TimeCorrection(TimeStampedModel):
     hours = models.IntegerField(default=0)
     minutes = models.IntegerField(default=0)
 
+    daylight_savings = models.DateTimeField(null=True)
+
 
 # Model to log upload events.
 class Upload(TimeStampedModel):

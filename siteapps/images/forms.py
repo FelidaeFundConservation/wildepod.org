@@ -1,6 +1,6 @@
 from crispy_forms.bootstrap import StrictButton
 from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Button, Column, Layout, Row, Submit
+from crispy_forms.layout import HTML, Button, Column, Layout, Row, Submit
 from django import forms
 from locations.models import CameraStation, MacroSite
 
@@ -13,16 +13,27 @@ class UploadForm(forms.ModelForm):
         widget=forms.widgets.SplitDateTimeWidget(date_attrs={"type": "date"}, time_attrs={"type": "time"}),
     )
 
-    time_correction_years = forms.IntegerField(required=False)
+    time_correction_years = forms.IntegerField(required=False, help_text="Make sure these values are correct.")
     time_correction_months = forms.IntegerField(required=False)
     time_correction_days = forms.IntegerField(required=False)
     time_correction_hours = forms.IntegerField(required=False)
     time_correction_minutes = forms.IntegerField(required=False)
 
+    daylight_savings_correction = forms.DateField(
+        widget=forms.TextInput(attrs={"type": "date"}),
+        required=False,
+        help_text="If there was a daylight savings shift, specify the day the shift occurred (2nd Sunday of March or 1st Sunday of November)",
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.layout = Layout(
+            Row(
+                HTML("<h5>Information</h5>"),
+                HTML("<text class='small'>Enter metadata for the upload set.</text>"),
+                css_class="form-row mb-4 px-3",
+            ),
             Row(
                 Column("camera_station", css_class="form-group"),
                 css_class="form-row mb-3 px-3",
@@ -33,6 +44,15 @@ class UploadForm(forms.ModelForm):
                 Column("last_action", css_class="form-group col-md-4"),
                 css_class="form-row mb-3 px-3",
             ),
+            Row(Column("comments", css_class="form-group"), css_class="form-row mb-3 px-3"),
+            Row(
+                HTML("<hr>"),
+                HTML("<h5>Time Errors</h5>"),
+                HTML(
+                    "<text class='small'>If the camera's image timestamps are off, enter the adjustments needed to correct them. Not required if there's no errors.</text>"
+                ),
+                css_class="form-row mb-4 px-3",
+            ),
             Row(
                 Column("time_correction_years", css_class="form-group"),
                 Column("time_correction_months", css_class="form-group"),
@@ -41,12 +61,15 @@ class UploadForm(forms.ModelForm):
                 Column("time_correction_minutes", css_class="form-group"),
                 css_class="form-row mb-3 px-3",
             ),
-            Row(Column("comments", css_class="form-group"), css_class="form-row mb-3 px-3"),
+            Row(
+                Column("daylight_savings_correction", css_class="form-group"),
+                css_class="form-row mb-3 px-3",
+            ),
             Row(
                 Column(
-                    Submit("submit", "Submit", css_class="btn-primary"),
+                    Submit("submit", "Create Upload", css_class="btn-primary"),
                 ),
-                css_class="form-row text-center",
+                css_class="form-row text-center mb-3",
             ),
         )
         self.helper.form_show_errors = True

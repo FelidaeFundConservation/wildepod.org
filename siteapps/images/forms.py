@@ -13,25 +13,35 @@ class UploadForm(forms.ModelForm):
         widget=forms.widgets.SplitDateTimeWidget(date_attrs={"type": "date"}, time_attrs={"type": "time"}),
     )
 
+    time_correction_years = forms.IntegerField(required=False)
+    time_correction_months = forms.IntegerField(required=False)
+    time_correction_days = forms.IntegerField(required=False)
+    time_correction_hours = forms.IntegerField(required=False)
+    time_correction_minutes = forms.IntegerField(required=False)
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.layout = Layout(
             Row(
                 Column("camera_station", css_class="form-group"),
-                css_class="form-row mb-3",
+                css_class="form-row mb-3 px-3",
             ),
             Row(
                 Column("volunteer", css_class="form-group col-md-4"),
                 Column("date_retrieved", css_class="form-group col-md-4"),
                 Column("last_action", css_class="form-group col-md-4"),
-                css_class="form-row mb-3",
+                css_class="form-row mb-3 px-3",
             ),
             Row(
-                Column("time_error_details", css_class="form-group"), 
-                Column("comments", css_class="form-group"),
-                css_class="form-row mb-3"
+                Column("time_correction_years", css_class="form-group"),
+                Column("time_correction_months", css_class="form-group"),
+                Column("time_correction_days", css_class="form-group"),
+                Column("time_correction_hours", css_class="form-group"),
+                Column("time_correction_minutes", css_class="form-group"),
+                css_class="form-row mb-3 px-3",
             ),
+            Row(Column("comments", css_class="form-group"), css_class="form-row mb-3 px-3"),
             Row(
                 Column(
                     Submit("submit", "Submit", css_class="btn-primary"),
@@ -44,12 +54,12 @@ class UploadForm(forms.ModelForm):
     class Meta:
         model = Upload
         date_retrieved = forms.SplitDateTimeField()
+
         fields = [
             "camera_station",
             "date_retrieved",
             "volunteer",
             "last_action",
-            "time_error_details",
             "comments",
         ]
 
@@ -148,7 +158,9 @@ class AnnotationForm(forms.Form):
         ("blank", "Annotate Blanks"),
     ]
 
-    annotation_choices = forms.ChoiceField(choices=criteria, widget=forms.RadioSelect, label="Annotation Criteria", initial="blank")
+    annotation_choices = forms.ChoiceField(
+        choices=criteria, widget=forms.RadioSelect, label="Annotation Criteria", initial="blank"
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

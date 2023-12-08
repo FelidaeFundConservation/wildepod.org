@@ -14,7 +14,7 @@ from django.urls import reverse
 from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
 from django.views.generic.base import TemplateView, View
 from images.forms import UploadCompleteForm, UploadForm
-from images.models import Annotator, BoundingBox, Image, Upload
+from images.models import Annotator, BoundingBox, Image, TimeCorrection, Upload
 from images.processors import process_upload
 from images.processors.upload import get_dropbox_item_count
 from locations.models import CameraStation, MacroSite, MicroSite
@@ -30,6 +30,24 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
     form_class = UploadForm
     login_url = settings.LOGIN_URL
     template_name = "images/upload/create.html"
+
+    def form_valid(self, form):
+        upload = form.save(commit=False)
+
+        time_correction, created = TimeCorrection.objects.get_or_create(upload__id=upload.id)
+
+        time_correction.years = self.request.POST.get("time_correction_years") or 0
+        time_correction.months = self.request.POST.get("time_correction_months") or 0
+        time_correction.days = self.request.POST.get("time_correction_days") or 0
+        time_correction.hours = self.request.POST.get("time_correction_hours") or 0
+        time_correction.minutes = self.request.POST.get("time_correction_minutes") or 0
+
+        time_correction.save()
+
+        upload.time_correction = time_correction
+        upload.save()
+
+        return super(UploadCreateView, self).form_valid(form)
 
     def get_success_url(self):
         return reverse("images:complete_upload", args=(self.object.id,))

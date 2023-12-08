@@ -172,7 +172,7 @@ def get_or_set_annotation_count(request, queue_name, annotator, annotation_num=0
 
 
 def staff_review_query_filter(images, annotator):
-    if annotator.human.is_staff:
+    if annotator and annotator.human.is_staff:
         # Show images needing review first
         images = images.order_by("-staff_review_needed")
     else:

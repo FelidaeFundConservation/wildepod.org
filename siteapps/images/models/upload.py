@@ -29,13 +29,18 @@ class CameraStationAction(TimeStampedModel):
 
 
 class TimeCorrection(TimeStampedModel):
+    # The time to offset the upload images' timestamps
     years = models.IntegerField(default=0)
     months = models.IntegerField(default=0)
     days = models.IntegerField(default=0)
     hours = models.IntegerField(default=0)
     minutes = models.IntegerField(default=0)
 
-    daylight_savings = models.DateTimeField(null=True)
+    # The date of the daylight savings shift the upload crossed
+    daylight_savings = models.DateField(null=True)
+
+    # When the time fix transformation was applied, if it has been already
+    applied_at = models.DateTimeField(null=True)
 
 
 # Model to log upload events.

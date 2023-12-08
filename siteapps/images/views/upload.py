@@ -32,20 +32,35 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
     template_name = "images/upload/create.html"
 
     def form_valid(self, form):
+        years = self.request.POST.get("time_correction_years") or 0
+        months = self.request.POST.get("time_correction_months") or 0
+        days = self.request.POST.get("time_correction_days") or 0
+        hours = self.request.POST.get("time_correction_hours") or 0
+        minutes = self.request.POST.get("time_correction_minutes") or 0
+
+        daylight_savings = self.request.POST.get("daylight_savings_correction") or None
+
         upload = form.save(commit=False)
 
-        time_correction, created = TimeCorrection.objects.get_or_create(upload__id=upload.id)
+        if not (years == months == days == hours == minutes == 0 and daylight_savings is None):
+            time_correction, created = TimeCorrection.objects.get_or_create(upload__id=upload.id)
 
-        time_correction.years = self.request.POST.get("time_correction_years") or 0
-        time_correction.months = self.request.POST.get("time_correction_months") or 0
-        time_correction.days = self.request.POST.get("time_correction_days") or 0
-        time_correction.hours = self.request.POST.get("time_correction_hours") or 0
-        time_correction.minutes = self.request.POST.get("time_correction_minutes") or 0
+            time_correction.years = years
+            time_correction.months = months
+            time_correction.days = days
+            time_correction.hours = hours
+            time_correction.minutes = minutes
 
-        time_correction.save()
+            time_correction.daylight_savings = daylight_savings
 
-        upload.time_correction = time_correction
-        upload.save()
+            time_correction.save()
+
+            upload.time_correction = time_correction
+            upload.save()
+
+            logging.info(f"Saved time correction information  for upload {upload.id}.")
+        else:
+            logging.info(f"No time correction information entered for upload {upload.id}.")
 
         return super(UploadCreateView, self).form_valid(form)
 
@@ -287,13 +302,9 @@ class FixUploadSetsView(StaffuserRequiredMixin, ListView):
         context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
         if self.request.user.is_staff or self.request.user.is_superuser:
             # Replace the blank strings in time error details
-            blank_time_errors = Upload.objects.filter(time_error_details="")
-            if blank_time_errors.exists():
-                for upload in blank_time_errors:
-                    upload.time_error_details = None
+            context["uploads"] = Upload.objects.filter(~Q(time_correction=None))
+            context["num_uploads"] = context["uploads"].count()
 
-            context["num_uploads"] = Upload.objects.all().count()
-            context["uploads"] = Upload.objects.all()
             context["first_timestamps"] = [
                 upload.images.first().trigger_timestamp if upload.images.first() else None
                 for upload in context["uploads"]

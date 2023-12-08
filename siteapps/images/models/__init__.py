@@ -2,4 +2,4 @@ from .annotation import Activity, ActivityType, AnnotationCounter, BoundingBox, 
 from .annotator import Annotator, Bot
 from .image import Image
 from .raw_sql import *
-from .upload import CameraStationAction, Upload
+from .upload import CameraStationAction, TimeCorrection, Upload

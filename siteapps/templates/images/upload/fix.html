@@ -160,7 +160,9 @@
                     {% for object, first_timestamp in zipped_data %}
                         <tr>
                             <td>
-                                <input type="checkbox" data-upload="{{ object.id }}">
+                                <a href="{% url 'images:create_time_correction' object.id %}">
+                                    <button type="button" class="btn btn-light">Create</button>
+                                </a>
                             </td>
                             <td>{{ object.camera_station.station_id }}</td>
                             <td>{{ object.camera_station.micro_site }}</td>

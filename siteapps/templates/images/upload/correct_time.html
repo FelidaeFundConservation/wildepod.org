@@ -1,0 +1,173 @@
+﻿{% extends '_base.html' %}
+{% load crispy_forms_tags %}
+{% block title %}Time Correction |{% endblock %}
+<!-- Set corresponding nav pill to active -->
+{% block nav_upload %}
+    active
+{% endblock nav_upload %}
+{% block header_includes %}
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+          rel="stylesheet" />
+{% endblock header_includes %}
+{% block content %}
+    <div class="container pt-2 mt-2 mt-md-4 bg-white rounded">
+        {% if form.errors %}
+            <div class="alert alert-danger" role="alert">Server error! Please try again or contact admin.</div>
+        {% endif %}
+        <div class="row pt-2 pt-md-4">
+            <div class='col-2 col-md-2 offset-1 offset-md-3'>
+                <hr />
+            </div>
+            <div class='col-6 col-md-2 '>
+                <h2 class="text-center">Correct</h2>
+            </div>
+            <div class='col-2 col-md-2'>
+                <hr />
+            </div>
+        </div>
+        <div class="row text-center">
+            <small><a href="{% url 'images:fix_upload_sets' %}"
+   class="text-decoration-none">⬅ back</a></small>
+        </div>
+        <div class="row mt-4 mb-5">
+            <form method="post">
+                {% crispy form %}
+            </form>
+        </div>
+    </div>
+    <div class="container pt-2 mt-2 mt-md-4 bg-white rounded p-4">
+        <h1 class="my-3">
+            Preview Fixes <span class="spinner-border" role="status"></span>
+        </h1>
+        <table id="preview-fixes">
+            <thead>
+                <tr>
+                    <th>Image ID</th>
+                    <th>Old Timestamp</th>
+                    <th>New Timestamp</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for image in images %}
+                    <tr>
+                        <td>{{ image.id }}</td>
+                        <td>{{ image.trigger_time }}</td>
+                        <td id="preview-{{ image.id }}">{{ image.new_time }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="page-background h-100 mt-5"></div>
+{% endblock content %}
+{% block footer_includes %}
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.10.0/css/bootstrap-datepicker.min.css"
+          integrity="sha512-34s5cpvaNG3BknEWSuOncX28vz97bRI59UnVtEEpFX536A7BtZSJHsDyFoCl8S7Dt2TPzcrCEoHBGeM4SUBDBw=="
+          crossorigin="anonymous"
+          referrerpolicy="no-referrer" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.10.0/js/bootstrap-datepicker.min.js"
+            integrity="sha512-LsnSViqQyaXpD4mBBdRYeP6sRwJiJveh2ZIbW41EBrNmKxgr/LFZIiWT6yr+nycvhvauz8c2nYMhrP80YhG7Cw=="
+            crossorigin="anonymous"
+            referrerpolicy="no-referrer"></script>
+    <script>
+        $(`.spinner-border`).hide();
+
+        $(`[name="daylight_savings"]`).datepicker( {
+            format: "mm-yyyy",
+            startView: "months",
+            minViewMode: "months",
+        });
+
+        $('#preview-fixes').dataTable( {
+          "pageLength": 25,
+          "ordering": false,
+        });
+
+        let images = [
+            {% for image in images %}"{{ image.id }}",{% endfor %}
+        ]
+
+        function previewTimestamps() {
+            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+            let data = {
+                'csrfmiddlewaretoken': csrftoken,
+                'images': JSON.stringify(images),
+                'years': $(`[name="years"]`).val(),
+                'months': $(`[name="months"]`).val(),
+                'days': $(`[name="days"]`).val(),
+                'hours': $(`[name="hours"]`).val(),
+                'minutes': $(`[name="minutes"]`).val(),
+                'startDate': $(`[name="start_date"]`).val(),
+                'endDate': $(`[name="end_date"]`).val(),
+                'daylightSavings': $(`[name="daylight_savings"]`).val(),
+            }
+
+            $(`.spinner-border`).show();
+
+            return new Promise(function (resolve, reject) {
+                $.ajax({
+                    url: `{% url 'images:preview_time_corrections'%}`,
+                    method: 'POST',
+                    data: data,
+                    dataType: 'json',
+                    success: function (data) {
+                        if (data.success) {
+                            populateNewTimes(data.previewInfo)
+                            resolve(data.previewInfo);
+                        } else {
+                            reject(-1)
+                        }
+                        $(`.spinner-border`).hide();
+                    },
+                    error: function () {
+                        reject(-1);
+                    }
+                });
+            });
+        }
+
+        $(`[name="years"]`).on("change", previewTimestamps);
+        $(`[name="months"]`).on("change", previewTimestamps);
+        $(`[name="days"]`).on("change", previewTimestamps);
+        $(`[name="hours"]`).on("change", previewTimestamps);
+        $(`[name="minutes"]`).on("change", previewTimestamps);
+        $(`[name="start_date"]`).on("change", previewTimestamps);
+        $(`[name="end_date"]`).on("change", previewTimestamps);
+        $(`[name="daylight_savings"]`).on("change", previewTimestamps);
+
+        function populateNewTimes(data) {
+            for (info of data) {
+                let element = $(`#preview-${info["id"]}`);
+
+                let date = new Date(info["newTimestamp"]);
+
+                let year = date.getFullYear();
+                let month = date.toLocaleString('default', { month: 'long' }).slice(0, 3);
+                let day = date.getDate();
+                let hour = date.getHours();
+
+                let time = "a.m.";
+
+                if (hour > 11) {
+                    hour = hour - 12;
+                    time = "p.m";
+                }
+                if (hour == 0) {
+                    hour = 12;
+                }
+
+
+                let minutes = date.getMinutes();
+                minutes = minutes < 10 ? `0${minutes}` : minutes
+
+                let dateString = `${month}. ${day}, ${year}, ${hour}:${minutes} ${time}`;
+
+                element.html(`<b>${dateString}</b>`);
+                element.css("color", info["color"]);
+            }
+        }
+    </script>
+{% endblock footer_includes %}

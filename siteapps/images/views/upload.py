@@ -1,8 +1,12 @@
+import calendar
 import json
 import logging
 import threading
+from datetime import datetime
 
+import pytz
 from braces.views import StaffuserRequiredMixin
+from dateutil.relativedelta import relativedelta
 from django import forms
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -13,7 +17,7 @@ from django.http.response import JsonResponse
 from django.urls import reverse
 from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
 from django.views.generic.base import TemplateView, View
-from images.forms import UploadCompleteForm, UploadForm
+from images.forms import TimeCorrectionForm, UploadCompleteForm, UploadForm
 from images.models import Annotator, BoundingBox, Image, TimeCorrection, Upload
 from images.processors import process_upload
 from images.processors.upload import get_dropbox_item_count
@@ -291,6 +295,126 @@ class UploadResumeProcessingView(LoginRequiredMixin, View):
         return JsonResponse({"success": True})
 
 
+class TimeCorrectionCreateView(LoginRequiredMixin, CreateView):
+    model = TimeCorrection
+    form_class = TimeCorrectionForm
+    login_url = settings.LOGIN_URL
+    template_name = "images/upload/correct_time.html"
+
+    def form_valid(self, form):
+        upload = Upload.objects.get(id=self.kwargs.get("pk"))
+        time_correction = form.save(commit=True)
+        upload.time_correction = time_correction
+        upload.save()
+        logging.info(f"Successfully created and set time correction for upload {upload.id}")
+
+        return super(TimeCorrectionCreateView, self).form_valid(form)
+
+    def get_success_url(self):
+        return reverse("images:apply_correction", args=(self.kwargs.get("pk"),))
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        upload_obj = Upload.objects.get(id=self.kwargs.get("pk"))
+        MAX_RESULTS = 20
+        image_list = []
+
+        total_images = upload_obj.images.all().count()
+        step_value = max(1, total_images // MAX_RESULTS)
+
+        for image in upload_obj.images.all()[::step_value]:
+            image_list.append({"id": image.id, "trigger_time": image.trigger_timestamp, "new_time": None})
+
+        context["images"] = image_list
+
+        return context
+
+
+class PreviewTimeCorrectionsView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        success = True
+
+        image_ids = json.loads(request.POST.get("images"))
+
+        # Get form entries
+        years = int(request.POST.get("years"))
+        months = int(request.POST.get("months"))
+        days = int(request.POST.get("days"))
+        hours = int(request.POST.get("hours"))
+        minutes = int(request.POST.get("minutes"))
+
+        start_date = request.POST.get("startDate")
+        end_date = request.POST.get("endDate")
+
+        daylight_savings = request.POST.get("daylightSavings")
+        daylight_savings_datetime = None
+
+        date_format = "%Y-%m-%dT%H:%M"
+        kwargs = {}
+
+        # Convert strings to datetime objects
+        if start_date and not start_date == "":
+            start_date = datetime.strptime(start_date, date_format)
+            kwargs["trigger_timestamp__gte"] = start_date
+
+        if end_date and not end_date == "":
+            end_date = datetime.strptime(end_date, date_format)
+            kwargs["trigger_timestamp__lt"] = end_date
+
+        if daylight_savings and not daylight_savings == "":
+            # Calculate the 2nd Sunday of the month
+            daylight_savings_month, year = daylight_savings.split("-")
+
+            if daylight_savings_month == "3" or daylight_savings_month == "11":
+                first_day_of_month = calendar.weekday(year=int(year), month=int(daylight_savings_month), day=1)
+
+                days_to_first_sunday = (6 - first_day_of_month + 1) % 7
+
+                second_sunday_date = days_to_first_sunday + 7
+
+                daylight_savings_datetime = datetime(
+                    year=int(year), month=int(daylight_savings_month), day=second_sunday_date, hour=2
+                )
+            else:
+                logging.error("Invalid daylight saving months selected in time correction form.")
+
+        new_timestamps = []
+
+        for image_id in image_ids:
+            preview_info = {}
+            preview_info["id"] = image_id
+            preview_info["color"] = ""
+
+            timestamp = Image.objects.get(id=image_id).trigger_timestamp
+            preview_info["newTimestamp"] = timestamp
+
+            # Only shift time if it's in the timerange specified
+            if Image.objects.filter(id=image_id, **kwargs).exists():
+                new_timestamp = timestamp + relativedelta(
+                    years=years, months=months, days=days, hours=hours, minutes=minutes
+                )
+
+            # Apply daylight savings shift
+            if daylight_savings_datetime:
+                if new_timestamp.replace(tzinfo=pytz.UTC) >= daylight_savings_datetime.replace(tzinfo=pytz.UTC):
+                    if daylight_savings_month == "3":
+                        new_timestamp = timestamp + relativedelta(hours=1)
+                    elif daylight_savings_month == "11":
+                        new_timestamp = timestamp + relativedelta(hours=-1)
+
+            preview_info["newTimestamp"] = new_timestamp
+
+            if new_timestamp > timestamp:
+                preview_info["color"] = "green"
+            elif new_timestamp < timestamp:
+                preview_info["color"] = "red"
+
+            new_timestamps.append(preview_info)
+
+        return JsonResponse({"success": success, "previewInfo": new_timestamps})
+
+
 class FixUploadSetsView(StaffuserRequiredMixin, ListView):
     # View to see all upload sets, and select fixes.
     model = Upload
@@ -302,7 +426,7 @@ class FixUploadSetsView(StaffuserRequiredMixin, ListView):
         context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
         if self.request.user.is_staff or self.request.user.is_superuser:
             # Replace the blank strings in time error details
-            context["uploads"] = Upload.objects.filter(~Q(time_correction=None))
+            context["uploads"] = Upload.objects.filter(Q(time_correction=None))[:50]
             context["num_uploads"] = context["uploads"].count()
 
             context["first_timestamps"] = [
@@ -313,57 +437,6 @@ class FixUploadSetsView(StaffuserRequiredMixin, ListView):
             context["zipped_data"] = zip(context["uploads"], context["first_timestamps"])
 
         return context
-
-
-class GetUploadSetImageInfoView(StaffuserRequiredMixin, View):
-    def post(self, request, *args, **kwargs):
-        success = None
-
-        set_images = {}
-        set_ids = request.POST.get("setIds")
-        num_results = request.POST.get("maxResults")
-
-        if num_results:
-            max_results = int(num_results)
-        else:
-            max_results = float("inf")
-
-        for set_id in set_ids.split(","):
-            imageList = []
-
-            try:
-                totalImages = Upload.objects.get(id=set_id).images.all().count()
-                stepValue = max(1, totalImages // max_results)
-
-                for image in Upload.objects.get(id=set_id).images.all()[::stepValue]:
-                    imageList.append({"id": image.id, "triggerTime": image.trigger_timestamp, "newTime": None})
-
-                set_images[set_id] = imageList
-
-            except ObjectDoesNotExist:
-                success = False
-
-        success = True
-
-        return JsonResponse({"success": success, "setImages": set_images})
-
-
-class SetUploadSetTimeFixDetailsView(StaffuserRequiredMixin, View):
-    def post(self, request, *args, **kwargs):
-        success = None
-
-        set_id = request.POST.get("setId")
-        time_fix_details = request.POST.get("timeFixDetails")
-
-        try:
-            upload_set = Upload.objects.get(id=set_id)
-            upload_set.time_fix_details = time_fix_details
-            upload_set.save()
-            success = True
-        except ObjectDoesNotExist:
-            success = False
-
-        return JsonResponse({"success": success})
 
 
 class ModifyUploadSetImagesView(StaffuserRequiredMixin, View):

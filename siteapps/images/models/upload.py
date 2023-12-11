@@ -36,6 +36,9 @@ class TimeCorrection(TimeStampedModel):
     hours = models.IntegerField(default=0)
     minutes = models.IntegerField(default=0)
 
+    start_date = models.DateTimeField(null=True)
+    end_date = models.DateTimeField(null=True)
+
     # The date of the daylight savings shift the upload crossed
     daylight_savings = models.DateField(null=True)
 

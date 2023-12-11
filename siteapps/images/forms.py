@@ -4,7 +4,7 @@ from crispy_forms.layout import HTML, Button, Column, Layout, Row, Submit
 from django import forms
 from locations.models import CameraStation, MacroSite
 
-from .models import Upload
+from .models import TimeCorrection, Upload
 
 
 # User facing form to create an upload
@@ -208,3 +208,94 @@ class AnnotationForm(forms.Form):
             ),
         )
         self.helper.form_show_errors = True
+
+
+class TimeCorrectionForm(forms.ModelForm):
+    years = forms.IntegerField(required=False, initial=0)
+    months = forms.IntegerField(required=False, initial=0)
+    days = forms.IntegerField(required=False, initial=0)
+    hours = forms.IntegerField(required=False, initial=0)
+    minutes = forms.IntegerField(required=False, initial=0)
+
+    daylight_savings = forms.CharField(
+        widget=forms.TextInput(),
+        required=False,
+    )
+
+    start_date = forms.DateTimeField(
+        widget=forms.widgets.TextInput(attrs={"type": "datetime-local"}),
+        required=False,
+    )
+
+    end_date = forms.DateTimeField(
+        widget=forms.widgets.TextInput(attrs={"type": "datetime-local"}),
+        required=False,
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Row(
+                HTML("<h5>Incorrect Camera Date/Time</h5>"),
+                HTML(
+                    "<text class='small'>This is the offset that will be applied to the timestamps. Negative values will shift the times back.</text>"
+                ),
+                css_class="form-row mb-4 px-3",
+            ),
+            Row(
+                Column("years", css_class="form-group"),
+                Column("months", css_class="form-group"),
+                Column("days", css_class="form-group"),
+                Column("hours", css_class="form-group"),
+                Column("minutes", css_class="form-group"),
+                css_class="form-row mb-3 px-3",
+            ),
+            Row(
+                Column("start_date", css_class="form-group"),
+                Column("end_date", css_class="form-group"),
+                css_class="form-row mb-3 px-3",
+            ),
+            Row(
+                HTML("<h5>Daylight Savings Rollover</h5>"),
+                HTML(
+                    "<text class='small'>Timestamps will be shifted 1 hour forward/backward depending on the date.</text>"
+                ),
+                css_class="form-row mb-4 px-3",
+            ),
+            Row(
+                Column("daylight_savings", css_class="form-group"),
+                css_class="form-row mb-3 px-3",
+            ),
+            Row(
+                Column(
+                    Submit("submit", "Create & Apply Correction", css_class="btn-primary"),
+                ),
+                css_class="form-row text-center mb-3",
+            ),
+        )
+        self.helper.form_show_errors = True
+
+    class Meta:
+        model = TimeCorrection
+
+        fields = ["years", "months", "days", "hours", "minutes", "start_date", "end_date", "daylight_savings"]
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # Get form entries
+        years = cleaned_data.get("years")
+        months = cleaned_data.get("months")
+        days = cleaned_data.get("days")
+        hours = cleaned_data.get("hours")
+        minutes = cleaned_data.get("minutes")
+
+        start_date = cleaned_data.get("startDate")
+        end_date = cleaned_data.get("endDate")
+
+        daylight_savings = cleaned_data.get("daylightSavings")
+
+        if daylight_savings and (years or months or days or hours or minutes or start_date or end_date):
+            raise forms.ValidationError(
+                "Please only select one type of time correction (either daylight savings or camera date/time shift)"
+            )

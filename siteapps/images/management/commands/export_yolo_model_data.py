@@ -1,5 +1,6 @@
 import logging
 from io import BytesIO
+from random import random
 
 import requests
 from django.conf import settings
@@ -7,21 +8,24 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db.models import Count, Q
 from images.models import Image, Species, SpeciesName
 from PIL import Image as PILImage
-
+from datetime import datetime
 
 class Command(BaseCommand):
     help = "Gather data from database and create YOLO data."
 
     def handle(self, *args, **options):
         try:
-            PATH = "./siteapps/images/management/commands/export/"
+            PATH = "./siteapps/images/management/commands/export/"    
 
             logging.info(f"Gathering data from images...")
+            
+            cutoff_date = datetime(year=2023, month=12, day=4, hour=0, minute=0, second=0)
 
-            speciesname_list = SpeciesName.objects.all()
+            speciesname_list = SpeciesName.objects.filter(~Q(name="Unknown"))
 
-            images = []
-
+            training = []
+            validation = []
+            
             for name in speciesname_list:
                 name_results = (
                     Image.objects.filter(
@@ -29,14 +33,18 @@ class Command(BaseCommand):
                         # | Q(species_checked_by__human__is_staff=True)
                         # | Q(species_checked_by__human__is_expert=True),
                         boundingbox__species__name__id=name.id,
+                        modified__gte=cutoff_date
                     )
                     .distinct()
                     .order_by("?")
-                )
-
-                images += list(name_results)
-                print(f"Got {name_results.count()} images for class {name.name}.")
-                # print(f"Current total of {images.count()}.")
+                )  
+                
+                split_index = int(len(name_results) * 0.7)
+                
+                training += name_results[:split_index]
+                validation += name_results[split_index:]
+                
+                print(f"Got {len(name_results)} images for class {name.name}.")
 
             with open(f"{PATH}config.yaml", "w+") as file:
                 classes = list(SpeciesName.objects.all())
@@ -66,14 +74,8 @@ class Command(BaseCommand):
 
                 file.writelines(lines)
 
-            split_index = int(len(images) * 0.7)
 
-            print(f"Total images: {len(images)}")
-            print(f"Split index: {split_index}")
-
-            training = images[:split_index]
-            validation = images[split_index:]
-
+            print(f"Total images: {len(training) + len(validation)}")
             print(f"Training: {len(training)}")
             print(f"Validation: {len(validation)}")
 

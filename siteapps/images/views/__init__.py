@@ -19,6 +19,7 @@ from .annotation import (
 from .image import ImageDetailView
 from .search_images import SearchImagesView
 from .upload import (  # UploadExportView,
+    ApplyTimeCorrectionView,
     ClearTimeErrorDetailsView,
     FixUploadSetsView,
     ModifyUploadSetImagesView,
@@ -30,4 +31,5 @@ from .upload import (  # UploadExportView,
     UploadListView,
     UploadResumeProcessingView,
     UploadStatusView,
+    get_daylight_savings_date,
 )

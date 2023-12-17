@@ -117,7 +117,6 @@
                             class="btn btn-primary me-2"
                             data-toggle="modal"
                             data-target="#previewFixesModal">Preview Fixes</button>
-                    {% include './preview-fixes.html' %}
                     <button id="clear-time-error-button"
                             type="button"
                             class="btn btn-primary me-2"
@@ -645,35 +644,6 @@
         }
     }
 
-    function getSetImageInfo(setIds, maxResults = null) {
-        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-        let data = {
-            'setIds': setIds.join(','),
-            'maxResults': maxResults,
-            'csrfmiddlewaretoken': csrftoken,
-        }
-
-        return new Promise(function (resolve, reject) {
-            $.ajax({
-                url: `{% url 'images:get_upload_set_images'%}`,
-                method: 'POST',
-                data: data,
-                dataType: 'json',
-                success: function (data) {
-                    if (data.success) {
-                        resolve(data.setImages);
-                    } else {
-                        reject(-1);
-                    }
-                },
-                error: function () {
-                    reject(-1);
-                }
-            });
-        });
-    }
-
     // Splits the list of images-to-be-changed into batches to be processed.
     function modifyImageTimestamps(imagesToChange) {
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -720,36 +690,6 @@
         });
     }
 
-
-
-    function setUploadSetTimeFixDetails(setId, details) {
-        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-        let data = {
-            'setId': setId,
-            'timeFixDetails': details,
-            'csrfmiddlewaretoken': csrftoken,
-        }
-
-        return new Promise(function (resolve, reject) {
-            $.ajax({
-                url: `{% url 'images:set_upload_set_time_fix_details'%}`,
-                method: 'POST',
-                data: data,
-                dataType: 'json',
-                success: function (data) {
-                    if (data.success) {
-                        resolve();
-                    } else {
-                        reject(-1);
-                    }
-                },
-                error: function () {
-                    reject(-1);
-                }
-            });
-        });
-    }
 
     function clearTimeErrorDetails() {
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;

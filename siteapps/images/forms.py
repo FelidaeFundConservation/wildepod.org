@@ -1,3 +1,6 @@
+import calendar
+from datetime import date, datetime
+
 from crispy_forms.bootstrap import StrictButton
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import HTML, Button, Column, Layout, Row, Submit
@@ -210,6 +213,16 @@ class AnnotationForm(forms.Form):
         self.helper.form_show_errors = True
 
 
+def get_daylight_savings_date(month, year):
+    first_day_of_month = calendar.weekday(year=int(year), month=int(month), day=1)
+
+    days_to_first_sunday = (6 - first_day_of_month + 1) % 7
+
+    second_sunday_date = days_to_first_sunday + 7
+
+    return datetime(year=int(year), month=int(month), day=second_sunday_date, hour=2)
+
+
 class TimeCorrectionForm(forms.ModelForm):
     years = forms.IntegerField(required=False, initial=0)
     months = forms.IntegerField(required=False, initial=0)
@@ -281,21 +294,14 @@ class TimeCorrectionForm(forms.ModelForm):
 
         fields = ["years", "months", "days", "hours", "minutes", "start_date", "end_date", "daylight_savings"]
 
-    def clean(self):
-        cleaned_data = super().clean()
-        # Get form entries
-        years = cleaned_data.get("years")
-        months = cleaned_data.get("months")
-        days = cleaned_data.get("days")
-        hours = cleaned_data.get("hours")
-        minutes = cleaned_data.get("minutes")
+    def clean_daylight_savings(self):
+        date = self.cleaned_data.get("daylight_savings")
 
-        start_date = cleaned_data.get("startDate")
-        end_date = cleaned_data.get("endDate")
+        if date and date != "":
+            month, year = date.split("-")
 
-        daylight_savings = cleaned_data.get("daylightSavings")
+            date_str = f"{year}-{month}-{get_daylight_savings_date(month, year).day:02d}"
+        else:
+            date_str = None
 
-        if daylight_savings and (years or months or days or hours or minutes or start_date or end_date):
-            raise forms.ValidationError(
-                "Please only select one type of time correction (either daylight savings or camera date/time shift)"
-            )
+        return date_str

@@ -1,5 +1,5 @@
 import calendar
-from datetime import date, datetime
+from datetime import datetime
 
 from crispy_forms.bootstrap import StrictButton
 from crispy_forms.helper import FormHelper
@@ -16,16 +16,18 @@ class UploadForm(forms.ModelForm):
         widget=forms.widgets.SplitDateTimeWidget(date_attrs={"type": "date"}, time_attrs={"type": "time"}),
     )
 
-    time_correction_years = forms.IntegerField(required=False, help_text="Make sure these values are correct.")
-    time_correction_months = forms.IntegerField(required=False)
-    time_correction_days = forms.IntegerField(required=False)
-    time_correction_hours = forms.IntegerField(required=False)
-    time_correction_minutes = forms.IntegerField(required=False)
+    time_correction_years = forms.IntegerField(
+        initial=0, required=False, help_text="Make sure these values are correct."
+    )
+    time_correction_months = forms.IntegerField(initial=0, required=False)
+    time_correction_days = forms.IntegerField(initial=0, required=False)
+    time_correction_hours = forms.IntegerField(initial=0, required=False)
+    time_correction_minutes = forms.IntegerField(initial=0, required=False)
 
-    daylight_savings_correction = forms.DateField(
-        widget=forms.TextInput(attrs={"type": "date"}),
+    daylight_savings_correction = forms.CharField(
+        widget=forms.TextInput(),
         required=False,
-        help_text="If there was a daylight savings shift, specify the day the shift occurred (2nd Sunday of March or 1st Sunday of November)",
+        help_text="If there was a daylight savings shift, specify the month the shift occurred (March or November)",
     )
 
     def __init__(self, *args, **kwargs):
@@ -52,8 +54,9 @@ class UploadForm(forms.ModelForm):
                 HTML("<hr>"),
                 HTML("<h5>Time Errors</h5>"),
                 HTML(
-                    "<text class='small'>If the camera's image timestamps are off, enter the adjustments needed to correct them. Not required if there's no errors.</text>"
+                    "<text class='small'>If the camera's image timestamps are off, enter the adjustments needed to correct them. Don't enter if there's no time errors.</text>"
                 ),
+                HTML("<text>If there is an error, <b>only choose 1 correction type (daylight savings or time shift).</b></text>"),
                 css_class="form-row mb-4 px-3",
             ),
             Row(
@@ -92,6 +95,18 @@ class UploadForm(forms.ModelForm):
         labels = {
             "date_retrieved": "Date & time retrieved",
         }
+
+    def clean_daylight_savings_correction(self):
+        date = self.cleaned_data.get("daylight_savings_correction")
+
+        if date and date != "":
+            month, year = date.split("-")
+
+            date_str = f"{year}-{month}-{get_daylight_savings_date(month, year).day:02d}"
+        else:
+            date_str = None
+
+        return date_str
 
 
 # User facing form to examine & mark an upload as completed

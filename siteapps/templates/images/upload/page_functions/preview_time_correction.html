@@ -1,7 +1,7 @@
 <script>
     $(`.spinner-border`).hide();
 
-    $(`[name="daylight_savings"]`).datepicker( {
+    $(`[name*="daylight_savings"]`).datepicker( {
         format: "mm-yyyy",
         startView: "months",
         minViewMode: "months",
@@ -15,6 +15,9 @@
     let images = [
         {% for image in images %}"{{ image.id }}",{% endfor %}
     ]
+    let triggerTimes = [
+        {% for image in images %}"{{ image.trigger_time }}",{% endfor %}
+    ]
 
     function previewTimestamps() {
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -22,14 +25,15 @@
         let data = {
             'csrfmiddlewaretoken': csrftoken,
             'images': JSON.stringify(images),
-            'years': $(`[name="years"]`).val(),
-            'months': $(`[name="months"]`).val(),
-            'days': $(`[name="days"]`).val(),
-            'hours': $(`[name="hours"]`).val(),
-            'minutes': $(`[name="minutes"]`).val(),
-            'startDate': $(`[name="start_date"]`).val(),
-            'endDate': $(`[name="end_date"]`).val(),
-            'daylightSavings': $(`[name="daylight_savings"]`).val(),
+            'triggerTimes': JSON.stringify(triggerTimes),
+            'years': $(`[name*="years"]`).val(),
+            'months': $(`[name*="months"]`).val(),
+            'days': $(`[name*="days"]`).val(),
+            'hours': $(`[name*="hours"]`).val(),
+            'minutes': $(`[name*="minutes"]`).val(),
+            'startDate': $(`[name*="start_date"]`).val(),
+            'endDate': $(`[name*="end_date"]`).val(),
+            'daylightSavings': $(`[name*="daylight_savings"]`).val(),
         }
 
         $(`.spinner-border`).show();
@@ -56,14 +60,14 @@
         });
     }
 
-    $(`[name="years"]`).on("change", previewTimestamps);
-    $(`[name="months"]`).on("change", previewTimestamps);
-    $(`[name="days"]`).on("change", previewTimestamps);
-    $(`[name="hours"]`).on("change", previewTimestamps);
-    $(`[name="minutes"]`).on("change", previewTimestamps);
-    $(`[name="start_date"]`).on("change", previewTimestamps);
-    $(`[name="end_date"]`).on("change", previewTimestamps);
-    $(`[name="daylight_savings"]`).on("change", previewTimestamps);
+    $(`[name*="years"]`).on("change", previewTimestamps);
+    $(`[name*="months"]`).on("change", previewTimestamps);
+    $(`[name*="days"]`).on("change", previewTimestamps);
+    $(`[name*="hours"]`).on("change", previewTimestamps);
+    $(`[name*="minutes"]`).on("change", previewTimestamps);
+    $(`[name*="start_date"]`).on("change", previewTimestamps);
+    $(`[name*="end_date"]`).on("change", previewTimestamps);
+    $(`[name*="daylight_savings"]`).on("change", previewTimestamps);
 
     function populateNewTimes(data) {
         for (info of data) {

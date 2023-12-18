@@ -24,6 +24,16 @@ class UploadForm(forms.ModelForm):
     time_correction_hours = forms.IntegerField(initial=0, required=False)
     time_correction_minutes = forms.IntegerField(initial=0, required=False)
 
+    start_date = forms.DateTimeField(
+        widget=forms.widgets.TextInput(attrs={"type": "datetime-local"}),
+        required=False,
+    )
+
+    end_date = forms.DateTimeField(
+        widget=forms.widgets.TextInput(attrs={"type": "datetime-local"}),
+        required=False,
+    )
+
     daylight_savings_correction = forms.CharField(
         widget=forms.TextInput(),
         required=False,
@@ -56,7 +66,9 @@ class UploadForm(forms.ModelForm):
                 HTML(
                     "<text class='small'>If the camera's image timestamps are off, enter the adjustments needed to correct them. Don't enter if there's no time errors.</text>"
                 ),
-                HTML("<text>If there is an error, <b>only choose 1 correction type (daylight savings or time shift).</b></text>"),
+                HTML(
+                    "<text>If there is an error, <b>only choose 1 correction type (daylight savings or time shift).</b></text>"
+                ),
                 css_class="form-row mb-4 px-3",
             ),
             Row(
@@ -65,6 +77,11 @@ class UploadForm(forms.ModelForm):
                 Column("time_correction_days", css_class="form-group"),
                 Column("time_correction_hours", css_class="form-group"),
                 Column("time_correction_minutes", css_class="form-group"),
+                css_class="form-row mb-3 px-3",
+            ),
+            Row(
+                Column("start_date", css_class="form-group"),
+                Column("end_date", css_class="form-group"),
                 css_class="form-row mb-3 px-3",
             ),
             Row(
@@ -297,7 +314,7 @@ class TimeCorrectionForm(forms.ModelForm):
             ),
             Row(
                 Column(
-                    Submit("submit", "Create & Apply Correction", css_class="btn-primary"),
+                    Submit("submit", "Create Correction", css_class="btn-primary"),
                 ),
                 css_class="form-row text-center mb-3",
             ),

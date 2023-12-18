@@ -50,7 +50,15 @@
                     <div class="card-header">Minutes Offset</div>
                     <div class="card-body">{{ upload.time_correction.minutes }}</div>
                 </div>
-                <div class="col-5 card px-0 mx-3 mt-3">
+                <div class="col-3 card px-0 mx-3 mt-3">
+                    <div class="card-header">Start Date</div>
+                    <div class="card-body">{{ upload.time_correction.start_date }}</div>
+                </div>
+                <div class="col-3 card px-0 mx-3 mt-3">
+                    <div class="card-header">End Date</div>
+                    <div class="card-body">{{ upload.time_correction.end_date }}</div>
+                </div>
+                <div class="col-3 card px-0 mx-3 mt-3">
                     <div class="card-header">Daylight Savings Rollover Date</div>
                     <div class="card-body">{{ upload.time_correction.daylight_savings }}</div>
                 </div>
@@ -61,14 +69,27 @@
             </div>
         </div>
         {% if upload.time_correction.applied_at %}
-            <button id="apply-button" class="btn btn-warning">Unapply Correction</button>
+            <button id="apply-button" class="btn btn-warning">
+                &nbsp;&nbsp;&nbsp;Unapply Correction&nbsp;&nbsp;&nbsp;<span id="apply-spinner"
+      class="spinner-border"
+      role="status"
+      style="width: 12px;
+             height: 12px"></span>
+            </button>
         {% else %}
-            <button id="apply-button" class="btn btn-primary">Apply Correction</button>
+            <button id="apply-button" class="btn btn-primary">
+                &nbsp;&nbsp;&nbsp;Apply Correction&nbsp;&nbsp;&nbsp;<span id="apply-spinner"
+      class="spinner-border"
+      role="status"
+      style="width: 12px;
+             height: 12px"></span>
+            </button>
         {% endif %}
+        <text id="status" class="btn btn-light mx-2">{{ images_applied }} images applied, {{ images_not_applied }} not applied</text>
     </div>
     <div class="container pt-2 mt-2 mt-md-4 bg-white rounded p-4">
         <h1 class="my-3">
-            Preview Fixes <span class="spinner-border" role="status"></span>
+            Preview Fixes <span id="preview-spinner" class="spinner-border" role="status"></span>
         </h1>
         <table id="preview-fixes">
             <thead>
@@ -115,12 +136,12 @@
                 'days': "{{ upload.time_correction.days }}",
                 'hours': "{{ upload.time_correction.hours }}",
                 'minutes': "{{ upload.time_correction.minutes }}",
-                'startDate': "{{ upload.time_correction.start_date }}",
-                'endDate': "{{ upload.time_correction.end_date }}",
+                'startDate': "{{ upload.time_correction.start_date|date:'Y-m-d\TH:i' }}",
+                'endDate': "{{ upload.time_correction.end_date|date:'Y-m-d\TH:i' }}",
                 'daylightSavings': "{{ upload.time_correction.daylight_savings }}",
             }
 
-            $(`.spinner-border`).show();
+            $(`#preview-spinner`).show();
 
             new Promise(function (resolve, reject) {
                 $.ajax({
@@ -135,7 +156,7 @@
                         } else {
                             reject(-1)
                         }
-                        $(`.spinner-border`).hide();
+                        $(`#preview-spinner`).hide();
                     },
                     error: function () {
                         reject(-1);
@@ -150,6 +171,8 @@
                 csrfmiddlewaretoken: document.querySelector('[name=csrfmiddlewaretoken]').value,
             };
 
+            $(`#apply-spinner`).show();
+
             return new Promise(function (resolve, reject) {
                 $.ajax({
                     url: `{% url 'images:modify_upload_set_images'%}`,
@@ -158,6 +181,8 @@
                     dataType: 'json',
                     success: function (data) {
                     if (data.success) {
+                        $(`#apply-spinner`).hide();
+                        location.reload();
                         resolve(data.errors);
                     } else {
                         reject(data.errors);
@@ -169,5 +194,34 @@
                 });
             });
         })
+
+        function updateCorrectionStatus() {
+            data = {
+                csrfmiddlewaretoken: document.querySelector('[name=csrfmiddlewaretoken]').value,
+                uploadId: "{{ upload.id }}"
+            };
+
+            new Promise(function (resolve, reject) {
+                $.ajax({
+                    url: `{% url 'images:time_correction_status'%}`,
+                    method: 'POST',
+                    data: data,
+                    dataType: 'json',
+                    success: function (data) {
+                        if (data.success) {
+                            $("#status").text(`${data.applied} images applied, ${data.notApplied} not applied`);
+                            resolve();
+                        } else {
+                            reject(-1)
+                        }
+                    },
+                    error: function () {
+                        reject(-1);
+                    }
+                });
+            });
+        }
+
+        window.setInterval(updateCorrectionStatus, 4000);
     </script>
 {% endblock footer_includes %}

@@ -20,11 +20,11 @@ from .image import ImageDetailView
 from .search_images import SearchImagesView
 from .upload import (  # UploadExportView,
     ApplyTimeCorrectionView,
-    ClearTimeErrorDetailsView,
     FixUploadSetsView,
     ModifyUploadSetImagesView,
     PreviewTimeCorrectionsView,
     TimeCorrectionCreateView,
+    TimeCorrectionStatusView,
     UploadCompleteView,
     UploadCreateView,
     UploadDetailView,

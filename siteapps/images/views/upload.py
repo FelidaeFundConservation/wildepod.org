@@ -43,6 +43,9 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
 
         daylight_savings = form.cleaned_data.get("daylight_savings_correction") or None
 
+        start_date = form.cleaned_data.get("start_date") or None
+        end_date = form.cleaned_data.get("end_date") or None
+
         upload_obj = form.save(commit=False)
 
         if not (years == months == days == hours == minutes == 0 and daylight_savings is None):
@@ -53,6 +56,9 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
             time_correction.days = days
             time_correction.hours = hours
             time_correction.minutes = minutes
+
+            time_correction.start_date = start_date
+            time_correction.end_date = end_date
 
             time_correction.daylight_savings = daylight_savings
 
@@ -383,6 +389,12 @@ class PreviewTimeCorrectionsView(LoginRequiredMixin, View):
 
         blank_strings = ["", "None"]
 
+        # Reverse effects if already applied
+        try:
+            correction_applied = Image.objects.get(id=image_ids[0]).upload.time_correction.applied_at is not None
+        except Exception:
+            correction_applied = False
+
         # Convert strings to datetime objects
         if start_date and start_date not in blank_strings:
             start_date = datetime.strptime(start_date, date_format)
@@ -403,12 +415,6 @@ class PreviewTimeCorrectionsView(LoginRequiredMixin, View):
 
         new_timestamps = []
 
-        # Reverse effects if already applied
-        try:
-            correction_applied = Image.objects.get(id=image_ids[0]).upload.time_correction.applied_at is not None
-        except Exception:
-            correction_applied = False
-
         for image_id in image_ids:
             preview_info = {
                 "id": image_id,
@@ -416,7 +422,7 @@ class PreviewTimeCorrectionsView(LoginRequiredMixin, View):
             }
 
             timestamp = Image.objects.get(id=image_id).trigger_timestamp
-            preview_info["newTimestamp"] = timestamp
+            new_timestamp = timestamp
 
             # Only shift time if it's in the timerange specified
             if Image.objects.filter(id=image_id, **kwargs).exists():
@@ -476,6 +482,23 @@ class ApplyTimeCorrectionView(LoginRequiredMixin, TemplateView):
         return context
 
 
+class TimeCorrectionStatusView(LoginRequiredMixin, View):
+    login_url = settings.LOGIN_URL
+
+    def post(self, request, *args, **kwargs):
+        upload_id = request.POST.get("uploadId")
+
+        success = True
+
+        try:
+            images_applied = Image.objects.filter(upload__id=upload_id, time_correction_applied=True).count()
+            images_not_applied = Image.objects.filter(upload__id=upload_id, time_correction_applied=False).count()
+        except Exception:
+            success = False
+
+        return JsonResponse({"success": success, "applied": images_applied, "notApplied": images_not_applied})
+
+
 class FixUploadSetsView(StaffuserRequiredMixin, ListView):
     # View to see all upload sets, and select fixes.
     model = Upload
@@ -487,7 +510,11 @@ class FixUploadSetsView(StaffuserRequiredMixin, ListView):
         context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
         if self.request.user.is_staff or self.request.user.is_superuser:
             # Replace the blank strings in time error details
-            context["uploads"] = Upload.objects.filter(Q(time_correction=None))[:50]
+            context["uploads"] = Upload.objects.filter(
+                ~Q(time_correction=None)
+                | ~Q(time_fix_details=None)
+                | ~Q(time_error_details=None) & Q(time_error_details__isnull=False) & ~Q(time_error_details__exact="")
+            )
             context["num_uploads"] = context["uploads"].count()
 
             context["first_timestamps"] = [
@@ -603,28 +630,6 @@ class ModifyUploadSetImagesView(StaffuserRequiredMixin, View):
                 logging.info(f"Errors occurred while unapplying time correction to upload {upload_obj.id}.")
 
         return JsonResponse({"success": success})
-
-
-class ClearTimeErrorDetailsView(StaffuserRequiredMixin, View):
-    # Clear the time error details, which marks it as resolved.
-    def post(self, request, *args, **kwargs):
-        upload_ids = request.POST.get("uploadIds", "[]")
-        upload_ids = json.loads(upload_ids)
-
-        errors = []
-
-        success = True
-
-        for upload_id in upload_ids:
-            try:
-                upload_set = Upload.objects.get(id=upload_id)
-                upload_set.time_error_details = None
-                upload_set.save()
-            except Exception as error:
-                errors.append([upload_id, error])
-                success = False
-
-        return JsonResponse({"success": success, "errors": errors})
 
 
 # # TODO: This view is currently implemented purely to "test" the annotation functionality

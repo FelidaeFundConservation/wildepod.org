@@ -7,7 +7,6 @@ from .views import (
     AnnotateSpeciesView,
     ApplyTimeCorrectionView,
     ChangeAnnotationView,
-    ClearTimeErrorDetailsView,
     CustomAnnotationView,
     DeleteAnnotationView,
     FixUploadSetsView,
@@ -21,6 +20,7 @@ from .views import (
     SearchImagesView,
     SpeciesAnnotationProcessorView,
     TimeCorrectionCreateView,
+    TimeCorrectionStatusView,
     UploadCompleteView,
     UploadCreateView,
     UploadDetailView,
@@ -128,13 +128,13 @@ urlpatterns = [
         name="modify_upload_set_images",
     ),
     path(
-        "clear-time-error-details",
-        ClearTimeErrorDetailsView.as_view(),
-        name="clear_time_error_details",
-    ),
-    path(
         "preview-time-corrections",
         PreviewTimeCorrectionsView.as_view(),
         name="preview_time_corrections",
+    ),
+    path(
+        "time-correction-status",
+        TimeCorrectionStatusView.as_view(),
+        name="time_correction_status",
     ),
 ]

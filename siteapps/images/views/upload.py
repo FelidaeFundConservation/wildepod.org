@@ -2,7 +2,6 @@ import json
 import logging
 import threading
 from datetime import datetime
-from distutils.command import upload
 
 import pytz
 from braces.views import StaffuserRequiredMixin
@@ -36,13 +35,13 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
     template_name = "images/upload/create.html"
 
     def form_valid(self, form):
-        years = self.request.POST.get("time_correction_years") or 0
-        months = self.request.POST.get("time_correction_months") or 0
-        days = self.request.POST.get("time_correction_days") or 0
-        hours = self.request.POST.get("time_correction_hours") or 0
-        minutes = self.request.POST.get("time_correction_minutes") or 0
+        years = form.cleaned_data.get("time_correction_years") or 0
+        months = form.cleaned_data.get("time_correction_months") or 0
+        days = form.cleaned_data.get("time_correction_days") or 0
+        hours = form.cleaned_data.get("time_correction_hours") or 0
+        minutes = form.cleaned_data.get("time_correction_minutes") or 0
 
-        daylight_savings = self.request.POST.get("daylight_savings_correction") or None
+        daylight_savings = form.cleaned_data.get("daylight_savings_correction") or None
 
         upload_obj = form.save(commit=False)
 
@@ -59,8 +58,8 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
 
             time_correction.save()
 
-            upload.time_correction = time_correction
-            upload.save()
+            upload_obj.time_correction = time_correction
+            upload_obj.save()
 
             logging.info(f"Saved time correction information  for upload {upload_obj.id}.")
         else:
@@ -70,6 +69,13 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
 
     def get_success_url(self):
         return reverse("images:complete_upload", args=(self.object.id,))
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context["images"] = get_preview_images("TEST")
+
+        return context
 
 
 def filter_uploads(context, self):
@@ -296,10 +302,28 @@ class UploadResumeProcessingView(LoginRequiredMixin, View):
 
 
 def get_preview_images(upload_id):
-    upload_obj = Upload.objects.get(id=upload_id)
     MAX_RESULTS = 20
     image_list = []
 
+    # If no images in upload, sample test images from other uploads
+    if upload_id == "TEST":
+        mar_images = Image.objects.filter(trigger_timestamp__month=3, trigger_timestamp__year=datetime.now().year)
+        nov_images = Image.objects.filter(trigger_timestamp__month=11, trigger_timestamp__year=datetime.now().year)
+        mar_step_value = max(1, mar_images.count() // MAX_RESULTS)
+        nov_step_value = max(1, nov_images.count() // MAX_RESULTS)
+
+        mar_images = mar_images[:: mar_step_value * 2]
+        nov_images = nov_images[:: nov_step_value * 2]
+
+        images = mar_images + nov_images
+
+        for image in images:
+            image_list.append({"id": image.id, "trigger_time": image.trigger_timestamp, "new_time": None})
+
+        return image_list
+
+    # Else, get an even distribution of images from specified set
+    upload_obj = Upload.objects.get(id=upload_id)
     total_images = upload_obj.images.all().count()
     step_value = max(1, total_images // MAX_RESULTS)
 
@@ -380,12 +404,16 @@ class PreviewTimeCorrectionsView(LoginRequiredMixin, View):
         new_timestamps = []
 
         # Reverse effects if already applied
-        correction_applied = Image.objects.get(id=image_ids[0]).upload.time_correction.applied_at is not None
+        try:
+            correction_applied = Image.objects.get(id=image_ids[0]).upload.time_correction.applied_at is not None
+        except Exception:
+            correction_applied = False
 
         for image_id in image_ids:
-            preview_info = {}
-            preview_info["id"] = image_id
-            preview_info["color"] = ""
+            preview_info = {
+                "id": image_id,
+                "color": "",
+            }
 
             timestamp = Image.objects.get(id=image_id).trigger_timestamp
             preview_info["newTimestamp"] = timestamp
@@ -402,18 +430,19 @@ class PreviewTimeCorrectionsView(LoginRequiredMixin, View):
                     )
 
             # Apply daylight savings shift
-            if daylight_savings_datetime:
-                if new_timestamp.replace(tzinfo=pytz.UTC) >= daylight_savings_datetime.replace(tzinfo=pytz.UTC):
-                    if daylight_savings_month == "3":
-                        if correction_applied:
-                            new_timestamp = timestamp + relativedelta(hours=-1)
-                        else:
-                            new_timestamp = timestamp + relativedelta(hours=1)
-                    elif daylight_savings_month == "11":
-                        if correction_applied:
-                            new_timestamp = timestamp + relativedelta(hours=1)
-                        else:
-                            new_timestamp = timestamp + relativedelta(hours=-1)
+            if daylight_savings_datetime and new_timestamp.replace(
+                tzinfo=pytz.UTC
+            ) >= daylight_savings_datetime.replace(tzinfo=pytz.UTC):
+                if daylight_savings_month == "3":
+                    if correction_applied:
+                        new_timestamp = timestamp + relativedelta(hours=-1)
+                    else:
+                        new_timestamp = timestamp + relativedelta(hours=1)
+                elif daylight_savings_month == "11":
+                    if correction_applied:
+                        new_timestamp = timestamp + relativedelta(hours=1)
+                    else:
+                        new_timestamp = timestamp + relativedelta(hours=-1)
 
             preview_info["newTimestamp"] = new_timestamp
 

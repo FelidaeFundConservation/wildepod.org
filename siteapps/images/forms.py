@@ -252,7 +252,10 @@ def get_daylight_savings_date(month, year):
 
     second_sunday_date = days_to_first_sunday + 7
 
-    return datetime(year=int(year), month=int(month), day=second_sunday_date, hour=2)
+    if month == "03":
+        return datetime(year=int(year), month=int(month), day=second_sunday_date, hour=2)
+    elif month == "11":
+        return datetime(year=int(year), month=int(month), day=days_to_first_sunday, hour=2)
 
 
 class TimeCorrectionForm(forms.ModelForm):

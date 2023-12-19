@@ -10,71 +10,229 @@
         <div id="upload-count-text" class="alert alert-info mb-0" role="alert">
             There are {{ num_uploads }} upload(s) with time fix details or correction objects.
         </div>
-        <table class="table mt-2 mt-md-4 align-middle text-center" id="upload-list">
-            <thead>
-                <tr>
-                    <th scope="col">Action</th>
-                    <th scope="col">Station ID</th>
-                    <th scope="col">Microsite</th>
-                    <th scope="col">Macrosite</th>
-                    <th scope="col">First Image Timestamp</th>
-                    <th scope="col"># Images</th>
-                    {% if user.is_staff %}
-                        <th scope="col">Volunteer</th>
-                        <th scope="col">Offset Years</th>
-                        <th scope="col">Offset Months</th>
-                        <th scope="col">Offset Days</th>
-                        <th scope="col">Offset Hours</th>
-                        <th scope="col">Offset Minutes</th>
-                        <th scope="col">Daylight Savings Date</th>
-                        <th scope="col">Fix Applied At</th>
-                    {% endif %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for object, first_timestamp in zipped_data %}
-                    <tr>
-                        <td>
-                            {% if not object.time_correction %}
-                                <a href="{% url 'images:create_time_correction' object.id %}">
-                                    <button type="button" class="btn btn-light">Create</button>
-                                </a>
-                            {% else %}
-                                <a href="{% url 'images:apply_time_correction' object.id %}">
-                                    {% if object.time_correction.applied_at %}
-                                        <button type="button" class="btn btn-warning">Unapply</button>
-                                    {% else %}
-                                        <button type="button" class="btn btn-primary">Apply</button>
-                                    {% endif %}
-                                </a>
-                            {% endif %}
-                        </td>
-                        <td>{{ object.camera_station.station_id }}</td>
-                        <td>{{ object.camera_station.micro_site }}</td>
-                        <td>{{ object.camera_station.micro_site.macro_site }}</td>
-                        <td>{{ first_timestamp }}</td>
-                        {% if object.processed %}
-                            <td>{{ object.images.all.count }}</td>
-                        {% else %}
-                            <td>-</td>
-                        {% endif %}
-                        {% if user.is_staff %}
-                            <td>{{ object.volunteer.name }}</td>
-                            <td>{{ object.time_correction.years }}</td>
-                            <td>{{ object.time_correction.months }}</td>
-                            <td>{{ object.time_correction.days }}</td>
-                            <td>{{ object.time_correction.hours }}</td>
-                            <td>{{ object.time_correction.minutes }}</td>
-                            <td>{{ object.time_correction.daylight_savings }}</td>
-                            <td>{{ object.time_correction.applied_at }}</td>
-                        {% endif %}
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <nav>
+            <div class="nav nav-tabs my-4" id="nav-tab" role="tablist">
+                <a class="nav-link active"
+                   id="nav-no-correction-tab"
+                   data-bs-toggle="tab"
+                   href="#nav-no-correction"
+                   role="tab"
+                   aria-controls="nav-no-correction"
+                   aria-selected="false">
+                    <text class="small">
+                    No Time Correction
+                    </text>
+                </a>
+                <a class="nav-link"
+                   id="nav-not-applied-tab"
+                   data-bs-toggle="tab"
+                   href="#nav-not-applied"
+                   role="tab"
+                   aria-controls="nav-not-applied"
+                   aria-selected="false">
+                    <text class="small">Correction Not Applied</text>
+                </a>
+                <a class="nav-link"
+                   id="nav-applied-tab"
+                   data-bs-toggle="tab"
+                   href="#nav-applied"
+                   role="tab"
+                   aria-controls="nav-applied"
+                   aria-selected="false">
+                    <text class="small">Correction Applied</text>
+                </a>
+            </div>
+            <div class="tab-content upload-container">
+                <div class="tab-pane fade p-0 text-center show active"
+                     id="nav-no-correction"
+                     role="tabpanel"
+                     aria-labelledby="nav-no-correction-tab">
+                    <table class="upload-list table mt-2 mt-md-4 align-middle text-center">
+                        <thead>
+                            <tr>
+                                <th scope="col">Action</th>
+                                <th scope="col">Station ID</th>
+                                <th scope="col">Microsite</th>
+                                <th scope="col">Macrosite</th>
+                                <th scope="col">First Image Timestamp</th>
+                                <th scope="col"># Images</th>
+                                {% if user.is_staff %}
+                                    <th scope="col">Volunteer</th>
+                                    <th scope="col">Time Error Details</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for object, first_timestamp in zipped_data %}
+                                {% if not object.time_fix_details and not object.time_correction %}
+                                    <tr>
+                                        <td>
+                                            {% if not object.time_correction %}
+                                                <a href="{% url 'images:create_time_correction' object.id %}">
+                                                    <button type="button" class="btn btn-light">Create</button>
+                                                </a>
+                                            {% else %}
+                                                <a href="{% url 'images:apply_time_correction' object.id %}">
+                                                    {% if object.time_correction.applied_at %}
+                                                        <button type="button" class="btn btn-warning">Unapply</button>
+                                                    {% else %}
+                                                        <button type="button" class="btn btn-primary">Apply</button>
+                                                    {% endif %}
+                                                </a>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ object.camera_station.station_id }}</td>
+                                        <td>{{ object.camera_station.micro_site }}</td>
+                                        <td>{{ object.camera_station.micro_site.macro_site }}</td>
+                                        <td>{{ first_timestamp }}</td>
+                                        {% if object.processed %}
+                                            <td>{{ object.images.all.count }}</td>
+                                        {% else %}
+                                            <td>-</td>
+                                        {% endif %}
+                                        {% if user.is_staff %}
+                                            <td>{{ object.volunteer.name }}</td>
+                                            <td>{{ object.time_error_details }}</td>
+                                        {% endif %}
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="tab-pane fade p-0 text-center"
+                     id="nav-not-applied"
+                     role="tabpanel"
+                     aria-labelledby="nav-not-applied-tab">
+                    <table class="upload-list table mt-2 mt-md-4 align-middle text-center">
+                        <thead>
+                            <tr>
+                                <th scope="col">Action</th>
+                                <th scope="col">Station ID</th>
+                                <th scope="col">Microsite</th>
+                                <th scope="col">Macrosite</th>
+                                <th scope="col">First Image Timestamp</th>
+                                <th scope="col"># Images</th>
+                                {% if user.is_staff %}
+                                    <th scope="col">Volunteer</th>
+                                    <th scope="col">Time Correction Years</th>
+                                    <th scope="col">Time Correction Months</th>
+                                    <th scope="col">Time Correction Days</th>
+                                    <th scope="col">Time Correction Hours</th>
+                                    <th scope="col">Time Correction Minutes</th>
+                                    <th scope="col">Daylight Savings Date</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for object, first_timestamp in zipped_data %}
+                                {% if object.time_correction and not object.time_correction.applied_at %}
+                                    <tr>
+                                        <td>
+                                            {% if not object.time_correction %}
+                                                <a href="{% url 'images:create_time_correction' object.id %}">
+                                                    <button type="button" class="btn btn-light">Create</button>
+                                                </a>
+                                            {% else %}
+                                                <a href="{% url 'images:apply_time_correction' object.id %}">
+                                                    {% if object.time_correction.applied_at %}
+                                                        <button type="button" class="btn btn-warning">Unapply</button>
+                                                    {% else %}
+                                                        <button type="button" class="btn btn-primary">Apply</button>
+                                                    {% endif %}
+                                                </a>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ object.camera_station.station_id }}</td>
+                                        <td>{{ object.camera_station.micro_site }}</td>
+                                        <td>{{ object.camera_station.micro_site.macro_site }}</td>
+                                        <td>{{ first_timestamp }}</td>
+                                        {% if object.processed %}
+                                            <td>{{ object.images.all.count }}</td>
+                                        {% else %}
+                                            <td>-</td>
+                                        {% endif %}
+                                        {% if user.is_staff %}
+                                            <td>{{ object.volunteer.name }}</td>
+                                            <td>{{ object.time_correction.years }}</td>
+                                            <td>{{ object.time_correction.months }}</td>
+                                            <td>{{ object.time_correction.days }}</td>
+                                            <td>{{ object.time_correction.hours }}</td>
+                                            <td>{{ object.time_correction.minutes }}</td>
+                                            <td>{{ object.time_correction.daylight_savings }}</td>
+                                        {% endif %}
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="tab-pane fade p-0 text-center"
+                     id="nav-applied"
+                     role="tabpanel"
+                     aria-labelledby="nav-applied-tab">
+                    <table class="upload-list table mt-2 mt-md-4 align-middle text-center">
+                        <thead>
+                            <tr>
+                                <th scope="col">Action</th>
+                                <th scope="col">Station ID</th>
+                                <th scope="col">Microsite</th>
+                                <th scope="col">Macrosite</th>
+                                <th scope="col">First Image Timestamp</th>
+                                <th scope="col"># Images</th>
+                                {% if user.is_staff %}
+                                    <th scope="col">Volunteer</th>
+                                    <th scope="col">Applied At</th>
+                                    <th scope="col">Time Fix Details</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for object, first_timestamp in zipped_data %}
+                                {% if object.time_correction.applied_at or object.time_fix_details %}
+                                    <tr>
+                                        <td>
+                                            {% if not object.time_correction %}
+                                                <a href="{% url 'images:create_time_correction' object.id %}">
+                                                    <button type="button" class="btn btn-light">Create</button>
+                                                </a>
+                                            {% else %}
+                                                <a href="{% url 'images:apply_time_correction' object.id %}">
+                                                    {% if object.time_correction.applied_at %}
+                                                        <button type="button" class="btn btn-warning">Unapply</button>
+                                                    {% else %}
+                                                        <button type="button" class="btn btn-primary">Apply</button>
+                                                    {% endif %}
+                                                </a>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ object.camera_station.station_id }}</td>
+                                        <td>{{ object.camera_station.micro_site }}</td>
+                                        <td>{{ object.camera_station.micro_site.macro_site }}</td>
+                                        <td>{{ first_timestamp }}</td>
+                                        {% if object.processed %}
+                                            <td>{{ object.images.all.count }}</td>
+                                        {% else %}
+                                            <td>-</td>
+                                        {% endif %}
+                                        {% if user.is_staff %}
+                                            <td>{{ object.volunteer.name }}</td>
+                                            <td>{{ object.time_correction.applied_at }}</td>
+                                            <td>{{ object.time_fix_details }}</td>
+                                        {% endif %}
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </nav>
     </div>
-</div>
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"></script>
-<script></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"></script>
+    <link rel="stylesheet"
+          href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.css" />
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.js"></script>
+    <script>$(`.upload-list`).DataTable();</script>
 {% endblock %}

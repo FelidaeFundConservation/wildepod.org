@@ -522,7 +522,7 @@ class FixUploadSetsView(StaffuserRequiredMixin, ListView):
                 for upload in context["uploads"]
             ]
 
-            context["zipped_data"] = zip(context["uploads"], context["first_timestamps"])
+            context["zipped_data"] = list(zip(context["uploads"], context["first_timestamps"]))
 
         return context
 

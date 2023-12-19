@@ -225,9 +225,9 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
                 annotations_past_month_category + annotations_past_month_species + annotations_past_month_activity
             )
 
-            annotations_all_time_category = volunteer.total_category_annotations
-            annotations_all_time_species = volunteer.total_species_annotations
-            annotations_all_time_activity = volunteer.total_activity_annotations
+            annotations_all_time_category = volunteer.total_category_annotations or 0
+            annotations_all_time_species = volunteer.total_species_annotations or 0
+            annotations_all_time_activity = volunteer.total_activity_annotations or 0
             annotations_all_time = (
                 annotations_all_time_category + annotations_all_time_species + annotations_all_time_activity
             )

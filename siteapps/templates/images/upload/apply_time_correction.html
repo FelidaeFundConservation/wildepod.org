@@ -138,7 +138,7 @@
                 'minutes': "{{ upload.time_correction.minutes }}",
                 'startDate': "{{ upload.time_correction.start_date|date:'Y-m-d\TH:i' }}",
                 'endDate': "{{ upload.time_correction.end_date|date:'Y-m-d\TH:i' }}",
-                'daylightSavings': "{{ upload.time_correction.daylight_savings }}",
+                'daylightSavings': "{{ upload.time_correction.daylight_savings.month }}-{{ upload.time_correction.daylight_savings.year }}",
             }
 
             $(`#preview-spinner`).show();

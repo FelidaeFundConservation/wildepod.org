@@ -398,14 +398,24 @@ class PreviewTimeCorrectionsView(LoginRequiredMixin, View):
         # Convert strings to datetime objects
         if start_date and start_date not in blank_strings:
             start_date = datetime.strptime(start_date, date_format)
+
+            # Shift the date for unapplying
+            if correction_applied:
+                start_date = start_date + relativedelta(
+                    years=years, months=months, days=days, hours=hours, minutes=minutes
+                )
             kwargs["trigger_timestamp__gte"] = start_date
 
         if end_date and end_date not in blank_strings:
             end_date = datetime.strptime(end_date, date_format)
+
+            if correction_applied:
+                end_date = end_date + relativedelta(years=years, months=months, days=days, hours=hours, minutes=minutes)
+
             kwargs["trigger_timestamp__lt"] = end_date
 
         if daylight_savings and daylight_savings not in blank_strings:
-            # Calculate the 2nd Sunday of the month
+            # Calculate the 1st/2nd Sunday of the month
             daylight_savings_month, year = daylight_savings.split("-")
 
             if daylight_savings_month == "03" or daylight_savings_month == "11":
@@ -552,8 +562,16 @@ class ModifyUploadSetImagesView(StaffuserRequiredMixin, View):
                             and time_correction.end_date
                             and time_correction.start_date <= image.trigger_timestamp < time_correction.end_date
                         )
-                        or (time_correction.start_date and time_correction.start_date <= image.trigger_timestamp)
-                        or (time_correction.end_date and time_correction.end_date > image.trigger_timestamp)
+                        or (
+                            time_correction.start_date
+                            and not time_correction.end_date
+                            and time_correction.start_date <= image.trigger_timestamp
+                        )
+                        or (
+                            time_correction.end_date
+                            and not time_correction.start_date
+                            and time_correction.end_date > image.trigger_timestamp
+                        )
                     ):
                         image.trigger_timestamp = image.trigger_timestamp + relativedelta(
                             years=time_correction.years,
@@ -590,17 +608,36 @@ class ModifyUploadSetImagesView(StaffuserRequiredMixin, View):
                 f"Time correction has already been applied to upload {upload_obj.id}. Unapplying from {images.count()} images..."
             )
 
+            # Shift dates for unapplying
+            if time_correction.start_date:
+                start_date = time_correction.start_date + relativedelta(
+                    years=time_correction.years,
+                    months=time_correction.months,
+                    days=time_correction.days,
+                    hours=time_correction.hours,
+                    minutes=time_correction.minutes,
+                )
+            else:
+                start_date = None
+
+            if time_correction.end_date:
+                end_date = time_correction.end_date + relativedelta(
+                    years=time_correction.years,
+                    months=time_correction.months,
+                    days=time_correction.days,
+                    hours=time_correction.hours,
+                    minutes=time_correction.minutes,
+                )
+            else:
+                end_date = None
+
             for image in images.iterator(chunk_size=500):
                 try:
                     if (
-                        (not time_correction.start_date and not time_correction.end_date)
-                        or (
-                            time_correction.start_date
-                            and time_correction.end_date
-                            and time_correction.start_date <= image.trigger_timestamp < time_correction.end_date
-                        )
-                        or (time_correction.start_date and time_correction.start_date <= image.trigger_timestamp)
-                        or (time_correction.end_date and time_correction.end_date > image.trigger_timestamp)
+                        (not start_date and not end_date)
+                        or (start_date and end_date and start_date <= image.trigger_timestamp < end_date)
+                        or (start_date and not end_date and start_date <= image.trigger_timestamp)
+                        or (end_date and not start_date and end_date > image.trigger_timestamp)
                     ):
                         image.trigger_timestamp = image.trigger_timestamp + relativedelta(
                             years=-time_correction.years,

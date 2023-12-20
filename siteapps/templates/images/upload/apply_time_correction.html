@@ -68,6 +68,14 @@
                 </div>
             </div>
         </div>
+        <div class="small mb-3">
+            Note: If part of the timestamps are shifted in a way which overlaps the unmodified timestamps' range, the correction cannot be unapplied properly.
+            <br>
+            Please ensure details are correct before applying partial modifications (start date, end date, & daylight savings).
+        </div>
+        <div class="small mb-3">
+            Example - Dec 1 4:00PM, Dec 1 5:00PM, Dec 1 6:00PM --> Dec 1 5:30PM, Dec 1 5:00PM, Dec 1 6:00PM will have incorrect results when reverted.
+        </div>
         {% if upload.time_correction.applied_at %}
             <button id="apply-button" class="btn btn-warning">
                 &nbsp;&nbsp;&nbsp;Unapply Correction&nbsp;&nbsp;&nbsp;<span id="apply-spinner"

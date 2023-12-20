@@ -49,7 +49,7 @@ urlpatterns = [
         name="complete_upload",
     ),
     path(
-        "upload/<uuid:pk>/time_correction",
+        "upload/<uuid:pk>/create_time_correction",
         TimeCorrectionCreateView.as_view(),
         name="create_time_correction",
     ),

@@ -343,7 +343,7 @@ class TimeCorrectionCreateView(LoginRequiredMixin, CreateView):
     model = TimeCorrection
     form_class = TimeCorrectionForm
     login_url = settings.LOGIN_URL
-    template_name = "images/upload/correct_time.html"
+    template_name = "images/upload/create_time_correction.html"
 
     def form_valid(self, form):
         upload = Upload.objects.get(id=self.kwargs.get("pk"))

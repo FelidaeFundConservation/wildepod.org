@@ -1,0 +1,103 @@
+<script>
+    $(`.spinner-border`).hide();
+
+    $(`[name*="daylight_savings"]`).datepicker( {
+        format: "mm-yyyy",
+        startView: "months",
+        minViewMode: "months",
+    });
+
+    $('#preview-fixes').dataTable( {
+      "pageLength": 25,
+      "ordering": false,
+    });
+
+    let images = [
+        {% for image in images %}"{{ image.id }}",{% endfor %}
+    ]
+    let triggerTimes = [
+        {% for image in images %}"{{ image.trigger_time }}",{% endfor %}
+    ]
+
+    function previewTimestamps() {
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        let data = {
+            'csrfmiddlewaretoken': csrftoken,
+            'images': JSON.stringify(images),
+            'triggerTimes': JSON.stringify(triggerTimes),
+            'years': $(`[name*="years"]`).val(),
+            'months': $(`[name*="months"]`).val(),
+            'days': $(`[name*="days"]`).val(),
+            'hours': $(`[name*="hours"]`).val(),
+            'minutes': $(`[name*="minutes"]`).val(),
+            'startDate': $(`[name*="start_date"]`).val(),
+            'endDate': $(`[name*="end_date"]`).val(),
+            'daylightSavings': $(`[name*="daylight_savings"]`).val(),
+        }
+
+        $(`.spinner-border`).show();
+
+        return new Promise(function (resolve, reject) {
+            $.ajax({
+                url: `{% url 'images:preview_time_corrections'%}`,
+                method: 'POST',
+                data: data,
+                dataType: 'json',
+                success: function (data) {
+                    if (data.success) {
+                        populateNewTimes(data.previewInfo)
+                        resolve(data.previewInfo);
+                    } else {
+                        reject(-1)
+                    }
+                    $(`.spinner-border`).hide();
+                },
+                error: function () {
+                    reject(-1);
+                }
+            });
+        });
+    }
+
+    $(`[name*="years"]`).on("change", previewTimestamps);
+    $(`[name*="months"]`).on("change", previewTimestamps);
+    $(`[name*="days"]`).on("change", previewTimestamps);
+    $(`[name*="hours"]`).on("change", previewTimestamps);
+    $(`[name*="minutes"]`).on("change", previewTimestamps);
+    $(`[name*="start_date"]`).on("change", previewTimestamps);
+    $(`[name*="end_date"]`).on("change", previewTimestamps);
+    $(`[name*="daylight_savings"]`).on("change", previewTimestamps);
+
+    function populateNewTimes(data) {
+        for (info of data) {
+            let element = $(`#preview-${info["id"]}`);
+
+            let date = new Date(info["newTimestamp"]);
+
+            let year = date.getFullYear();
+            let month = date.toLocaleString('default', { month: 'long' }).slice(0, 3);
+            let day = date.getDate();
+            let hour = date.getHours();
+
+            let time = "a.m.";
+
+            if (hour > 11) {
+                hour = hour - 12;
+                time = "p.m";
+            }
+            if (hour == 0) {
+                hour = 12;
+            }
+
+
+            let minutes = date.getMinutes();
+            minutes = minutes < 10 ? `0${minutes}` : minutes
+
+            let dateString = `${month}. ${day}, ${year}, ${hour}:${minutes} ${time}`;
+
+            element.html(`<b>${dateString}</b>`);
+            element.css("color", info["color"]);
+        }
+    }
+</script>

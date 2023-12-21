@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+import pytz
 from braces.views import StaffuserRequiredMixin
 from dateutil.relativedelta import relativedelta
 from django.conf import settings
@@ -81,9 +82,10 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
         context = super().get_context_data(**kwargs)
 
         # Calculuate cutoff date for past week and month.
-        now = timezone.now()
-        past_month_start_time = now - relativedelta(months=1)
-        past_week_start_time = now - relativedelta(weeks=1)
+        pacific_timezone = pytz.timezone("America/Los_Angeles")
+        now_pacific = timezone.now().astimezone(pacific_timezone)
+        past_month_start_time = now_pacific - relativedelta(months=1)
+        past_week_start_time = now_pacific - relativedelta(weeks=1)
 
         # Clear counters older than 1 month
         counters = AnnotationCounter.objects.filter(created__lt=past_month_start_time)
@@ -103,9 +105,9 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
 
         # Get annotation counts for last 30 days
         for days in reversed(range(0, 30)):
-            start = now - timedelta(days=days)
+            start = now_pacific - timedelta(days=days)
             start = timezone.make_aware(timezone.datetime(start.year, start.month, start.day))
-            end = now - timedelta(days=days) + timedelta(days=1)
+            end = now_pacific - timedelta(days=days) + timedelta(days=1)
             end = timezone.make_aware(timezone.datetime(end.year, end.month, end.day))
 
             counters = AnnotationCounter.objects.filter(created__gte=start, created__lt=end)
@@ -223,9 +225,9 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
                 annotations_past_month_category + annotations_past_month_species + annotations_past_month_activity
             )
 
-            annotations_all_time_category = volunteer.total_category_annotations
-            annotations_all_time_species = volunteer.total_species_annotations
-            annotations_all_time_activity = volunteer.total_activity_annotations
+            annotations_all_time_category = volunteer.total_category_annotations or 0
+            annotations_all_time_species = volunteer.total_species_annotations or 0
+            annotations_all_time_activity = volunteer.total_activity_annotations or 0
             annotations_all_time = (
                 annotations_all_time_category + annotations_all_time_species + annotations_all_time_activity
             )

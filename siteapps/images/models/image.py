@@ -82,6 +82,8 @@ class Image(TimeStampedModel):
 
     # Content specific information extracted from the EXIF by dropbox
     trigger_timestamp = models.DateTimeField(blank=True, null=True)
+    time_correction_applied = models.BooleanField(default=False)
+
     # In an ideal world, height/weight & lat/long would be separate classes but seems needless here and are stored as pure values
     height = models.IntegerField(blank=True, null=True)
     width = models.IntegerField(blank=True, null=True)
@@ -120,7 +122,7 @@ class Image(TimeStampedModel):
 
     # Additional field to support incremental migration to the new precomputed flags
     use_precomputed_flags = models.BooleanField(default=False)
-    
+
     # Custom manager
     objects = ImageManager()
 

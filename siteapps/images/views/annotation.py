@@ -350,6 +350,12 @@ def skip_ineligible_images(queue_name, queue):
     while (pipeline_completed or not pipeline_eligible) and queue["index"] < len(queue["images"]):
         image = Image.objects.get(id=queue["images"][queue["index"]])
 
+        # Recalculate flags on immediate images (alternative to running script on everything again)
+        calculateCategoryAnnotationFlags(image)
+        calculateSpeciesAnnotationFlags(image)
+        calculateActivityAnnotationFlags(image)
+        image.save()
+
         if OBJECTS_QUEUE_NAME in queue_name:
             pipeline_completed = image.category_pipeline_complete
             pipeline_eligible = BoundingBox.objects.filter(image=image).exists()
@@ -995,11 +1001,18 @@ def calculateCategoryAnnotationFlags(image):
 
     has_staff_or_expert_vote = any(category[1].get("has_staff_or_expert_vote") is True for category in zipped_querysets)
 
-    bbox_count_gt = BoundingBox.objects.filter(image=image).count() > 0
+    not_invalid_bbox_count_gt = BoundingBox.objects.filter(image=image).count() > 0 and not any(
+        bbox[1].get("status") == "Invalid" for bbox in zipped_bbox_querysets
+    )
 
     all_bboxes_have_category = not category_objs.filter(name=UNANNOTATED_CATEGORY).exists()
 
-    if not category_has_uncertain_annotation and image.processed and bbox_count_gt and all_bboxes_have_category:
+    if (
+        not category_has_uncertain_annotation
+        and image.processed
+        and not_invalid_bbox_count_gt
+        and all_bboxes_have_category
+    ):
         image.has_humans = category_annotations.filter(name="person").exists()
         image.has_animals = category_annotations.filter(name="animal").exists()
         image.has_vehicles = category_annotations.filter(name="vehicle").exists()
@@ -1049,7 +1062,7 @@ def calculateCategoryAnnotationFlags(image):
                 "has_staff_or_expert_vote": has_staff_or_expert_vote,
             },
             "processed": image.processed,
-            "bounding_boxes_gte_zero": bbox_count_gt,
+            "bounding_boxes_gte_zero": not_invalid_bbox_count_gt,
             "all_bboxes_have_category": all_bboxes_have_category,
         },
         "pipeline_flags": {

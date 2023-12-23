@@ -351,10 +351,17 @@ def skip_ineligible_images(queue_name, queue):
         image = Image.objects.get(id=queue["images"][queue["index"]])
 
         # Recalculate flags on immediate images (alternative to running script on everything again)
-        calculateCategoryAnnotationFlags(image)
-        calculateSpeciesAnnotationFlags(image)
-        calculateActivityAnnotationFlags(image)
-        image.save()
+        # Remove this when flags for images with rejected bboxes have been updated
+        if (
+            BoundingBox.objects.annotate(reject_count=Count("rejected_by"))
+            .filter(image=image, reject_count__gt=0)
+            .exists()
+        ):
+            logging.info("Rejected bbox votes found. Recalculating flags...")
+            calculateCategoryAnnotationFlags(image)
+            calculateSpeciesAnnotationFlags(image)
+            calculateActivityAnnotationFlags(image)
+            image.save()
 
         if OBJECTS_QUEUE_NAME in queue_name:
             pipeline_completed = image.category_pipeline_complete

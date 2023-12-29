@@ -1008,8 +1008,8 @@ def calculateCategoryAnnotationFlags(image):
 
     has_staff_or_expert_vote = any(category[1].get("has_staff_or_expert_vote") is True for category in zipped_querysets)
 
-    not_invalid_bbox_count_gt = BoundingBox.objects.filter(image=image).count() > 0 and not any(
-        bbox[1].get("status") == "Invalid" for bbox in zipped_bbox_querysets
+    not_invalid_bbox_count_gt = BoundingBox.objects.filter(image=image).count() > 0 and any(
+        bbox[1].get("status") != "Invalid" for bbox in zipped_bbox_querysets
     )
 
     all_bboxes_have_category = not category_objs.filter(name=UNANNOTATED_CATEGORY).exists()

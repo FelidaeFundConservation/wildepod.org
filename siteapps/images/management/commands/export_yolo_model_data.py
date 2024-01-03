@@ -33,7 +33,7 @@ class Command(BaseCommand):
                         # | Q(species_checked_by__human__is_staff=True)
                         # | Q(species_checked_by__human__is_expert=True),
                         boundingbox__species__name__id=name.id,
-                        modified__gte=cutoff_date
+                        boundingbox__modified__gte=cutoff_date
                     )
                     .distinct()
                     .order_by("?")

@@ -108,13 +108,13 @@ class PreviewSnapshotImagesView(LoginRequiredMixin, View):
 
         if start_date:
             upload_kwargs["images__trigger_timestamp__gte"] = start_date
-            image_kwargs["images__trigger_timestamp__gte"] = start_date
+            image_kwargs["trigger_timestamp__gte"] = start_date
         if end_date:
             upload_kwargs["images__trigger_timestamp__lt"] = end_date
-            image_kwargs["images__trigger_timestamp__lt"] = end_date
+            image_kwargs["trigger_timestamp__lt"] = end_date
 
         # Get uploads from macrosite
-        uploads = Upload.objects.filter(**upload_kwargs)
+        uploads = Upload.objects.filter(**upload_kwargs).distinct()
 
         upload_info = []
 
@@ -122,9 +122,11 @@ class PreviewSnapshotImagesView(LoginRequiredMixin, View):
             upload_info.append(
                 {
                     "id": upload.id,
-                    "imageCount": upload.images.filter(**image_kwargs).count(),
+                    "imageCount": upload.images.filter(**image_kwargs).distinct().count(),
                     "hasTimeCorrection": bool(upload.time_correction),
-                    "imagesTimeCorrectionNotApplied": upload.images.filter(time_correction_applied=False).count()
+                    "imagesTimeCorrectionNotApplied": upload.images.filter(time_correction_applied=False)
+                    .distinct()
+                    .count()
                     if bool(upload.time_correction)
                     else 0,
                 }

@@ -87,6 +87,7 @@
 
         $(`.spinner-border`).show();
         $(`#unapplied-correction-warning`).hide();
+        $('#preview-snapshot').DataTable().clear().destroy();
 
         return new Promise(function (resolve, reject) {
             $.ajax({
@@ -97,7 +98,7 @@
                 success: function (data) {
                     if (data.success) {
                         populateSnapshotInfo(data.uploads);
-                        resolve();
+                        resolve(data.success);
                     } else {
                         reject(-1)
                     }
@@ -111,8 +112,6 @@
     }
 
     function populateSnapshotInfo(uploads) {
-        $('#preview-snapshot').DataTable().clear().destroy();
-
         let previewBody = $(`#preview-body`);
         previewBody.empty();
 

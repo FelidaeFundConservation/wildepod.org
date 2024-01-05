@@ -9,6 +9,7 @@ from io import BytesIO, StringIO
 from itertools import groupby
 
 from django.conf import settings
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.cache import cache
 from django.core.files.base import File as DjangoFile
 from django.core.paginator import Paginator
@@ -18,7 +19,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import View
 from explore.models import Snapshot
-from images.models import Image
+from images.models import Image, Upload
 from locations.models import CameraStation, MacroSite
 from users.models import User
 
@@ -292,10 +293,9 @@ def create_snapshot(data):
 def portal_export(macrosite_param=None, station_id_param=None, start_date_param=None, end_date_param=None):
     """Wrapper function for calling the PostgreSQL stored procedure"""
     with connection.cursor() as cursor:
-        cursor.callproc("portal_export", (macrosite_param, station_id_param, 
-                                start_date_param, end_date_param))
+        cursor.callproc("portal_export", (macrosite_param, station_id_param, start_date_param, end_date_param))
         results = cursor.fetchall()
-        return results               
+        return results
 
 
 def export_image_data_sql(archive_file, images):
@@ -380,9 +380,7 @@ def create_snapshot_sql(data):
     if end_date is not None:
         end_date += " 00:00:00-08:00"
 
-    images = portal_export(macrosite_param=macrosites_str,
-                           start_date_param=start_date,
-                           end_date_param=end_date)
+    images = portal_export(macrosite_param=macrosites_str, start_date_param=start_date, end_date_param=end_date)
 
     try:
         # Create an archive file to house all the csvs

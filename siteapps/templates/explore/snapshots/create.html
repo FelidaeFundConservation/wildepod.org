@@ -42,7 +42,11 @@
             <table id="preview-snapshot">
                 <thead>
                     <tr>
-                        <th>Upload ID</th>
+                        <th>First Timestamp</th>
+                        <th>Latest Timestamp</th>
+                        <th>Microsite</th>
+                        <th>Camera Station</th>
+                        <th>Volunteer</th>
                         <th>Images To Be Exported</th>
                         <th>Has Time Correction</th>
                         <th>Images With Unapplied Correction</th>
@@ -57,11 +61,12 @@
 {% block footer_includes %}
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script>
-    const pageLength = 10;
+        const pageLength = 10;
+        const order = [[6, 'desc']];
 
     $('#preview-snapshot').dataTable( {
         "pageLength": pageLength,
-        "order": [[3, 'desc']],
+        "order": order,
     });
 
     $('#id_macrosites').select2({
@@ -125,7 +130,11 @@
             }
             previewBody.append(`
                 <tr ${rowColor}>
-                    <td>${uploadInfo["id"]}</td>
+                    <td>${uploadInfo["firstImage"]}</td>
+                    <td>${uploadInfo["lastImage"]}</td>
+                    <td>${uploadInfo["microsite"]}</td>
+                    <td>${uploadInfo["cameraStation"]}</td>
+                    <td>${uploadInfo["volunteer"]}</td>
                     <td>${uploadInfo["imageCount"]}</td>
                     <td>${uploadInfo["hasTimeCorrection"]}</td>
                     <td>${uploadInfo["imagesTimeCorrectionNotApplied"]}</td>
@@ -135,7 +144,7 @@
 
         $('#preview-snapshot').dataTable( {
             "pageLength": pageLength,
-            "order": [[3, 'desc']],
+            "order": order,
         });
     }
     </script>

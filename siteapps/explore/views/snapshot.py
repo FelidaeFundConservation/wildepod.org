@@ -9,6 +9,7 @@ from django.http.response import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.urls.base import reverse_lazy
+from django.utils.dateparse import parse_datetime
 from django.views.generic import FormView, ListView, View
 from explore.forms import CreateSnapshotForm
 from explore.models import Snapshot
@@ -119,15 +120,20 @@ class PreviewSnapshotImagesView(LoginRequiredMixin, View):
         upload_info = []
 
         for upload in uploads:
+            has_time_correction = bool(upload.time_correction)
+            images = upload.images.order_by("trigger_timestamp")
+
             upload_info.append(
                 {
-                    "id": upload.id,
-                    "imageCount": upload.images.filter(**image_kwargs).distinct().count(),
-                    "hasTimeCorrection": bool(upload.time_correction),
-                    "imagesTimeCorrectionNotApplied": upload.images.filter(time_correction_applied=False)
-                    .distinct()
-                    .count()
-                    if bool(upload.time_correction)
+                    "firstImage": str(images.first().trigger_timestamp),
+                    "lastImage": str(images.last().trigger_timestamp),
+                    "microsite": upload.camera_station.micro_site.name,
+                    "cameraStation": upload.camera_station.station_id,
+                    "volunteer": upload.volunteer.name,
+                    "imageCount": images.filter(**image_kwargs).distinct().count(),
+                    "hasTimeCorrection": has_time_correction,
+                    "imagesTimeCorrectionNotApplied": images.filter(time_correction_applied=False).distinct().count()
+                    if has_time_correction
                     else 0,
                 }
             )

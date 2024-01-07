@@ -40,7 +40,7 @@ function createCategoryWidget(categories, speciesVotes, pipeline){
         // Render the classes as clickable buttons
         let createButton = function (value, categoryList) {
             let selected = value == currentClassValue ? "btn-primary" : "btn-light";
-            let colClass = categoryList.length > 5 ? 'col-3 p-0 m-0 d-flex' : "";
+            let colClass = categoryList.length > 5 ? 'col-3' : "col-12";
 
             let recentTagBadge = typeof recentTags !== 'undefined' && recentTags.includes(value) ? `
                 <span style="position:absolute; font-size: 8px;"
@@ -57,7 +57,7 @@ function createCategoryWidget(categories, speciesVotes, pipeline){
                 </span>` : "";
 
             let buttonHtml = `
-                <div class="${colClass}">
+                <div class="${colClass} p-0 m-0 d-flex">
                     <button class="btn ${selected} align-items-center m-1 btn-tag" data-tag="${value}">
                         ${value}
                     </button>
@@ -120,11 +120,21 @@ function createCategoryWidget(categories, speciesVotes, pipeline){
         birdsSectionHtml = pipeline == "species" ? `<div class="accordion" id="birds-accordion">
               <div class="accordion-item">
                 <h2 class="accordion-header" id="birds-header">
-                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#birds-collapse" aria-expanded="false" aria-controls="birds-collapse">
+                  <button class="accordion-button collapsed"
+                          type="button"
+                          data-bs-toggle="collapse"
+                          data-bs-target="#birds-collapse"
+                          aria-expanded="false"
+                          aria-controls="birds-collapse"
+                  >
                     Specify Bird Species (optional)
                   </button>
                 </h2>
-                <div id="birds-collapse" class="accordion-collapse collapse" aria-labelledby="birds-collapse" data-bs-parent="#birds-accordion">
+                <div id="birds-collapse"
+                     class="accordion-collapse collapse"
+                     aria-labelledby="birds-collapse"
+                     data-bs-parent="#birds-accordion"
+                >
                   <div id="birds-list" class="accordion-body m-2 p-2 row">
                        ${birdsHtml}
                   </div>
@@ -133,11 +143,16 @@ function createCategoryWidget(categories, speciesVotes, pipeline){
             </div>` : "";
 
         // Show species for person, animal, and vehicle in separate tabs
-        let personSelected = currentClassCategoryType == "person" || personList.includes(currentClassValue) ? "show active" : "";
-        let vehicleSelected = currentClassCategoryType == "vehicle" || vehicleList.includes(currentClassValue) ? "show active" : "";
+        let personSelected = currentClassCategoryType == "person"
+                            || personList.includes(currentClassValue)
+                            ? "show active" : "";
+        let vehicleSelected = currentClassCategoryType == "vehicle"
+                            || vehicleList.includes(currentClassValue)
+                            ? "show active" : "";
         let animalSelected = currentClassCategoryType == "animal"
-            || animalList.includes(currentClassValue)
-            || !currentClassCategoryType && personSelected.length == 0 && vehicleSelected.length == 0 ? "show active" : "";
+                            || animalList.includes(currentClassValue)
+                            || !currentClassCategoryType && personSelected.length == 0 && vehicleSelected.length == 0
+                            ? "show active" : "";
 
         let animalTabContentHtml = `${birdsSectionHtml}
             <div class="category-widget m-2 p-2 ${row}">
@@ -164,65 +179,66 @@ function createCategoryWidget(categories, speciesVotes, pipeline){
                 </div>
             </div>`;
 
-        categoryTabsHtml = pipeline == "species" ? `<nav>
-                            <div class="nav nav-tabs p-3" id="nav-tab" role="tablist">
-                                <a class="nav-link d-none d-sm-inline ${animalSelected}"
-                                   id="nav-animal-tab"
-                                   data-bs-toggle="tab"
-                                   href="#nav-animal"
-                                   role="tab"
-                                   aria-controls="nav-animal"
-                                   aria-selected="false">
-                                    <text class="small">
-                                        Animal
-                                    </text>
-                                </a>
-                                <a class="nav-link d-none d-sm-inline ${personSelected}"
-                                   id="nav-person-tab"
-                                   data-bs-toggle="tab"
-                                   href="#nav-person"
-                                   role="tab"
-                                   aria-controls="nav-person"
-                                   aria-selected="false">
-                                    <text class="small">
-                                        Person
-                                    </text>
-                                </a>
-                                <a class="nav-link d-none d-sm-inline ${vehicleSelected}"
-                                   id="nav-vehicle-tab"
-                                   data-bs-toggle="tab"
-                                   href="#nav-vehicle"
-                                   role="tab"
-                                   aria-controls="nav-vehicle"
-                                   aria-selected="false">
-                                    <text class="small">
-                                        Vehicle
-                                    </text>
-                                </a>
-                            </div>
-                        </nav>
-                        <nav id="nav-menu">
-                            <div class="tab-content p-3">
-                                <div class="tab-pane fade p-0 text-center ${animalSelected}"
-                                     id="nav-animal"
-                                     role="tabpanel"
-                                     aria-labelledby="nav-animal-tab">
-                                     ${animalTabContentHtml}
-                                </div>
-                                <div class="tab-pane fade p-0 text-center ${personSelected}"
-                                     id="nav-person"
-                                     role="tabpanel"
-                                     aria-labelledby="nav-person-tab">
-                                     ${personTabContentHtml}
-                                </div>
-                                <div class="tab-pane fade p-0 text-center ${vehicleSelected}"
-                                     id="nav-vehicle"
-                                     role="tabpanel"
-                                     aria-labelledby="nav-vehicle-tab">
-                                     ${vehicleTabContentHtml}
-                                </div>
-                            </div>
-                        </nav>` : "";
+        categoryTabsHtml = pipeline == "species" ? `
+            <nav>
+                <div class="nav nav-tabs p-3" id="nav-tab" role="tablist">
+                    <a class="nav-link d-none d-sm-inline ${animalSelected}"
+                        id="nav-animal-tab"
+                        data-bs-toggle="tab"
+                        href="#nav-animal"
+                        role="tab"
+                        aria-controls="nav-animal"
+                        aria-selected="false">
+                        <text class="small">
+                            Animal
+                        </text>
+                    </a>
+                    <a class="nav-link d-none d-sm-inline ${personSelected}"
+                        id="nav-person-tab"
+                        data-bs-toggle="tab"
+                        href="#nav-person"
+                        role="tab"
+                        aria-controls="nav-person"
+                        aria-selected="false">
+                        <text class="small">
+                            Person
+                        </text>
+                    </a>
+                    <a class="nav-link d-none d-sm-inline ${vehicleSelected}"
+                        id="nav-vehicle-tab"
+                        data-bs-toggle="tab"
+                        href="#nav-vehicle"
+                        role="tab"
+                        aria-controls="nav-vehicle"
+                        aria-selected="false">
+                        <text class="small">
+                            Vehicle
+                        </text>
+                    </a>
+                </div>
+            </nav>
+            <nav id="nav-menu">
+                <div class="tab-content p-3">
+                    <div class="tab-pane fade p-0 text-center ${animalSelected}"
+                            id="nav-animal"
+                            role="tabpanel"
+                            aria-labelledby="nav-animal-tab">
+                            ${animalTabContentHtml}
+                    </div>
+                    <div class="tab-pane fade p-0 text-center ${personSelected}"
+                            id="nav-person"
+                            role="tabpanel"
+                            aria-labelledby="nav-person-tab">
+                            ${personTabContentHtml}
+                    </div>
+                    <div class="tab-pane fade p-0 text-center ${vehicleSelected}"
+                            id="nav-vehicle"
+                            role="tabpanel"
+                            aria-labelledby="nav-vehicle-tab">
+                            ${vehicleTabContentHtml}
+                    </div>
+                </div>
+            </nav>` : "";
 
         // Only use tabs in species
         if (pipeline == "species") {
@@ -672,8 +688,8 @@ function displayOverlappingPairs(anno, imageElement) {
 
             let entryDeleteSection = $(`#duplicate-delete-${count}`);
 
-            let deleteButton1 = `<div class="col-6"><button class="btn btn-outline-danger w-50 remove-duplicate" data-target="${pairing[0][0].id}">Delete</button></div>`
-            let deleteButton2 = `<div class="col-6"><button class="btn btn-outline-danger w-50 remove-duplicate" data-target="${pairing[0][1].id}">Delete</button></div>`
+            let deleteButton1 = `<div class="col-6"><button class="btn btn-outline-danger w-50 remove-duplicate" data-target="${pairing[0][0].id}">Delete Box</button></div>`
+            let deleteButton2 = `<div class="col-6"><button class="btn btn-outline-danger w-50 remove-duplicate" data-target="${pairing[0][1].id}">Delete Box</button></div>`
 
             entryDeleteSection.append(deleteButton1);
             entryDeleteSection.append(deleteButton2);

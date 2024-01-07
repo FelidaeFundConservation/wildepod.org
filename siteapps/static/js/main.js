@@ -13,6 +13,7 @@ function createCategoryWidget(categories, speciesVotes, pipeline){
         let currentClassValue = currentClassBody ? currentClassBody.value : null;
         let currentClassConfidence = currentClassBody ? currentClassBody.confidence : null;
         let currentUpdateStatus = currentClassBody ? currentClassBody.updated : false;
+        let currentClassCategoryType = currentClassBody ? currentClassBody.category : null;
 
         // 3. Triggers callbacks on user action
         let addTag = function (evt) {
@@ -37,9 +38,9 @@ function createCategoryWidget(categories, speciesVotes, pipeline){
 
         // 4. This part renders the UI elements
         // Render the classes as clickable buttons
-        let createButton = function (value) {
+        let createButton = function (value, categoryList) {
             let selected = value == currentClassValue ? "btn-primary" : "btn-light";
-            let colClass = categories.length > 5 ? 'col-3 p-0 m-0 d-flex' : "";
+            let colClass = categoryList.length > 5 ? 'col-3 p-0 m-0 d-flex' : "";
 
             let recentTagBadge = typeof recentTags !== 'undefined' && recentTags.includes(value) ? `
                 <span style="position:absolute; font-size: 8px;"
@@ -70,16 +71,35 @@ function createCategoryWidget(categories, speciesVotes, pipeline){
         // Render the entire widget
         let buttonsHtml = "";
         let birdsHtml = "";
+        let humanButtonsHtml = "";
+        let vehicleButtonsHtml = "";
+
         for (const category of categories) {
-            if (birdsList.includes(category)) {
-                birdsHtml += createButton(category);
+            // Only apply layout organization if pipeline is species
+            if (pipeline == "species") {
+                // Only show the species tab for the category type
+                if (personList.includes(category)) {
+                    humanButtonsHtml += createButton(category, personList);
+                }
+                else if (vehicleList.includes(category)) {
+                    vehicleButtonsHtml += createButton(category, vehicleList);
+                }
+                else {
+                    if (birdsList.includes(category)) {
+                        birdsHtml += createButton(category, birdsList);
+                    }
+                    else {
+                        buttonsHtml += createButton(category, categories);
+                    }
+                }
             }
             else {
-                buttonsHtml += createButton(category);
+                buttonsHtml += createButton(category, categories);
             }
         }
 
         let displayTextHtml = "";
+
         if (currentClassValue) {
             if (currentUpdateStatus) {
                 displayTextHtml = `<em>Classified as <b> <mark>${currentClassValue}</mark> </b></em>`;
@@ -96,6 +116,7 @@ function createCategoryWidget(categories, speciesVotes, pipeline){
 
         let container = document.createElement("div");
 
+        // Collapsed accordion for small bird species to save space
         birdsSectionHtml = pipeline == "species" ? `<div class="accordion" id="birds-accordion">
               <div class="accordion-item">
                 <h2 class="accordion-header" id="birds-header">
@@ -111,8 +132,14 @@ function createCategoryWidget(categories, speciesVotes, pipeline){
               </div>
             </div>` : "";
 
-        container.innerHTML = `
-            ${birdsSectionHtml}
+        // Show species for person, animal, and vehicle in separate tabs
+        let personSelected = currentClassCategoryType == "person" || personList.includes(currentClassValue) ? "show active" : "";
+        let vehicleSelected = currentClassCategoryType == "vehicle" || vehicleList.includes(currentClassValue) ? "show active" : "";
+        let animalSelected = currentClassCategoryType == "animal"
+            || animalList.includes(currentClassValue)
+            || !currentClassCategoryType && personSelected.length == 0 && vehicleSelected.length == 0 ? "show active" : "";
+
+        let animalTabContentHtml = `${birdsSectionHtml}
             <div class="category-widget m-2 p-2 ${row}">
                 ${buttonsHtml}
                 <hr class="mt-2">
@@ -120,6 +147,97 @@ function createCategoryWidget(categories, speciesVotes, pipeline){
                     ${displayTextHtml}
                 </div>
             </div>`;
+
+        let personTabContentHtml = `<div class="category-widget m-2 p-2 ${row}">
+                ${humanButtonsHtml}
+                <hr class="mt-2">
+                <div class="selected-display-text pt-3">
+                    ${displayTextHtml}
+                </div>
+            </div>`;
+
+        let vehicleTabContentHtml = `<div class="category-widget m-2 p-2 ${row}">
+                ${vehicleButtonsHtml}
+                <hr class="mt-2">
+                <div class="selected-display-text pt-3">
+                    ${displayTextHtml}
+                </div>
+            </div>`;
+
+        categoryTabsHtml = pipeline == "species" ? `<nav>
+                            <div class="nav nav-tabs p-3" id="nav-tab" role="tablist">
+                                <a class="nav-link d-none d-sm-inline ${animalSelected}"
+                                   id="nav-animal-tab"
+                                   data-bs-toggle="tab"
+                                   href="#nav-animal"
+                                   role="tab"
+                                   aria-controls="nav-animal"
+                                   aria-selected="false">
+                                    <text class="small">
+                                        Animal
+                                    </text>
+                                </a>
+                                <a class="nav-link d-none d-sm-inline ${personSelected}"
+                                   id="nav-person-tab"
+                                   data-bs-toggle="tab"
+                                   href="#nav-person"
+                                   role="tab"
+                                   aria-controls="nav-person"
+                                   aria-selected="false">
+                                    <text class="small">
+                                        Person
+                                    </text>
+                                </a>
+                                <a class="nav-link d-none d-sm-inline ${vehicleSelected}"
+                                   id="nav-vehicle-tab"
+                                   data-bs-toggle="tab"
+                                   href="#nav-vehicle"
+                                   role="tab"
+                                   aria-controls="nav-vehicle"
+                                   aria-selected="false">
+                                    <text class="small">
+                                        Vehicle
+                                    </text>
+                                </a>
+                            </div>
+                        </nav>
+                        <nav id="nav-menu">
+                            <div class="tab-content p-3">
+                                <div class="tab-pane fade p-0 text-center ${animalSelected}"
+                                     id="nav-animal"
+                                     role="tabpanel"
+                                     aria-labelledby="nav-animal-tab">
+                                     ${animalTabContentHtml}
+                                </div>
+                                <div class="tab-pane fade p-0 text-center ${personSelected}"
+                                     id="nav-person"
+                                     role="tabpanel"
+                                     aria-labelledby="nav-person-tab">
+                                     ${personTabContentHtml}
+                                </div>
+                                <div class="tab-pane fade p-0 text-center ${vehicleSelected}"
+                                     id="nav-vehicle"
+                                     role="tabpanel"
+                                     aria-labelledby="nav-vehicle-tab">
+                                     ${vehicleTabContentHtml}
+                                </div>
+                            </div>
+                        </nav>` : "";
+
+        // Only use tabs in species
+        if (pipeline == "species") {
+            container.innerHTML = `${categoryTabsHtml}`;
+        }
+        else {
+            container.innerHTML = `
+            <div class="category-widget m-2 p-2 ${row}">
+                ${buttonsHtml}
+                <hr class="mt-2">
+                <div class="selected-display-text pt-3">
+                    ${displayTextHtml}
+                </div>
+            </div>`;
+        }
 
         container.addEventListener('click', function (event) {
             if (event.target.classList.contains('btn-tag')) {
@@ -163,6 +281,7 @@ function renderBoundingBoxes(imageElementID, annotations, widgets, config) {
                 "body": [{
                     "type": "TextualBody",
                     "purpose": "classifying",
+                    "category": annotation.categoryType,
                     "value": annotation.category,
                     "confidence": annotation.confidence
                 }],

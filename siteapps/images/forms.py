@@ -213,7 +213,6 @@ class AnnotationForm(forms.Form):
         ("species", "Annotate Species"),
         ("human", "Annotate Human Activity"),
         ("animal", "Annotate Animal Activity"),
-        ("blank", "Annotate Blanks"),
     ]
 
     annotation_choices = forms.ChoiceField(

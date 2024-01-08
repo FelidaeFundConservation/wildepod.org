@@ -284,6 +284,9 @@ def handle_inference(category, bbox_obj, annotator):
         create_category({"category": category, "confidence": 1}, bbox_obj, annotator)
         logging.info(f"Created new '{category}' object from inference.")
 
+    # Vote on the bbox as well
+    vote(bbox_obj, annotator, accept=True)
+
     # Cast a reject vote for all other annotations
     other_categories = Category.objects.filter(bounding_box=bbox_obj).exclude(name=category)
 

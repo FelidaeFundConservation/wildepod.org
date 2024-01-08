@@ -183,7 +183,7 @@ def staff_review_query_filter(images, annotator):
 
 
 # Filter criteria for an image to appear in the Object/Blank pipeline
-def object_pipeline_query(images, annotator):
+def species_pipeline_query(images, annotator):
     images = images.filter(
         # It must not be checked or skipped by the current annotator
         ~Q(bbox_checked_by__in=[annotator]) & ~Q(bbox_skipped_by__in=[annotator]),
@@ -238,26 +238,8 @@ def object_pipeline_query(images, annotator):
             )
             .filter(confidence__gte=F("confidence_threshold"), vote_uncertain=True)
         ),
-        # Image hasn't completed the Category/Object Pipeline
-        category_pipeline_complete=False,
-        # Image has been preprocessed and we can use precomputed flags
-        use_precomputed_flags=True,
-    ).order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
-
-    images = staff_review_query_filter(images, annotator)
-
-    return images
-
-
-# Filter criteria for an image to appear in the Species pipeline
-def species_pipeline_query(images, annotator):
-    images = images.filter(
-        # It must not be checked or skipped by the current annotator
-        ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
         # Image hasn't completed the Species Pipeline
         species_pipeline_complete=False,
-        # Image has animals
-        has_animals=True,
         # Image has been preprocessed and we can use precomputed flags
         use_precomputed_flags=True,
     ).order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
@@ -296,9 +278,7 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
     images = Image.objects.filter(**self.filterset)
 
     # Filter using specified pipeline criteria
-    if OBJECTS_QUEUE_NAME in queue_name:
-        images = object_pipeline_query(images=images, annotator=annotator)
-    elif SPECIES_QUEUE_NAME in queue_name:
+    if SPECIES_QUEUE_NAME in queue_name:
         images = species_pipeline_query(images=images, annotator=annotator)
     elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
         images = activity_pipeline_query(images=images, annotator=annotator, activity_category=activity_category)
@@ -363,12 +343,8 @@ def skip_ineligible_images(queue_name, queue):
             calculateActivityAnnotationFlags(image)
             image.save()
 
-        if OBJECTS_QUEUE_NAME in queue_name:
-            pipeline_completed = image.category_pipeline_complete
-            pipeline_eligible = BoundingBox.objects.filter(image=image).exists()
-        elif SPECIES_QUEUE_NAME in queue_name:
+        if SPECIES_QUEUE_NAME in queue_name:
             pipeline_completed = image.species_pipeline_complete
-            pipeline_eligible = image.has_animals
         elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
             pipeline_completed = image.activity_pipeline_complete
             pipeline_eligible = image.has_humans or image.has_wild_animals
@@ -1110,7 +1086,6 @@ def calculateSpeciesAnnotationFlags(image):
     if (
         not species_has_uncertain_annotation
         and species_has_valid_annotation
-        and image.has_animals
         and (annotation_checked_by_gte or has_staff_or_expert_vote)
         and image.processed
         and all_bboxes_have_species

@@ -10,7 +10,7 @@ from django.db.models import Count, Sum
 from django.utils import timezone
 from django.views.generic import ListView
 from images.models import AnnotationCounter, Annotator, Image
-from images.views import activity_pipeline_query, object_pipeline_query, species_pipeline_query
+from images.views import activity_pipeline_query, species_pipeline_query
 
 User = get_user_model()
 
@@ -145,7 +145,7 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
 
         # Total pipeline eligible images
         images = Image.objects.all()
-        context["category_pipeline_images"] = object_pipeline_query(images=images, annotator=None).count()
+        context["category_pipeline_images"] = 0
         context["species_pipeline_images"] = species_pipeline_query(images=images, annotator=None).count()
         context["activity_pipeline_images"] = (
             activity_pipeline_query(images=images, annotator=None, activity_category="animal").count()

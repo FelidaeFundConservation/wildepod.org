@@ -13,7 +13,6 @@ from .annotation import (
     SpeciesAnnotationProcessorView,
     activity_pipeline_query,
     annotate,
-    object_pipeline_query,
     species_pipeline_query,
 )
 from .image import ImageDetailView

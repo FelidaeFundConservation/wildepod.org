@@ -377,18 +377,32 @@ function renderBoundingBoxPreviews(imageElementID, anno) {
 
         let annotationText = annotation.body[0].value && annotation.body[0].value != 'unannotated' ? annotation.body[0].value : "(No Annotation)";
         let highlight = annotationText == "(No Annotation)" ? `style="background-color: #FFCCCB"` : "";
-        const confidence = annotation.body[0].confidence && annotation.body[0].confidence !== 1 ? ` | <em>conf: ${annotation.body[0].confidence}</em></text>` : ``;
 
         // Remove the pound sign to work with Jquery
         const cleanedId = annotation.id.replace("#", "");
         const boxColor = uniqueColors[(boxNum - 1) % uniqueColors.length];
+
+        let categoryIcon = "";
+        let category = annotation.body[0].category;
+
+        if (category == "person") {
+            categoryIcon = `<i class="bi bi-person-fill"></i>`;
+        }
+        else if (category == "vehicle") {
+            categoryIcon = `<i class="bi bi-car-front-fill"></i>`;
+        }
+        else if (category == "animal") {
+            categoryIcon = `<i class="fa-solid fa-paw"></i>`;
+        }
+
+        const confidence = annotation.body[0].confidence && annotation.body[0].confidence !== 1 ? ` | <em>conf: ${annotation.body[0].confidence}</em></text>` : ``;
 
         // Setup the basic card
         let annotationHtml = `<div class="preview-${cleanedId} preview-lite card p-0 mb-3" style="outline-width: 8px; outline-style: groove; outline-color: ${boxColor}">
             <div class="card-body m-0 fw-bold">
                 <button class="hide-${cleanedId} border-0 bg-transparent"><i class="bi bi-eye"></i></button>
                 <button class="delete-${cleanedId} border-0 bg-transparent"><i class="bi bi-trash text-danger"></i></button>
-                <span ${highlight} class="annotation-label-${cleanedId}"> ${annotationText}${confidence}</span>
+                <span ${highlight} class="annotation-label-${cleanedId} small">&nbsp;&nbsp;${categoryIcon}&nbsp;&nbsp;${annotationText}${confidence}&nbsp;&nbsp;&nbsp;</span>
             </div>
         </div>`
 

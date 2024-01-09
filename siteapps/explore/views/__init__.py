@@ -4,7 +4,7 @@ from .megadetector import ExploreMegadetectorView
 from .popular_images import ExplorePopularImagesView, RemovePopularImageView
 from .query_data import SearchDataView
 from .set_priority import ConfirmUpdateView, PriorityView
-from .snapshot import SnapshotCreateView, SnapshotListView
+from .snapshot import PreviewSnapshotImagesView, SnapshotCreateView, SnapshotListView
 from .species import SpeciesSightingImagesView, SpeciesSightingTimeseriesView
 from .track_volunteer_engagement import TrackVolunteerEngagementView
 from .workflow import WorkflowStateView

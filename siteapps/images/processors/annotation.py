@@ -312,11 +312,6 @@ def infer_category(species_name, bbox_obj, annotator):
 
 
 def process_category(initial_bboxes, formatted_annotations, image, bbox_id, bbox_obj, user, annotator):
-    # Category with name "unannotated" is created when a bbox is created in Species stage or beyond.
-    # Delete this object once a proper annotation has been made
-    if Category.objects.filter(~Q(name=UNANNOTATED_CATEGORY), bounding_box=bbox_obj).exists():
-        Category.objects.filter(name=UNANNOTATED_CATEGORY, bounding_box=bbox_obj).delete()
-
     try:
         category_obj = Category.objects.get(bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"])
     except MultipleObjectsReturned:
@@ -325,6 +320,11 @@ def process_category(initial_bboxes, formatted_annotations, image, bbox_id, bbox
         category_objs = Category.objects.filter(bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"])
         category_obj = category_objs.first()
         category_objs.filter(~Q(id=category_obj.id)).delete()
+
+    # Category with name "unannotated" is created when a bbox is created in Species stage or beyond.
+    # Delete this object once a proper annotation has been made
+    if Category.objects.filter(~Q(name=UNANNOTATED_CATEGORY), bounding_box=bbox_obj).exists():
+        Category.objects.filter(name=UNANNOTATED_CATEGORY, bounding_box=bbox_obj).delete()
 
     # First handle the case of 'accept' votes. This can happen in 3 cases,
     # 1) The user is staff

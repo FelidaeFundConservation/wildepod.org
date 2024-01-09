@@ -315,6 +315,17 @@ def get_preview_images(upload_id):
     if upload_id == "TEST":
         mar_images = Image.objects.filter(trigger_timestamp__month=3, trigger_timestamp__year=datetime.now().year)
         nov_images = Image.objects.filter(trigger_timestamp__month=11, trigger_timestamp__year=datetime.now().year)
+
+        # Use last year's images if there are none for this year
+        if not mar_images.exists():
+            mar_images = Image.objects.filter(
+                trigger_timestamp__month=3, trigger_timestamp__year=datetime.now().year - 1
+            )
+        if not nov_images.exists():
+            nov_images = Image.objects.filter(
+                trigger_timestamp__month=11, trigger_timestamp__year=datetime.now().year - 1
+            )
+
         mar_step_value = max(1, mar_images.count() // MAX_RESULTS)
         nov_step_value = max(1, nov_images.count() // MAX_RESULTS)
 

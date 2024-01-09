@@ -27,11 +27,13 @@ class UploadForm(forms.ModelForm):
     start_date = forms.DateTimeField(
         widget=forms.widgets.TextInput(attrs={"type": "datetime-local"}),
         required=False,
+        help_text="Time correction will only apply to images later than this date.",
     )
 
     end_date = forms.DateTimeField(
         widget=forms.widgets.TextInput(attrs={"type": "datetime-local"}),
         required=False,
+        help_text="Time correction will only apply to images before this date.",
     )
 
     daylight_savings_correction = forms.CharField(

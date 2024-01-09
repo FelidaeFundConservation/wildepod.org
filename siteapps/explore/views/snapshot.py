@@ -1,20 +1,21 @@
-import datetime as dt
 import json
-import logging
 
 from braces.views import StaffuserRequiredMixin
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.files.base import File as DjangoFile
 from django.core.serializers.json import DjangoJSONEncoder
+from django.http.response import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.urls.base import reverse_lazy
+from django.utils.dateparse import parse_datetime
 from django.views.generic import FormView, ListView, View
 from explore.forms import CreateSnapshotForm
 from explore.models import Snapshot
 from exports.views import start_export
 from google.cloud import tasks_v2
+from images.models import Image, Upload
 
 MAX_VOTES_PER_IMAGE = 3
 
@@ -56,7 +57,6 @@ class SnapshotCreateView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             start_export(payload)
             # payload_json = json.dumps(payload, cls=DjangoJSONEncoder)
 
-
             # The API expects a payload of type bytes.
             # converted_payload = payload_json.encode()
 
@@ -88,3 +88,54 @@ class SnapshotListView(LoginRequiredMixin, StaffuserRequiredMixin, ListView):
     login_url = settings.LOGIN_URL
     template_name = "explore/snapshots/list.html"
     model = Snapshot
+
+
+class PreviewSnapshotImagesView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        success = True
+
+        start_date = request.POST.get("startDate")
+        end_date = request.POST.get("endDate")
+        macrosites = request.POST.get("macrosites")
+
+        upload_kwargs = {}
+        image_kwargs = {}
+
+        if macrosites:
+            macrosites = json.loads(macrosites)
+            upload_kwargs["camera_station__micro_site__macro_site__id__in"] = macrosites
+        else:
+            return JsonResponse({"success": success, "uploads": []})
+
+        if start_date:
+            upload_kwargs["images__trigger_timestamp__gte"] = start_date
+            image_kwargs["trigger_timestamp__gte"] = start_date
+        if end_date:
+            upload_kwargs["images__trigger_timestamp__lt"] = end_date
+            image_kwargs["trigger_timestamp__lt"] = end_date
+
+        # Get uploads from macrosite
+        uploads = Upload.objects.filter(**upload_kwargs).distinct()
+
+        upload_info = []
+
+        for upload in uploads:
+            has_time_correction = bool(upload.time_correction)
+            images = upload.images.order_by("trigger_timestamp")
+
+            upload_info.append(
+                {
+                    "firstImage": str(images.first().trigger_timestamp),
+                    "lastImage": str(images.last().trigger_timestamp),
+                    "microsite": upload.camera_station.micro_site.name,
+                    "cameraStation": upload.camera_station.station_id,
+                    "volunteer": upload.volunteer.name,
+                    "imageCount": images.filter(**image_kwargs).distinct().count(),
+                    "hasTimeCorrection": has_time_correction,
+                    "imagesTimeCorrectionNotApplied": images.filter(time_correction_applied=False).distinct().count()
+                    if has_time_correction
+                    else 0,
+                }
+            )
+
+        return JsonResponse({"success": success, "uploads": upload_info})

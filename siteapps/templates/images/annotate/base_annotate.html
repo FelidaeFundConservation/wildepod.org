@@ -624,6 +624,7 @@
             {% for bbox in bounding_boxes %}
                 {
                     "id": "{{bbox.id}}",
+                    "categoryType": "{{bbox.category_set.all.0.name}}",
                     // Only show these in Category pipeline
                     {% block show_bbox_category_and_confidence %}
                     {% endblock show_bbox_category_and_confidence %}
@@ -635,11 +636,34 @@
             {% endfor %}
         ];
 
-        birdsList = [
+        window.birdsList = [
             {% for bird in birds_list %}
             "{{ bird.name }}",
             {% endfor %}
         ]
+
+        window.animalList = [
+            {% for species in species_list %}
+                {% if species.species_group == "WILD" or species.species_group == "DOMESTIC" or species.species_group == "OTHER" %}
+                    "{{ species.name }}",
+                {% endif %}
+            {% endfor %}
+        ];
+
+        window.personList = [
+            {% for species in species_list %}
+                {% if species.species_group == "HUMAN" %}
+                    "{{ species.name }}",
+                {% endif %}
+            {% endfor %}
+        ];
+        window.vehicleList = [
+            {% for species in species_list %}
+                {% if species.species_group == "VEHICLE" %}
+                    "{{ species.name }}",
+                {% endif %}
+            {% endfor %}
+        ];
 
         // Save state of hidden boxes
         window.hiddenBoxes = [];

@@ -1,13 +1,11 @@
 from .annotation import (
     ActivityAnnotationProcessorView,
     AnnotateActivityView,
-    AnnotateObjectsView,
     AnnotateSpeciesView,
     ChangeAnnotationView,
     CustomAnnotationView,
     DeleteAnnotationView,
     GetRecentTagsView,
-    MDAnnotationProcessorView,
     SavePreviousImageToReturnToView,
     SaveRecentTagsView,
     SpeciesAnnotationProcessorView,

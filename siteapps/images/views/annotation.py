@@ -159,7 +159,7 @@ def get_or_set_annotation_count(request, queue_name, annotator, annotation_num=0
 
 
 def staff_review_query_filter(images, annotator):
-    if annotator and annotator.human.is_staff:
+    if "prod" in settings.WSGI_APPLICATION and annotator and annotator.human.is_staff:
         # Show images needing review first
         images = images.order_by("-staff_review_needed")
     else:
@@ -199,9 +199,13 @@ def species_pipeline_query(images, annotator):
             .filter(confidence__gte=F("confidence_threshold"))
         ),
         # Image has at least 1 uncertain bounding box
-        Exists(BoundingBox.objects.filter(image=OuterRef("pk"), validity="Uncertain")) |
-        # OR is species incomplete, excluding images with only people if category's been confirmed
-        (~Q(has_humans=True, has_animals=False) & Q(category_pipeline_complete=True, species_pipeline_complete=False)),
+        Exists(BoundingBox.objects.filter(image=OuterRef("pk"), validity="Uncertain"))
+        # OR is species incomplete, excluding images with only people/vehicles if category's been confirmed
+        | (
+            ~Q(has_humans=True, has_animals=False)
+            & ~Q(has_vehicles=True, has_animals=False)
+            & Q(category_pipeline_complete=True, species_pipeline_complete=False)
+        ),
         # Image has been preprocessed and we can use precomputed flags
         use_precomputed_flags=True,
     ).order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")

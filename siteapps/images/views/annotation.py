@@ -171,9 +171,21 @@ def staff_review_query_filter(images, annotator):
 
 # Filter criteria for an image to appear in the Species pipeline
 def species_pipeline_query(images, annotator):
+    # Auto migrate a small portion of images in case there's no images available
+    # Remove this code when all images have had precomputed flags recalculated
+    logging.info("Migrating a batch of 100 images...")
+    migrate_images = Image.objects.filter(Exists(BoundingBox.objects.filter(image=OuterRef("pk"), validity=None)))[:100]
+
+    for image in migrate_images:
+        category_debug_data = calculateCategoryAnnotationFlags(image)
+        species_debug_data = calculateSpeciesAnnotationFlags(image)
+        activity_debug_data = calculateActivityAnnotationFlags(image)
+
+        image.save()
+
     images = images.filter(
         # It must not be checked or skipped by the current annotator
-        ~Q(bbox_checked_by__in=[annotator]) & ~Q(bbox_skipped_by__in=[annotator]),
+        ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
         # Image has at least one bounding box tagged by MegaDetector above the predetermined threshold
         Exists(
             BoundingBox.objects.filter(image=OuterRef("pk"))
@@ -186,8 +198,10 @@ def species_pipeline_query(images, annotator):
             )
             .filter(confidence__gte=F("confidence_threshold"))
         ),
-        # Image hasn't completed the Species Pipeline
-        species_pipeline_complete=False,
+        # Image has at least 1 uncertain bounding box
+        Exists(BoundingBox.objects.filter(image=OuterRef("pk"), validity="Uncertain")) |
+        # OR is species incomplete, excluding images with only people if category's been confirmed
+        (~Q(has_humans=True, has_animals=False) & Q(category_pipeline_complete=True, species_pipeline_complete=False)),
         # Image has been preprocessed and we can use precomputed flags
         use_precomputed_flags=True,
     ).order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
@@ -901,6 +915,12 @@ def calculateCategoryAnnotationFlags(image):
     )
 
     all_bboxes_have_category = not category_objs.filter(name=UNANNOTATED_CATEGORY).exists()
+
+    # Save bbox validity status
+    for bbox in zipped_bbox_querysets:
+        bbox[0].validity = bbox[1].get("status")
+        bbox[0].save()
+        logging.info(f"Validity saved as '{bbox[0].validity}' for bbox {bbox[0].id}.'")
 
     if (
         not category_has_uncertain_annotation

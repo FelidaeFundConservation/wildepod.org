@@ -180,7 +180,7 @@ class BoundingBox(TimeStampedModel):
     accepted_by = models.ManyToManyField(Annotator, related_name="accepted_annotation", blank=True)
     rejected_by = models.ManyToManyField(Annotator, related_name="rejected_annotation", blank=True)
 
-    # Bounding box validity is uncertain
+    # Bounding box validity
     validity = models.CharField(
         "Validity",
         max_length=250,

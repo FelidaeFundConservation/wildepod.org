@@ -63,8 +63,8 @@
         </div>
         <hr>
         <div class="row justify-content-center">
-            <div class="card col-3 p-0 mx-2">
-                <div class="card-header">Category Rates</div>
+            <div class="card col-3 p-0 mx-2 opacity-50">
+                <div class="card-header">Category Rates (deprecated)</div>
                 <div class="card-body text-center">
                     <h1>{{ daily_category_img_avg }} images/day</h1>
                     <h5 class="small">{{ daily_category_avg }} boxes/day</h5>
@@ -241,8 +241,8 @@
                     label: "Total Annotations"
                 },
                 {
-                    backgroundColor:"rgba(0,128,0,1.0)",
-                    borderColor: "rgba(0,128,0,0.5)",
+                    backgroundColor:"rgba(211,211,211,0.5)",
+                    borderColor: "rgba(211,211,211,0.5)",
                     pointRadius: pointRadius,
                     data: {{ daily_category_counts }},
                     label: "Category Annotations",

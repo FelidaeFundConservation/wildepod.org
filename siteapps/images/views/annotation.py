@@ -3,7 +3,6 @@ import json
 import logging
 from io import BytesIO
 
-import numpy as np
 import requests
 from django.conf import settings
 from django.contrib import messages
@@ -43,7 +42,12 @@ from images.models import (
     SpeciesName,
 )
 from images.models.custom_fields import get_filter_params
-from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations
+from images.processors import (
+    process_activity_annotations,
+    process_md_annotations,
+    process_species_annotations,
+    run_model_inference,
+)
 from locations.models import CameraStation, MacroSite, MicroSite
 from PIL import Image as PILImage
 
@@ -72,16 +76,26 @@ class BboxAnnotationInfo:
         self.activities = activities
 
 
-def calculate_image_luma(image, bboxes):
-    TARGET_LUMA = 13
-
+def get_pil_image(image):
     image_file_path = f"{settings.MEDIA_URL}{image.thumbnail_gcloud_path}"
     response = requests.get(image_file_path)
+
+    pillow_image = None
 
     if response.status_code == 200:
         # Get the image data
         pillow_image = PILImage.open(BytesIO(response.content)).convert("RGB")
 
+    return pillow_image
+
+
+def calculate_image_luma(image, bboxes):
+    TARGET_LUMA = 13
+
+    # Get the image data
+    pillow_image = get_pil_image(image)
+
+    if pillow_image:
         width, height = pillow_image.size
         width = round(width * 0.2)
         height = round(height * 0.2)
@@ -504,6 +518,9 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         image = None
         context["image"] = None
         context["bounding_boxes"] = []
+
+    if SPECIES_QUEUE_NAME in queue_name:
+        context["species_detections"] = run_model_inference(image, species=True)
 
     context["species_list"] = SpeciesName.objects.filter(~Q(name=UNANNOTATED_CATEGORY))
     context["birds_list"] = SpeciesName.objects.filter(is_bird=True)

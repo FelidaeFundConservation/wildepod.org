@@ -3,6 +3,7 @@ ADMIN_URL_SUFFIX=-DUMMYSUFFIX
 GOOGLE_CLOUD_PROJECT=wildepod-339517
 DJANGO_ACCOUNT_ALLOW_REGISTRATION=False
 MEGADETECTOR_URL=https://megadetector-fastapi-cmwfrnoova-wl.a.run.app
+SPECIES_DETECTOR_URL=https://us-west2-wildepod-339517.cloudfunctions.net/wildepod-species-detector-tPjGk2qKHAfGXdPi6xfA
 GS_MODELS_BUCKET_NAME=wildepod_models
 GS_BUCKET_NAME_PROD=wildepod_prod
 GS_BUCKET_NAME_STAGING=wildepod_staging

@@ -173,15 +173,32 @@ def staff_review_query_filter(images, annotator):
 def species_pipeline_query(images, annotator):
     # Auto migrate a small portion of images in case there's no images available
     # Remove this code when all images have had precomputed flags recalculated
-    logging.info("Migrating a batch of 100 images...")
-    migrate_images = Image.objects.filter(Exists(BoundingBox.objects.filter(image=OuterRef("pk"), validity=None)))[:100]
+    def migrate_images():
+        logging.info("Running image flag recalculations in the background...")
+        migrate_images = Image.objects.filter(
+            Exists(
+                BoundingBox.objects.filter(image=OuterRef("pk"), validity=None, image__species_pipeline_complete=False)
+            ),
+        ).order_by("-upload__priority")[:500]
 
-    for image in migrate_images:
-        category_debug_data = calculateCategoryAnnotationFlags(image)
-        species_debug_data = calculateSpeciesAnnotationFlags(image)
-        activity_debug_data = calculateActivityAnnotationFlags(image)
+        def recalc(image):
+            category_debug_data = calculateCategoryAnnotationFlags(image)
+            species_debug_data = calculateSpeciesAnnotationFlags(image)
+            activity_debug_data = calculateActivityAnnotationFlags(image)
 
-        image.save()
+            image.save()
+
+        import concurrent.futures
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [executor.submit(recalc, image) for image in migrate_images]
+
+    import threading
+
+    thread = threading.Thread(target=migrate_images, args=[])
+    thread.name = "migrate-images"
+    thread.setDaemon(True)
+    thread.start()
 
     images = images.filter(
         # It must not be checked or skipped by the current annotator
@@ -196,7 +213,10 @@ def species_pipeline_query(images, annotator):
                     default=0.0,
                 ),
             )
-            .filter(confidence__gte=F("confidence_threshold"))
+            .filter(
+                ~Q(validity__in=["Invalid", None]),
+                confidence__gte=F("confidence_threshold"),
+            )
         ),
         # Image has at least 1 uncertain bounding box
         Exists(BoundingBox.objects.filter(image=OuterRef("pk"), validity="Uncertain"))
@@ -302,8 +322,9 @@ def skip_ineligible_images(queue_name, queue):
             BoundingBox.objects.annotate(reject_count=Count("rejected_by"))
             .filter(image=image, reject_count__gt=0)
             .exists()
+            or image.category_pipeline_complete is False
         ):
-            logging.info("Rejected bbox votes found. Recalculating flags...")
+            logging.info("Recalculating flags...")
             calculateCategoryAnnotationFlags(image)
             calculateSpeciesAnnotationFlags(image)
             calculateActivityAnnotationFlags(image)
@@ -858,7 +879,7 @@ def annotate(zipped_querysets):
     # and its .value() list to append data to.
 
     for obj, annotation in zipped_querysets:
-        annotation["accepted_count"] = obj.accepted_by.count() + 1 if obj.created_by.type == "human" else 0
+        annotation["accepted_count"] = obj.accepted_by.count() + (1 if obj.created_by.type == "human" else 0)
         annotation["rejected_count"] = obj.rejected_by.count()
 
         annotation["vote_difference"] = annotation.get("accepted_count") - annotation.get("rejected_count")

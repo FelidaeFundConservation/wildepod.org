@@ -519,7 +519,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         context["image"] = None
         context["bounding_boxes"] = []
 
-    if SPECIES_QUEUE_NAME in queue_name:
+    if SPECIES_QUEUE_NAME in queue_name and context["image"]:
         context["species_detections"] = run_model_inference(image, species=True)
 
     context["species_list"] = SpeciesName.objects.filter(~Q(name=UNANNOTATED_CATEGORY))

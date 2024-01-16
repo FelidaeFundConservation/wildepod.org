@@ -10,6 +10,7 @@
 {% endblock header_includes %}
 {% block instruction_text %}
     <p class="label-toggle lead">What species does the image have?</p>
+    <p class="label-toggle small"><i>(Select all objects in the image if it isn't already!)</i></p>
     <p class="d-none label-toggle lead">
         <b>Click on each box and select the species. Then, click Save when
         complete!</b>
@@ -50,6 +51,9 @@
 {% block processor_url %}
     `{% url 'images:species_annotation_processor' %}`
 {% endblock processor_url %}
+{% block show_bbox_category_and_confidence %}
+"confidence": "{{bbox.category_set.all.0.confidence}}",
+{% endblock show_bbox_category_and_confidence %}
 {% block multiple_category_check %}
     // If it is not a single species, make sure every entry has a species
     if (!species & !skip) {

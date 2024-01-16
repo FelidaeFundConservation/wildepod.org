@@ -15,7 +15,7 @@ from images.models import (
     SpeciesName,
     Upload,
 )
-from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations, vote
+from images.processors import process_activity_annotations, process_species_annotations, vote
 from images.views.annotation import (
     annotate,
     calculateActivityAnnotationFlags,
@@ -126,10 +126,6 @@ class LoggedInTestCase(TestCase):
 class AnnotationPagesTestCase(LoggedInTestCase):
     def setUp(self):
         super().setUp()
-
-    def test_object_page_loads(self):
-        response = self.client.get(reverse("images:annotate_objects"))
-        self.assertEqual(response.status_code, 200)
 
     def test_species_page_loads(self):
         response = self.client.get(reverse("images:annotate_species"))

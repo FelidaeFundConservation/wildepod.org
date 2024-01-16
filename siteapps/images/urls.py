@@ -3,7 +3,6 @@ from django.urls import path
 from .views import (
     ActivityAnnotationProcessorView,
     AnnotateActivityView,
-    AnnotateObjectsView,
     AnnotateSpeciesView,
     ApplyTimeCorrectionView,
     ChangeAnnotationView,
@@ -12,7 +11,6 @@ from .views import (
     FixUploadSetsView,
     GetRecentTagsView,
     ImageDetailView,
-    MDAnnotationProcessorView,
     ModifyUploadSetImagesView,
     PreviewTimeCorrectionsView,
     SavePreviousImageToReturnToView,
@@ -60,7 +58,6 @@ urlpatterns = [
     ),
     # path("upload/<uuid:pk>/export/", UploadExportView.as_view(), name="export_upload"),
     path("image/<uuid:pk>", ImageDetailView.as_view(), name="image"),
-    path("annotate/objects", AnnotateObjectsView.as_view(), name="annotate_objects"),
     path("annotate/species", AnnotateSpeciesView.as_view(), name="annotate_species"),
     path(
         "annotate/custom_annotation",
@@ -71,11 +68,6 @@ urlpatterns = [
         "annotate/activity/<str:category>",
         AnnotateActivityView.as_view(),
         name="annotate_activity",
-    ),
-    path(
-        "md-annotation-processor/",
-        MDAnnotationProcessorView.as_view(),
-        name="md_annotation_processor",
     ),
     path(
         "species-annotation-processor/",

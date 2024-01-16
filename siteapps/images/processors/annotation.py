@@ -284,6 +284,9 @@ def handle_inference(category, bbox_obj, annotator):
         create_category({"category": category, "confidence": 1}, bbox_obj, annotator)
         logging.info(f"Created new '{category}' object from inference.")
 
+    # Vote on the bbox as well
+    vote(bbox_obj, annotator, accept=True)
+
     # Cast a reject vote for all other annotations
     other_categories = Category.objects.filter(bounding_box=bbox_obj).exclude(name=category)
 
@@ -494,33 +497,6 @@ def process_annotations(
     )
 
     return handler_success
-
-
-# Function to process a list of annotations for MegaDetector's Object Detection model
-# Annotations follow the Annotorious format
-def process_md_annotations(
-    image_id: str,
-    annotations: list,
-    initial_bboxes: list,
-    user: settings.AUTH_USER_MODEL,
-    social_media_worthy_vote: int,
-    staff_review_needed: bool = False,
-    skip: bool = False,
-):
-    """Function to process a list of annotations for MegaDetector's Object Detection model
-
-    Annotations follow the Annotorious format
-    """
-    return process_annotations(
-        OBJECT_ANNOTATION_TYPE,
-        image_id=image_id,
-        annotations=annotations,
-        initial_bboxes=initial_bboxes,
-        user=user,
-        social_media_worthy_vote=social_media_worthy_vote,
-        staff_review_needed=staff_review_needed,
-        skip=skip,
-    )
 
 
 # Function to process a list of annotations for MegaDetector's Object Detection model

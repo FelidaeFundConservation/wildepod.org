@@ -42,11 +42,7 @@ from images.models import (
     SpeciesName,
 )
 from images.models.custom_fields import get_filter_params
-from images.processors import (
-    process_activity_annotations,
-    process_species_annotations,
-    run_model_inference,
-)
+from images.processors import process_activity_annotations, process_species_annotations, run_model_inference
 from locations.models import CameraStation, MacroSite, MicroSite
 from PIL import Image as PILImage
 
@@ -480,7 +476,43 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         context["bounding_boxes"] = []
 
     if SPECIES_QUEUE_NAME in queue_name and context["image"]:
-        context["species_detections"] = run_model_inference(image, species=True)
+        # Check if current image is already inferred for species
+        species_detections = self.request.session.get(image_id)
+
+        if species_detections:
+            logging.info("Cached species detections found.")
+            context["species_detections"] = species_detections
+        else:
+            logging.info("No cached species detections. Running inference...")
+            context["species_detections"] = run_model_inference(image, species=True)
+
+            # Run species inference on a few images ahead of time asynchronously, and cache results
+            PRE_INFERENCE_RANGE = 10
+            pre_inference_lower_range = min(queue["index"] + 1, len(queue["images"]))
+            pre_inference_upper_range = min(queue["index"] + PRE_INFERENCE_RANGE, len(queue["images"]))
+
+            pre_inference_images = queue["images"][pre_inference_lower_range:pre_inference_upper_range]
+
+            def pre_inference(self, inference_image_id):
+                if self.request.session.get(inference_image_id) is None:
+                    inference_image = Image.objects.get(id=inference_image_id)
+                    self.request.session[inference_image_id] = run_model_inference(inference_image, species=True)
+                    self.request.session.modified = True
+
+            import threading
+
+            inference_threads = []
+
+            for inference_image_id in pre_inference_images:
+                thread = threading.Thread(target=pre_inference, args=[self, inference_image_id])
+                thread.name = f"species-{inference_image_id}"
+                inference_threads.append(thread)
+
+            for thread in inference_threads:
+                thread.start()
+
+            for thread in inference_threads:
+                thread.join()
 
     context["species_list"] = SpeciesName.objects.filter(~Q(name=UNANNOTATED_CATEGORY))
     context["birds_list"] = SpeciesName.objects.filter(is_bird=True)
@@ -961,7 +993,7 @@ def calculateCategoryAnnotationFlags(image):
     for bbox in zipped_bbox_querysets:
         bbox[0].validity = bbox[1].get("status")
         bbox[0].save()
-        logging.info(f"Validity saved as '{bbox[0].validity}' for bbox {bbox[0].id}.'")
+        # logging.info(f"Validity saved as '{bbox[0].validity}' for bbox {bbox[0].id}.'")
 
     if (
         not category_has_uncertain_annotation

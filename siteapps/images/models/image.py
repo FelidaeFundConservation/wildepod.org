@@ -109,7 +109,7 @@ class Image(TimeStampedModel):
     activity_skipped_by = models.ManyToManyField(Annotator, related_name="skipped_bbox_for_activity", blank=True)
 
     # Save the detections from the cloud run for re-use
-    species_ai_detections = ArrayField(models.CharField(max_length=40), null=True)
+    species_ai_detections = ArrayField(models.CharField(max_length=80), null=True)
 
     # Flag for Staff Review. This field is used to indicate images that should be reviewed later by staff users.
     staff_review_needed = models.BooleanField(default=False)

@@ -215,6 +215,11 @@ def process_image(image: Image):
             run_model_inference(image)
             logging.info("Finished adding bounding boxes to image..")
 
+            # Then, detect species present in the image
+            if not image.species_ai_detections:
+                image.species_ai_detections = run_model_inference(image, species=True)
+                logging.info(f"Species detected: {str(set(image.species_ai_detections))}")
+
             image.processed = True
             image.save()
             logging.info("Successfully saved image to database.")

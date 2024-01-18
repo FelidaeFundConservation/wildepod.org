@@ -1,9 +1,12 @@
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import Q
 from django.views.generic import DetailView
 from images.models import Activity, ActivityType, BoundingBox, Category, Image, Species, SpeciesName, Upload
 from images.views.annotation import calculate_image_luma
+
+UNANNOTATED_CATEGORY = "unannotated"
 
 
 class ImageDetailView(LoginRequiredMixin, DetailView):
@@ -32,6 +35,10 @@ class ImageDetailView(LoginRequiredMixin, DetailView):
         except ObjectDoesNotExist:
             pass
 
+        context["pipeline"] = "species"
+        context["species_list"] = SpeciesName.objects.filter(~Q(name=UNANNOTATED_CATEGORY))
+        context["birds_list"] = SpeciesName.objects.filter(is_bird=True)
+        context["activity_list"] = ActivityType.objects.all()
         context["bounding_boxes"] = BoundingBox.objects.filter(image=img_obj)
 
         class BboxAnnotationInfo:
@@ -40,9 +47,6 @@ class ImageDetailView(LoginRequiredMixin, DetailView):
                 self.categories = categories
                 self.species = species
                 self.activities = activities
-
-        context["species_list"] = SpeciesName.objects.all()
-        context["activity_list"] = ActivityType.objects.all()
 
         # Gather all annotations for bounding boxes.
         try:

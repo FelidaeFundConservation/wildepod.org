@@ -477,7 +477,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         context["bounding_boxes"] = []
 
     # Run AI species detection, or get saved results
-    if SPECIES_QUEUE_NAME in queue_name and context["image"]:
+    if (not settings.DEBUG) and SPECIES_QUEUE_NAME in queue_name and context["image"]:
         # Current image
         species_inference_current(image, context)
         # Next images in queue

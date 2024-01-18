@@ -1,6 +1,7 @@
 import uuid
 
 from django.conf import settings
+from django.contrib.postgres.fields import ArrayField
 from django.db import models
 from django.db.models import Count
 from locations.models import CameraStation
@@ -106,6 +107,9 @@ class Image(TimeStampedModel):
     species_skipped_by = models.ManyToManyField(Annotator, related_name="skipped_bbox_for_species", blank=True)
     activity_checked_by = models.ManyToManyField(Annotator, related_name="checked_bbox_for_activity", blank=True)
     activity_skipped_by = models.ManyToManyField(Annotator, related_name="skipped_bbox_for_activity", blank=True)
+
+    # Save the detections from the cloud run for re-use
+    species_ai_detections = ArrayField(models.CharField(max_length=40), null=True)
 
     # Flag for Staff Review. This field is used to indicate images that should be reviewed later by staff users.
     staff_review_needed = models.BooleanField(default=False)

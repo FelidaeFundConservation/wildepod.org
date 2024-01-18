@@ -1,6 +1,7 @@
 import datetime
 import json
 import logging
+import time
 from io import BytesIO
 
 import requests
@@ -475,44 +476,12 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         context["image"] = None
         context["bounding_boxes"] = []
 
+    # Run AI species detection, or get saved results
     if SPECIES_QUEUE_NAME in queue_name and context["image"]:
-        # Check if current image is already inferred for species
-        species_detections = self.request.session.get(image_id)
-
-        if species_detections:
-            logging.info("Cached species detections found.")
-            context["species_detections"] = species_detections
-        else:
-            logging.info("No cached species detections. Running inference...")
-            context["species_detections"] = run_model_inference(image, species=True)
-
-            # Run species inference on a few images ahead of time asynchronously, and cache results
-            PRE_INFERENCE_RANGE = 10
-            pre_inference_lower_range = min(queue["index"] + 1, len(queue["images"]))
-            pre_inference_upper_range = min(queue["index"] + PRE_INFERENCE_RANGE, len(queue["images"]))
-
-            pre_inference_images = queue["images"][pre_inference_lower_range:pre_inference_upper_range]
-
-            def pre_inference(self, inference_image_id):
-                if self.request.session.get(inference_image_id) is None:
-                    inference_image = Image.objects.get(id=inference_image_id)
-                    self.request.session[inference_image_id] = run_model_inference(inference_image, species=True)
-                    self.request.session.modified = True
-
-            import threading
-
-            inference_threads = []
-
-            for inference_image_id in pre_inference_images:
-                thread = threading.Thread(target=pre_inference, args=[self, inference_image_id])
-                thread.name = f"species-{inference_image_id}"
-                inference_threads.append(thread)
-
-            for thread in inference_threads:
-                thread.start()
-
-            for thread in inference_threads:
-                thread.join()
+        # Current image
+        species_inference_current(image, context)
+        # Next images in queue
+        species_inference_buffer(queue, self)
 
     context["species_list"] = SpeciesName.objects.filter(~Q(name=UNANNOTATED_CATEGORY))
     context["birds_list"] = SpeciesName.objects.filter(is_bird=True)
@@ -525,6 +494,61 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         context["pipeline"] = "animal activity"
     elif ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
         context["pipeline"] = "human activity"
+
+
+# Detect species with AI in the current image, or get previously cached results
+def species_inference_current(image, context):
+    IN_PROGRESS = ["IN_PROGRESS"]
+
+    # Check if current image is already inferred for species
+    if image.species_ai_detections is not None:
+        logging.info("Cached species detections found.")
+        context["species_detections"] = image.species_ai_detections
+    elif image.species_ai_detections == IN_PROGRESS:
+        logging.info("Species detection still in progress, waiting a few seconds...")
+        # Wait a few seconds in case the prediction is just a tad late
+        timeout = 3
+        while image.species_ai_detections is None:
+            time.sleep(1)
+            timeout -= 1
+            if timeout == 0:
+                break
+    else:
+        logging.info("No cached species detections. Running inference...")
+        image.species_ai_detections = run_model_inference(image, species=True)
+        image.save()
+
+        context["species_detections"] = image.species_ai_detections
+
+
+# Run AI species detection on a few images ahead of time asynchronously, and save/cache results
+def species_inference_buffer(queue, self):
+    PRE_INFERENCE_RANGE = 10
+
+    pre_inference_lower_range = min(queue["index"] + 1, len(queue["images"]))
+    pre_inference_upper_range = min(queue["index"] + PRE_INFERENCE_RANGE, len(queue["images"]))
+
+    pre_inference_images = queue["images"][pre_inference_lower_range:pre_inference_upper_range]
+
+    def pre_inference(self, inference_image_id):
+        inference_image = Image.objects.get(id=inference_image_id)
+
+        if inference_image.species_ai_detections is None:
+            # Set a value to make sure the same request doesn't get sent twice
+            inference_image.species_ai_detections = ["IN_PROGRESS"]
+            inference_image.save()
+
+            # Replace with the actual inferred species once done
+            inference_image.species_ai_detections = run_model_inference(inference_image, species=True)
+            inference_image.save()
+
+    import threading
+
+    for inference_image_id in pre_inference_images:
+        thread = threading.Thread(target=pre_inference, args=[self, inference_image_id])
+        thread.name = f"species-{inference_image_id}"
+        thread.setDaemon = True
+        thread.start()
 
 
 def auto_flag_for_staff(image):

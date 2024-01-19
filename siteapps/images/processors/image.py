@@ -218,7 +218,7 @@ def process_image(image: Image):
             # Then, detect species present in the image
             if not image.species_ai_detections:
                 image.species_ai_detections = run_model_inference(image, species=True)
-                logging.info(f"Species detected: {str(set(image.species_ai_detections))}")
+                logging.info(f"Species detected: {image.species_ai_detections}")
 
             image.processed = True
             image.save()

@@ -8,7 +8,7 @@ import dropbox
 from django.conf import settings
 from images.models import Image, Upload
 
-from .image import process_image, run_model_inference
+from .image import process_image
 
 # Create a dropbox client
 dbx = dropbox.Dropbox(

@@ -62,6 +62,8 @@ UNANNOTATED_CATEGORY = "unannotated"
 STAFF_OR_EXPERT_CHECK = Q(human__is_staff=True) | Q(human__is_expert=True)
 STAFF_OR_EXPERT_VOTE_MULTIPLIER = 2
 
+IN_PROGRESS = "IN_PROGRESS"
+
 
 class BboxAnnotationInfo:
     def __init__(self, id, categories, species, activities):
@@ -498,12 +500,11 @@ def populate_view_context(queue_name, context, self, activity_category=None):
 
 # Detect species with AI in the current image, or get previously cached results
 def species_inference_current(image, context):
-    IN_PROGRESS = ["IN_PROGRESS"]
+    from ast import literal_eval
 
     # Check if current image is already inferred for species
     if image.species_ai_detections is not None:
         logging.info("Cached species detections found.")
-        context["species_detections"] = image.species_ai_detections
     elif image.species_ai_detections == IN_PROGRESS:
         logging.info("Species detection still in progress, waiting a few seconds...")
         # Wait a few seconds in case the prediction is just a tad late
@@ -518,7 +519,8 @@ def species_inference_current(image, context):
         image.species_ai_detections = run_model_inference(image, species=True)
         image.save()
 
-        context["species_detections"] = image.species_ai_detections
+    # Convert the string representation to an actual list
+    context["species_detections"] = literal_eval(image.species_ai_detections)
 
 
 # Run AI species detection on a few images ahead of time asynchronously, and save/cache results
@@ -535,7 +537,7 @@ def species_inference_buffer(queue, self):
 
         if inference_image.species_ai_detections is None:
             # Set a value to make sure the same request doesn't get sent twice
-            inference_image.species_ai_detections = ["IN_PROGRESS"]
+            inference_image.species_ai_detections = IN_PROGRESS
             inference_image.save()
 
             # Replace with the actual inferred species once done

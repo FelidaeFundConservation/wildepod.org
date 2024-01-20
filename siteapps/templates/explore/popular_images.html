@@ -74,18 +74,27 @@
                 {% endfor %}
             </div>
             <div class="row pt-2 mt-2 text-center">
-                <p>
-                    {% if paged_images.has_previous %}
-                        <a href="?page=1">&laquo; first</a>&nbsp;&nbsp;
-                        <a href="?page={{ paged_images.previous_page_number }}">&laquo;previous</a>
-                    {% endif %}
-                    <span class="current">
-                        &nbsp;&nbsp;Page {{ paged_images.number }} of {{ paged_images.paginator.num_pages }}&nbsp;&nbsp;
-                    </span>
-                    {% if paged_images.has_next %}
-                        <a href="?page={{ paged_images.next_page_number }}">next&raquo;</a>&nbsp;&nbsp;
-                        <a href="?page={{ paged_images.paginator.num_pages }}">last &raquo;</a>
-                    {% endif %}
+                <p class="d-flex">
+                    <div class="justify-content-evenly">
+                        {% if paged_images.has_previous %}
+                            <a href="?page={{ paged_images.previous_page_number }}"
+                               class="btn btn-primary mx-2 w-25"><i class="bi bi-arrow-left mx-2"></i>Prev</a>
+                        {% endif %}
+                        {% if paged_images.has_next %}
+                            <a href="?page={{ paged_images.next_page_number }}"
+                               class="btn btn-primary mx-2 w-25">Next<i class="bi bi-arrow-right mx-2"></i></a>&nbsp;&nbsp;
+                        {% endif %}
+                        <hr>
+                        {% for pg in paged_images.paginator.page_range %}
+                            {% if paged_images.number == pg %}
+                                <a href="?page={{ pg }}"
+                                   class="btn btn-secondary m-1"
+                                   style="width: 50px">{{ pg }}</a>
+                            {% else %}
+                                <a href="?page={{ pg }}" class="btn btn-light m-1" style="width: 50px;">{{ pg }}</a>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
                 </p>
             </div>
             <!-- Modal - Remove from popular images -->

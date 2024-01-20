@@ -1,106 +1,180 @@
 {% extends '_base.html' %}
 {% load static %}
-
-
 <!-- Set corresponding nav pill to active -->
 {% block title %}Social Media Worthy Images{% endblock %}
-{% block nav_explore %}active{% endblock nav_explore %}
-
+{% block nav_explore %}
+    active
+{% endblock nav_explore %}
 {% block content %}
-<div class="container">
-
-    <div class="row justify-content-evenly mt-3 pt-3">
-        <h1>Social Media Worthy Images</h1>
-    </div>
-
-    <div class="container py-3 my-3">
-
-        <div class="row pt-2 mt-2 justify-content-center">
-            {% for image in paged_images %}
-            <div class="col-12 col-md-6 col-xl-4 text-center py-3">
-                <div>Vote count: {{ image.social_media_worthy }}</div>
-                <a
-                    href="{% url 'images:image' image.id %}"
-                    class="text-decoration-none"
-                >
-                    <img
-                        id="{{image.id}}"
-                        class="img-fluid my-2"
-                        src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}"
-                    >
-                </a>
-                <div class="mb-2">Timestamp:
-                    {% if image.trigger_timestamp %}{{image.trigger_timestamp}}{% else %}N/A{% endif %}
-                </div>
-                <a href="{% url 'images:image' image.id %}"><button
-                        type="button"
-                        class="btn btn-light"
-                    >View/Edit</button></a>
-                <a
-                    href="{{dropbox_prefix}}{{image.dropbox_file_path}}"
-                    target="_blank"
-                ><button
-                        type="button"
-                        class="btn btn-light"
-                    >View Original</button></a>
-
-                {% if user.is_staff %}
-                    <button type="button" value="{{image.id}}" id="" class="btn btn-warning removePopularImageBtn" data-bs-toggle="modal" data-bs-target="#removePopularImageModal">
-                        Remove Image
-                    </button>
-                {% endif %}
+    <div class="container">
+        <div class="row justify-content-evenly my-3 p-3">
+            <h1>Social Media Worthy Images</h1>
+        </div>
+        {% if user.is_staff %}
+            <div class="mx-2 text-center">
+                <hr>
+                <button type="button"
+                        id="remove-multiple"
+                        value="[]"
+                        class="btn btn-warning removePopularImageBtn disabled"
+                        data-bs-toggle="modal"
+                        data-bs-target="#removePopularImageModal">
+                    <i class="bi bi-x"></i>&nbsp;&nbsp;Remove 0 Selected Image(s)
+                </button>
+                <hr>
             </div>
-            {% endfor %}
-        </div>
-        <div class="row pt-2 mt-2 text-center">
-            <p>
-                {% if paged_images.has_previous %}
-                <a href="?page=1">&laquo; first</a>&nbsp;&nbsp;
-                <a href="?page={{ paged_images.previous_page_number }}">&laquo;previous</a>
-                {% endif %}
-                <span class="current">
-                    &nbsp;&nbsp;Page {{ paged_images.number }} of {{ paged_images.paginator.num_pages }}&nbsp;&nbsp;
-                </span>
-
-                {% if paged_images.has_next %}
-                <a href="?page={{ paged_images.next_page_number }}">next&raquo;</a>&nbsp;&nbsp;
-                <a href="?page={{ paged_images.paginator.num_pages }}">last &raquo;</a>
-                {% endif %}
-            </p>
-        </div>
-
-
-
-        <!-- Modal - Remove from popular images -->
-        <div class="modal fade" id="removePopularImageModal" tabindex="-1"
-            aria-labelledby="removePopularImageModalLabel" aria-hidden="true"
-            data-image_id="">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="removePopularImageModalLabel">Remove Image</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-
-                <form id="removePopularImageForm" action="" method="POST">
-                    {% csrf_token %}
-                    <input type="hidden" name="social_media_worthy" value="0">
-                    <input type="hidden" value="" name="page" />
-                    <div class="modal-body">
-                        Remove image from "Popular Images"
+        {% endif %}
+        <div class="container py-3 mb-3">
+            <div class="row pt-2 justify-content-center">
+                {% for image in paged_images %}
+                    <div class="col-12 col-md-6 col-xl-4 text-center card p-0 my-2">
+                        <div class="card-header">
+                            <input class="form-check-input mx-2"
+                                   type="checkbox"
+                                   data-image="{{ image.id }}"
+                                   onclick="updateSelectedImages();">
+                            {% if image.trigger_timestamp %}
+                                {{ image.trigger_timestamp }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                            <span class="text-primary mx-2">(<i class="bi bi-hand-thumbs-up"></i>&nbsp;{{ image.social_media_worthy }})</span>
+                        </div>
+                        <div class="card-body">
+                            <a href="{% url 'images:image' image.id %}" class="text-decoration-none">
+                                <img id="{{ image.id }}"
+                                     class="img-fluid my-2"
+                                     src="{% get_media_prefix %}{{ image.thumbnail_gcloud_path }}">
+                            </a>
+                        </div>
+                        <div class="card-footer">
+                            <a href="{% url 'images:image' image.id %}">
+                                <button type="button" class="btn btn-light">
+                                    <i class="bi bi-pencil"></i>&nbsp;&nbsp;View
+                                </button>
+                            </a>
+                            <a href="{{ dropbox_prefix }}{{ image.dropbox_file_path }}"
+                               target="_blank">
+                                <button type="button" class="btn btn-light">
+                                    <i class="bi bi-dropbox"></i>&nbsp;&nbsp;Dropbox
+                                </button>
+                            </a>
+                            {% if user.is_staff %}
+                                <button type="button"
+                                        value="{{ image.id }}"
+                                        class="btn btn-outline-warning removePopularImageBtn"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#removePopularImageModal"
+                                        onclick="removePopularImages(['{{ image.id }}'])">
+                                    <i class="bi bi-x"></i>&nbsp;&nbsp;Remove
+                                </button>
+                            {% endif %}
+                        </div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-success" data-bs-dismiss="modal">No</button>
-                        <button type="submit" class="btn btn-danger">Yes</button>
+                {% endfor %}
+            </div>
+            <div class="row pt-2 mt-2 text-center">
+                <p>
+                    {% if paged_images.has_previous %}
+                        <a href="?page=1">&laquo; first</a>&nbsp;&nbsp;
+                        <a href="?page={{ paged_images.previous_page_number }}">&laquo;previous</a>
+                    {% endif %}
+                    <span class="current">
+                        &nbsp;&nbsp;Page {{ paged_images.number }} of {{ paged_images.paginator.num_pages }}&nbsp;&nbsp;
+                    </span>
+                    {% if paged_images.has_next %}
+                        <a href="?page={{ paged_images.next_page_number }}">next&raquo;</a>&nbsp;&nbsp;
+                        <a href="?page={{ paged_images.paginator.num_pages }}">last &raquo;</a>
+                    {% endif %}
+                </p>
+            </div>
+            <!-- Modal - Remove from popular images -->
+            <div class="modal fade"
+                 id="removePopularImageModal"
+                 tabindex="-1"
+                 aria-labelledby="removePopularImageModalLabel"
+                 aria-hidden="true"
+                 data-image_id="">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="removePopularImageModalLabel">Remove Image</h5>
+                            <button type="button"
+                                    class="btn-close"
+                                    data-bs-dismiss="modal"
+                                    aria-label="Close"></button>
+                        </div>
+                        <form id="removePopularImageForm" action="">
+                            {% csrf_token %}
+                            <input type="hidden" name="social_media_worthy" value="0">
+                            <input type="hidden" value="" name="page" />
+                            <div class="modal-body">Are you sure you want to remove the selected image(s) from Popular Images?</div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-success" data-bs-dismiss="modal">No</button>
+                                <button type="submit"
+                                        class="btn btn-danger"
+                                        onclick="removePopularImages(imageIds)">Yes</button>
+                            </div>
+                        </form>
                     </div>
-                </form>
-
                 </div>
             </div>
         </div>
     </div>
-</div>
+    <script src="{% static 'js/explore/popular_images.js' %}"
+            type="text/javascript"
+            charset="utf-8"></script>
+    <script>
+    imageIds = [];
 
-<script src="{% static 'js/explore/popular_images.js' %}" type="text/javascript" charset="utf-8"></script>
+    function updateSelectedImages() {
+        imageIds = [];
 
+        let checkboxes = $(`.form-check-input`);
+
+        for (checkbox of checkboxes) {
+            imageId = $(checkbox).attr("data-image");
+
+            if ($(checkbox).is(":checked")) {
+                imageIds.push(imageId);
+                $(`#${imageId}`).css("border", "5px solid red");
+            }
+            else {
+                $(`#${imageId}`).css("border", "none");
+            }
+        }
+
+        const removeMultipleButton = $(`#remove-multiple`);
+        removeMultipleButton.attr("value", imageIds);
+        removeMultipleButton.html(`<i class="bi bi-x"></i>&nbsp;&nbsp;Remove ${imageIds.length} Selected Image(s)`)
+
+        if (imageIds.length == 0) {
+            removeMultipleButton.addClass("disabled")
+        }
+        else {
+            removeMultipleButton.removeClass("disabled");
+        }
+    }
+
+    function removePopularImages(imageIds) {
+
+    return new Promise(function (resolve, reject) {
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        let data = {
+            'csrfmiddlewaretoken': csrftoken,
+            'imageIds': JSON.stringify(imageIds),
+        }
+
+        $.ajax({
+            url: `{% url 'explore:remove_popular_image'%}`,
+            method: 'POST',
+            data: data,
+            dataType: 'json',
+            success: function (data) {
+                window.location.reload();
+            }
+        });
+    });
+}
+    </script>
 {% endblock content %}

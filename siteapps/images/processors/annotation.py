@@ -243,10 +243,10 @@ def handle_bbox_updates(
         species_annotation = list(set(item["category"] for item in formatted_annotations.values()))
 
         if len(species_annotation) == 0:
-            logging.error("No annotations to apply to multi-tag burst images. Skipping.")
+            logging.error("No annotations to apply to batch tag burst images. Skipping.")
         elif len(species_annotation) > 1:
             logging.error(
-                "Cannot multi-tag burst images when more than 1 species was annotated for current image. Skipping."
+                "Cannot batch tag burst images when more than 1 species was annotated for current image. Skipping."
             )
         else:
             tag_batch(batch_tag_images=batch_tag_images, category=species_annotation[0], annotator=annotator)
@@ -269,6 +269,9 @@ def tag_batch(batch_tag_images, category, annotator):
             process_species(
                 formatted_annotations=formatted_species, bbox_id=bbox.id, bbox_obj=bbox, annotator=annotator
             )
+
+        image.species_checked_by.add(annotator)
+        image.save()
 
         logging.info(f"Batch tagging for image {image_id} successful - annotated as {category}.")
     # except Exception as e:

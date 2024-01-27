@@ -126,13 +126,13 @@
                                     <text class="small"><span class="d-none d-xl-inline">Deduplicate</span><span class="d-inline d-xl-none">Dedup.</span></text>
                                 </a>
                                 <a class="nav-link"
-                                   id="nav-multi-tag-tab"
+                                   id="nav-batch-tag-tab"
                                    data-bs-toggle="tab"
-                                   href="#nav-multi-tag"
+                                   href="#nav-batch-tag"
                                    role="tab"
                                    aria-controls="nav-bboxes"
                                    aria-selected="false">
-                                    <text class="small">Multi-tag</text>
+                                    <text class="small"><span class="d-none d-xl-inline">Tag Batch</span><span class="d-inline d-xl-none">Batch</span></text>
                                 </a>
                             </div>
                         </nav>
@@ -376,9 +376,9 @@
                                     </div>
                                 </div>
                                 <div class="tab-pane fade"
-                                     id="nav-multi-tag"
+                                     id="nav-batch-tag"
                                      role="tabpanel"
-                                     aria-labelledby="nav-multi-tag-tab">
+                                     aria-labelledby="nav-batch-tag-tab">
                                     <div class="card">
                                         <div class="card card-header">Tag Batch</div>
                                         <div class="card-body">
@@ -400,7 +400,7 @@
                                                                         <input class="form-check-input"
                                                                                type="checkbox"
                                                                                value="{{ burst_image.id }}"
-                                                                               id="multi-tag-{{ burst_image.id }}"
+                                                                               id="batch-tag-{{ burst_image.id }}"
                                                                                style="width: 20px;
                                                                                       height: 20px">
                                                                         &nbsp;&nbsp;&nbsp;&nbsp;{{ bounding_boxes|length }} boxes
@@ -775,7 +775,7 @@
                     imageContainer.addClass(colBigger);
                 }
                 resetClasses();
-                if (e.target.id === "nav-bboxes-tab" || e.target.id === "nav-deduplicate-helper-tab" || e.target.id === "nav-multi-tag-tab") {
+                if (e.target.id === "nav-bboxes-tab" || e.target.id === "nav-deduplicate-helper-tab" || e.target.id === "nav-batch-tag-tab") {
                     sideMenu.removeClass(colSmaller);
                     sideMenu.addClass(colBigger);
                     imageContainer.removeClass(colBigger);
@@ -862,7 +862,7 @@
                     socialMediaWorthyVote = socialMediaWorthyVoteButton.data("vote");
                 }
 
-                let selectedMultiTagImages = $("[id^=multi-tag-]:checked").map(function () {
+                let selectedBatchTagImages = $("[id^=batch-tag-]:checked").map(function () {
                     return $(this).val();
                 }).get();
 
@@ -877,7 +877,7 @@
                     'custom_annotations': '{{custom_annotations}}',
                     'activity_category': '{{activity_category}}',
                     'is_reannotation': '{{ is_reannotation }}',
-                    'batch_tag_images': JSON.stringify(selectedMultiTagImages),
+                    'batch_tag_images': JSON.stringify(selectedBatchTagImages),
                 }
 
                 if (species) {
@@ -998,7 +998,7 @@
                 {% block submit_annotations %}
                 submitAnnotations(skip = false);
                 {% endblock submit_annotations %}
-                $(`#nav-multi-tag-tab`).tab('show');
+                $(`#nav-batch-tag-tab`).tab('show');
             });
 
             // Skip annotations to the server

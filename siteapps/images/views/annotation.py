@@ -309,33 +309,31 @@ def get_next_queue_image(self, context, queue):
 
 
 # Skip images completed or made ineligible by other annotators since the queue was built
-def skip_ineligible_images(queue_name, queue):
+def skip_ineligible_images(queue_name, queue, annotator):
     pipeline_completed = True
     pipeline_eligible = True
+    already_voted = False
 
-    while (pipeline_completed or not pipeline_eligible) and queue["index"] < len(queue["images"]):
+    while (pipeline_completed or not pipeline_eligible or already_voted) and queue["index"] < len(queue["images"]):
         image = Image.objects.get(id=queue["images"][queue["index"]])
 
-        # Recalculate flags on immediate images (alternative to running script on everything again)
-        # Remove this when flags for images with rejected bboxes have been updated
-        if (
-            BoundingBox.objects.annotate(reject_count=Count("rejected_by"))
-            .filter(image=image, reject_count__gt=0)
-            .exists()
-            or image.category_pipeline_complete is False
-        ):
-            logging.info("Recalculating flags...")
-            calculateCategoryAnnotationFlags(image)
-            calculateSpeciesAnnotationFlags(image)
-            calculateActivityAnnotationFlags(image)
-            image.save()
+        calculateCategoryAnnotationFlags(image)
+        calculateSpeciesAnnotationFlags(image)
+        calculateActivityAnnotationFlags(image)
+        image.save()
 
         if SPECIES_QUEUE_NAME in queue_name:
             pipeline_completed = image.species_pipeline_complete
             pipeline_eligible = BoundingBox.objects.filter(image=image).exists()
+            already_voted = Image.objects.filter(
+                Q(species_checked_by__in=[annotator]) | Q(species_skipped_by__in=[annotator]), id=image.id
+            ).exists()
         elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
             pipeline_completed = image.activity_pipeline_complete
             pipeline_eligible = image.has_humans or image.has_wild_animals
+            already_voted = Image.objects.filter(
+                Q(activity_checked_by__in=[annotator]) | Q(activity_skipped_by__in=[annotator]), id=image.id
+            ).exists()
         else:
             break
 
@@ -345,6 +343,9 @@ def skip_ineligible_images(queue_name, queue):
         elif not pipeline_eligible:
             queue["index"] += 1
             logging.info(f"Queue image {image.id} was made ineligible by another annotator. Skipping to next image.")
+        elif already_voted:
+            queue["index"] += 1
+            logging.info(f"User already voted on queue image {image.id}. Skipping to next image.")
         elif auto_flag_for_staff(image):
             queue["index"] += 1
             logging.info(
@@ -454,7 +455,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         image = Image.objects.get(id=image_id)
 
         if return_to_image_id is None:
-            skip_result = skip_ineligible_images(queue_name=queue_name, queue=queue)
+            skip_result = skip_ineligible_images(queue_name=queue_name, queue=queue, annotator=annotator)
             image = skip_result if skip_result else image
 
         context["image"] = image

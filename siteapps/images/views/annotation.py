@@ -62,7 +62,7 @@ UNANNOTATED_CATEGORY = "unannotated"
 STAFF_OR_EXPERT_CHECK = Q(human__is_staff=True) | Q(human__is_expert=True)
 STAFF_OR_EXPERT_VOTE_MULTIPLIER = 2
 
-IN_PROGRESS = "IN_PROGRESS"
+IN_PROGRESS = "[IN_PROGRESS]"
 
 
 class BboxAnnotationInfo:
@@ -520,7 +520,10 @@ def species_inference_current(image, context):
         image.save()
 
     # Convert the string representation to an actual list
-    context["species_detections"] = literal_eval(image.species_ai_detections)
+    try:
+        context["species_detections"] = literal_eval(image.species_ai_detections)
+    except Exception as e:
+        logging.error(f"Error reading species detections: {e}")
 
 
 # Run AI species detection on a few images ahead of time asynchronously, and save/cache results

@@ -363,9 +363,13 @@ def get_annotation_history(context, queue, queue_name, annotator):
     context["previous_annotations"] = []
 
     if SPECIES_QUEUE_NAME in queue_name:
-        image_history.filter(Q(species_checked_by__in=[annotator]) | Q(species_skipped_by__in=[annotator]))
+        image_history = image_history.filter(
+            Q(species_checked_by__in=[annotator]) | Q(species_skipped_by__in=[annotator])
+        )
     elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
-        image_history.filter(Q(activity_checked_by__in=[annotator]) | Q(activity_skipped_by__in=[annotator]))
+        image_history = image_history.filter(
+            Q(activity_checked_by__in=[annotator]) | Q(activity_skipped_by__in=[annotator])
+        )
 
     context["previous_queue_images"] = image_history.order_by("-modified")[:HISTORY_LENGTH]
 
@@ -945,7 +949,7 @@ def calculateCategoryAnnotationFlags(image):
     for bbox in zipped_bbox_querysets:
         bbox[0].validity = bbox[1].get("status")
         bbox[0].save()
-        logging.info(f"Validity saved as '{bbox[0].validity}' for bbox {bbox[0].id}.'")
+        # logging.info(f"Validity saved as '{bbox[0].validity}' for bbox {bbox[0].id}.'")
 
     if (
         not category_has_uncertain_annotation

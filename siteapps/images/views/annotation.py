@@ -182,16 +182,16 @@ def species_pipeline_query(images, annotator):
         ).order_by("-upload__priority")[:500]
 
         def recalc(image):
-            category_debug_data = calculateCategoryAnnotationFlags(image)
-            species_debug_data = calculateSpeciesAnnotationFlags(image)
-            activity_debug_data = calculateActivityAnnotationFlags(image)
+            calculateCategoryAnnotationFlags(image)
+            calculateSpeciesAnnotationFlags(image)
+            calculateActivityAnnotationFlags(image)
 
             image.save()
 
         import concurrent.futures
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-            futures = [executor.submit(recalc, image) for image in migrate_images]
+            [executor.submit(recalc, image) for image in migrate_images]
 
     import threading
 
@@ -688,18 +688,23 @@ def annotation_processor(queue_name, annotation_type, request):
     staff_review_needed = request.POST.get("staff_review_needed")
     staff_review_needed = bool(staff_review_needed and staff_review_needed == "true")
 
+    # Get images to batch tag
+    batch_tag_images = request.POST.get("batch_tag_images")
+    batch_tag_images = json.loads(batch_tag_images) if batch_tag_images else []
+
     annotation_description = None
 
     # Process the annotations
     if queue_name == SPECIES_QUEUE_NAME:
         annotation_description = "Species"
         success = process_species_annotations(
-            image_id,
-            annotations,
-            initial_bboxes,
-            request.user,
-            social_media_worthy_vote,
-            staff_review_needed,
+            image_id=image_id,
+            annotations=annotations,
+            initial_bboxes=initial_bboxes,
+            user=request.user,
+            social_media_worthy_vote=social_media_worthy_vote,
+            staff_review_needed=staff_review_needed,
+            batch_tag_images=batch_tag_images,
             skip=skip,
         )
 
@@ -970,7 +975,6 @@ def calculateCategoryAnnotationFlags(image):
     for bbox in zipped_bbox_querysets:
         bbox[0].validity = bbox[1].get("status")
         bbox[0].save()
-        logging.info(f"Validity saved as '{bbox[0].validity}' for bbox {bbox[0].id}.'")
 
     if (
         not category_has_uncertain_annotation

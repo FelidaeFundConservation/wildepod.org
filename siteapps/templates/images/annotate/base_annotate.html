@@ -125,14 +125,14 @@
                                    aria-selected="false">
                                     <text class="small"><span class="d-none d-xl-inline">Deduplicate</span><span class="d-inline d-xl-none">Dedup.</span></text>
                                 </a>
-                                <a class="nav-link"
+                                <a class="nav-link {% if images_w_boxes|length < 1 %}disabled opacity-25{% endif %}"
                                    id="nav-batch-tag-tab"
                                    data-bs-toggle="tab"
                                    href="#nav-batch-tag"
                                    role="tab"
                                    aria-controls="nav-bboxes"
                                    aria-selected="false">
-                                    <text class="small"><span class="d-none d-xl-inline">Tag Batch</span><span class="d-inline d-xl-none">Batch</span></text>
+                                    <text class="small">Batch</text>
                                 </a>
                             </div>
                         </nav>

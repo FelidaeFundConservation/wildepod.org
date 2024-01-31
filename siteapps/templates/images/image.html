@@ -17,7 +17,7 @@
 let categories = ['animal','person','vehicle']
 {% endblock set_categories %}
 
-{% block processor_url %} `{% url 'images:md_annotation_processor'%}`{% endblock processor_url %}
+{% block processor_url %} `{% url 'images:species_annotation_processor'%}`{% endblock processor_url %}
 
 {% block show_bbox_category_and_confidence %}
 "category": "{{bbox.category_set.all.0.name}}",

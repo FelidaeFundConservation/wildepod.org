@@ -1,13 +1,13 @@
 // Widget for category selection
 // Modified example from here - https://recogito.github.io/guides/editor-widgets/
 // This is a second order function that takes a list of categories and returns a category selection widget
-function createCategoryWidget(categories, speciesVotes, pipeline){
-    return function(args) {
+function createCategoryWidget(categories, speciesVotes, speciesDetections, pipeline) {
+    return function (args) {
         // 1. Find the current class in the annotation, if any
         let currentClassBody = args.annotation ?
-          args.annotation.bodies.find(function(b) {
-            return b.purpose == 'classifying';
-          }) : null;
+            args.annotation.bodies.find(function (b) {
+                return b.purpose == 'classifying';
+            }) : null;
 
         // 2. Keep the value in a variable
         let currentClassValue = currentClassBody ? currentClassBody.value : null;
@@ -42,27 +42,39 @@ function createCategoryWidget(categories, speciesVotes, pipeline){
             let selected = value == currentClassValue ? "btn-primary" : "btn-light";
             let colClass = categoryList.length > 5 ? 'col-3' : "col-12";
 
-            let recentTagBadge = typeof recentTags !== 'undefined' && recentTags.includes(value) ? `
+            let badge = typeof recentTags !== 'undefined' && recentTags.includes(value) ? `
                 <span style="position:absolute; font-size: 8px;"
                       class="badge rounded-pill bg-dark"
                 >
                     <text style="font-size: 8px">Recent Tag</text>
                 </span>` : "";
 
-            let hasVoteBadge = (recentTagBadge == "" && speciesVotes.includes(value)) ? `
+            badge = (badge == "" && speciesVotes.includes(value)) ? `
                 <span style="position:absolute; font-size: 8px;"
                       class="badge rounded-pill bg-secondary"
                 >
                       <text style="font-size: 8px">Has Vote In Image</text>
-                </span>` : "";
+                </span>` : badge;
+
+            let color = "";
+
+            if (speciesDetections.includes(value)) {
+                badge = `
+                <span style="position:absolute; font-size: 8px; pointer-events: none; background-color: #3d8ed1"
+                      class="badge rounded-pill"
+                >
+                      <text class="text-white" style="font-size: 8px">Computer Vision Suggestion</text>
+                </span>`;
+                color = `style="border: 2px solid #3d8ed1;"`
+            }
+
 
             let buttonHtml = `
                 <div class="${colClass} p-0 m-0 d-flex">
-                    <button class="btn ${selected} align-items-center m-1 btn-tag" data-tag="${value}">
+                    <button class="btn ${selected} align-items-center m-1 btn-tag" data-tag="${value}" ${color}>
                         ${value}
                     </button>
-                    ${recentTagBadge}
-                    ${hasVoteBadge}
+                    ${badge}
                 </div>`;
 
             return buttonHtml;
@@ -144,15 +156,15 @@ function createCategoryWidget(categories, speciesVotes, pipeline){
 
         // Show species for person, animal, and vehicle in separate tabs
         let personSelected = currentClassCategoryType == "person"
-                            || personList.includes(currentClassValue)
-                            ? "show active" : "";
+            || personList.includes(currentClassValue)
+            ? "show active" : "";
         let vehicleSelected = currentClassCategoryType == "vehicle"
-                            || vehicleList.includes(currentClassValue)
-                            ? "show active" : "";
+            || vehicleList.includes(currentClassValue)
+            ? "show active" : "";
         let animalSelected = currentClassCategoryType == "animal"
-                            || animalList.includes(currentClassValue)
-                            || !currentClassCategoryType && personSelected.length == 0 && vehicleSelected.length == 0
-                            ? "show active" : "";
+            || animalList.includes(currentClassValue)
+            || !currentClassCategoryType && personSelected.length == 0 && vehicleSelected.length == 0
+            ? "show active" : "";
 
         let animalTabContentHtml = `${birdsSectionHtml}
             <div class="category-widget m-2 p-2 ${row}">
@@ -303,9 +315,9 @@ function renderBoundingBoxes(imageElementID, annotations, widgets, config) {
                 }],
                 "target": {
                     "selector": {
-                    "type": "FragmentSelector",
-                    "conformsTo": "http://www.w3.org/TR/media-frags/",
-                    "value": `xywh=percent:${annotation.x*100},${annotation.y*100},${annotation.w*100},${annotation.h*100}`,
+                        "type": "FragmentSelector",
+                        "conformsTo": "http://www.w3.org/TR/media-frags/",
+                        "value": `xywh=percent:${annotation.x * 100},${annotation.y * 100},${annotation.w * 100},${annotation.h * 100}`,
                     }
                 }
             }
@@ -313,7 +325,7 @@ function renderBoundingBoxes(imageElementID, annotations, widgets, config) {
     }
     // Return the annotation object to be used by the caller
     return anno
-  }
+}
 
 
 // Function to consume an annoatation object, a container element and
@@ -543,7 +555,7 @@ function renderBoundingBoxPreviews(imageElementID, anno) {
     })
 }
 
-function setRectHighlight(annotationId, element, backgroundColor=false) {
+function setRectHighlight(annotationId, element, backgroundColor = false) {
     const rectAnnotation = $(`[data-id='${annotationId}']`);
     let innerRect = rectAnnotation.find(".a9s-inner");
 

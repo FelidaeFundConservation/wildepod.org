@@ -1,85 +1,73 @@
 {% extends './annotate/base_annotate.html' %}
 {% load static %}
-
 <!-- Set corresponding nav pill to active -->
 {% block nav_upload %}active{% endblock %}
-
 {% block instruction_text %}
-<p class="p-0 m-0">
-    {{image.upload.camera_station.micro_site.macro_site}} |
-    {{image.upload.camera_station.micro_site}} |
-    Time Taken: {% if image.trigger_timestamp %}{{image.trigger_timestamp}}{% else %}N/A{% endif %}
-</p>
+    <p class="p-0 m-0">
+        {{ image.upload.camera_station.micro_site.macro_site }} |
+        {{ image.upload.camera_station.micro_site }} |
+        Time Taken:
+        {% if image.trigger_timestamp %}
+            {{ image.trigger_timestamp }}
+        {% else %}
+            N/A
+        {% endif %}
+    </p>
 {% endblock instruction_text %}
-
 {% comment %}<script>{% endcomment %}
 {% block set_categories %}
-let categories = ['animal','person','vehicle']
+    let categories = [
+    {% for species in species_list %}"{{ species }}",{% endfor %}
+    ];
 {% endblock set_categories %}
 
-{% block processor_url %} `{% url 'images:species_annotation_processor'%}`{% endblock processor_url %}
+
+{% block processor_url %}
+    `{% url 'images:species_annotation_processor' %}`
+{% endblock processor_url %}
+
 
 {% block show_bbox_category_and_confidence %}
-"category": "{{bbox.category_set.all.0.name}}",
-"confidence": "{{bbox.category_set.all.0.confidence}}",
+    "category": "{{ bbox.species_set.all.0.name }}",
+    "confidence": "{{ bbox.category_set.all.0.confidence }}",
 {% endblock show_bbox_category_and_confidence %}
 
+
 {% block enable_save_buttons %}
-document.getElementById("save_annotations").disabled = false;
+    document.getElementById("save_annotations").disabled = false;
 {% endblock enable_save_buttons %}
 
+
 {% block menu_buttons %}
-<p class="p-1 mt-1 mb-0">
-    {% if previous_image %}
-    <a
-        href="{% url 'images:image' previous_image.id%}"
-        class="text-decoration-none"
-    ><button
-            type="button"
-            class="btn btn-primary"
-        >Previous
-        </button>
-    </a>
-    {% else %}
-    <button
-        type="button"
-        class="btn btn-light"
-        disabled
-    ><s>Previous</s>
-    </button>
-    {% endif %}
-    <a
-        href="{% url 'images:view_upload' image.upload.id %}"
-        class="text-decoration-none"
-    ><button
-            type="button"
-            class="btn btn-primary"
-        >Back to Upload</button></a>
-    <a
-        href="{{dropbox_prefix}}{{object.dropbox_file_path}}"
-        target="_blank"
-        class="text-decoration-none"
-    ><button
-            type="button"
-            class="btn btn-primary"
-        >
-            Dropbox</button>
-    </a>
-    {% if next_image %}
-    <a
-        href="{% url 'images:image' next_image.id%}"
-        class="text-decoration-none"
-    ><button
-            type="button"
-            class="btn btn-primary"
-        >Next</button></a>
-    {% else %}
-    <button
-        type="button"
-        class="btn btn-light"
-        disabled
-    ><s>Next</s>
-    </button>
-    {% endif %}
-</p>
+    <p class="p-1 mt-1 mb-0">
+        {% if previous_image %}
+            <a href="{% url 'images:image' previous_image.id %}"
+               class="text-decoration-none">
+                <button type="button" class="btn btn-primary">Previous</button>
+            </a>
+        {% else %}
+            <button type="button" class="btn btn-light" disabled>
+                <s>Previous</s>
+            </button>
+        {% endif %}
+        <a href="{% url 'images:view_upload' image.upload.id %}"
+           class="text-decoration-none">
+            <button type="button" class="btn btn-primary">Back to Upload</button>
+        </a>
+        <a href="{{ dropbox_prefix }}{{ object.dropbox_file_path }}"
+           target="_blank"
+           class="text-decoration-none">
+            <button type="button" class="btn btn-primary">Dropbox</button>
+        </a>
+        {% if next_image %}
+            <a href="{% url 'images:image' next_image.id %}"
+               class="text-decoration-none">
+                <button type="button" class="btn btn-primary">Next</button>
+            </a>
+        {% else %}
+            <button type="button" class="btn btn-light" disabled>
+                <s>Next</s>
+            </button>
+        {% endif %}
+    </p>
 {% endblock menu_buttons %}

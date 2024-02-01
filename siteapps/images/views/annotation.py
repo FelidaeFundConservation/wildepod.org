@@ -1,9 +1,9 @@
 import datetime
 import json
 import logging
+import time
 from io import BytesIO
 
-import numpy as np
 import requests
 from django.conf import settings
 from django.contrib import messages
@@ -43,7 +43,7 @@ from images.models import (
     SpeciesName,
 )
 from images.models.custom_fields import get_filter_params
-from images.processors import process_activity_annotations, process_species_annotations
+from images.processors import process_activity_annotations, process_species_annotations, run_model_inference
 from locations.models import CameraStation, MacroSite, MicroSite
 from PIL import Image as PILImage
 
@@ -62,6 +62,8 @@ UNANNOTATED_CATEGORY = "unannotated"
 STAFF_OR_EXPERT_CHECK = Q(human__is_staff=True) | Q(human__is_expert=True)
 STAFF_OR_EXPERT_VOTE_MULTIPLIER = 2
 
+IN_PROGRESS = "[IN_PROGRESS]"
+
 
 class BboxAnnotationInfo:
     def __init__(self, id, categories, species, activities):
@@ -71,16 +73,26 @@ class BboxAnnotationInfo:
         self.activities = activities
 
 
-def calculate_image_luma(image, bboxes):
-    TARGET_LUMA = 13
-
+def get_pil_image(image):
     image_file_path = f"{settings.MEDIA_URL}{image.thumbnail_gcloud_path}"
     response = requests.get(image_file_path)
+
+    pillow_image = None
 
     if response.status_code == 200:
         # Get the image data
         pillow_image = PILImage.open(BytesIO(response.content)).convert("RGB")
 
+    return pillow_image
+
+
+def calculate_image_luma(image, bboxes):
+    TARGET_LUMA = 13
+
+    # Get the image data
+    pillow_image = get_pil_image(image)
+
+    if pillow_image:
         width, height = pillow_image.size
         width = round(width * 0.2)
         height = round(height * 0.2)
@@ -470,8 +482,16 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         context["image"] = None
         context["bounding_boxes"] = []
 
+    # Run AI species detection, or get saved results
+    if (not settings.DEBUG) and SPECIES_QUEUE_NAME in queue_name and context["image"]:
+        # Current image
+        species_inference_current(image, context)
+        # Next images in queue
+        species_inference_buffer(queue, self)
+
     context["species_list"] = SpeciesName.objects.filter(~Q(name=UNANNOTATED_CATEGORY), active=True)
     context["birds_list"] = context["species_list"].filter(is_bird=True)
+
     context["activity_list"] = ActivityType.objects.filter(category=activity_category)
     context["custom_annotations"] = custom_annotations
 
@@ -481,6 +501,64 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         context["pipeline"] = "animal activity"
     elif ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
         context["pipeline"] = "human activity"
+
+
+# Detect species with AI in the current image, or get previously cached results
+def species_inference_current(image, context):
+    from ast import literal_eval
+
+    # Check if current image is already inferred for species
+    if image.species_ai_detections is not None:
+        logging.info("Cached species detections found.")
+    elif image.species_ai_detections == IN_PROGRESS:
+        logging.info("Species detection still in progress, waiting a few seconds...")
+        # Wait a few seconds in case the prediction is just a tad late
+        timeout = 3
+        while image.species_ai_detections is None:
+            time.sleep(1)
+            timeout -= 1
+            if timeout == 0:
+                break
+    else:
+        logging.info("No cached species detections. Running inference...")
+        image.species_ai_detections = run_model_inference(image, species=True)
+        image.save()
+
+    # Convert the string representation to an actual list
+    try:
+        context["species_detections"] = literal_eval(image.species_ai_detections)
+    except Exception as e:
+        logging.error(f"Error reading species detections: {e}")
+
+
+# Run AI species detection on a few images ahead of time asynchronously, and save/cache results
+def species_inference_buffer(queue, self):
+    PRE_INFERENCE_RANGE = 10
+
+    pre_inference_lower_range = min(queue["index"] + 1, len(queue["images"]))
+    pre_inference_upper_range = min(queue["index"] + PRE_INFERENCE_RANGE, len(queue["images"]))
+
+    pre_inference_images = queue["images"][pre_inference_lower_range:pre_inference_upper_range]
+
+    def pre_inference(self, inference_image_id):
+        inference_image = Image.objects.get(id=inference_image_id)
+
+        if inference_image.species_ai_detections is None:
+            # Set a value to make sure the same request doesn't get sent twice
+            inference_image.species_ai_detections = IN_PROGRESS
+            inference_image.save()
+
+            # Replace with the actual inferred species once done
+            inference_image.species_ai_detections = run_model_inference(inference_image, species=True)
+            inference_image.save()
+
+    import threading
+
+    for inference_image_id in pre_inference_images:
+        thread = threading.Thread(target=pre_inference, args=[self, inference_image_id])
+        thread.name = f"species-{inference_image_id}"
+        thread.setDaemon = True
+        thread.start()
 
 
 def auto_flag_for_staff(image):

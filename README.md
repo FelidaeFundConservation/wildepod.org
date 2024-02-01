@@ -2,7 +2,7 @@
 
 
 ## Quick Setup
-#Setting up the environment for the first time
+### Setting up the environment for the first time
 
 1. Git clone this repo
 2. Create a virtualenv
@@ -13,10 +13,13 @@
    Install Homebrew package manager if you still don't have (https://brew.sh)
 5. Set env variables:
     * Set the Google Cloud project : `export GOOGLE_CLOUD_PROJECT=wildepod-339517`
-    * `export PYTHONPATH=<your_project_path>`
+    * The next two environment variables are only needed if you're connecting to staging or prod dbs on the cloud.
+      - Use Cloud SQL Auth proxy for connecting to cloud dbs : `export USE_CLOUD_SQL_AUTH_PROXY=True`
+      - Disable HTTPS redirecting when accessing sites locally : `export DJANGO_SECURE_SSL_REDIRECT=False`
 6. By default Django uses a sqlite database locally. Verify this by checking DATABASES variable in: `/config/settings/local.py`
+7. Currently the Google Cloud authentication happens even when running the server locally (We maybe able to fix this). Please setup and authenticate the GCloud SDK by following the section later on this doc.
 
-#Run the Django server locally for the first time
+### Run the Django server locally for the first time
 
 1. Make migrations - `python manage.py makemigrations --settings=config.settings.local`
    (Note: This may not work since `migrations` folder is gitignored for now and Django requires the folder's existence.
@@ -41,29 +44,19 @@ This should be fine for those spreadsheets. If there is any error, add that row 
 To have a fully operational environment for development, you need to have access to the project's GCP.
 
 ### Google Cloud SDK
-
-1. You should have Google Cloud SDK installed (https://cloud.google.com/sdk/docs/install)
-2. Ask for your credentials on Goggle Cloud, to the WildePod adminstrators.
-3. You have to be logged in order to proceed to the next steps
-
-    gcloud auth application-default <e-mail login>
-    gcloud auth <e-mail login>
-    gcloud config set project <project-id>
-    * Maybe there is some unknow issue here with secret-key.
-
-
-### Run Django project
-
-1. You need configuration files to access database.
-2. Run `python manage.py runserver --settings=config.settings.dev`
-
-This should have things running on `localhost:8000` and use the project database.
-
-
+Our project is deployed on Google Cloud (GCP), and we use a number of cloud services (Cloud SQL, Image storage, Secrets manager etc). You need to be authenticated to access these services.
+1. If not already done, ask the WildePod adminstrators to add your credentials to the GCP. 
+2. Install the GCloud command line SDK (https://cloud.google.com/sdk/docs/install)
+3. Authenticate yourself with GCloud and set the config.
+```
+gcloud auth application-default login
+gcloud auth login
+gcloud config set project wildepod-339517
+```
 
 ---
 
-## With Gcloud
+## Using AppEngine on Gcloud
 
 1. Read the tutorial [here](https://cloud.google.com/python/django/appengine).
 2. Alter `app.yaml` & `dev/staging/prod` settings as needed

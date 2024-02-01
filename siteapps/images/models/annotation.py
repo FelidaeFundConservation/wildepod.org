@@ -211,6 +211,9 @@ class SpeciesName(TimeStampedModel):
     name = models.CharField("Common Name", max_length=250, unique=True)
     scientific_name = models.CharField(max_length=250, unique=True)
 
+    # Species name is currently used and shown in the annotation widget
+    active = models.BooleanField(default=True)
+
     # The categorization of the species type,
     # not to be confused with the species type itself
     species_group = models.CharField(

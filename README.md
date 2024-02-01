@@ -2,32 +2,34 @@
 
 
 ## Quick Setup
-Check the configuration of your environment
+#Setting up the environment for the first time
 
 1. Git clone this repo
 2. Create a virtualenv
-3. `pip install -r requirements.txt`
+3. Install Python dependencies `pip install -r requirements.txt`
 4. Install SASS compiler - Sass is a stylesheet language that’s compiled to CSS. It is installed on the OS level, not in the virtualenv.
    * https://sass-lang.com/install
-   * If you're using MacOs/Linux , it's  `brew install sass/sass/sass`
-   Install Homebrew package manater if you still don't have (https://brew.sh)
+   * If you're using MacOs/Linux , you can use Homebrew : `brew install sass/sass/sass`
+   Install Homebrew package manager if you still don't have (https://brew.sh)
 5. Set env variables:
-    * `export GOOGLE_CLOUD_PROJECT=wildepod-339517`
+    * Set the Google Cloud project : `export GOOGLE_CLOUD_PROJECT=wildepod-339517`
     * `export PYTHONPATH=<your_project_path>`
-6. At this point, to perform all checkup locally, you mut have a sqlite running. View DATABASES variable in: `/config/settings/local.py`
+6. By default Django uses a sqlite database locally. Verify this by checking DATABASES variable in: `/config/settings/local.py`
 
-Run Django
+#Run the Django server locally for the first time
 
 1. Make migrations - `python manage.py makemigrations --settings=config.settings.local`
    (Note: This may not work since `migrations` folder is gitignored for now and Django requires the folder's existence.
    To fix that for now, simply create python packages named `migrations` in each of the app packages.
    This has to be a package so the `migrations` folder must have a `__init__.py` file or django can't see it.
 2. Apply migrations - `python manage.py migrate --settings=config.settings.local`
+   These two commands check and update the DB models as necessary for our Django project. The very first time you run it, it will create all the DB models. Afterwords, it will only do the required updates. Do not run this command on Staging or Prod unless you're sure of what you're doing.
 3. Create superuser - `python manage.py createsuperuser --settings=config.settings.local`
 4. Run server - `python manage.py runserver --settings=config.settings.local`
 
 This should have things running on `localhost:8000` and use a local sqlite db
-### Initalize some data - hacky version
+
+# Initalize some data - hacky version (Might be outdated)
 
 1. Download the "active camera data" & "Camera inventory" sheets from the Slack channel
 2. Alter lines 7-10 of `scratch/load.py` file accordingly depending on where the downloaded files are saved

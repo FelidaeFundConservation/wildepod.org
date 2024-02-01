@@ -77,7 +77,7 @@ def add_thumbnail(image: Image):
         return
 
 
-def add_bounding_boxes(image: Image):
+def run_model_inference(image: Image, species: bool = False):
     """Function to add bounding boxes to an image using MegaDetector's object detection model"""
     # TODO: Handle error or Rollback on failure
     # Run MegaDetector on each image and create the relevant annotation objects
@@ -101,7 +101,6 @@ def add_bounding_boxes(image: Image):
         logging.info("Megadetector annotator object already exists. Successfully retrieved.")
 
     image_url = f"""https://storage.googleapis.com/{settings.GS_BUCKET_NAME}/media/{image.thumbnail_gcloud_path}"""
-    logging.info(f"Calling MegaDetector on image with url - {image_url}")
 
     # TODO: Gate cloud run behind auth & enable this over ungated calls
     # This is to prevent abuse of the API. Right now, the url obfuscation provides some protection
@@ -114,8 +113,44 @@ def add_bounding_boxes(image: Image):
     else:
         # This is specifically to call the Megadetector API on Cloud Run that has auth gating.
         auth_req = google.auth.transport.requests.Request()
-        id_token = google.oauth2.id_token.fetch_id_token(auth_req, settings.MEGADETECTOR_URL)
 
+        if species:
+            url = settings.SPECIES_DETECTOR_URL
+        else:
+            url = settings.MEGADETECTOR_URL
+
+        id_token = google.oauth2.id_token.fetch_id_token(auth_req, url)
+
+    # Check whether to detect category/bboxes or species
+    if species:
+        logging.info(f"Calling species detector on image with url - {image_url}")
+        return detect_species(image=image, image_url=image_url, bot=bot, id_token=id_token, annotator=annotator)
+    else:
+        logging.info(f"Calling MegaDetector on image with url - {image_url}")
+        add_bounding_boxes(image=image, image_url=image_url, bot=bot, id_token=id_token, annotator=annotator)
+
+
+def detect_species(image: Image, image_url: str, bot: Bot, id_token: str, annotator: Annotator):
+    logging.info("Sending POST request to species cloud run...")
+    response = http.post(
+        settings.SPECIES_DETECTOR_URL,
+        json={
+            "image": image_url,
+            "detection_threshold": bot.threshold,
+        },
+        headers={"Authorization": f"Bearer {id_token}"},
+        timeout=300,
+    )
+    if response.status_code == 200:
+        detections = response.json()["classes"]
+        logging.info(f"""Species detector cloud run call successful. {len(detections)} species classes detected""")
+
+        return detections
+    else:
+        raise Exception(f"Species detector cloud run failed with status code: {response.status_code}")
+
+
+def add_bounding_boxes(image: Image, image_url: str, bot: Bot, id_token: str, annotator: Annotator):
     response = http.post(
         bot.model_api_url,
         json={"image": image_url, "megadetector_version": bot.version, "detection_threshold": bot.threshold},
@@ -177,8 +212,13 @@ def process_image(image: Image):
         try:
             logging.info("Adding bounding boxes to image..")
             # Next, add bounding boxes to the image object
-            add_bounding_boxes(image)
+            run_model_inference(image)
             logging.info("Finished adding bounding boxes to image..")
+
+            # Then, detect species present in the image
+            if not image.species_ai_detections:
+                image.species_ai_detections = run_model_inference(image, species=True)
+                logging.info(f"Species detected: {image.species_ai_detections}")
 
             image.processed = True
             image.save()

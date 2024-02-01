@@ -106,6 +106,19 @@ observer.observe(document, { attributes: false, childList: true, characterData: 
                 recentTagOption.remove();
                 speciesList.prepend(recentTagOption);
             }
+
+            // Move AI detections to top of list also
+            if (speciesDetections.length > 0){
+                let detectionOption;
+                for (detection of speciesDetections){
+                    detectionOption = speciesList.find(`option[value='${detection}']`);
+                    
+                    if (detectionOption.length > 0){
+                        detectionOption.remove();
+                        speciesList.prepend(detectionOption);
+                    }
+                }
+            }
         } catch (error) {
             console.log(`An error occurred getting recent tags: ${error}`);
         }

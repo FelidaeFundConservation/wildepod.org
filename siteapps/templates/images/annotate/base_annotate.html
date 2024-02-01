@@ -688,6 +688,13 @@
                 {% endfor %}
             ];
 
+            // Get the species detected by the model
+            let speciesDetections = [
+                {% for species in species_detections %}
+                        "{{ species }}",
+                {% endfor %}
+            ];
+
             // Set height of menu depending on image size
             let maxHeight = Math.max($(`#${'{{image.id}}'}`).height(), $(window).height() * 0.77);
             $(`#side-menu`).css("max-height", maxHeight)
@@ -724,7 +731,7 @@
                 }
             })
 
-            let ClassSelectorWidget = createCategoryWidget(categories, speciesVotes, "{{ pipeline }}");
+            let ClassSelectorWidget = createCategoryWidget(categories, speciesVotes, speciesDetections, "{{ pipeline }}");
 
             anno = renderBoundingBoxes("{{image.id}}", bboxes = bboxes, widgets = [ClassSelectorWidget]);
 

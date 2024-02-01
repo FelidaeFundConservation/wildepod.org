@@ -364,9 +364,13 @@ def get_annotation_history(context, queue, queue_name, annotator):
     context["previous_annotations"] = []
 
     if SPECIES_QUEUE_NAME in queue_name:
-        image_history.filter(Q(species_checked_by__in=[annotator]) | Q(species_skipped_by__in=[annotator]))
+        image_history = image_history.filter(
+            Q(species_checked_by__in=[annotator]) | Q(species_skipped_by__in=[annotator])
+        )
     elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
-        image_history.filter(Q(activity_checked_by__in=[annotator]) | Q(activity_skipped_by__in=[annotator]))
+        image_history = image_history.filter(
+            Q(activity_checked_by__in=[annotator]) | Q(activity_skipped_by__in=[annotator])
+        )
 
     context["previous_queue_images"] = image_history.order_by("-modified")[:HISTORY_LENGTH]
 
@@ -492,8 +496,8 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         context["image"] = None
         context["bounding_boxes"] = []
 
-    context["species_list"] = SpeciesName.objects.filter(~Q(name=UNANNOTATED_CATEGORY))
-    context["birds_list"] = SpeciesName.objects.filter(is_bird=True)
+    context["species_list"] = SpeciesName.objects.filter(~Q(name=UNANNOTATED_CATEGORY), active=True)
+    context["birds_list"] = context["species_list"].filter(is_bird=True)
     context["activity_list"] = ActivityType.objects.filter(category=activity_category)
     context["custom_annotations"] = custom_annotations
 

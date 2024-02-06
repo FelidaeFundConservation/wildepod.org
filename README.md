@@ -2,32 +2,37 @@
 
 
 ## Quick Setup
-Check the configuration of your environment
+### Setting up the environment for the first time
 
 1. Git clone this repo
 2. Create a virtualenv
-3. `pip install -r requirements.txt`
+3. Install Python dependencies `pip install -r requirements.txt`
 4. Install SASS compiler - Sass is a stylesheet language that’s compiled to CSS. It is installed on the OS level, not in the virtualenv.
    * https://sass-lang.com/install
-   * If you're using MacOs/Linux , it's  `brew install sass/sass/sass`
-   Install Homebrew package manater if you still don't have (https://brew.sh)
+   * If you're using MacOs/Linux , you can use Homebrew : `brew install sass/sass/sass`
+   Install Homebrew package manager if you still don't have (https://brew.sh)
 5. Set env variables:
-    * `export GOOGLE_CLOUD_PROJECT=wildepod-339517`
-    * `export PYTHONPATH=<your_project_path>`
-6. At this point, to perform all checkup locally, you mut have a sqlite running. View DATABASES variable in: `/config/settings/local.py`
+    * Set the Google Cloud project : `export GOOGLE_CLOUD_PROJECT=wildepod-339517`
+    * The next two environment variables are only needed if you're connecting to staging or prod dbs on the cloud.
+      - Use Cloud SQL Auth proxy for connecting to cloud dbs : `export USE_CLOUD_SQL_AUTH_PROXY=True`
+      - Disable HTTPS redirecting when accessing sites locally : `export DJANGO_SECURE_SSL_REDIRECT=False`
+6. By default Django uses a sqlite database locally. Verify this by checking DATABASES variable in: `/config/settings/local.py`
+7. Currently the Google Cloud authentication happens even when running the server locally (We maybe able to fix this). Please setup and authenticate the GCloud SDK by following the section later on this doc.
 
-Run Django
+### Run the Django server locally for the first time
 
 1. Make migrations - `python manage.py makemigrations --settings=config.settings.local`
    (Note: This may not work since `migrations` folder is gitignored for now and Django requires the folder's existence.
    To fix that for now, simply create python packages named `migrations` in each of the app packages.
    This has to be a package so the `migrations` folder must have a `__init__.py` file or django can't see it.
 2. Apply migrations - `python manage.py migrate --settings=config.settings.local`
+   These two commands check and update the DB models as necessary for our Django project. The very first time you run it, it will create all the DB models. Afterwords, it will only do the required updates. Do not run this command on Staging or Prod unless you're sure of what you're doing.
 3. Create superuser - `python manage.py createsuperuser --settings=config.settings.local`
 4. Run server - `python manage.py runserver --settings=config.settings.local`
 
 This should have things running on `localhost:8000` and use a local sqlite db
-### Initalize some data - hacky version
+
+# Initalize some data - hacky version (Might be outdated)
 
 1. Download the "active camera data" & "Camera inventory" sheets from the Slack channel
 2. Alter lines 7-10 of `scratch/load.py` file accordingly depending on where the downloaded files are saved
@@ -39,29 +44,19 @@ This should be fine for those spreadsheets. If there is any error, add that row 
 To have a fully operational environment for development, you need to have access to the project's GCP.
 
 ### Google Cloud SDK
-
-1. You should have Google Cloud SDK installed (https://cloud.google.com/sdk/docs/install)
-2. Ask for your credentials on Goggle Cloud, to the WildePod adminstrators.
-3. You have to be logged in order to proceed to the next steps
-
-    gcloud auth application-default <e-mail login>
-    gcloud auth <e-mail login>
-    gcloud config set project <project-id>
-    * Maybe there is some unknow issue here with secret-key.
-
-
-### Run Django project
-
-1. You need configuration files to access database.
-2. Run `python manage.py runserver --settings=config.settings.dev`
-
-This should have things running on `localhost:8000` and use the project database.
-
-
+Our project is deployed on Google Cloud (GCP), and we use a number of cloud services (Cloud SQL, Image storage, Secrets manager etc). You need to be authenticated to access these services.
+1. If not already done, ask the WildePod adminstrators to add your credentials to the GCP. 
+2. Install the GCloud command line SDK (https://cloud.google.com/sdk/docs/install)
+3. Authenticate yourself with GCloud and set the config.
+```
+gcloud auth application-default login
+gcloud auth login
+gcloud config set project wildepod-339517
+```
 
 ---
 
-## With Gcloud
+## Using AppEngine on Gcloud
 
 1. Read the tutorial [here](https://cloud.google.com/python/django/appengine).
 2. Alter `app.yaml` & `dev/staging/prod` settings as needed

@@ -309,33 +309,31 @@ def get_next_queue_image(self, context, queue):
 
 
 # Skip images completed or made ineligible by other annotators since the queue was built
-def skip_ineligible_images(queue_name, queue):
+def skip_ineligible_images(queue_name, queue, annotator):
     pipeline_completed = True
     pipeline_eligible = True
+    already_voted = False
 
-    while (pipeline_completed or not pipeline_eligible) and queue["index"] < len(queue["images"]):
+    while (pipeline_completed or not pipeline_eligible or already_voted) and queue["index"] < len(queue["images"]):
         image = Image.objects.get(id=queue["images"][queue["index"]])
 
-        # Recalculate flags on immediate images (alternative to running script on everything again)
-        # Remove this when flags for images with rejected bboxes have been updated
-        if (
-            BoundingBox.objects.annotate(reject_count=Count("rejected_by"))
-            .filter(image=image, reject_count__gt=0)
-            .exists()
-            or image.category_pipeline_complete is False
-        ):
-            logging.info("Recalculating flags...")
-            calculateCategoryAnnotationFlags(image)
-            calculateSpeciesAnnotationFlags(image)
-            calculateActivityAnnotationFlags(image)
-            image.save()
+        calculateCategoryAnnotationFlags(image)
+        calculateSpeciesAnnotationFlags(image)
+        calculateActivityAnnotationFlags(image)
+        image.save()
 
         if SPECIES_QUEUE_NAME in queue_name:
             pipeline_completed = image.species_pipeline_complete
             pipeline_eligible = BoundingBox.objects.filter(image=image).exists()
+            already_voted = Image.objects.filter(
+                Q(species_checked_by__in=[annotator]) | Q(species_skipped_by__in=[annotator]), id=image.id
+            ).exists()
         elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
             pipeline_completed = image.activity_pipeline_complete
             pipeline_eligible = image.has_humans or image.has_wild_animals
+            already_voted = Image.objects.filter(
+                Q(activity_checked_by__in=[annotator]) | Q(activity_skipped_by__in=[annotator]), id=image.id
+            ).exists()
         else:
             break
 
@@ -345,6 +343,9 @@ def skip_ineligible_images(queue_name, queue):
         elif not pipeline_eligible:
             queue["index"] += 1
             logging.info(f"Queue image {image.id} was made ineligible by another annotator. Skipping to next image.")
+        elif already_voted:
+            queue["index"] += 1
+            logging.info(f"User already voted on queue image {image.id}. Skipping to next image.")
         elif auto_flag_for_staff(image):
             queue["index"] += 1
             logging.info(
@@ -395,6 +396,28 @@ def get_annotation_history(context, queue, queue_name, annotator):
     context["previous_annotation_info"] = zip(context["previous_queue_images"], context["previous_annotations"])
 
 
+def get_burst_images(context, queue):
+    BURST_TIME_THRESHOLD = 120
+
+    images = []
+    prev_timestamp = Image.objects.get(id=queue["images"][queue["index"]]).trigger_timestamp
+
+    # Check only the next images in queue
+    for image_id in queue["images"][queue["index"] + 1 :]:
+        image = Image.objects.get(id=image_id)
+        time_diff = image.trigger_timestamp - prev_timestamp
+
+        # If the times are close enough, consider it as potentially part of a burst
+        if time_diff > datetime.timedelta(seconds=BURST_TIME_THRESHOLD):
+            break
+        else:
+            images.append(image)
+
+    context["images_w_boxes"] = [
+        [image_obj, BoundingBox.objects.valid_or_uncertain().filter(image=image_obj)] for image_obj in images
+    ]
+
+
 # Retrieves data to pass to the views through context (namely queue images and annotations info).
 def populate_view_context(queue_name, context, self, activity_category=None):
     # First get the annotator object for the user
@@ -436,7 +459,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         image = Image.objects.get(id=image_id)
 
         if return_to_image_id is None:
-            skip_result = skip_ineligible_images(queue_name=queue_name, queue=queue)
+            skip_result = skip_ineligible_images(queue_name=queue_name, queue=queue, annotator=annotator)
             image = skip_result if skip_result else image
 
         context["image"] = image
@@ -465,6 +488,9 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         context["user_annotation_count"] = get_or_set_annotation_count(
             request=self.request, queue_name=queue_name, annotator=annotator
         )
+
+        # Get burst images for multi-image tagging
+        get_burst_images(context=context, queue=queue)
     else:
         image = None
         context["image"] = None
@@ -692,18 +718,23 @@ def annotation_processor(queue_name, annotation_type, request):
     staff_review_needed = request.POST.get("staff_review_needed")
     staff_review_needed = bool(staff_review_needed and staff_review_needed == "true")
 
+    # Get images to batch tag
+    batch_tag_images = request.POST.get("batch_tag_images")
+    batch_tag_images = json.loads(batch_tag_images) if batch_tag_images else []
+
     annotation_description = None
 
     # Process the annotations
     if queue_name == SPECIES_QUEUE_NAME:
         annotation_description = "Species"
         success = process_species_annotations(
-            image_id,
-            annotations,
-            initial_bboxes,
-            request.user,
-            social_media_worthy_vote,
-            staff_review_needed,
+            image_id=image_id,
+            annotations=annotations,
+            initial_bboxes=initial_bboxes,
+            user=request.user,
+            social_media_worthy_vote=social_media_worthy_vote,
+            staff_review_needed=staff_review_needed,
+            batch_tag_images=batch_tag_images,
             skip=skip,
         )
 
@@ -974,7 +1005,6 @@ def calculateCategoryAnnotationFlags(image):
     for bbox in zipped_bbox_querysets:
         bbox[0].validity = bbox[1].get("status")
         bbox[0].save()
-        # logging.info(f"Validity saved as '{bbox[0].validity}' for bbox {bbox[0].id}.'")
 
     if (
         not category_has_uncertain_annotation

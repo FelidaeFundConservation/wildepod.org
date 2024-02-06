@@ -405,7 +405,12 @@ def get_burst_images(context, queue):
     # Check only the next images in queue
     for image_id in queue["images"][queue["index"] + 1 :]:
         image = Image.objects.get(id=image_id)
-        time_diff = image.trigger_timestamp - prev_timestamp
+
+        # Sometimes one of these timestamps don't exist, handle error
+        try:
+            time_diff = image.trigger_timestamp - prev_timestamp
+        except Exception:
+            break
 
         # If the times are close enough, consider it as potentially part of a burst
         if time_diff > datetime.timedelta(seconds=BURST_TIME_THRESHOLD):

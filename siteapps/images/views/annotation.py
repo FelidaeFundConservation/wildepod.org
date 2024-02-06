@@ -61,8 +61,6 @@ UNANNOTATED_CATEGORY = "unannotated"
 STAFF_OR_EXPERT_CHECK = Q(human__is_staff=True) | Q(human__is_expert=True)
 STAFF_OR_EXPERT_VOTE_MULTIPLIER = 2
 
-IN_PROGRESS = "[IN_PROGRESS]"
-
 
 class BboxAnnotationInfo:
     def __init__(self, id, categories, species, activities):
@@ -182,35 +180,6 @@ def staff_review_query_filter(images, annotator):
 
 # Filter criteria for an image to appear in the Species pipeline
 def species_pipeline_query(images, annotator):
-    # Auto migrate a small portion of images in case there's no images available
-    # Remove this code when all images have had precomputed flags recalculated
-    def migrate_images():
-        logging.info("Running image flag recalculations in the background...")
-        migrate_images = Image.objects.filter(
-            Exists(
-                BoundingBox.objects.filter(image=OuterRef("pk"), validity=None, image__species_pipeline_complete=False)
-            ),
-        ).order_by("-upload__priority")[:500]
-
-        def recalc(image):
-            category_debug_data = calculateCategoryAnnotationFlags(image)
-            species_debug_data = calculateSpeciesAnnotationFlags(image)
-            activity_debug_data = calculateActivityAnnotationFlags(image)
-
-            image.save()
-
-        import concurrent.futures
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-            futures = [executor.submit(recalc, image) for image in migrate_images]
-
-    import threading
-
-    thread = threading.Thread(target=migrate_images, args=[])
-    thread.name = "migrate-images"
-    thread.setDaemon(True)
-    thread.start()
-
     images = images.filter(
         # It must not be checked or skipped by the current annotator
         ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
@@ -270,9 +239,29 @@ def activity_pipeline_query(images, annotator, activity_category):
     return images
 
 
+def prioritize_species(images):
+    # Show potential cats first
+    cat_images = images.filter(Q(species_ai_detections__contains="Puma") | Q(species_ai_detections__contains="Bobcat"))
+
+    if cat_images.exists():
+        return cat_images
+
+    # If no cats, filter out images with possibly no species AI detections or unidentifiable
+    # i.e. potentially erroneous boxes from MegaDetector, or "harder" images to annotate are excluded, so the "easy" ones remain
+    images_with_detections = images.exclude(species_ai_detections__in=["[]", "['Unknown']"])
+
+    if images_with_detections.exists():
+        return images_with_detections
+
+    # If still no images, just use the original queryset (i.e. only "hard" images remain to be annotated)
+    return images
+
+
 def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_category):
     # Get images based on the following set of filters
     images = Image.objects.filter(**self.filterset)
+
+    images = prioritize_species(images)
 
     # Filter using specified pipeline criteria
     if SPECIES_QUEUE_NAME in queue_name:

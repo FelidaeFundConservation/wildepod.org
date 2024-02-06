@@ -205,14 +205,16 @@ def handle_bbox_deletions(initial_bboxes, formatted_annotations, user, annotator
     logging.info("Successfully removed all deleted bounding boxes")
 
 
-def handle_bbox_updates(annotation_type, initial_bboxes, formatted_annotations, image, user, annotator):
+def handle_bbox_updates(
+    annotation_type, initial_bboxes, formatted_annotations, image, user, annotator, batch_tag_images
+):
     # Finally handle updates. This includes accept/reject depending on the category labels provided
     for bbox_id in initial_bboxes:
         if bbox_id in formatted_annotations:
             # Get the initial bounding box & category object
             try:
                 bbox_obj = BoundingBox.objects.get(id=bbox_id)
-            except ObjectDoesNotExist as e:
+            except ObjectDoesNotExist:
                 logging.info(f"Bounding box with id {bbox_id} doesn't exist. Skipping update.'")
                 continue
 
@@ -235,9 +237,49 @@ def handle_bbox_updates(annotation_type, initial_bboxes, formatted_annotations, 
                     formatted_annotations=formatted_annotations, bbox_id=bbox_id, bbox_obj=bbox_obj, annotator=annotator
                 )
 
+    # Check the species tagged, and ensure there's only 1 for batch tagging
+    if len(batch_tag_images) > 0:
+        logging.info("Batch tag images selected. Attempting to annotate all bboxes...")
+        species_annotation = list(set(item["category"] for item in formatted_annotations.values()))
+
+        if len(species_annotation) == 0:
+            logging.error("No annotations to apply to batch tag burst images. Skipping.")
+        elif len(species_annotation) > 1:
+            logging.error(
+                "Cannot batch tag burst images when more than 1 species was annotated for current image. Skipping."
+            )
+        else:
+            tag_batch(batch_tag_images=batch_tag_images, category=species_annotation[0], annotator=annotator)
+
+
+# Tag multiple images at once, by applying the current image's selection to all bboxes in the other images
+def tag_batch(batch_tag_images, category, annotator):
+    for image_id in batch_tag_images:
+        # try:
+        image = Image.objects.get(id=image_id)
+        bboxes = BoundingBox.objects.filter(image=image)
+
+        for bbox in bboxes:
+            # Store the category with formatted annotations structure
+            formatted_species = {}
+            formatted_species[bbox.id] = {}
+            formatted_species[bbox.id]["category"] = category
+            formatted_species[bbox.id]["confidence"] = 1.0
+
+            process_species(
+                formatted_annotations=formatted_species, bbox_id=bbox.id, bbox_obj=bbox, annotator=annotator
+            )
+
+        image.species_checked_by.add(annotator)
+        image.save()
+
+        logging.info(f"Batch tagging for image {image_id} successful - annotated as {category}.")
+    # except Exception as e:
+    #    logging.error(f"Error occurred while batch tagging image {image_id} - {e}")
+
 
 # Handles additions, deletions, and updates to image bboxes
-def handle_changes(annotation_type, initial_bboxes, formatted_annotations, image, user, annotator):
+def handle_changes(annotation_type, initial_bboxes, formatted_annotations, image, user, annotator, batch_tag_images):
     # Check if annotation type is valid
     if annotation_type not in [OBJECT_ANNOTATION_TYPE, SPECIES_ANNOTATION_TYPE, ACTIVITY_ANNOTATION_TYPE]:
         logging.error(f"Invalid annotation type given for processor function: {annotation_type}")
@@ -262,7 +304,9 @@ def handle_changes(annotation_type, initial_bboxes, formatted_annotations, image
     )
 
     # Handle bbox updates
-    handle_bbox_updates(annotation_type, initial_bboxes, formatted_annotations, image, user, annotator)
+    handle_bbox_updates(
+        annotation_type, initial_bboxes, formatted_annotations, image, user, annotator, batch_tag_images
+    )
 
     # Set the image to checked by the annotator for the annotation type
     set_image_checked_by(annotation_type=annotation_type, image=image, annotator=annotator)
@@ -279,10 +323,8 @@ def handle_inference(category, bbox_obj, annotator):
 
     if target_category.exists():
         vote(target_category.first(), annotator, accept=True)
-        logging.info(f"Voted on existing '{category}' object from inference.")
     else:
         create_category({"category": category, "confidence": 1}, bbox_obj, annotator)
-        logging.info(f"Created new '{category}' object from inference.")
 
     # Vote on the bbox as well
     vote(bbox_obj, annotator, accept=True)
@@ -299,15 +341,12 @@ def infer_category(species_name, bbox_obj, annotator):
     species_group = SpeciesName.objects.get(name=species_name).species_group
 
     if species_group == "HUMAN":
-        logging.info(f"Category for '{species_name}' inferred as 'person.'")
         handle_inference(category=PERSON_CATEGORY, bbox_obj=bbox_obj, annotator=annotator)
 
     elif species_group in ["WILD", "DOMESTIC"]:
-        logging.info(f"Category for '{species_name}' inferred as 'animal.'")
         handle_inference(category=ANIMAL_CATEGORY, bbox_obj=bbox_obj, annotator=annotator)
 
     elif species_group == "VEHICLE":
-        logging.info(f"Category for '{species_name}' inferred as 'vehicle.'")
         handle_inference(category=VEHICLE_CATEGORY, bbox_obj=bbox_obj, annotator=annotator)
     else:
         logging.info(f"Unable to infer category for {species_name}. Adding 'unannotated' Category object.")
@@ -456,6 +495,7 @@ def process_annotations(
     initial_bboxes: list,
     user: settings.AUTH_USER_MODEL,
     social_media_worthy_vote: int,
+    batch_tag_images: list,
     staff_review_needed: bool = False,
     skip: bool = False,
 ):
@@ -494,6 +534,7 @@ def process_annotations(
         image=image,
         user=user,
         annotator=annotator,
+        batch_tag_images=batch_tag_images,
     )
 
     return handler_success
@@ -507,6 +548,7 @@ def process_species_annotations(
     initial_bboxes: list,
     user: settings.AUTH_USER_MODEL,
     social_media_worthy_vote: int,
+    batch_tag_images: list,
     staff_review_needed: bool = False,
     skip: bool = False,
 ) -> bool:
@@ -523,6 +565,7 @@ def process_species_annotations(
         social_media_worthy_vote=social_media_worthy_vote,
         staff_review_needed=staff_review_needed,
         skip=skip,
+        batch_tag_images=batch_tag_images,
     )
 
 

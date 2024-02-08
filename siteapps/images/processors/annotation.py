@@ -193,12 +193,17 @@ def handle_bbox_deletions(initial_bboxes, formatted_annotations, user, annotator
                 # First get the bounding box
                 bbox_obj = BoundingBox.objects.get(id=bbox_id)
                 # If the annotator is the same as the current user or if it is an expert/staff user, then the object can be deleted
-                if user.is_staff or user.is_expert or bbox_obj.created_by == annotator:
+                if (
+                    user.is_staff or user.is_expert or bbox_obj.created_by == annotator
+                ) and bbox_obj.created_by.human is not None:
                     # Then delete it
                     bbox_obj.delete()
                     logging.info(f"Deleting bounding box with id {bbox_id}.")
                 else:
                     vote(bbox_obj, annotator, accept=False)
+                    bbox_obj.validity = "Invalid"
+                    bbox_obj.save()
+                    logging.info(f"Rejected bounding box with id {bbox_id}. Object still exists in rejected state.")
             except ObjectDoesNotExist:
                 logging.info(f"Bounding box with id {bbox_id} doesn't exist in image {image.id}. Skipping deletion.")
 

@@ -960,7 +960,9 @@ def annotate(zipped_querysets):
             or (obj.created_by.human and (obj.created_by.human.is_staff or obj.created_by.human.is_expert))
         )
 
-        staff_or_expert_rejection = obj.rejected_by.filter(STAFF_OR_EXPERT_CHECK).exists()
+        staff_or_expert_rejection_count = obj.rejected_by.filter(STAFF_OR_EXPERT_CHECK).count()
+        staff_or_expert_rejection = staff_or_expert_rejection_count > 0
+
         correlated_obj_rejected = False
 
         if hasattr(obj, "bounding_box"):
@@ -976,11 +978,17 @@ def annotate(zipped_querysets):
             annotation.get("vote_difference") > VOTE_THRESHOLD
             and not staff_or_expert_rejection
             and not correlated_obj_rejected
-        ) or annotation["has_staff_or_expert_vote"]:
+            # Some annotations have incorrect staff/expert votes,
+            # Override acception if two other staff/experts concur on rejection
+        ) or (annotation["has_staff_or_expert_vote"] and staff_or_expert_rejection_count < 2):
             annotation["status"] = "Valid"
         elif (
             annotation.get("vote_difference") < -VOTE_THRESHOLD or staff_or_expert_rejection or correlated_obj_rejected
         ):
+            if annotation["has_staff_or_expert_vote"]:
+                logging.info(
+                    f"Staff/expert accept vote for {type(obj)} {obj.id} was overriden because 2 or more staff/experts rejected it."
+                )
             annotation["status"] = "Invalid"
         else:
             annotation["status"] = "Uncertain"

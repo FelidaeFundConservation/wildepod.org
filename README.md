@@ -143,3 +143,27 @@ gcloud auth list
 8. Collect static files using `python manage.py collectstatic --settings=config.settings.prod`
 9. Deploy app using `gcloud app deploy`
 10. Add relevant secrets from .env to Secret manager (Important: Give your appengine app "Secret Manager Secret Accessor" permission)
+
+---
+## Deploying new YOLOv5 species detection model
+1. Put the trained .pt file in the same directory with a function source file "main.py" ([see here](https://github.com/FelidaeFundConservation/wildepod.org/pull/240#issue-2080609231)) and a requirements.txt.
+```
+requirements.txt
+----------------------------------
+yolov5==7.0.13
+functions-framework==3.5.0
+dill==0.3.7
+Pillow==9.0.1
+```
+2. In main.py, ensure you've replaced the file in `yolov5.load(FILE_NAME)` with the name of the new .pt file.
+3. Compress the files into an archive (.zip).
+4. In the GCloud console products sidebar, navigate to `Serviceless < Cloud Functions`, and click the name of the species detector function.
+5.  On the function details page, click "Edit".
+6.  Leave the 'Configuration' page as is unless it's necessary to modify. Click "Next".
+7.  On the Code page under the Source Code dropdown, select "Zip Upload".
+8.  Select the destination bucket to the one currently in use by the function. This should be `gcf-v2-sources-... < wildepod-species-detector-...`. You can determine this if there's already a function-source.zip in the folder.
+9.  Upload the new zip file, then click Deploy.
+
+(For a new 2nd gen cloud function, steps should be the same, albeit with some additional setup.)
+
+Note: The build may take awhile, so the console may show an error temporarily if it doesn't complete within a certain time. This should clear once the build completes. If the error persists after 20 or so minutes, there's likely an actual error, and you should check the logs to troubleshoot.

@@ -501,7 +501,8 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         )
 
         # Get burst images for multi-image tagging
-        get_burst_images(context=context, queue=queue)
+        if queue["index"] < context["queue_length"]:
+            get_burst_images(context=context, queue=queue)
     else:
         image = None
         context["image"] = None

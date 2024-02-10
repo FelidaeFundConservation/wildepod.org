@@ -626,12 +626,12 @@ class SkipIneligibleImagesTestCase(AnnotationFlagsTestCase):
         # Setup objects and check flags
         bbox1 = create_test_bboxes(test_image_object=self.test_image, test_user_object=self.annotator, num_boxes=1)
         species1 = create_test_species_object(bbox1, "Mule Deer", "WILD", self.annotator)
-
+        
+        # Add an uncertain bbox to make the image species eligible
         bbox2 = create_test_bboxes(
             test_image_object=self.test_image, test_user_object=Annotator.objects.create(type="Bot"), num_boxes=1
         )
 
-        # Add an uncertain bbox to make the image species eligible
         self.test_image2 = create_test_image_object(self.test_upload)
 
         # Make sure flag conditions are correct for this test

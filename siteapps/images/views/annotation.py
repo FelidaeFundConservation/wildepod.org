@@ -1094,6 +1094,7 @@ def calculateSpeciesAnnotationFlags(image):
         and (annotation_checked_by_gte or has_staff_or_expert_vote)
         and image.processed
         and all_bboxes_have_species
+        and image.category_pipeline_complete
     ):
         image.has_wild_animals = species_annotations.filter(name__species_group="WILD").exists()
         image.species_pipeline_complete = True

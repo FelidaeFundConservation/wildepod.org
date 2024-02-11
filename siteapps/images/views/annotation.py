@@ -933,12 +933,14 @@ def annotate(zipped_querysets):
 
         annotation["vote_difference"] = annotation.get("accepted_count") - annotation.get("rejected_count")
 
-        annotation["has_staff_or_expert_vote"] = bool(
-            obj.accepted_by.filter(STAFF_OR_EXPERT_CHECK).exists()
-            or (obj.created_by.human and (obj.created_by.human.is_staff or obj.created_by.human.is_expert))
+        annotation["staff_or_expert_votes"] = obj.accepted_by.filter(STAFF_OR_EXPERT_CHECK).count() + (
+            1 if (obj.created_by.human and (obj.created_by.human.is_staff or obj.created_by.human.is_expert)) else 0
         )
+        annotation["has_staff_or_expert_vote"] = annotation["staff_or_expert_votes"] > 0
 
-        staff_or_expert_rejection = obj.rejected_by.filter(STAFF_OR_EXPERT_CHECK).exists()
+        staff_or_expert_rejection_count = obj.rejected_by.filter(STAFF_OR_EXPERT_CHECK).count()
+        staff_or_expert_rejection = staff_or_expert_rejection_count > 0
+
         correlated_obj_rejected = False
 
         if hasattr(obj, "bounding_box"):
@@ -954,11 +956,22 @@ def annotate(zipped_querysets):
             annotation.get("vote_difference") > VOTE_THRESHOLD
             and not staff_or_expert_rejection
             and not correlated_obj_rejected
-        ) or annotation["has_staff_or_expert_vote"]:
+            # Some annotations have incorrect staff/expert votes,
+            # Override acception for every two other staff/experts who concur on rejection
+        ) or (
+            annotation["staff_or_expert_votes"] > 0
+            and staff_or_expert_rejection_count <= annotation["staff_or_expert_votes"]
+        ):
             annotation["status"] = "Valid"
         elif (
-            annotation.get("vote_difference") < -VOTE_THRESHOLD or staff_or_expert_rejection or correlated_obj_rejected
+            annotation.get("vote_difference") < -VOTE_THRESHOLD
+            or (0 != staff_or_expert_rejection_count >= (annotation["staff_or_expert_votes"] * 2))
+            or correlated_obj_rejected
         ):
+            if annotation["has_staff_or_expert_vote"]:
+                logging.info(
+                    f"Staff/expert accept votes for {type(obj)} {obj.id} was overriden because 2 or more staff/experts rejected it."
+                )
             annotation["status"] = "Invalid"
         else:
             annotation["status"] = "Uncertain"

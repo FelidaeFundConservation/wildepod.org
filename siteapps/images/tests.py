@@ -525,11 +525,10 @@ class ObjectValidityTestCase(LoggedInTestCase):
         self.assertEqual(zipped_species_querysets[0][1].get("status"), "Invalid")
 
     """
-    Accepting staff/expert votes should overrule any rejections,
-    including from other staff/expert users
+    One-to-one staff acception to rejection ratio shouldn't affect it
     """
 
-    def test_expert_acception_overrules_expert_rejections(self):
+    def test_expert_rejection_versus_acception(self):
         # Make users expert
         self.user.is_expert = True
         self.user.save()
@@ -540,6 +539,46 @@ class ObjectValidityTestCase(LoggedInTestCase):
         # Check we're using experts
         self.assertTrue(self.user.is_expert)
         self.assertTrue(self.other_user1.is_expert)
+
+        # Make the rejecting votes by other annotator
+        species1 = create_test_species_object(self.bbox1, "Bobcat", "WILD", self.other_annotator3)
+        vote(species1, self.other_annotator1, accept=False)
+
+        # Make the accepting vote by the expert user
+        vote(species1, self.annotator, accept=True)
+
+        # Check the votes were applied as expected
+        self.assertEqual(species1.accepted_by.count(), 1)
+        self.assertEqual(species1.rejected_by.count(), 1)
+
+        # Get the object validity
+        species_obj = Species.objects.filter(id=species1.id)
+        species_values = species_obj.values()
+
+        zipped_species_querysets = list(zip(species_obj, species_values))
+        annotate(zipped_species_querysets)
+
+        self.assertEqual(zipped_species_querysets[0][1].get("status"), "Valid")
+
+    """
+    Double staff/expert rejections over acceptions should override them
+    """
+
+    def test_expert_rejections_override_acception(self):
+        # Make users expert
+        self.user.is_expert = True
+        self.user.save()
+
+        self.other_user1.is_expert = True
+        self.other_user1.save()
+
+        self.other_user2.is_expert = True
+        self.other_user2.save()
+
+        # Check we're using experts
+        self.assertTrue(self.user.is_expert)
+        self.assertTrue(self.other_user1.is_expert)
+        self.assertTrue(self.other_user2.is_expert)
 
         # Make the rejecting votes by other annotators
         species1 = create_test_species_object(self.bbox1, "Bobcat", "WILD", self.other_annotator3)
@@ -560,7 +599,7 @@ class ObjectValidityTestCase(LoggedInTestCase):
         zipped_species_querysets = list(zip(species_obj, species_values))
         annotate(zipped_species_querysets)
 
-        self.assertEqual(zipped_species_querysets[0][1].get("status"), "Valid")
+        self.assertEqual(zipped_species_querysets[0][1].get("status"), "Invalid")
 
     """
     Correlated objects (i.e. Category, Species, or Activity) should also be invalid

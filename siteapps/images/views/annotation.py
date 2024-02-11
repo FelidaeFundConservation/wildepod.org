@@ -61,8 +61,6 @@ UNANNOTATED_CATEGORY = "unannotated"
 STAFF_OR_EXPERT_CHECK = Q(human__is_staff=True) | Q(human__is_expert=True)
 STAFF_OR_EXPERT_VOTE_MULTIPLIER = 2
 
-IN_PROGRESS = "[IN_PROGRESS]"
-
 
 class BboxAnnotationInfo:
     def __init__(self, id, categories, species, activities):
@@ -241,9 +239,29 @@ def activity_pipeline_query(images, annotator, activity_category):
     return images
 
 
+def prioritize_species(images):
+    # Show potential cats first
+    cat_images = images.filter(Q(species_ai_detections__contains="Puma") | Q(species_ai_detections__contains="Bobcat"))
+
+    if cat_images.exists():
+        return cat_images
+
+    # If no cats, filter out images with possibly no species AI detections or unidentifiable
+    # i.e. potentially erroneous boxes from MegaDetector, or "harder" images to annotate are excluded, so the "easy" ones remain
+    images_with_detections = images.exclude(species_ai_detections__in=["[]", "['Unknown']"])
+
+    if images_with_detections.exists():
+        return images_with_detections
+
+    # If still no images, just use the original queryset (i.e. only "hard" images remain to be annotated)
+    return images
+
+
 def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_category):
     # Get images based on the following set of filters
     images = Image.objects.filter(**self.filterset)
+
+    images = prioritize_species(images)
 
     # Filter using specified pipeline criteria
     if SPECIES_QUEUE_NAME in queue_name:
@@ -393,7 +411,12 @@ def get_burst_images(context, queue):
     # Check only the next images in queue
     for image_id in queue["images"][queue["index"] + 1 :]:
         image = Image.objects.get(id=image_id)
-        time_diff = image.trigger_timestamp - prev_timestamp
+
+        # Sometimes one of these timestamps don't exist, handle error
+        try:
+            time_diff = image.trigger_timestamp - prev_timestamp
+        except Exception:
+            break
 
         # If the times are close enough, consider it as potentially part of a burst
         if time_diff > datetime.timedelta(seconds=BURST_TIME_THRESHOLD):

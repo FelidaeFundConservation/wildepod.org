@@ -21,6 +21,7 @@ from images.views.annotation import (
     calculateActivityAnnotationFlags,
     calculateCategoryAnnotationFlags,
     calculateSpeciesAnnotationFlags,
+    skip_ineligible_images,
 )
 from locations.models import Area, CameraStation, County, MacroSite, MicroSite
 from users.models import User
@@ -120,6 +121,7 @@ class LoggedInTestCase(TestCase):
         test_image_object.save()
 
         self.test_image = test_image_object
+        self.test_upload = test_upload_object
 
 
 # Create your tests here.
@@ -601,3 +603,47 @@ class ObjectValidityTestCase(LoggedInTestCase):
         annotate(zipped_species_querysets)
 
         self.assertEqual(zipped_species_querysets[0][1].get("status"), "Invalid")
+
+
+class SkipIneligibleImagesTestCase(AnnotationFlagsTestCase):
+    def setUp(self):
+        super().setUp()
+
+    """
+    This was a bug caused when species was complete but category wasn't
+    due to leftover boxes that had no votes. These occured on old images
+    that were migrated. This checks to see if this bug's been reintroduced.
+    """
+
+    def test_category_incomplete_species_complete(self):
+        # Set user to staff
+        self.user.is_expert = True
+        self.user.save()
+
+        # Check we're using an expert user
+        self.assertTrue(self.user.is_expert)
+
+        # Setup objects and check flags
+        bbox1 = create_test_bboxes(test_image_object=self.test_image, test_user_object=self.annotator, num_boxes=1)
+        species1 = create_test_species_object(bbox1, "Mule Deer", "WILD", self.annotator)
+        
+        # Add an uncertain bbox to make the image species eligible
+        bbox2 = create_test_bboxes(
+            test_image_object=self.test_image, test_user_object=Annotator.objects.create(type="Bot"), num_boxes=1
+        )
+
+        self.test_image2 = create_test_image_object(self.test_upload)
+
+        # Make sure flag conditions are correct for this test
+        calculateCategoryAnnotationFlags(self.test_image)
+        calculateSpeciesAnnotationFlags(self.test_image)
+        self.assertFalse(self.test_image.category_pipeline_complete)
+        self.assertTrue(self.test_image.species_pipeline_complete)
+
+        # Setup the queue object
+        queue = {"index": 0, "images": [self.test_image.id, self.test_image2.id]}
+
+        # The first image should be the one returned (i.e. first img wasn't skipped)
+        result = skip_ineligible_images(queue_name="AnnotateSpeciesQueue", queue=queue, annotator=self.annotator)
+
+        self.assertEqual(self.test_image.id, result.id)

@@ -348,7 +348,10 @@ class SingleBoxSingleSpeciesTestCase(AnnotationFlagsTestCase):
         bbox1 = create_test_bboxes(test_image_object=self.test_image, test_user_object=self.annotator, num_boxes=1)
         species1 = create_test_species_object(bbox1, "Mule Deer", "WILD", self.annotator)
 
+        # Category complete is a prerequisite to species complete, set this to true
+        self.test_image.category_pipeline_complete = True
         debug_info = calculateSpeciesAnnotationFlags(self.test_image)
+        self.test_image.save()
 
         self.assertFalse(not debug_info["flag_checks"]["species_has_uncertain"])
         self.assertFalse(debug_info["flag_checks"]["species_has_valid"])
@@ -380,7 +383,10 @@ class SingleBoxSingleSpeciesTestCase(AnnotationFlagsTestCase):
         bbox1 = create_test_bboxes(test_image_object=self.test_image, test_user_object=self.annotator, num_boxes=1)
         species1 = create_test_species_object(bbox1, "Domestic horse", "DOMESTIC", self.annotator)
 
+        # Category complete is a prerequisite to species complete, set this to true
+        self.test_image.category_pipeline_complete = True
         debug_info = calculateSpeciesAnnotationFlags(self.test_image)
+        self.test_image.save()
 
         self.assertTrue(not debug_info["flag_checks"]["species_has_uncertain"])
         self.assertTrue(debug_info["flag_checks"]["species_has_valid"])
@@ -412,7 +418,10 @@ class SingleBoxSingleSpeciesTestCase(AnnotationFlagsTestCase):
         bbox1 = create_test_bboxes(test_image_object=self.test_image, test_user_object=self.annotator, num_boxes=1)
         species1 = create_test_species_object(bbox1, "Raccoon", "WILD", self.annotator)
 
+        # Category complete is a prerequisite to species complete, set this to true
+        self.test_image.category_pipeline_complete = True
         debug_info = calculateSpeciesAnnotationFlags(self.test_image)
+        self.test_image.save()
 
         self.assertTrue(not debug_info["flag_checks"]["species_has_uncertain"])
         self.assertTrue(debug_info["flag_checks"]["species_has_valid"])
@@ -455,7 +464,10 @@ class SingleBoxSingleSpeciesTestCase(AnnotationFlagsTestCase):
         vote(bbox1, self.annotator, accept=True)
         self.test_image.species_checked_by.add(self.annotator)
 
+        # Category complete is a prerequisite to species complete, set this to true
+        self.test_image.category_pipeline_complete = True
         debug_info = calculateSpeciesAnnotationFlags(self.test_image)
+        self.test_image.save()
 
         self.assertTrue(not debug_info["flag_checks"]["species_has_uncertain"])
         self.assertTrue(debug_info["flag_checks"]["species_has_valid"])
@@ -626,7 +638,7 @@ class SkipIneligibleImagesTestCase(AnnotationFlagsTestCase):
         # Setup objects and check flags
         bbox1 = create_test_bboxes(test_image_object=self.test_image, test_user_object=self.annotator, num_boxes=1)
         species1 = create_test_species_object(bbox1, "Mule Deer", "WILD", self.annotator)
-        
+
         # Add an uncertain bbox to make the image species eligible
         bbox2 = create_test_bboxes(
             test_image_object=self.test_image, test_user_object=Annotator.objects.create(type="Bot"), num_boxes=1
@@ -636,7 +648,13 @@ class SkipIneligibleImagesTestCase(AnnotationFlagsTestCase):
 
         # Make sure flag conditions are correct for this test
         calculateCategoryAnnotationFlags(self.test_image)
+
+        # Category complete is a prerequisite to species complete, set this to true temporarily to set species complete true as well
+        self.test_image.category_pipeline_complete = True
         calculateSpeciesAnnotationFlags(self.test_image)
+        self.test_image.category_pipeline_complete = False
+        self.test_image.save()
+
         self.assertFalse(self.test_image.category_pipeline_complete)
         self.assertTrue(self.test_image.species_pipeline_complete)
 

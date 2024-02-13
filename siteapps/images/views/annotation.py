@@ -419,7 +419,7 @@ def get_burst_images(context, queue):
             break
 
         # If the times are close enough, consider it as potentially part of a burst
-        if time_diff > datetime.timedelta(seconds=BURST_TIME_THRESHOLD):
+        if time_diff.seconds > BURST_TIME_THRESHOLD:
             break
         else:
             images.append(image)

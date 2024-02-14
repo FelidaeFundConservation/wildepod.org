@@ -260,9 +260,7 @@ def prioritize_species(images):
 def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_category):
     # Get images based on the following set of filters
     images = Image.objects.filter(**self.filterset)
-
-    images = prioritize_species(images)
-
+        
     # Filter using specified pipeline criteria
     if SPECIES_QUEUE_NAME in queue_name:
         images = species_pipeline_query(images=images, annotator=annotator)
@@ -270,6 +268,8 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
         images = activity_pipeline_query(images=images, annotator=annotator, activity_category=activity_category)
     else:
         logging.error(f"Invalid queue name provided to query function: {queue_name}")
+
+    images = prioritize_species(images)
 
     # Get the image stack based on stack size
     images = images[: settings.ANNOTATION_QUEUE_SIZE]

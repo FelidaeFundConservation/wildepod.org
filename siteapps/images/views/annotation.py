@@ -5,27 +5,11 @@ from io import BytesIO
 
 import requests
 from django.conf import settings
-from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
-from django.db import models
-from django.db.models import (
-    BooleanField,
-    Case,
-    Count,
-    Exists,
-    ExpressionWrapper,
-    F,
-    IntegerField,
-    OuterRef,
-    Q,
-    Subquery,
-    Value,
-    When,
-)
-from django.db.models.functions import Coalesce, math
+from django.db.models import Case, Exists, F, OuterRef, Q, Subquery, When
 from django.http.response import JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect
 from django.urls import reverse
 from django.views.generic import FormView
 from django.views.generic.base import TemplateView, View
@@ -43,7 +27,6 @@ from images.models import (
 )
 from images.models.custom_fields import get_filter_params
 from images.processors import process_activity_annotations, process_species_annotations, run_model_inference
-from locations.models import CameraStation, MacroSite, MicroSite
 from PIL import Image as PILImage
 
 MAX_VOTES_PER_IMAGE = 2
@@ -243,6 +226,24 @@ def prioritize_species(images):
     # Show potential cats first
     cat_images = images.filter(Q(species_ai_detections__contains="Puma") | Q(species_ai_detections__contains="Bobcat"))
 
+    cat_images = cat_images.annotate(
+        prev_image_id=Subquery(
+            images.filter(
+                trigger_timestamp__gt=OuterRef("trigger_timestamp") - datetime.timedelta(seconds=3),
+                trigger_timestamp__lt=OuterRef("trigger_timestamp"),
+                upload__camera_station=OuterRef("upload__camera_station"),
+            )[:1].values_list("id"),
+        ),
+        next_image_id=Subquery(
+            images.filter(
+                ~Q(id=OuterRef("id")),
+                trigger_timestamp__gt=OuterRef("trigger_timestamp"),
+                trigger_timestamp__lt=OuterRef("trigger_timestamp") + datetime.timedelta(seconds=3),
+                upload__camera_station=OuterRef("upload__camera_station"),
+            )[:1].values_list("id")
+        ),
+    )
+
     if cat_images.exists():
         return cat_images
 
@@ -260,7 +261,7 @@ def prioritize_species(images):
 def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_category):
     # Get images based on the following set of filters
     images = Image.objects.filter(**self.filterset)
-        
+
     # Filter using specified pipeline criteria
     if SPECIES_QUEUE_NAME in queue_name:
         images = species_pipeline_query(images=images, annotator=annotator)
@@ -275,7 +276,21 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
     images = images[: settings.ANNOTATION_QUEUE_SIZE]
 
     # Get the image ids & convert to string
-    image_ids = [str(image.id) for image in images]
+    image_ids = []
+
+    for image in images:
+        image_id = str(image.id)
+        prev_image_id = str(image.prev_image_id) if image.prev_image_id else None
+        next_image_id = str(image.next_image_id) if image.next_image_id else None
+
+        if image_id not in image_ids:
+            image_ids.append(str(image.id))
+
+        # For potential cat images, append the burst images as well
+        if prev_image_id is not None and prev_image_id not in image_ids:
+            image_ids.append(prev_image_id)
+        if next_image_id is not None and prev_image_id not in image_ids:
+            image_ids.append(next_image_id)
 
     # Create a queue entity with image ids, user id, timestamp and index
     payload = {
@@ -402,7 +417,7 @@ def get_annotation_history(context, queue, queue_name, annotator):
     context["previous_annotation_info"] = zip(context["previous_queue_images"], context["previous_annotations"])
 
 
-def get_burst_images(context, queue):
+def get_burst_images(context, queue, queue_name, annotator):
     BURST_TIME_THRESHOLD = 120
 
     images = []
@@ -410,7 +425,15 @@ def get_burst_images(context, queue):
 
     # Check only the next images in queue
     for image_id in queue["images"][queue["index"] + 1 :]:
-        image = Image.objects.get(id=image_id)
+
+        # Make sure the batch images haven't already been voted/completed
+        try:
+            if SPECIES_QUEUE_NAME in queue_name:
+                image = Image.objects.get(~Q(species_checked_by__in=[annotator]), id=image_id)
+            elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
+                image = Image.objects.get(~Q(activity_checked_by__in=[annotator]), id=image_id)
+        except Exception:
+            continue
 
         # Sometimes one of these timestamps don't exist, handle error
         try:
@@ -418,11 +441,14 @@ def get_burst_images(context, queue):
         except Exception:
             break
 
+        # Check for burst images after, and a bit before timestamp as well
+        within_time_check = -3 < time_diff.total_seconds() < BURST_TIME_THRESHOLD
+
         # If the times are close enough, consider it as potentially part of a burst
-        if time_diff > datetime.timedelta(seconds=BURST_TIME_THRESHOLD):
-            break
-        else:
+        if within_time_check:
             images.append(image)
+        else:
+            break
 
     context["images_w_boxes"] = [
         [image_obj, BoundingBox.objects.valid_or_uncertain().filter(image=image_obj)] for image_obj in images
@@ -502,7 +528,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
 
         # Get burst images for multi-image tagging
         if queue["index"] < context["queue_length"]:
-            get_burst_images(context=context, queue=queue)
+            get_burst_images(context=context, queue=queue, queue_name=queue_name, annotator=annotator)
     else:
         image = None
         context["image"] = None

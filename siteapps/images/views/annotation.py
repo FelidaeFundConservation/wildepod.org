@@ -280,17 +280,19 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
 
     for image in images:
         image_id = str(image.id)
-        prev_image_id = str(image.prev_image_id) if image.prev_image_id else None
-        next_image_id = str(image.next_image_id) if image.next_image_id else None
 
         if image_id not in image_ids:
-            image_ids.append(str(image.id))
+            image_ids.append(image_id)
 
         # For potential cat images, append the burst images as well
-        if prev_image_id is not None and prev_image_id not in image_ids:
-            image_ids.append(prev_image_id)
-        if next_image_id is not None and prev_image_id not in image_ids:
-            image_ids.append(next_image_id)
+        if hasattr(image, "prev_image_id") and hasattr(image, "next_image_id"):
+            prev_image_id = str(image.prev_image_id) if image.prev_image_id else None
+            next_image_id = str(image.next_image_id) if image.next_image_id else None
+
+            if prev_image_id is not None and prev_image_id not in image_ids:
+                image_ids.append(prev_image_id)
+            if next_image_id is not None and prev_image_id not in image_ids:
+                image_ids.append(next_image_id)
 
     # Create a queue entity with image ids, user id, timestamp and index
     payload = {

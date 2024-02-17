@@ -260,7 +260,7 @@ def prioritize_species(images):
 def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_category):
     # Get images based on the following set of filters
     images = Image.objects.filter(**self.filterset)
-        
+
     # Filter using specified pipeline criteria
     if SPECIES_QUEUE_NAME in queue_name:
         images = species_pipeline_query(images=images, annotator=annotator)
@@ -425,7 +425,8 @@ def get_burst_images(context, queue):
             images.append(image)
 
     context["images_w_boxes"] = [
-        [image_obj, BoundingBox.objects.valid_or_uncertain().filter(image=image_obj)] for image_obj in images
+        [image_obj, BoundingBox.objects.filter(image=image_obj, validity__in=["Valid", "Uncertain"])]
+        for image_obj in images
     ]
 
 
@@ -734,6 +735,13 @@ def annotation_processor(queue_name, annotation_type, request):
     batch_tag_images = request.POST.get("batch_tag_images")
     batch_tag_images = json.loads(batch_tag_images) if batch_tag_images else []
 
+    # This count is done before making changes to the bboxes, otherwise validity will change
+    batch_bbox_count = (
+        BoundingBox.objects.filter(image__id__in=batch_tag_images, validity__in=["Valid", "Uncertain"])
+        .distinct()
+        .count()
+    )
+
     annotation_description = None
 
     # Process the annotations
@@ -821,13 +829,14 @@ def annotation_processor(queue_name, annotation_type, request):
                 image.save()
 
             # Update the cached annotation count
-            count = len(annotations)
+            annotation_count = len(annotations) + batch_bbox_count
+            image_count = 1 + len(batch_tag_images)
 
             get_or_set_annotation_count(
                 request=request,
                 queue_name=queue_name,
                 annotator=annotator,
-                annotation_num=count,
+                annotation_num=annotation_count,
             )
 
             # Use an object to track each day, for each annotator, for each pipeline
@@ -838,12 +847,15 @@ def annotation_processor(queue_name, annotation_type, request):
             ).first()
 
             if counter:
-                counter.annotation_count += count
-                counter.image_count += 1
+                counter.annotation_count += annotation_count
+                counter.image_count += image_count
                 counter.save()
             else:
                 AnnotationCounter.objects.create(
-                    annotator=annotator, annotation_type=annotation_type, annotation_count=count, image_count=1
+                    annotator=annotator,
+                    annotation_type=annotation_type,
+                    annotation_count=annotation_count,
+                    image_count=image_count,
                 )
     else:
         category_debug_data = None

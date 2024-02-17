@@ -291,7 +291,7 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
 
             if prev_image_id is not None and prev_image_id not in image_ids:
                 image_ids.append(prev_image_id)
-            if next_image_id is not None and prev_image_id not in image_ids:
+            if next_image_id is not None and next_image_id not in image_ids:
                 image_ids.append(next_image_id)
 
     # Create a queue entity with image ids, user id, timestamp and index

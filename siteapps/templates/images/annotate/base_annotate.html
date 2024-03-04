@@ -397,7 +397,7 @@
                                                             <div class="card p-0">
                                                                 <div class="card card-header">
                                                                     <div class="form-check m-0">
-                                                                        <input class="form-check-input"
+                                                                        <input class="form-check-input burst-checkbox"
                                                                                type="checkbox"
                                                                                value="{{ burst_image.id }}"
                                                                                id="batch-tag-{{ burst_image.id }}"
@@ -494,6 +494,10 @@
     // Initialize popovers
     $(document).ready(function(){
         $('[data-toggle="popover"]').popover();
+
+        // For some reason batch checkboxes are sometimes being checked by default.
+        // Trying to set them to unchecked manually as a quick hack
+        $('.burst-checkbox').prop('checked', false);
 
         document.onkeydown = function (event) {
             if (event.key === "Backspace" || event.key === "Delete") {

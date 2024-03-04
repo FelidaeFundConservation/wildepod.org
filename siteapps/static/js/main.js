@@ -163,7 +163,7 @@ function createCategoryWidget(categories, speciesVotes, speciesDetections, pipel
             ? "show active" : "";
         let animalSelected = currentClassCategoryType == "animal"
             || animalList.includes(currentClassValue)
-            || !currentClassCategoryType || (personSelected.length == 0 && vehicleSelected.length == 0)
+            || (personSelected.length == 0 && vehicleSelected.length == 0)
             ? "show active" : "";
 
         let animalTabContentHtml = `${birdsSectionHtml}

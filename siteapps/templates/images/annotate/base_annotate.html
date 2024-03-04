@@ -87,7 +87,9 @@
                                    role="tab"
                                    aria-controls="nav-annotate"
                                    aria-selected="true">
-                                    <text class="small"><span class="d-none d-xl-inline">Annotations</span><span class="d-inline d-xl-none">Tags</span></text>
+                                    <text class="small">
+                                    <span class="d-none d-xl-inline">Annotations</span><span class="d-inline d-xl-none">Tags</span>
+                                    </text>
                                 </a>
                                 <a class="nav-link"
                                    id="nav-image-tab"
@@ -144,13 +146,16 @@
                                 name="save_annotations"
                                 value="Save Annotations"
                                 disabled>
-                            <i class="bi bi-save2"></i><span class="d-none d-lg-inline">&nbsp;&nbsp;&nbsp;Save<span class="d-none d-xl-inline">&nbsp;Tags&nbsp;&nbsp;</span></span>
-                            <div id="save-spinner"
-                                 class="spinner-border"
-                                 role="status"
-                                 style="width: 12px;
-                                        height: 12px;
-                                        display: none"></div>
+                            <span><i class="bi bi-images"></i></span>
+                            <span class="d-none d-lg-inline" style="font-size: 14px">
+                                &nbsp;&nbsp;Save<span class="d-none d-xl-inline">&nbsp;Images</span> x <span id="batch-count">1</span>
+                            </span>&nbsp;
+                            <span id="save-spinner"
+                                  class="spinner-border"
+                                  role="status"
+                                  style="width: 12px;
+                                         height: 12px;
+                                         display: none"></span>
                         </button>
                         <button type="submit"
                                 class="btn btn-secondary mx-2 w-50"
@@ -158,7 +163,10 @@
                                 name="skip_annotations"
                                 value="Skip Image"
                                 disabled>
-                            <i class="bi bi-skip-end"></i><span class="d-none d-lg-inline">&nbsp;&nbsp;&nbsp;Skip<span class="d-none d-xl-inline">&nbsp;Image&nbsp;&nbsp;</span></span>
+                            <i class="bi bi-skip-end"></i>
+                            <span class="d-none d-lg-inline" style="font-size: 14px">
+                                &nbsp;&nbsp;&nbsp;Skip<span class="d-none d-xl-inline">&nbsp;Current&nbsp;&nbsp;</span>
+                            </span>
                             <div id="skip-spinner"
                                  class="spinner-border"
                                  role="status"
@@ -498,6 +506,14 @@
         // For some reason batch checkboxes are sometimes being checked by default.
         // Trying to set them to unchecked manually as a quick hack
         $('.burst-checkbox').prop('checked', false);
+
+        function countCheckboxes() {
+            $('#batch-count').text($("[id^=batch-tag-]:checked").length + 1);
+        } countCheckboxes();
+
+        $('.burst-checkbox').on('click', function () {
+            countCheckboxes();
+        });
 
         document.onkeydown = function (event) {
             if (event.key === "Backspace" || event.key === "Delete") {

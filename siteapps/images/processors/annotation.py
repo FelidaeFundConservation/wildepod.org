@@ -260,9 +260,8 @@ def handle_bbox_updates(
 # Tag multiple images at once, by applying the current image's selection to all bboxes in the other images
 def tag_batch(batch_tag_images, category, annotator):
     for image_id in batch_tag_images:
-        # try:
         image = Image.objects.get(id=image_id)
-        bboxes = BoundingBox.objects.filter(image=image)
+        bboxes = BoundingBox.objects.filter(image=image, validity__in=["Uncertain", "Valid"])
 
         for bbox in bboxes:
             # Store the category with formatted annotations structure
@@ -279,8 +278,6 @@ def tag_batch(batch_tag_images, category, annotator):
         image.save()
 
         logging.info(f"Batch tagging for image {image_id} successful - annotated as {category}.")
-    # except Exception as e:
-    #    logging.error(f"Error occurred while batch tagging image {image_id} - {e}")
 
 
 # Handles additions, deletions, and updates to image bboxes

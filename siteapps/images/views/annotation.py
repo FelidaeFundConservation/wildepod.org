@@ -1,13 +1,15 @@
 import datetime
 import json
 import logging
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 
 import requests
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import BooleanField, Case, Exists, F, OuterRef, Q, Subquery, Value, When
+from django.db.models import BooleanField, Case, CharField, Exists, F, OuterRef, Q, Subquery, Value, When
 from django.http.response import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -202,25 +204,7 @@ def species_pipeline_query(images, annotator):
                 output_field=BooleanField(),
             )
         )
-        .annotate(
-            # Burst images
-            prev_image_id=Subquery(
-                images.filter(
-                    trigger_timestamp__gt=OuterRef("trigger_timestamp") - datetime.timedelta(seconds=3),
-                    trigger_timestamp__lt=OuterRef("trigger_timestamp"),
-                    upload__camera_station=OuterRef("upload__camera_station"),
-                )[:1].values_list("id"),
-            ),
-            next_image_id=Subquery(
-                images.filter(
-                    ~Q(id=OuterRef("id")),
-                    trigger_timestamp__gt=OuterRef("trigger_timestamp"),
-                    trigger_timestamp__lt=OuterRef("trigger_timestamp") + datetime.timedelta(seconds=3),
-                    upload__camera_station=OuterRef("upload__camera_station"),
-                )[:1].values_list("id")
-            ),
-        )
-        .order_by("-upload__priority", "upload__camera_station", "-has_cats", "trigger_timestamp")
+        .order_by("-upload__priority", "-has_cats", "upload__camera_station", "trigger_timestamp")
     )
 
     images = staff_review_query_filter(images, annotator)
@@ -279,21 +263,36 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
     # Get the image ids & convert to string
     image_ids = []
 
-    for image in images:
-        image_id = str(image.id)
-
+    # Deduplicate, in case a main image is also a burst image
+    def add_id_if_unique(image_id):
         if image_id not in image_ids:
             image_ids.append(image_id)
 
-        # Append the burst images as well
-        if hasattr(image, "prev_image_id") and hasattr(image, "next_image_id"):
-            prev_image_id = str(image.prev_image_id) if image.prev_image_id else None
-            next_image_id = str(image.next_image_id) if image.next_image_id else None
+    for image in images:
+        image_id = str(image.id)
+        add_id_if_unique(image_id)
 
-            if prev_image_id is not None and prev_image_id not in image_ids:
-                image_ids.append(prev_image_id)
-            if next_image_id is not None and next_image_id not in image_ids:
-                image_ids.append(next_image_id)
+        # Append the burst images as well
+        burst_images = Image.objects.filter(
+            ~Q(id=image.id),
+            upload=image.upload,
+            trigger_timestamp__gt=image.trigger_timestamp - datetime.timedelta(seconds=3),
+            trigger_timestamp__lt=image.trigger_timestamp + datetime.timedelta(seconds=3),
+        )
+
+        # Make sure the burst image is pipeline eligible
+        if SPECIES_QUEUE_NAME in queue_name:
+            eligible_burst_image_ids = species_pipeline_query(burst_images, annotator=annotator).values_list(
+                "id", flat=True
+            )
+        elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
+            eligible_burst_image_ids = activity_pipeline_query(
+                burst_images, annotator=annotator, activity_category=activity_category
+            ).values_list("id", flat=True)
+
+        # Add burst images to queue, after the main image
+        for burst_image_id in eligible_burst_image_ids:
+            add_id_if_unique(str(burst_image_id))
 
     # Create a queue entity with image ids, user id, timestamp and index
     payload = {
@@ -332,14 +331,34 @@ def skip_ineligible_images(queue_name, queue, annotator):
     pipeline_eligible = True
     already_voted = False
 
-    while (pipeline_completed or not pipeline_eligible or already_voted) and queue["index"] < len(queue["images"]):
-        image = Image.objects.get(id=queue["images"][queue["index"]])
+    eligible_image_stop_event = threading.Event()
+    eligible_image_stop_event.clear()
+
+    def recalculate_flags(image_id):
+        # Skip these costly calculations when the first eligible image is found
+        if eligible_image_stop_event.is_set():
+            return
+
+        image = Image.objects.get(id=image_id)
 
         calculateCategoryAnnotationFlags(image)
         calculateSpeciesAnnotationFlags(image)
         calculateActivityAnnotationFlags(image)
         image.save()
 
+        pipeline_completed, pipeline_eligible, already_voted = get_eligibility(image=image)
+
+        # If eligible image, skip calculating the rest
+        if not pipeline_completed and pipeline_eligible and not already_voted and not auto_flag_for_staff(image):
+            eligible_image_stop_event.set()
+
+    def calculate_flags_parallel(image_ids):
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            for image_id in image_ids:
+                executor.submit(recalculate_flags, image_id)
+
+    # Determine conditions where the image should be skipped or not
+    def get_eligibility(image):
         if SPECIES_QUEUE_NAME in queue_name:
             pipeline_completed = image.category_pipeline_complete and image.species_pipeline_complete
             pipeline_eligible = BoundingBox.objects.filter(image=image).exists()
@@ -352,8 +371,18 @@ def skip_ineligible_images(queue_name, queue, annotator):
             already_voted = Image.objects.filter(
                 Q(activity_checked_by__in=[annotator]) | Q(activity_skipped_by__in=[annotator]), id=image.id
             ).exists()
-        else:
-            break
+
+        return pipeline_completed, pipeline_eligible, already_voted
+
+    # Check the remaining queue
+    if queue["index"] < len(queue["images"]):
+        calculate_flags_parallel(queue["images"][queue["index"] : len(queue["images"]) - 1])
+
+    # Skip images based on changes or results of recalculations
+    while (pipeline_completed or not pipeline_eligible or already_voted) and queue["index"] < len(queue["images"]):
+        image = Image.objects.get(id=queue["images"][queue["index"]])
+
+        pipeline_completed, pipeline_eligible, already_voted = get_eligibility(image=image)
 
         if pipeline_completed:
             queue["index"] += 1
@@ -485,6 +514,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
     if queue_available:
         image_id, return_to_image_id = get_next_queue_image(self=self, context=context, queue=queue)
     else:
+        logging.info("Gathering new queue of images...")
         # Serve the first image
         queue, image_id = gather_queue_images(
             self=self,
@@ -1061,7 +1091,7 @@ def calculateCategoryAnnotationFlags(image):
 
     has_staff_or_expert_vote = any(category[1].get("has_staff_or_expert_vote") is True for category in zipped_querysets)
 
-    not_invalid_bbox_count_gt = BoundingBox.objects.filter(image=image).count() > 0 and any(
+    not_invalid_bbox_count_gt = len(zipped_bbox_querysets) > 0 and any(
         bbox[1].get("status") != "Invalid" for bbox in zipped_bbox_querysets
     )
 

@@ -1,13 +1,15 @@
 import datetime
 import json
 import logging
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 
 import requests
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import Case, Exists, F, OuterRef, Q, Subquery, When
+from django.db.models import BooleanField, Case, CharField, Exists, F, OuterRef, Q, Subquery, Value, When
 from django.http.response import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -163,35 +165,47 @@ def staff_review_query_filter(images, annotator):
 
 # Filter criteria for an image to appear in the Species pipeline
 def species_pipeline_query(images, annotator):
-    images = images.filter(
-        # It must not be checked or skipped by the current annotator
-        ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
-        # Image has at least one bounding box tagged by MegaDetector above the predetermined threshold
-        Exists(
-            BoundingBox.objects.filter(image=OuterRef("pk"))
-            .annotate(
-                # TODO: This calculation can happen after MegaDetector processing, and we can set a flag.
-                confidence_threshold=Case(
-                    When(created_by__type="bot", then="created_by__bot__threshold"),
-                    default=0.0,
-                ),
+    images = (
+        images.filter(
+            # It must not be checked or skipped by the current annotator
+            ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
+            # Image has at least one bounding box tagged by MegaDetector above the predetermined threshold
+            Exists(
+                BoundingBox.objects.filter(image=OuterRef("pk"))
+                .annotate(
+                    # TODO: This calculation can happen after MegaDetector processing, and we can set a flag.
+                    confidence_threshold=Case(
+                        When(created_by__type="bot", then="created_by__bot__threshold"),
+                        default=0.0,
+                    ),
+                )
+                .filter(
+                    ~Q(validity__in=["Invalid", None]),
+                    confidence__gte=F("confidence_threshold"),
+                )
+            ),
+            # Image has at least 1 uncertain bounding box
+            Exists(BoundingBox.objects.filter(image=OuterRef("pk"), validity="Uncertain"))
+            # OR is species incomplete, excluding images with only people/vehicles if category's been confirmed
+            | (
+                ~Q(has_humans=True, has_animals=False)
+                & ~Q(has_vehicles=True, has_animals=False)
+                & Q(category_pipeline_complete=True, species_pipeline_complete=False)
+            ),
+            # Image has been preprocessed and we can use precomputed flags
+            use_precomputed_flags=True,
+        )
+        .annotate(
+            # Potential cats first
+            has_cats=Case(
+                When(species_ai_detections__contains="Puma", then=Value(1)),
+                When(species_ai_detections__contains="Bobcat", then=Value(1)),
+                default=Value(0),
+                output_field=BooleanField(),
             )
-            .filter(
-                ~Q(validity__in=["Invalid", None]),
-                confidence__gte=F("confidence_threshold"),
-            )
-        ),
-        # Image has at least 1 uncertain bounding box
-        Exists(BoundingBox.objects.filter(image=OuterRef("pk"), validity="Uncertain"))
-        # OR is species incomplete, excluding images with only people/vehicles if category's been confirmed
-        | (
-            ~Q(has_humans=True, has_animals=False)
-            & ~Q(has_vehicles=True, has_animals=False)
-            & Q(category_pipeline_complete=True, species_pipeline_complete=False)
-        ),
-        # Image has been preprocessed and we can use precomputed flags
-        use_precomputed_flags=True,
-    ).order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
+        )
+        .order_by("-upload__priority", "-has_cats", "upload__camera_station", "trigger_timestamp")
+    )
 
     images = staff_review_query_filter(images, annotator)
 
@@ -222,42 +236,6 @@ def activity_pipeline_query(images, annotator, activity_category):
     return images
 
 
-def prioritize_species(images):
-    # Show potential cats first
-    cat_images = images.filter(Q(species_ai_detections__contains="Puma") | Q(species_ai_detections__contains="Bobcat"))
-
-    cat_images = cat_images.annotate(
-        prev_image_id=Subquery(
-            images.filter(
-                trigger_timestamp__gt=OuterRef("trigger_timestamp") - datetime.timedelta(seconds=3),
-                trigger_timestamp__lt=OuterRef("trigger_timestamp"),
-                upload__camera_station=OuterRef("upload__camera_station"),
-            )[:1].values_list("id"),
-        ),
-        next_image_id=Subquery(
-            images.filter(
-                ~Q(id=OuterRef("id")),
-                trigger_timestamp__gt=OuterRef("trigger_timestamp"),
-                trigger_timestamp__lt=OuterRef("trigger_timestamp") + datetime.timedelta(seconds=3),
-                upload__camera_station=OuterRef("upload__camera_station"),
-            )[:1].values_list("id")
-        ),
-    )
-
-    if cat_images.exists():
-        return cat_images
-
-    # If no cats, filter out images with possibly no species AI detections or unidentifiable
-    # i.e. potentially erroneous boxes from MegaDetector, or "harder" images to annotate are excluded, so the "easy" ones remain
-    images_with_detections = images.exclude(species_ai_detections__in=["[]", "['Unknown']"])
-
-    if images_with_detections.exists():
-        return images_with_detections
-
-    # If still no images, just use the original queryset (i.e. only "hard" images remain to be annotated)
-    return images
-
-
 def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_category):
     # Get images based on the following set of filters
     images = Image.objects.filter(**self.filterset)
@@ -270,7 +248,14 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
     else:
         logging.error(f"Invalid queue name provided to query function: {queue_name}")
 
-    images = prioritize_species(images)
+    # Filter out images with possibly no species AI detections or unidentifiable
+    # i.e. potentially erroneous boxes from MegaDetector, or "harder" images to annotate are excluded, so the "easy" ones remain
+    images_with_detections = images.exclude(species_ai_detections__in=["[]", "['Unknown']"])
+
+    if images_with_detections.exists():
+        images = images_with_detections
+
+    # If still no images, just use the original queryset (i.e. only "hard" images remain to be annotated)
 
     # Get the image stack based on stack size
     images = images[: settings.ANNOTATION_QUEUE_SIZE]
@@ -278,21 +263,36 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
     # Get the image ids & convert to string
     image_ids = []
 
-    for image in images:
-        image_id = str(image.id)
-
+    # Deduplicate, in case a main image is also a burst image
+    def add_id_if_unique(image_id):
         if image_id not in image_ids:
             image_ids.append(image_id)
 
-        # For potential cat images, append the burst images as well
-        if hasattr(image, "prev_image_id") and hasattr(image, "next_image_id"):
-            prev_image_id = str(image.prev_image_id) if image.prev_image_id else None
-            next_image_id = str(image.next_image_id) if image.next_image_id else None
+    for image in images:
+        image_id = str(image.id)
+        add_id_if_unique(image_id)
 
-            if prev_image_id is not None and prev_image_id not in image_ids:
-                image_ids.append(prev_image_id)
-            if next_image_id is not None and next_image_id not in image_ids:
-                image_ids.append(next_image_id)
+        # Append the burst images as well
+        burst_images = Image.objects.filter(
+            ~Q(id=image.id),
+            upload=image.upload,
+            trigger_timestamp__gt=image.trigger_timestamp - datetime.timedelta(seconds=3),
+            trigger_timestamp__lt=image.trigger_timestamp + datetime.timedelta(seconds=3),
+        )
+
+        # Make sure the burst image is pipeline eligible
+        if SPECIES_QUEUE_NAME in queue_name:
+            eligible_burst_image_ids = species_pipeline_query(burst_images, annotator=annotator).values_list(
+                "id", flat=True
+            )
+        elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
+            eligible_burst_image_ids = activity_pipeline_query(
+                burst_images, annotator=annotator, activity_category=activity_category
+            ).values_list("id", flat=True)
+
+        # Add burst images to queue, after the main image
+        for burst_image_id in eligible_burst_image_ids:
+            add_id_if_unique(str(burst_image_id))
 
     # Create a queue entity with image ids, user id, timestamp and index
     payload = {
@@ -331,14 +331,34 @@ def skip_ineligible_images(queue_name, queue, annotator):
     pipeline_eligible = True
     already_voted = False
 
-    while (pipeline_completed or not pipeline_eligible or already_voted) and queue["index"] < len(queue["images"]):
-        image = Image.objects.get(id=queue["images"][queue["index"]])
+    eligible_image_stop_event = threading.Event()
+    eligible_image_stop_event.clear()
+
+    def recalculate_flags(image_id):
+        # Skip these costly calculations when the first eligible image is found
+        if eligible_image_stop_event.is_set():
+            return
+
+        image = Image.objects.get(id=image_id)
 
         calculateCategoryAnnotationFlags(image)
         calculateSpeciesAnnotationFlags(image)
         calculateActivityAnnotationFlags(image)
         image.save()
 
+        pipeline_completed, pipeline_eligible, already_voted = get_eligibility(image=image)
+
+        # If eligible image, skip calculating the rest
+        if not pipeline_completed and pipeline_eligible and not already_voted and not auto_flag_for_staff(image):
+            eligible_image_stop_event.set()
+
+    def calculate_flags_parallel(image_ids):
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            for image_id in image_ids:
+                executor.submit(recalculate_flags, image_id)
+
+    # Determine conditions where the image should be skipped or not
+    def get_eligibility(image):
         if SPECIES_QUEUE_NAME in queue_name:
             pipeline_completed = image.category_pipeline_complete and image.species_pipeline_complete
             pipeline_eligible = BoundingBox.objects.filter(image=image).exists()
@@ -351,8 +371,18 @@ def skip_ineligible_images(queue_name, queue, annotator):
             already_voted = Image.objects.filter(
                 Q(activity_checked_by__in=[annotator]) | Q(activity_skipped_by__in=[annotator]), id=image.id
             ).exists()
-        else:
-            break
+
+        return pipeline_completed, pipeline_eligible, already_voted
+
+    # Check the remaining queue
+    if queue["index"] < len(queue["images"]):
+        calculate_flags_parallel(queue["images"][queue["index"] : len(queue["images"]) - 1])
+
+    # Skip images based on changes or results of recalculations
+    while (pipeline_completed or not pipeline_eligible or already_voted) and queue["index"] < len(queue["images"]):
+        image = Image.objects.get(id=queue["images"][queue["index"]])
+
+        pipeline_completed, pipeline_eligible, already_voted = get_eligibility(image=image)
 
         if pipeline_completed:
             queue["index"] += 1
@@ -484,6 +514,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
     if queue_available:
         image_id, return_to_image_id = get_next_queue_image(self=self, context=context, queue=queue)
     else:
+        logging.info("Gathering new queue of images...")
         # Serve the first image
         queue, image_id = gather_queue_images(
             self=self,
@@ -1060,7 +1091,7 @@ def calculateCategoryAnnotationFlags(image):
 
     has_staff_or_expert_vote = any(category[1].get("has_staff_or_expert_vote") is True for category in zipped_querysets)
 
-    not_invalid_bbox_count_gt = BoundingBox.objects.filter(image=image).count() > 0 and any(
+    not_invalid_bbox_count_gt = len(zipped_bbox_querysets) > 0 and any(
         bbox[1].get("status") != "Invalid" for bbox in zipped_bbox_querysets
     )
 

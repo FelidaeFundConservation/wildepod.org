@@ -95,7 +95,10 @@ class Command(BaseCommand):
             calculateActivityAnnotationFlags(image)
 
             if model_name:
-                image.species_ai_detections = detect_species(image.thumbnail_gcloud_path)
+                try:
+                    image.species_ai_detections = detect_species(image.thumbnail_gcloud_path)
+                except:
+                    pass
 
             with image_count_lock:
                 image_count += 1
@@ -121,20 +124,35 @@ class Command(BaseCommand):
             else:
                 image = None
 
-        print(f"Querying images... please wait a moment...")
+        print(f"Querying images... please wait a moment...\n")
 
-        # Assuming that if no flag is True, the image has yet to be checked.
-        images_tally = Image.objects.filter(
-            boundingbox__validity=None,
-            species_pipeline_complete=False,
-        ).distinct()
+        images_tally = (
+            Image.objects.filter(
+                Exists(
+                    BoundingBox.objects.filter(image=OuterRef("pk"))
+                    .annotate(
+                        confidence_threshold=Case(
+                            When(created_by__type="bot", then="created_by__bot__threshold"),
+                            default=0.0,
+                        ),
+                    )
+                    .filter(
+                        validity=None,
+                        confidence__gte=F("confidence_threshold"),
+                    )
+                ),
+                species_pipeline_complete=False,
+            )
+            .distinct()
+            .order_by("-upload__priority", "trigger_timestamp")
+        )
 
         images = images_tally.iterator(chunk_size=chunk_size)
 
         total_image_count = images_tally.count()
-        print(f"Gathered {total_image_count} images to be updated.")
+        print(f"Gathered {total_image_count} images to be updated.\n")
 
-        print(f"Starting migration... please wait a moment...")
+        print(f"Starting migration... please wait a moment...\n")
 
         with ThreadPoolExecutor(max_workers=MAX_THREADS) as executor:
             image_chunk = []

@@ -25,7 +25,7 @@ google-cloud-secret-manager==2.11.1 # https://github.com/googleapis/python-secre
 numpy==1.24.2
 pandas==2.0.0
 
-Pillow==9.0.1  # https://github.com/python-pillow/Pillow
+Pillow==10.3.0  # https://github.com/python-pillow/Pillow
 psycopg2-binary==2.9.3  # https://github.com/psycopg/psycopg2
 python-slugify==6.0.1  # https://github.com/un33k/python-slugify
 pytz==2021.3  # https://github.com/stub42/pytz

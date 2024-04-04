@@ -63,7 +63,7 @@ class Upload(TimeStampedModel):
     # Uploader
     volunteer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
-    time_correction = models.ForeignKey(TimeCorrection, on_delete=models.PROTECT, null=True)
+    time_correction = models.ForeignKey(TimeCorrection, on_delete=models.PROTECT, null=True, blank=True)
 
     # Details of any time errors in the set.
     time_error_details = models.TextField(blank=True, null=True)

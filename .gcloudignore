@@ -247,3 +247,5 @@ tags
 
 nohup.out
 .sass-cache/
+
+*.pt

@@ -429,7 +429,7 @@ class PreviewTimeCorrectionsView(LoginRequiredMixin, View):
             # Calculate the 1st/2nd Sunday of the month
             daylight_savings_month, year = daylight_savings.split("-")
 
-            if daylight_savings_month == "03" or daylight_savings_month == "11":
+            if daylight_savings_month == "03" or daylight_savings_month == "3" or daylight_savings_month == "11":
                 daylight_savings_datetime = get_daylight_savings_date(daylight_savings_month, year)
             else:
                 logging.error("Invalid daylight saving months selected in time correction form.")
@@ -460,7 +460,7 @@ class PreviewTimeCorrectionsView(LoginRequiredMixin, View):
             if daylight_savings_datetime and new_timestamp.replace(
                 tzinfo=pytz.UTC
             ) >= daylight_savings_datetime.replace(tzinfo=pytz.UTC):
-                if daylight_savings_month == "03":
+                if daylight_savings_month == "03" or daylight_savings_month == "3":
                     if correction_applied:
                         new_timestamp = timestamp + relativedelta(hours=-1)
                     else:

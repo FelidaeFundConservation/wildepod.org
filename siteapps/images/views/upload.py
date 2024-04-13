@@ -538,12 +538,7 @@ class FixUploadSetsView(StaffuserRequiredMixin, ListView):
             )
             context["num_uploads"] = context["uploads"].count()
 
-            context["first_timestamps"] = [
-                upload.images.first().trigger_timestamp if upload.images.first() else None
-                for upload in context["uploads"]
-            ]
-
-            context["zipped_data"] = list(zip(context["uploads"], context["first_timestamps"]))
+            context["recent_uploads"] = Upload.objects.all().order_by("-created")[:50]
 
         return context
 

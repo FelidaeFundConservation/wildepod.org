@@ -35,3 +35,4 @@ rcssmin==1.1.0  # https://github.com/ndparker/rcssmin
 # ------------------------------------------------------------------------------
 requests==2.27.1  # https://github.com/psf/requests
 whitenoise==6.4.0 # https://github.com/evansd/whitenoise
+sqlparse>=0.5.0 # not directly required, pinned by Snyk to avoid a vulnerability

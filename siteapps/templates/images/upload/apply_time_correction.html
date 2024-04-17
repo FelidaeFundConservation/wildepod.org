@@ -1,0 +1,235 @@
+{% extends '_base.html' %}
+{% load crispy_forms_tags %}
+{% block title %}Time Correction |{% endblock %}
+<!-- Set corresponding nav pill to active -->
+{% block nav_upload %}
+    active
+{% endblock nav_upload %}
+{% block header_includes %}
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+          rel="stylesheet" />
+{% endblock header_includes %}
+{% block content %}
+    {% csrf_token %}
+    <div class="container p-3 mt-2 mt-md-4 bg-white rounded">
+        <h1>Apply Time Correction</h1>
+        <hr>
+        <div class="card m-3">
+            <div class="card-header">Legacy Info</div>
+            <div class="row card-body justify-content-center">
+                <div class="col-5 card px-0 mx-3 mt-3">
+                    <div class="card-header">Time Error Details</div>
+                    <div class="card-body">"{{ upload.time_error_details }}"</div>
+                </div>
+                <div class="col-5 card px-0 mx-3 mt-3">
+                    <div class="card-header">Time Fix Details</div>
+                    <div class="card-body">{{ upload.time_fix_details }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="card m-3">
+            <div class="card-header">Time Correction Info</div>
+            <div class="row card-body justify-content-center">
+                <div class="col-2 card px-0 mx-3">
+                    <div class="card-header">Years Offset</div>
+                    <div class="card-body">{{ upload.time_correction.years }}</div>
+                </div>
+                <div class="col-2 card px-0 mx-3">
+                    <div class="card-header">Months Offset</div>
+                    <div class="card-body">{{ upload.time_correction.months }}</div>
+                </div>
+                <div class="col-2 card px-0 mx-3">
+                    <div class="card-header">Days Offset</div>
+                    <div class="card-body">{{ upload.time_correction.days }}</div>
+                </div>
+                <div class="col-2 card px-0 mx-3">
+                    <div class="card-header">Hours Offset</div>
+                    <div class="card-body">{{ upload.time_correction.hours }}</div>
+                </div>
+                <div class="col-2 card px-0 mx-3">
+                    <div class="card-header">Minutes Offset</div>
+                    <div class="card-body">{{ upload.time_correction.minutes }}</div>
+                </div>
+                <div class="col-3 card px-0 mx-3 mt-3">
+                    <div class="card-header">Start Date</div>
+                    <div class="card-body">{{ upload.time_correction.start_date }}</div>
+                </div>
+                <div class="col-3 card px-0 mx-3 mt-3">
+                    <div class="card-header">End Date</div>
+                    <div class="card-body">{{ upload.time_correction.end_date }}</div>
+                </div>
+                <div class="col-3 card px-0 mx-3 mt-3">
+                    <div class="card-header">Daylight Savings Rollover Date</div>
+                    <div class="card-body">{{ upload.time_correction.daylight_savings }}</div>
+                </div>
+                <div class="col-5 card px-0 mx-3 mt-3">
+                    <div class="card-header">Applied At</div>
+                    <div class="card-body">{{ upload.time_correction.applied_at }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="small mb-3">
+            Note: If part of the timestamps are shifted in a way which overlaps the unmodified timestamps' range, the correction cannot be unapplied properly.
+            <br>
+            Please ensure details are correct before applying partial modifications (start date, end date, & daylight savings).
+        </div>
+        <div class="small mb-3">
+            Example - Dec 1 4:00PM, Dec 1 5:00PM, Dec 1 6:00PM --> Dec 1 5:30PM, Dec 1 5:00PM, Dec 1 6:00PM will have incorrect results when reverted.
+        </div>
+        {% if upload.time_correction.applied_at %}
+            <button id="apply-button" class="btn btn-warning">
+                &nbsp;&nbsp;&nbsp;Unapply Correction&nbsp;&nbsp;&nbsp;<span id="apply-spinner"
+      class="spinner-border"
+      role="status"
+      style="width: 12px;
+             height: 12px"></span>
+            </button>
+        {% else %}
+            <button id="apply-button" class="btn btn-primary">
+                &nbsp;&nbsp;&nbsp;Apply Correction&nbsp;&nbsp;&nbsp;<span id="apply-spinner"
+      class="spinner-border"
+      role="status"
+      style="width: 12px;
+             height: 12px"></span>
+            </button>
+        {% endif %}
+        <text id="status" class="btn btn-light mx-2">{{ images_applied }} images applied, {{ images_not_applied }} not applied</text>
+    </div>
+    <div class="container pt-2 mt-2 mt-md-4 bg-white rounded p-4">
+        <h1 class="my-3">
+            Preview Fixes <span id="preview-spinner" class="spinner-border" role="status"></span>
+        </h1>
+        <table id="preview-fixes">
+            <thead>
+                <tr>
+                    <th>Image ID</th>
+                    <th>Old Timestamp</th>
+                    <th>New Timestamp</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for image in images %}
+                    <tr>
+                        <td>{{ image.id }}</td>
+                        <td>{{ image.trigger_time }}</td>
+                        <td id="preview-{{ image.id }}">{{ image.new_time }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="page-background h-100 mt-5"></div>
+{% endblock content %}
+{% block footer_includes %}
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.10.0/css/bootstrap-datepicker.min.css"
+          integrity="sha512-34s5cpvaNG3BknEWSuOncX28vz97bRI59UnVtEEpFX536A7BtZSJHsDyFoCl8S7Dt2TPzcrCEoHBGeM4SUBDBw=="
+          crossorigin="anonymous"
+          referrerpolicy="no-referrer" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.10.0/js/bootstrap-datepicker.min.js"
+            integrity="sha512-LsnSViqQyaXpD4mBBdRYeP6sRwJiJveh2ZIbW41EBrNmKxgr/LFZIiWT6yr+nycvhvauz8c2nYMhrP80YhG7Cw=="
+            crossorigin="anonymous"
+            referrerpolicy="no-referrer"></script>
+    {% include './page_functions/preview_time_correction.html' %}
+    <script>
+        $(document).ready(function () {
+            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+            let data = {
+                'csrfmiddlewaretoken': csrftoken,
+                'images': JSON.stringify(images),
+                'years': "{{ upload.time_correction.years }}",
+                'months': "{{ upload.time_correction.months }}",
+                'days': "{{ upload.time_correction.days }}",
+                'hours': "{{ upload.time_correction.hours }}",
+                'minutes': "{{ upload.time_correction.minutes }}",
+                'startDate': "{{ upload.time_correction.start_date|date:'Y-m-d\TH:i' }}",
+                'endDate': "{{ upload.time_correction.end_date|date:'Y-m-d\TH:i' }}",
+                'daylightSavings': "{{ upload.time_correction.daylight_savings.month }}-{{ upload.time_correction.daylight_savings.year }}",
+            }
+
+            $(`#preview-spinner`).show();
+
+            new Promise(function (resolve, reject) {
+                $.ajax({
+                    url: `{% url 'images:preview_time_corrections'%}`,
+                    method: 'POST',
+                    data: data,
+                    dataType: 'json',
+                    success: function (data) {
+                        if (data.success) {
+                            populateNewTimes(data.previewInfo)
+                            resolve(data.previewInfo);
+                        } else {
+                            reject(-1)
+                        }
+                        $(`#preview-spinner`).hide();
+                    },
+                    error: function () {
+                        reject(-1);
+                    }
+                });
+            });
+        })
+
+        $(`#apply-button`).click(function () {
+            const data = {
+                uploadId: "{{ upload.id }}",
+                csrfmiddlewaretoken: document.querySelector('[name=csrfmiddlewaretoken]').value,
+            };
+
+            $(`#apply-spinner`).show();
+
+            return new Promise(function (resolve, reject) {
+                $.ajax({
+                    url: `{% url 'images:modify_upload_set_images'%}`,
+                    method: 'POST',
+                    data: data,
+                    dataType: 'json',
+                    success: function (data) {
+                    if (data.success) {
+                        $(`#apply-spinner`).hide();
+                        location.reload();
+                        resolve(data.errors);
+                    } else {
+                        reject(data.errors);
+                    }
+                    },
+                    error: function (error) {
+                    reject(error);
+                    }
+                });
+            });
+        })
+
+        function updateCorrectionStatus() {
+            data = {
+                csrfmiddlewaretoken: document.querySelector('[name=csrfmiddlewaretoken]').value,
+                uploadId: "{{ upload.id }}"
+            };
+
+            new Promise(function (resolve, reject) {
+                $.ajax({
+                    url: `{% url 'images:time_correction_status'%}`,
+                    method: 'POST',
+                    data: data,
+                    dataType: 'json',
+                    success: function (data) {
+                        if (data.success) {
+                            $("#status").text(`${data.applied} images applied, ${data.notApplied} not applied`);
+                            resolve();
+                        } else {
+                            reject(-1)
+                        }
+                    },
+                    error: function () {
+                        reject(-1);
+                    }
+                });
+            });
+        }
+
+        window.setInterval(updateCorrectionStatus, 4000);
+    </script>
+{% endblock footer_includes %}

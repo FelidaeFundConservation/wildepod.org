@@ -15,12 +15,13 @@ from images.models import (
     SpeciesName,
     Upload,
 )
-from images.processors import process_activity_annotations, process_md_annotations, process_species_annotations, vote
+from images.processors import process_activity_annotations, process_species_annotations, vote
 from images.views.annotation import (
     annotate,
     calculateActivityAnnotationFlags,
     calculateCategoryAnnotationFlags,
     calculateSpeciesAnnotationFlags,
+    skip_ineligible_images,
 )
 from locations.models import Area, CameraStation, County, MacroSite, MicroSite
 from users.models import User
@@ -120,16 +121,13 @@ class LoggedInTestCase(TestCase):
         test_image_object.save()
 
         self.test_image = test_image_object
+        self.test_upload = test_upload_object
 
 
 # Create your tests here.
 class AnnotationPagesTestCase(LoggedInTestCase):
     def setUp(self):
         super().setUp()
-
-    def test_object_page_loads(self):
-        response = self.client.get(reverse("images:annotate_objects"))
-        self.assertEqual(response.status_code, 200)
 
     def test_species_page_loads(self):
         response = self.client.get(reverse("images:annotate_species"))
@@ -350,7 +348,10 @@ class SingleBoxSingleSpeciesTestCase(AnnotationFlagsTestCase):
         bbox1 = create_test_bboxes(test_image_object=self.test_image, test_user_object=self.annotator, num_boxes=1)
         species1 = create_test_species_object(bbox1, "Mule Deer", "WILD", self.annotator)
 
+        # Category complete is a prerequisite to species complete, set this to true
+        self.test_image.category_pipeline_complete = True
         debug_info = calculateSpeciesAnnotationFlags(self.test_image)
+        self.test_image.save()
 
         self.assertFalse(not debug_info["flag_checks"]["species_has_uncertain"])
         self.assertFalse(debug_info["flag_checks"]["species_has_valid"])
@@ -382,7 +383,10 @@ class SingleBoxSingleSpeciesTestCase(AnnotationFlagsTestCase):
         bbox1 = create_test_bboxes(test_image_object=self.test_image, test_user_object=self.annotator, num_boxes=1)
         species1 = create_test_species_object(bbox1, "Domestic horse", "DOMESTIC", self.annotator)
 
+        # Category complete is a prerequisite to species complete, set this to true
+        self.test_image.category_pipeline_complete = True
         debug_info = calculateSpeciesAnnotationFlags(self.test_image)
+        self.test_image.save()
 
         self.assertTrue(not debug_info["flag_checks"]["species_has_uncertain"])
         self.assertTrue(debug_info["flag_checks"]["species_has_valid"])
@@ -414,7 +418,10 @@ class SingleBoxSingleSpeciesTestCase(AnnotationFlagsTestCase):
         bbox1 = create_test_bboxes(test_image_object=self.test_image, test_user_object=self.annotator, num_boxes=1)
         species1 = create_test_species_object(bbox1, "Raccoon", "WILD", self.annotator)
 
+        # Category complete is a prerequisite to species complete, set this to true
+        self.test_image.category_pipeline_complete = True
         debug_info = calculateSpeciesAnnotationFlags(self.test_image)
+        self.test_image.save()
 
         self.assertTrue(not debug_info["flag_checks"]["species_has_uncertain"])
         self.assertTrue(debug_info["flag_checks"]["species_has_valid"])
@@ -457,7 +464,10 @@ class SingleBoxSingleSpeciesTestCase(AnnotationFlagsTestCase):
         vote(bbox1, self.annotator, accept=True)
         self.test_image.species_checked_by.add(self.annotator)
 
+        # Category complete is a prerequisite to species complete, set this to true
+        self.test_image.category_pipeline_complete = True
         debug_info = calculateSpeciesAnnotationFlags(self.test_image)
+        self.test_image.save()
 
         self.assertTrue(not debug_info["flag_checks"]["species_has_uncertain"])
         self.assertTrue(debug_info["flag_checks"]["species_has_valid"])
@@ -527,11 +537,10 @@ class ObjectValidityTestCase(LoggedInTestCase):
         self.assertEqual(zipped_species_querysets[0][1].get("status"), "Invalid")
 
     """
-    Accepting staff/expert votes should overrule any rejections,
-    including from other staff/expert users
+    One-to-one staff acception to rejection ratio shouldn't affect it
     """
 
-    def test_expert_acception_overrules_expert_rejections(self):
+    def test_expert_rejection_versus_acception(self):
         # Make users expert
         self.user.is_expert = True
         self.user.save()
@@ -542,6 +551,46 @@ class ObjectValidityTestCase(LoggedInTestCase):
         # Check we're using experts
         self.assertTrue(self.user.is_expert)
         self.assertTrue(self.other_user1.is_expert)
+
+        # Make the rejecting votes by other annotator
+        species1 = create_test_species_object(self.bbox1, "Bobcat", "WILD", self.other_annotator3)
+        vote(species1, self.other_annotator1, accept=False)
+
+        # Make the accepting vote by the expert user
+        vote(species1, self.annotator, accept=True)
+
+        # Check the votes were applied as expected
+        self.assertEqual(species1.accepted_by.count(), 1)
+        self.assertEqual(species1.rejected_by.count(), 1)
+
+        # Get the object validity
+        species_obj = Species.objects.filter(id=species1.id)
+        species_values = species_obj.values()
+
+        zipped_species_querysets = list(zip(species_obj, species_values))
+        annotate(zipped_species_querysets)
+
+        self.assertEqual(zipped_species_querysets[0][1].get("status"), "Valid")
+
+    """
+    Double staff/expert rejections over acceptions should override them
+    """
+
+    def test_expert_rejections_override_acception(self):
+        # Make users expert
+        self.user.is_expert = True
+        self.user.save()
+
+        self.other_user1.is_expert = True
+        self.other_user1.save()
+
+        self.other_user2.is_expert = True
+        self.other_user2.save()
+
+        # Check we're using experts
+        self.assertTrue(self.user.is_expert)
+        self.assertTrue(self.other_user1.is_expert)
+        self.assertTrue(self.other_user2.is_expert)
 
         # Make the rejecting votes by other annotators
         species1 = create_test_species_object(self.bbox1, "Bobcat", "WILD", self.other_annotator3)
@@ -562,7 +611,7 @@ class ObjectValidityTestCase(LoggedInTestCase):
         zipped_species_querysets = list(zip(species_obj, species_values))
         annotate(zipped_species_querysets)
 
-        self.assertEqual(zipped_species_querysets[0][1].get("status"), "Valid")
+        self.assertEqual(zipped_species_querysets[0][1].get("status"), "Invalid")
 
     """
     Correlated objects (i.e. Category, Species, or Activity) should also be invalid
@@ -605,3 +654,53 @@ class ObjectValidityTestCase(LoggedInTestCase):
         annotate(zipped_species_querysets)
 
         self.assertEqual(zipped_species_querysets[0][1].get("status"), "Invalid")
+
+
+class SkipIneligibleImagesTestCase(AnnotationFlagsTestCase):
+    def setUp(self):
+        super().setUp()
+
+    """
+    This was a bug caused when species was complete but category wasn't
+    due to leftover boxes that had no votes. These occured on old images
+    that were migrated. This checks to see if this bug's been reintroduced.
+    """
+
+    def test_category_incomplete_species_complete(self):
+        # Set user to staff
+        self.user.is_expert = True
+        self.user.save()
+
+        # Check we're using an expert user
+        self.assertTrue(self.user.is_expert)
+
+        # Setup objects and check flags
+        bbox1 = create_test_bboxes(test_image_object=self.test_image, test_user_object=self.annotator, num_boxes=1)
+        species1 = create_test_species_object(bbox1, "Mule Deer", "WILD", self.annotator)
+
+        # Add an uncertain bbox to make the image species eligible
+        bbox2 = create_test_bboxes(
+            test_image_object=self.test_image, test_user_object=Annotator.objects.create(type="Bot"), num_boxes=1
+        )
+
+        self.test_image2 = create_test_image_object(self.test_upload)
+
+        # Make sure flag conditions are correct for this test
+        calculateCategoryAnnotationFlags(self.test_image)
+
+        # Category complete is a prerequisite to species complete, set this to true temporarily to set species complete true as well
+        self.test_image.category_pipeline_complete = True
+        calculateSpeciesAnnotationFlags(self.test_image)
+        self.test_image.category_pipeline_complete = False
+        self.test_image.save()
+
+        self.assertFalse(self.test_image.category_pipeline_complete)
+        self.assertTrue(self.test_image.species_pipeline_complete)
+
+        # Setup the queue object
+        queue = {"index": 0, "images": [self.test_image.id, self.test_image2.id]}
+
+        # The first image should be the one returned (i.e. first img wasn't skipped)
+        result = skip_ineligible_images(queue_name="AnnotateSpeciesQueue", queue=queue, annotator=self.annotator)
+
+        self.assertEqual(self.test_image.id, result.id)

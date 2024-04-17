@@ -1,8 +1,11 @@
 import json
 import logging
 import threading
+from datetime import datetime
 
+import pytz
 from braces.views import StaffuserRequiredMixin
+from dateutil.relativedelta import relativedelta
 from django import forms
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -13,8 +16,8 @@ from django.http.response import JsonResponse
 from django.urls import reverse
 from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
 from django.views.generic.base import TemplateView, View
-from images.forms import UploadCompleteForm, UploadForm
-from images.models import Annotator, BoundingBox, Image, Upload
+from images.forms import TimeCorrectionForm, UploadCompleteForm, UploadForm, get_daylight_savings_date
+from images.models import Annotator, BoundingBox, Image, TimeCorrection, Upload
 from images.processors import process_upload
 from images.processors.upload import get_dropbox_item_count
 from locations.models import CameraStation, MacroSite, MicroSite
@@ -31,8 +34,54 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
     login_url = settings.LOGIN_URL
     template_name = "images/upload/create.html"
 
+    def form_valid(self, form):
+        years = form.cleaned_data.get("time_correction_years") or 0
+        months = form.cleaned_data.get("time_correction_months") or 0
+        days = form.cleaned_data.get("time_correction_days") or 0
+        hours = form.cleaned_data.get("time_correction_hours") or 0
+        minutes = form.cleaned_data.get("time_correction_minutes") or 0
+
+        daylight_savings = form.cleaned_data.get("daylight_savings_correction") or None
+
+        start_date = form.cleaned_data.get("start_date") or None
+        end_date = form.cleaned_data.get("end_date") or None
+
+        upload_obj = form.save(commit=False)
+
+        if not (years == months == days == hours == minutes == 0 and daylight_savings is None):
+            time_correction, created = TimeCorrection.objects.get_or_create(upload__id=upload_obj.id)
+
+            time_correction.years = years
+            time_correction.months = months
+            time_correction.days = days
+            time_correction.hours = hours
+            time_correction.minutes = minutes
+
+            time_correction.start_date = start_date
+            time_correction.end_date = end_date
+
+            time_correction.daylight_savings = daylight_savings
+
+            time_correction.save()
+
+            upload_obj.time_correction = time_correction
+            upload_obj.save()
+
+            logging.info(f"Saved time correction information  for upload {upload_obj.id}.")
+        else:
+            logging.info(f"No time correction information entered for upload {upload_obj.id}.")
+
+        return super(UploadCreateView, self).form_valid(form)
+
     def get_success_url(self):
         return reverse("images:complete_upload", args=(self.object.id,))
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context["images"] = get_preview_images("TEST")
+
+        return context
 
 
 def filter_uploads(context, self):
@@ -258,6 +307,219 @@ class UploadResumeProcessingView(LoginRequiredMixin, View):
         return JsonResponse({"success": True})
 
 
+def get_preview_images(upload_id):
+    MAX_RESULTS = 20
+    image_list = []
+
+    # If no images in upload, sample test images from other uploads
+    if upload_id == "TEST":
+        mar_images = Image.objects.filter(trigger_timestamp__month=3, trigger_timestamp__year=datetime.now().year)
+        nov_images = Image.objects.filter(trigger_timestamp__month=11, trigger_timestamp__year=datetime.now().year)
+
+        # Use last year's images if there are none for this year
+        if not mar_images.exists():
+            mar_images = Image.objects.filter(
+                trigger_timestamp__month=3, trigger_timestamp__year=datetime.now().year - 1
+            )
+        if not nov_images.exists():
+            nov_images = Image.objects.filter(
+                trigger_timestamp__month=11, trigger_timestamp__year=datetime.now().year - 1
+            )
+
+        mar_step_value = max(1, mar_images.count() // MAX_RESULTS)
+        nov_step_value = max(1, nov_images.count() // MAX_RESULTS)
+
+        mar_images = mar_images[:: mar_step_value * 2]
+        nov_images = nov_images[:: nov_step_value * 2]
+
+        images = mar_images + nov_images
+
+        for image in images:
+            image_list.append({"id": image.id, "trigger_time": image.trigger_timestamp, "new_time": None})
+
+        return image_list
+
+    # Else, get an even distribution of images from specified set
+    upload_obj = Upload.objects.get(id=upload_id)
+    total_images = upload_obj.images.all().count()
+    step_value = max(1, total_images // MAX_RESULTS)
+
+    for image in upload_obj.images.all()[::step_value]:
+        image_list.append({"id": image.id, "trigger_time": image.trigger_timestamp, "new_time": None})
+
+    return image_list
+
+
+class TimeCorrectionCreateView(LoginRequiredMixin, CreateView):
+    model = TimeCorrection
+    form_class = TimeCorrectionForm
+    login_url = settings.LOGIN_URL
+    template_name = "images/upload/create_time_correction.html"
+
+    def form_valid(self, form):
+        upload = Upload.objects.get(id=self.kwargs.get("pk"))
+        time_correction = form.save(commit=True)
+        upload.time_correction = time_correction
+        upload.save()
+        logging.info(f"Successfully created and set time correction for upload {upload.id}")
+
+        return super(TimeCorrectionCreateView, self).form_valid(form)
+
+    def get_success_url(self):
+        return reverse("images:apply_time_correction", args=(self.kwargs.get("pk"),))
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context["images"] = get_preview_images(self.kwargs.get("pk"))
+
+        return context
+
+
+class PreviewTimeCorrectionsView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        success = True
+
+        image_ids = json.loads(request.POST.get("images"))
+
+        # Get form entries
+        years = int(request.POST.get("years"))
+        months = int(request.POST.get("months"))
+        days = int(request.POST.get("days"))
+        hours = int(request.POST.get("hours"))
+        minutes = int(request.POST.get("minutes"))
+
+        start_date = request.POST.get("startDate")
+        end_date = request.POST.get("endDate")
+
+        daylight_savings = request.POST.get("daylightSavings")
+        daylight_savings_datetime = None
+
+        date_format = "%Y-%m-%dT%H:%M"
+        kwargs = {}
+
+        blank_strings = ["", "None"]
+
+        # Reverse effects if already applied
+        try:
+            correction_applied = Image.objects.get(id=image_ids[0]).upload.time_correction.applied_at is not None
+        except Exception:
+            correction_applied = False
+
+        # Convert strings to datetime objects
+        if start_date and start_date not in blank_strings:
+            start_date = datetime.strptime(start_date, date_format)
+
+            # Shift the date for unapplying
+            if correction_applied:
+                start_date = start_date + relativedelta(
+                    years=years, months=months, days=days, hours=hours, minutes=minutes
+                )
+            kwargs["trigger_timestamp__gte"] = start_date
+
+        if end_date and end_date not in blank_strings:
+            end_date = datetime.strptime(end_date, date_format)
+
+            if correction_applied:
+                end_date = end_date + relativedelta(years=years, months=months, days=days, hours=hours, minutes=minutes)
+
+            kwargs["trigger_timestamp__lt"] = end_date
+
+        if daylight_savings and daylight_savings not in blank_strings:
+            # Calculate the 1st/2nd Sunday of the month
+            daylight_savings_month, year = daylight_savings.split("-")
+
+            if daylight_savings_month == "03" or daylight_savings_month == "11":
+                daylight_savings_datetime = get_daylight_savings_date(daylight_savings_month, year)
+            else:
+                logging.error("Invalid daylight saving months selected in time correction form.")
+
+        new_timestamps = []
+
+        for image_id in image_ids:
+            preview_info = {
+                "id": image_id,
+                "color": "",
+            }
+
+            timestamp = Image.objects.get(id=image_id).trigger_timestamp
+            new_timestamp = timestamp
+
+            # Only shift time if it's in the timerange specified
+            if Image.objects.filter(id=image_id, **kwargs).exists():
+                if correction_applied:
+                    new_timestamp = timestamp + relativedelta(
+                        years=-years, months=-months, days=-days, hours=-hours, minutes=-minutes
+                    )
+                else:
+                    new_timestamp = timestamp + relativedelta(
+                        years=years, months=months, days=days, hours=hours, minutes=minutes
+                    )
+
+            # Apply daylight savings shift
+            if daylight_savings_datetime and new_timestamp.replace(
+                tzinfo=pytz.UTC
+            ) >= daylight_savings_datetime.replace(tzinfo=pytz.UTC):
+                if daylight_savings_month == "03":
+                    if correction_applied:
+                        new_timestamp = timestamp + relativedelta(hours=-1)
+                    else:
+                        new_timestamp = timestamp + relativedelta(hours=1)
+                elif daylight_savings_month == "11":
+                    if correction_applied:
+                        new_timestamp = timestamp + relativedelta(hours=1)
+                    else:
+                        new_timestamp = timestamp + relativedelta(hours=-1)
+
+            preview_info["newTimestamp"] = new_timestamp
+
+            if new_timestamp > timestamp:
+                preview_info["color"] = "green"
+            elif new_timestamp < timestamp:
+                preview_info["color"] = "red"
+
+            new_timestamps.append(preview_info)
+
+        return JsonResponse({"success": success, "previewInfo": new_timestamps})
+
+
+class ApplyTimeCorrectionView(LoginRequiredMixin, TemplateView):
+    login_url = settings.LOGIN_URL
+    template_name = "images/upload/apply_time_correction.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        upload_id = self.kwargs["pk"]
+        context["upload"] = Upload.objects.get(id=upload_id)
+
+        context["images"] = get_preview_images(self.kwargs.get("pk"))
+
+        context["images_applied"] = Image.objects.filter(upload__id=upload_id, time_correction_applied=True).count()
+        context["images_not_applied"] = Image.objects.filter(
+            upload__id=upload_id, time_correction_applied=False
+        ).count()
+
+        return context
+
+
+class TimeCorrectionStatusView(LoginRequiredMixin, View):
+    login_url = settings.LOGIN_URL
+
+    def post(self, request, *args, **kwargs):
+        upload_id = request.POST.get("uploadId")
+
+        success = True
+
+        try:
+            images_applied = Image.objects.filter(upload__id=upload_id, time_correction_applied=True).count()
+            images_not_applied = Image.objects.filter(upload__id=upload_id, time_correction_applied=False).count()
+        except Exception:
+            success = False
+
+        return JsonResponse({"success": success, "applied": images_applied, "notApplied": images_not_applied})
+
+
 class FixUploadSetsView(StaffuserRequiredMixin, ListView):
     # View to see all upload sets, and select fixes.
     model = Upload
@@ -269,115 +531,148 @@ class FixUploadSetsView(StaffuserRequiredMixin, ListView):
         context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
         if self.request.user.is_staff or self.request.user.is_superuser:
             # Replace the blank strings in time error details
-            blank_time_errors = Upload.objects.filter(time_error_details="")
-            if blank_time_errors.exists():
-                for upload in blank_time_errors:
-                    upload.time_error_details = None
+            context["uploads"] = Upload.objects.filter(
+                ~Q(time_correction=None)
+                | ~Q(time_fix_details=None)
+                | ~Q(time_error_details=None) & Q(time_error_details__isnull=False) & ~Q(time_error_details__exact="")
+            )
+            context["num_uploads"] = context["uploads"].count()
 
-            context["num_uploads"] = Upload.objects.all().count()
-            context["uploads"] = Upload.objects.all()
-            context["first_timestamps"] = [
-                upload.images.first().trigger_timestamp if upload.images.first() else None
-                for upload in context["uploads"]
-            ]
-
-            context["zipped_data"] = zip(context["uploads"], context["first_timestamps"])
+            context["recent_uploads"] = Upload.objects.all().order_by("-created")[:50]
 
         return context
-
-
-class GetUploadSetImageInfoView(StaffuserRequiredMixin, View):
-    def post(self, request, *args, **kwargs):
-        success = None
-
-        set_images = {}
-        set_ids = request.POST.get("setIds")
-        num_results = request.POST.get("maxResults")
-
-        if num_results:
-            max_results = int(num_results)
-        else:
-            max_results = float("inf")
-
-        for set_id in set_ids.split(","):
-            imageList = []
-
-            try:
-                totalImages = Upload.objects.get(id=set_id).images.all().count()
-                stepValue = max(1, totalImages // max_results)
-
-                for image in Upload.objects.get(id=set_id).images.all()[::stepValue]:
-                    imageList.append({"id": image.id, "triggerTime": image.trigger_timestamp, "newTime": None})
-
-                set_images[set_id] = imageList
-
-            except ObjectDoesNotExist:
-                success = False
-
-        success = True
-
-        return JsonResponse({"success": success, "setImages": set_images})
-
-
-class SetUploadSetTimeFixDetailsView(StaffuserRequiredMixin, View):
-    def post(self, request, *args, **kwargs):
-        success = None
-
-        set_id = request.POST.get("setId")
-        time_fix_details = request.POST.get("timeFixDetails")
-
-        try:
-            upload_set = Upload.objects.get(id=set_id)
-            upload_set.time_fix_details = time_fix_details
-            upload_set.save()
-            success = True
-        except ObjectDoesNotExist:
-            success = False
-
-        return JsonResponse({"success": success})
 
 
 class ModifyUploadSetImagesView(StaffuserRequiredMixin, View):
     # Applies time error fixes according to specified selections.
     def post(self, request, *args, **kwargs):
-        images_to_change = request.POST.get("imagesToChange")
-
-        errors = []
-
         success = True
 
-        for image_id, new_timestamp in json.loads(images_to_change):
-            try:
-                target_image = Image.objects.get(id=image_id)
-                target_image.trigger_timestamp = new_timestamp
-                target_image.save()
-            except Exception as error:
-                errors.append([image_id, error])
-                success = False
+        upload_id = request.POST.get("uploadId")
+        upload_obj = Upload.objects.get(id=upload_id)
+        time_correction = upload_obj.time_correction
 
-        return JsonResponse({"success": success, "errors": errors})
+        if upload_obj.time_correction.applied_at is None:
+            # Only shift images that are yet to be checked
+            images = Image.objects.filter(upload__id=upload_id, time_correction_applied=False)
+            logging.info(
+                f"Time correction not applied or partially applied to upload {upload_obj.id}. Applying to remaining {images.count()} images..."
+            )
 
+            for image in images.iterator(chunk_size=500):
+                try:
+                    if (
+                        (not time_correction.start_date and not time_correction.end_date)
+                        or (
+                            time_correction.start_date
+                            and time_correction.end_date
+                            and time_correction.start_date <= image.trigger_timestamp < time_correction.end_date
+                        )
+                        or (
+                            time_correction.start_date
+                            and not time_correction.end_date
+                            and time_correction.start_date <= image.trigger_timestamp
+                        )
+                        or (
+                            time_correction.end_date
+                            and not time_correction.start_date
+                            and time_correction.end_date > image.trigger_timestamp
+                        )
+                    ):
+                        image.trigger_timestamp = image.trigger_timestamp + relativedelta(
+                            years=time_correction.years,
+                            months=time_correction.months,
+                            days=time_correction.days,
+                            hours=time_correction.hours,
+                            minutes=time_correction.minutes,
+                        )
+                    if time_correction.daylight_savings:
+                        month = time_correction.daylight_savings.month
 
-class ClearTimeErrorDetailsView(StaffuserRequiredMixin, View):
-    # Clear the time error details, which marks it as resolved.
-    def post(self, request, *args, **kwargs):
-        upload_ids = request.POST.get("uploadIds", "[]")
-        upload_ids = json.loads(upload_ids)
+                        if month == 3:
+                            image.trigger_timestamp = image.trigger_timestamp + relativedelta(hours=1)
+                        elif month == 11:
+                            image.trigger_timestamp = image.trigger_timestamp + relativedelta(hours=-1)
 
-        errors = []
+                    image.time_correction_applied = True
+                    image.save()
+                except BaseException as e:
+                    logging.error(f"Error applying time correction to image {image.id}: {e}")
 
-        success = True
+            if not upload_obj.images.filter(time_correction_applied=False).exists():
+                time_correction.applied_at = datetime.now()
+                time_correction.save()
+                logging.info(f"Successfully applied time correction to all images for upload {upload_obj.id}.")
+            else:
+                logging.info(f"Errors occurred while applying time correction to upload {upload_obj.id}.")
 
-        for upload_id in upload_ids:
-            try:
-                upload_set = Upload.objects.get(id=upload_id)
-                upload_set.time_error_details = None
-                upload_set.save()
-            except Exception as error:
-                errors.append([upload_id, error])
-                success = False
+        # Unapply time correction if already applied
+        else:
+            # Only unapply from images with the correction
+            images = Image.objects.filter(upload__id=upload_id, time_correction_applied=True)
+            logging.info(
+                f"Time correction has already been applied to upload {upload_obj.id}. Unapplying from {images.count()} images..."
+            )
 
-        return JsonResponse({"success": success, "errors": errors})
+            # Shift dates for unapplying
+            if time_correction.start_date:
+                start_date = time_correction.start_date + relativedelta(
+                    years=time_correction.years,
+                    months=time_correction.months,
+                    days=time_correction.days,
+                    hours=time_correction.hours,
+                    minutes=time_correction.minutes,
+                )
+            else:
+                start_date = None
+
+            if time_correction.end_date:
+                end_date = time_correction.end_date + relativedelta(
+                    years=time_correction.years,
+                    months=time_correction.months,
+                    days=time_correction.days,
+                    hours=time_correction.hours,
+                    minutes=time_correction.minutes,
+                )
+            else:
+                end_date = None
+
+            for image in images.iterator(chunk_size=500):
+                try:
+                    if (
+                        (not start_date and not end_date)
+                        or (start_date and end_date and start_date <= image.trigger_timestamp < end_date)
+                        or (start_date and not end_date and start_date <= image.trigger_timestamp)
+                        or (end_date and not start_date and end_date > image.trigger_timestamp)
+                    ):
+                        image.trigger_timestamp = image.trigger_timestamp + relativedelta(
+                            years=-time_correction.years,
+                            months=-time_correction.months,
+                            days=-time_correction.days,
+                            hours=-time_correction.hours,
+                            minutes=-time_correction.minutes,
+                        )
+                    if time_correction.daylight_savings:
+                        month = time_correction.daylight_savings.month
+
+                        if month == 3:
+                            image.trigger_timestamp = image.trigger_timestamp + relativedelta(hours=-1)
+                        elif month == 11:
+                            image.trigger_timestamp = image.trigger_timestamp + relativedelta(hours=1)
+
+                    image.time_correction_applied = False
+                    image.save()
+                except BaseException as e:
+                    logging.error(f"Error unapplying time correction from image {image.id}: {e}")
+
+            if not upload_obj.images.filter(time_correction_applied=True).exists():
+                time_correction.applied_at = None
+                time_correction.save()
+                logging.info(f"Successfully unapplied time correction from all images for upload {upload_obj.id}.")
+            else:
+                logging.info(f"Errors occurred while unapplying time correction to upload {upload_obj.id}.")
+
+        return JsonResponse({"success": success})
 
 
 # # TODO: This view is currently implemented purely to "test" the annotation functionality

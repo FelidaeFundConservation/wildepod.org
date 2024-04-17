@@ -10,6 +10,7 @@
 {% endblock header_includes %}
 {% block instruction_text %}
     <p class="label-toggle lead">What species does the image have?</p>
+    <p class="label-toggle small"><i>(Select all objects in the image if it isn't already!)</i></p>
     <p class="d-none label-toggle lead">
         <b>Click on each box and select the species. Then, click Save when
         complete!</b>
@@ -21,7 +22,7 @@
         <div class="col-12">
             <div class="alert alert-danger text-center" role="alert">
                 <i class="bi bi-exclamation-triangle-fill"></i>&nbsp;
-                <strong>Error!</strong> Some of your the bounding boxes don't have a species. Please try again.
+                <strong>Error!</strong> Some bounding boxes don't have a species. Please try again.
             </div>
         </div>
     </div>
@@ -50,11 +51,14 @@
 {% block processor_url %}
     `{% url 'images:species_annotation_processor' %}`
 {% endblock processor_url %}
+{% block show_bbox_category_and_confidence %}
+"confidence": "{{bbox.category_set.all.0.confidence}}",
+{% endblock show_bbox_category_and_confidence %}
 {% block multiple_category_check %}
     // If it is not a single species, make sure every entry has a species
     if (!species & !skip) {
         for (const annotation of anno.getAnnotations()) {
-            if (annotation.body[0].value === undefined || annotation.body[0].value === "unannotated") {
+            if (annotation.body[0].value === undefined || annotation.body[0].value === "unannotated" || annotation.body[0].value === null) {
                 $(".spinner-border").hide();
                 $("#status-missing-species").removeClass("d-none");
 
@@ -81,6 +85,13 @@
             })
         )
     );
+
+
+{% block observer_init %}
+observer.observe(document, { attributes: false, childList: true, characterData: false, subtree: true });
+{% endblock observer_init %}
+
+
 {% endblock save_recent_tags %}
 {% block recent_tags_handling %}
     // Retrieve recent tags
@@ -94,6 +105,19 @@
             if (recentTagOption.length) {
                 recentTagOption.remove();
                 speciesList.prepend(recentTagOption);
+            }
+
+            // Move AI detections to top of list also
+            if (speciesDetections.length > 0){
+                let detectionOption;
+                for (detection of speciesDetections){
+                    detectionOption = speciesList.find(`option[value='${detection}']`);
+                    
+                    if (detectionOption.length > 0){
+                        detectionOption.remove();
+                        speciesList.prepend(detectionOption);
+                    }
+                }
             }
         } catch (error) {
             console.log(`An error occurred getting recent tags: ${error}`);
@@ -190,23 +214,26 @@
 
     $("#multiple-species").click(function (e) {
         $(".label-toggle").toggleClass("d-none");
-    $('#species-list').val(null).trigger("change");
+        $('#species-list').val(null).trigger("change");
     });
 
     $('#species-list').select2({
-        placeholder: 'Select a species',
+        placeholder: 'Select to tag all boxes',
     });
 
     // Show the single species annotation on all annotation previews.
     $('#species-list').on('change', function () {
-        const selectedOption = $('#species-list').val();
-        annotations = anno.getAnnotations();
-        for (annotation of annotations) {
-            annotation.body[0].value = selectedOption;
-        }
+        if ($(this).val() !== null) {
+            const selectedOption = $('#species-list').val();
+            annotations = anno.getAnnotations();
+            for (annotation of annotations) {
+                annotation.body[0].value = selectedOption;
+                annotation.body[0].confidence = 1.0;
+            }
 
-        anno.setAnnotations(annotations);
-        renderBoundingBoxPreviews("{{ image.id }}", anno);
+            anno.setAnnotations(annotations);
+            renderBoundingBoxPreviews("{{ image.id }}", anno);
+        }
     });
 
     // Focus on text input field in dropdown upon opening species list.

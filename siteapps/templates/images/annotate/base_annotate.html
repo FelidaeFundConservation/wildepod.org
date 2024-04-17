@@ -10,8 +10,38 @@
           rel="stylesheet" />
 {% endblock header_includes %}
 {% block content %}
-    {% block depreciation_notice %}
-    {% endblock depreciation_notice %}
+    {% block notice %}
+        {% if image.staff_review_needed %}
+            <div class="alert alert-warning" role="alert">
+                <i class="bi bi-info-circle"></i>&nbsp;&nbsp;
+                Staff review has been requested for this image.&nbsp;&nbsp;&nbsp;&nbsp;
+            </div>
+        {% endif %}
+    {% endblock notice %}
+    {% block missing_annotations_element %}
+    {% endblock missing_annotations_element %}
+    <div class="row py-3 justify-content-center d-none" id="status-success">
+        <div class="col-12">
+            <div class="alert alert-success" role="alert">
+                <i class="bi bi-check-circle-fill"></i>&nbsp;
+                <strong>Success!</strong> Your annotations have been saved.
+                <div class="spinner-border"
+                     role="status"
+                     style="height: 20px;
+                            width: 20px"></div>
+            </div>
+        </div>
+    </div>
+    <div class="row py-3 justify-content-center d-none" id="status-failure">
+        <div class="col-12">
+            <div class="alert alert-danger text-center" role="alert">
+                {% comment %} TODO: Link to a spreadsheet error form here {% endcomment %}
+                <i class="bi bi-exclamation-triangle-fill"></i>&nbsp;
+                <strong>Error!</strong> Your annotations could not be saved. Please refresh page & try again or report a
+                bug here.
+            </div>
+        </div>
+    </div>
     <div class="container mt-2 mt-md-3 annotation-container card-emphasis rounded bg-white">
         {% if image %}
             <div class="container-fluid mt-2 mt-md-3">
@@ -57,7 +87,9 @@
                                    role="tab"
                                    aria-controls="nav-annotate"
                                    aria-selected="true">
-                                    <text class="small"><span class="d-none d-xl-inline">Annotations</span><span class="d-inline d-xl-none">Tags</span></text>
+                                    <text class="small">
+                                    <span class="d-none d-xl-inline">Annotations</span><span class="d-inline d-xl-none">Tags</span>
+                                    </text>
                                 </a>
                                 <a class="nav-link"
                                    id="nav-image-tab"
@@ -95,6 +127,15 @@
                                    aria-selected="false">
                                     <text class="small"><span class="d-none d-xl-inline">Deduplicate</span><span class="d-inline d-xl-none">Dedup.</span></text>
                                 </a>
+                                <a class="nav-link {% if images_w_boxes|length < 1 %}disabled opacity-25{% endif %}"
+                                   id="nav-batch-tag-tab"
+                                   data-bs-toggle="tab"
+                                   href="#nav-batch-tag"
+                                   role="tab"
+                                   aria-controls="nav-bboxes"
+                                   aria-selected="false">
+                                    <text class="small">Batch</text>
+                                </a>
                             </div>
                         </nav>
                     </div>
@@ -105,13 +146,16 @@
                                 name="save_annotations"
                                 value="Save Annotations"
                                 disabled>
-                            <i class="bi bi-save2"></i><span class="d-none d-lg-inline">&nbsp;&nbsp;&nbsp;Save<span class="d-none d-xl-inline">&nbsp;Tags&nbsp;&nbsp;</span></span>
-                            <div id="save-spinner"
-                                 class="spinner-border"
-                                 role="status"
-                                 style="width: 12px;
-                                        height: 12px;
-                                        display: none"></div>
+                            <span><i class="bi bi-images"></i></span>
+                            <span class="d-none d-lg-inline" style="font-size: 14px">
+                                &nbsp;&nbsp;Save<span class="d-none d-xl-inline">&nbsp;Images</span> x <span id="batch-count">1</span>
+                            </span>&nbsp;
+                            <span id="save-spinner"
+                                  class="spinner-border"
+                                  role="status"
+                                  style="width: 12px;
+                                         height: 12px;
+                                         display: none"></span>
                         </button>
                         <button type="submit"
                                 class="btn btn-secondary mx-2 w-50"
@@ -119,7 +163,10 @@
                                 name="skip_annotations"
                                 value="Skip Image"
                                 disabled>
-                            <i class="bi bi-skip-end"></i><span class="d-none d-lg-inline">&nbsp;&nbsp;&nbsp;Skip<span class="d-none d-xl-inline">&nbsp;Image&nbsp;&nbsp;</span></span>
+                            <i class="bi bi-skip-end"></i>
+                            <span class="d-none d-lg-inline" style="font-size: 14px">
+                                &nbsp;&nbsp;&nbsp;Skip<span class="d-none d-xl-inline">&nbsp;Current&nbsp;&nbsp;</span>
+                            </span>
                             <div id="skip-spinner"
                                  class="spinner-border"
                                  role="status"
@@ -163,30 +210,6 @@
                                      id="nav-annotate"
                                      role="tabpanel"
                                      aria-labelledby="nav-annotate-tab">
-                                    {% block missing_annotations_element %}
-                                    {% endblock missing_annotations_element %}
-                                    <div class="row py-3 justify-content-center d-none" id="status-success">
-                                        <div class="col-12">
-                                            <div class="alert alert-success" role="alert">
-                                                <i class="bi bi-check-circle-fill"></i>&nbsp;
-                                                <strong>Success!</strong> Your annotations have been saved.
-                                                <div class="spinner-border"
-                                                     role="status"
-                                                     style="height: 20px;
-                                                            width: 20px"></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="row py-3 justify-content-center d-none" id="status-failure">
-                                        <div class="col-12">
-                                            <div class="alert alert-danger text-center" role="alert">
-                                                {% comment %} TODO: Link to a spreadsheet error form here {% endcomment %}
-                                                <i class="bi bi-exclamation-triangle-fill"></i>&nbsp;
-                                                <strong>Error!</strong> Your annotations could not be saved. Please refresh page & try again or report a
-                                                bug here.
-                                            </div>
-                                        </div>
-                                    </div>
                                     <div class="card">
                                         <div class="card-header">Instructions</div>
                                         <div class="text-center p-3">
@@ -265,6 +288,9 @@
                                                 </li>
                                                 <li class="list-group-item">
                                                     <small><kbd>BACKSPACE</kbd>&nbsp;&nbsp;<i class="bi bi-arrow-right"></i><i>&nbsp;&nbsp;Delete bounding box</i></small>
+                                                </li>
+                                                <li class="list-group-item">
+                                                    <small><kbd>SHIFT</kbd> + <kbd>ENTER</kbd>&nbsp;&nbsp;<i class="bi bi-arrow-right"></i><i>&nbsp;&nbsp;Submit annotations</i></small>
                                                 </li>
                                             </ul>
                                         </div>
@@ -360,6 +386,64 @@
                                         </div>
                                     </div>
                                 </div>
+                                <div class="tab-pane fade"
+                                     id="nav-batch-tag"
+                                     role="tabpanel"
+                                     aria-labelledby="nav-batch-tag-tab">
+                                    <div class="card">
+                                        <div class="card card-header">Tag Batch</div>
+                                        <div class="card-body">
+                                            <text>You can select upcoming images to tag them all at once if... </text>
+                                            <ul>
+                                                <li>They have a single species only (ex. all Mule Deers).</li>
+                                                <li>The species matches the current image's species.</li>
+                                                <li>The image's boxes are all already correct (no additions/deletions needed)</li>
+                                            </ul>
+                                            <text><i class="bi bi-exclamation-triangle">&nbsp;&nbsp;Please use with caution. Only select if you're certain all criteria are satisfied.</i></text>
+                                            <hr>
+                                            <div class="row p-1">
+                                                {% if images_w_boxes|length > 0 %}
+                                                    {% for burst_image, bounding_boxes in images_w_boxes %}
+                                                        <div class="p-2 col-6">
+                                                            <div class="card p-0">
+                                                                <div class="card card-header">
+                                                                    <div class="form-check m-0">
+                                                                        <input class="form-check-input burst-checkbox"
+                                                                               type="checkbox"
+                                                                               value="{{ burst_image.id }}"
+                                                                               id="batch-tag-{{ burst_image.id }}"
+                                                                               style="width: 20px;
+                                                                                      height: 20px">
+                                                                        &nbsp;&nbsp;&nbsp;&nbsp;{{ bounding_boxes|length }} boxes
+                                                                    </div>
+                                                                </div>
+                                                                <div class="card card-body">
+                                                                    <div style="position: relative; display: inline-block">
+                                                                        <img id="{{ burst_image.id }}"
+                                                                             class="img-fluid"
+                                                                             src="{% get_media_prefix %}{{ burst_image.thumbnail_gcloud_path }}">
+                                                                        {% for bbox in bounding_boxes %}
+                                                                            <svg id="{{ bbox.id }}"
+                                                                                 style="position:absolute;
+                                                                                        top:0px;
+                                                                                        left: 0px"
+                                                                                 width="100%"
+                                                                                 height="100%">
+                                                                                <rect width="100%" height="100%" fill="transparent" stroke="white" stroke-width="3px" style="position: relative;" />
+                                                                            </svg>
+                                                                        {% endfor %}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <text>(No adjacent images found.)</text>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </nav>
                     </div>
@@ -384,7 +468,6 @@
                     </div>
                 </div>
             </div>
-            <div class="toast-container position-fixed bottom-0 end-0 p-1 mh-1"></div>
         {% else %}
             <div class="row text-center mt-2 mt-md-3 pt-2 pt-md-3">
                 <h3>There are no more images to annotate! Come back later!</h3>
@@ -395,6 +478,7 @@
             </div>
         {% endif %}
     </div>
+    <div class="toast-container position-fixed bottom-0 end-0 p-1 mh-1"></div>
     <div class="page-background h-100 mt-5"></div>
 {% endblock content %}
 {% block footer_includes %}
@@ -421,6 +505,18 @@
     // Initialize popovers
     $(document).ready(function(){
         $('[data-toggle="popover"]').popover();
+
+        // For some reason batch checkboxes are sometimes being checked by default.
+        // Trying to set them to unchecked manually as a quick hack
+        $('.burst-checkbox').prop('checked', false);
+
+        function countCheckboxes() {
+            $('#batch-count').text($("[id^=batch-tag-]:checked").length + 1);
+        } countCheckboxes();
+
+        $('.burst-checkbox').on('click', function () {
+            countCheckboxes();
+        });
 
         document.onkeydown = function (event) {
             if (event.key === "Backspace" || event.key === "Delete") {
@@ -449,6 +545,11 @@
 
                 hoveredAnnotation = null;
                 selected = null;
+            }
+            else if (event.key === 'Enter' && event.shiftKey) {
+                const messageHtml = `<kbd>SHIFT</kbd> + <kbd>ENTER</kbd>&nbsp;&nbsp;Submitting annotations...</i>`;
+                appendToast("shortcut", "submit", messageHtml);
+                $('#save_annotations').click();
             }
             else if (event.code === "Space") {
                 // Hide all bboxes keyboard shortcut
@@ -482,6 +583,10 @@
             else if (event.key == 'ArrowRight') {
                 event.preventDefault();
                 $(`#context-images-next`).click();
+            }
+
+            else if (event.key == 'Enter') {
+                $('button.r6o-btn:contains("Ok")').click()
             }
         };
     });
@@ -614,6 +719,7 @@
             {% for bbox in bounding_boxes %}
                 {
                     "id": "{{bbox.id}}",
+                    "categoryType": "{{bbox.category_set.all.0.name}}",
                     // Only show these in Category pipeline
                     {% block show_bbox_category_and_confidence %}
                     {% endblock show_bbox_category_and_confidence %}
@@ -625,6 +731,32 @@
             {% endfor %}
         ];
 
+        window.birdsList = [
+            {% for bird in birds_list %}
+            "{{ bird.name }}",
+            {% endfor %}
+        ]
+
+        window.animalList = [
+            {% for species in species_list %}
+                {% if species.species_group == "WILD" or species.species_group == "DOMESTIC" or species.species_group == "OTHER" %}
+                    "{{ species.name }}",
+                {% endif %}
+            {% endfor %}
+        ];
+
+        window.personList = [
+            {% for species in species_list %}
+                {% if species.species_group == "HUMAN" %}
+                    "{{ species.name }}",
+                {% endif %}
+            {% endfor %}
+        ];
+        window.vehicleList = [
+            {% for species in species_list %}
+                {% if species.species_group == "VEHICLE" %}"{{ species.name }}",{% endif %}
+            {% endfor %}
+        ];
 
         // Save state of hidden boxes
         window.hiddenBoxes = [];
@@ -646,6 +778,13 @@
                     {% for species in info.species.all %}
                         "{{ species.name.name }}",
                     {% endfor %}
+                {% endfor %}
+            ];
+
+            // Get the species detected by the model
+            let speciesDetections = [
+                {% for species in species_detections %}
+                        "{{ species }}",
                 {% endfor %}
             ];
 
@@ -671,7 +810,7 @@
                     imageContainer.addClass(colBigger);
                 }
                 resetClasses();
-                if (e.target.id === "nav-bboxes-tab" || e.target.id === "nav-deduplicate-helper-tab") {
+                if (e.target.id === "nav-bboxes-tab" || e.target.id === "nav-deduplicate-helper-tab" || e.target.id === "nav-batch-tag-tab") {
                     sideMenu.removeClass(colSmaller);
                     sideMenu.addClass(colBigger);
                     imageContainer.removeClass(colBigger);
@@ -685,16 +824,44 @@
                 }
             })
 
-            let ClassSelectorWidget = createCategoryWidget(categories, speciesVotes);
+            let ClassSelectorWidget = createCategoryWidget(categories, speciesVotes, speciesDetections, "{{ pipeline }}");
+
+            // Render bbox previews for burst images.
+            // Can't use Annotorious to render these, as it mixes up the bbox ids of those images with the current.
+            {% for burst_image, bounding_boxes in images_w_boxes %}
+                    {% for bbox in bounding_boxes %}
+                        currentImage = $(`#{{ burst_image.id }}`);
+                        currentBox = $(`#{{ bbox.id }}`);
+                        currentBoxWidth = "{{ bbox.w }}";
+                        currentBoxHeight = "{{ bbox.h }}";
+                        currentBoxX = "{{ bbox.x }}";
+                        currentBoxY = "{{ bbox.y }}";
+                        currentBox.attr("width", `${currentBoxWidth * 100}%`);
+                        currentBox.attr("height", `${currentBoxHeight * 100}%`);
+                        currentBox.css("top", `${currentBoxY * 100}%`);
+                        currentBox.css("left", `${currentBoxX * 100}%`);
+                    {% endfor %}
+            {% endfor %}
 
             anno = renderBoundingBoxes("{{image.id}}", bboxes = bboxes, widgets = [ClassSelectorWidget]);
 
             // Render bounding boxes
             renderBoundingBoxPreviews("{{image.id}}", anno)
-            anno.on("createAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", anno)})
+            anno.on("createAnnotation", function () {
+                $('#species-list').val("").trigger('change');
+                $('#activity-list').val("").trigger('change');
+                return renderBoundingBoxPreviews("{{image.id}}", anno)
+            })
             anno.on("deleteAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", anno)})
-            anno.on("updateAnnotation", function () { return renderBoundingBoxPreviews("{{image.id}}", anno)})
-            anno.on('cancelSelected', function (selection) { return renderBoundingBoxPreviews("{{image.id}}",  anno) });
+            anno.on("updateAnnotation", function () {
+                $('#species-list').val("").trigger('change');
+                $('#activity-list').val("").trigger('change');
+                return renderBoundingBoxPreviews("{{image.id}}", anno)
+            })
+            anno.on('cancelSelected', function (selection) {
+                {% block observer_init %}{% endblock observer_init %}
+                return renderBoundingBoxPreviews("{{image.id}}", anno)
+            });
 
             // Set default brightness value based on luma value
             const lumaAdjustment = "{{ luma_adjustment }}";
@@ -730,6 +897,10 @@
                     socialMediaWorthyVote = socialMediaWorthyVoteButton.data("vote");
                 }
 
+                let selectedBatchTagImages = $("[id^=batch-tag-]:checked").map(function () {
+                    return $(this).val();
+                }).get();
+
                 let data = {
                     'image_id': '{{image.id}}',
                     'csrfmiddlewaretoken': csrftoken,
@@ -740,7 +911,8 @@
                     'staff_review_needed': document.getElementById('staff-review-needed').checked,
                     'custom_annotations': '{{custom_annotations}}',
                     'activity_category': '{{activity_category}}',
-                    'is_reannotation': '{{ is_reannotation }}'
+                    'is_reannotation': '{{ is_reannotation }}',
+                    'batch_tag_images': JSON.stringify(selectedBatchTagImages),
                 }
 
                 if (species) {

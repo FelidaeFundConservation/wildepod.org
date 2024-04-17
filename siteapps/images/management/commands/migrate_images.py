@@ -5,6 +5,7 @@ from io import BytesIO
 
 import requests
 import yolov9
+from colorama import Back, Fore, Style
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
@@ -43,18 +44,28 @@ class Command(BaseCommand):
             help="The yolov9 model name. Enables species AI detections.",
         )
         parser.add_argument("--make_changes", action="store_true", help="Flag to enable saving the changes.")
+        parser.add_argument(
+            "--camera_station", type=str, default=None, nargs="?", help="Camera station to filter images by."
+        )
+        parser.add_argument(
+            "--macrosite", type=str, default=None, nargs="?", help="Camera station to filter images by."
+        )
 
     def handle(self, *args, **options):
         model_name = options.get("model_name")
+        camera_station = options.get("camera_station")
+        macrosite = options.get("macrosite")
 
         print("\n================================")
         if options.get("make_changes"):
-            print("NOTE: Changes are enabled. Calculations will be applied to image objects.")
+            print(
+                f"NOTE: {Fore.GREEN}Changes are enabled.{Style.RESET_ALL} Calculations will be applied to image objects."
+            )
         else:
-            print("NOTE: Changes are not enabled. Calculations will not be applied.")
+            print(Fore.YELLOW + "NOTE: Changes are not enabled. Calculations will not be applied.")
 
         if model_name:
-            print(f"NOTE: Species AI detection enabled - using model '{model_name}.pt'")
+            print(f"NOTE: {Fore.GREEN}Species AI detection enabled{Style.RESET_ALL} - using model '{model_name}.pt'")
             model = yolov9.load(model_name)
 
             def detect_species(image_url):
@@ -77,7 +88,7 @@ class Command(BaseCommand):
                     return classes
 
         else:
-            print("NOTE: No species detection model provided. AI detections will not be run.")
+            print(Fore.YELLOW + "NOTE: No species detection model provided. AI detections will not be run.")
         print("================================\n")
 
         image_count = 0
@@ -106,9 +117,9 @@ class Command(BaseCommand):
                 completion_percentage = (image_count / total_image_count) * 100
 
                 print(
-                    "\n==================================="
-                    f"\nOperation Status ({completion_percentage:.2f}%)"
-                    "\n==================================="
+                    f"{Fore.YELLOW}\n==================================="
+                    f"{Fore.YELLOW}\nOperation Status ({completion_percentage:.2f}%)"
+                    f"{Fore.YELLOW}\n==================================={Style.RESET_ALL}"
                     f"\nTime elapsed: {time.time() - start_time:.2f} seconds"
                     f"\nImages checked: {image_count} of {total_image_count}"
                     f"\nExample detections: {image.species_ai_detections}"
@@ -124,9 +135,18 @@ class Command(BaseCommand):
             else:
                 image = None
 
-        print(f"Querying images... please wait a moment...\n")
+        kwargs = {}
 
-        # NOTE: Change this query as needed
+        if camera_station is not None:
+            kwargs["upload__camera_station__station_id__icontains"] = camera_station
+            print(f"Camera Station: {camera_station}")
+        if macrosite is not None:
+            kwargs["upload__camera_station__micro_site__macro_site__name__icontains"] = macrosite
+            print(f"Macrosite: {macrosite}")
+
+        print(f"\nQuerying images... please wait a moment...\n")
+
+        # NOTE: Change this query as needed if provided args aren't enough
         images_tally = (
             Image.objects.filter(
                 Exists(
@@ -142,6 +162,7 @@ class Command(BaseCommand):
                     )
                 ),
                 use_precomputed_flags=False,
+                **kwargs,
             )
             .distinct()
             .order_by("-upload__priority", "trigger_timestamp")
@@ -150,7 +171,7 @@ class Command(BaseCommand):
         images = images_tally.iterator(chunk_size=chunk_size)
 
         total_image_count = images_tally.count()
-        print(f"Gathered {total_image_count} images to be updated.\n")
+        print(f"Gathered {Fore.GREEN}{total_image_count}{Style.RESET_ALL} images to be updated.\n")
 
         print(f"Starting migration... please wait a moment...\n")
 

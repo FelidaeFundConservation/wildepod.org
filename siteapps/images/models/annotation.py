@@ -180,6 +180,19 @@ class BoundingBox(TimeStampedModel):
     accepted_by = models.ManyToManyField(Annotator, related_name="accepted_annotation", blank=True)
     rejected_by = models.ManyToManyField(Annotator, related_name="rejected_annotation", blank=True)
 
+    # Bounding box validity
+    validity = models.CharField(
+        "Validity",
+        max_length=250,
+        choices=(
+            ("INVALID", "Invalid"),
+            ("UNCERTAIN", "Uncertain"),
+            ("VALID", "Valid"),
+        ),
+        null=True,
+        default="UNCERTAIN",
+    )
+
     objects = BoundingBoxManager()
 
     def __str__(self):
@@ -198,6 +211,9 @@ class SpeciesName(TimeStampedModel):
     name = models.CharField("Common Name", max_length=250, unique=True)
     scientific_name = models.CharField(max_length=250, unique=True)
 
+    # Species name is currently used and shown in the annotation widget
+    active = models.BooleanField(default=True)
+
     # The categorization of the species type,
     # not to be confused with the species type itself
     species_group = models.CharField(
@@ -213,6 +229,8 @@ class SpeciesName(TimeStampedModel):
         null=True,
         default=None,
     )
+
+    is_bird = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name

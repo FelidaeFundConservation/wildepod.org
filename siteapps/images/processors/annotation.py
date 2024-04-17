@@ -57,7 +57,18 @@ def vote(obj, annotator: Annotator, accept: bool):
     else:
         obj.accepted_by.remove(annotator)
         obj.rejected_by.add(annotator)
-    obj.save()
+
+        # Undo creation if reannotating
+        if obj.created_by == annotator:
+            if obj.accepted_by.count() == 0:
+                obj.delete()
+            else:
+                other_annotator = obj.accepted_by.first()
+                obj.created_by = other_annotator
+                obj.accepted_by.remove(other_annotator)
+                obj.save()
+        else:
+            obj.save()
     return
 
 
@@ -182,26 +193,33 @@ def handle_bbox_deletions(initial_bboxes, formatted_annotations, user, annotator
                 # First get the bounding box
                 bbox_obj = BoundingBox.objects.get(id=bbox_id)
                 # If the annotator is the same as the current user or if it is an expert/staff user, then the object can be deleted
-                if user.is_staff or user.is_expert or bbox_obj.created_by == annotator:
+                if (
+                    user.is_staff or user.is_expert or bbox_obj.created_by == annotator
+                ) and bbox_obj.created_by.human is not None:
                     # Then delete it
                     bbox_obj.delete()
                     logging.info(f"Deleting bounding box with id {bbox_id}.")
                 else:
                     vote(bbox_obj, annotator, accept=False)
+                    bbox_obj.validity = "Invalid"
+                    bbox_obj.save()
+                    logging.info(f"Rejected bounding box with id {bbox_id}. Object still exists in rejected state.")
             except ObjectDoesNotExist:
                 logging.info(f"Bounding box with id {bbox_id} doesn't exist in image {image.id}. Skipping deletion.")
 
     logging.info("Successfully removed all deleted bounding boxes")
 
 
-def handle_bbox_updates(annotation_type, initial_bboxes, formatted_annotations, image, user, annotator):
+def handle_bbox_updates(
+    annotation_type, initial_bboxes, formatted_annotations, image, user, annotator, batch_tag_images
+):
     # Finally handle updates. This includes accept/reject depending on the category labels provided
     for bbox_id in initial_bboxes:
         if bbox_id in formatted_annotations:
             # Get the initial bounding box & category object
             try:
                 bbox_obj = BoundingBox.objects.get(id=bbox_id)
-            except ObjectDoesNotExist as e:
+            except ObjectDoesNotExist:
                 logging.info(f"Bounding box with id {bbox_id} doesn't exist. Skipping update.'")
                 continue
 
@@ -224,9 +242,46 @@ def handle_bbox_updates(annotation_type, initial_bboxes, formatted_annotations, 
                     formatted_annotations=formatted_annotations, bbox_id=bbox_id, bbox_obj=bbox_obj, annotator=annotator
                 )
 
+    # Check the species tagged, and ensure there's only 1 for batch tagging
+    if len(batch_tag_images) > 0:
+        logging.info("Batch tag images selected. Attempting to annotate all bboxes...")
+        species_annotation = list(set(item["category"] for item in formatted_annotations.values()))
+
+        if len(species_annotation) == 0:
+            logging.error("No annotations to apply to batch tag burst images. Skipping.")
+        elif len(species_annotation) > 1:
+            logging.error(
+                "Cannot batch tag burst images when more than 1 species was annotated for current image. Skipping."
+            )
+        else:
+            tag_batch(batch_tag_images=batch_tag_images, category=species_annotation[0], annotator=annotator)
+
+
+# Tag multiple images at once, by applying the current image's selection to all bboxes in the other images
+def tag_batch(batch_tag_images, category, annotator):
+    for image_id in batch_tag_images:
+        image = Image.objects.get(id=image_id)
+        bboxes = BoundingBox.objects.filter(image=image, validity__in=["Uncertain", "Valid"])
+
+        for bbox in bboxes:
+            # Store the category with formatted annotations structure
+            formatted_species = {}
+            formatted_species[bbox.id] = {}
+            formatted_species[bbox.id]["category"] = category
+            formatted_species[bbox.id]["confidence"] = 1.0
+
+            process_species(
+                formatted_annotations=formatted_species, bbox_id=bbox.id, bbox_obj=bbox, annotator=annotator
+            )
+
+        image.species_checked_by.add(annotator)
+        image.save()
+
+        logging.info(f"Batch tagging for image {image_id} successful - annotated as {category}.")
+
 
 # Handles additions, deletions, and updates to image bboxes
-def handle_changes(annotation_type, initial_bboxes, formatted_annotations, image, user, annotator):
+def handle_changes(annotation_type, initial_bboxes, formatted_annotations, image, user, annotator, batch_tag_images):
     # Check if annotation type is valid
     if annotation_type not in [OBJECT_ANNOTATION_TYPE, SPECIES_ANNOTATION_TYPE, ACTIVITY_ANNOTATION_TYPE]:
         logging.error(f"Invalid annotation type given for processor function: {annotation_type}")
@@ -251,7 +306,9 @@ def handle_changes(annotation_type, initial_bboxes, formatted_annotations, image
     )
 
     # Handle bbox updates
-    handle_bbox_updates(annotation_type, initial_bboxes, formatted_annotations, image, user, annotator)
+    handle_bbox_updates(
+        annotation_type, initial_bboxes, formatted_annotations, image, user, annotator, batch_tag_images
+    )
 
     # Set the image to checked by the annotator for the annotation type
     set_image_checked_by(annotation_type=annotation_type, image=image, annotator=annotator)
@@ -268,10 +325,11 @@ def handle_inference(category, bbox_obj, annotator):
 
     if target_category.exists():
         vote(target_category.first(), annotator, accept=True)
-        logging.info(f"Voted on existing '{category}' object from inference.")
     else:
         create_category({"category": category, "confidence": 1}, bbox_obj, annotator)
-        logging.info(f"Created new '{category}' object from inference.")
+
+    # Vote on the bbox as well
+    vote(bbox_obj, annotator, accept=True)
 
     # Cast a reject vote for all other annotations
     other_categories = Category.objects.filter(bounding_box=bbox_obj).exclude(name=category)
@@ -285,15 +343,12 @@ def infer_category(species_name, bbox_obj, annotator):
     species_group = SpeciesName.objects.get(name=species_name).species_group
 
     if species_group == "HUMAN":
-        logging.info(f"Category for '{species_name}' inferred as 'person.'")
         handle_inference(category=PERSON_CATEGORY, bbox_obj=bbox_obj, annotator=annotator)
 
     elif species_group in ["WILD", "DOMESTIC"]:
-        logging.info(f"Category for '{species_name}' inferred as 'animal.'")
         handle_inference(category=ANIMAL_CATEGORY, bbox_obj=bbox_obj, annotator=annotator)
 
     elif species_group == "VEHICLE":
-        logging.info(f"Category for '{species_name}' inferred as 'vehicle.'")
         handle_inference(category=VEHICLE_CATEGORY, bbox_obj=bbox_obj, annotator=annotator)
     else:
         logging.info(f"Unable to infer category for {species_name}. Adding 'unannotated' Category object.")
@@ -301,11 +356,6 @@ def infer_category(species_name, bbox_obj, annotator):
 
 
 def process_category(initial_bboxes, formatted_annotations, image, bbox_id, bbox_obj, user, annotator):
-    # Category with name "unannotated" is created when a bbox is created in Species stage or beyond.
-    # Delete this object once a proper annotation has been made
-    if Category.objects.filter(~Q(name=UNANNOTATED_CATEGORY), bounding_box=bbox_obj).exists():
-        Category.objects.filter(name=UNANNOTATED_CATEGORY, bounding_box=bbox_obj).delete()
-
     try:
         category_obj = Category.objects.get(bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"])
     except MultipleObjectsReturned:
@@ -314,6 +364,11 @@ def process_category(initial_bboxes, formatted_annotations, image, bbox_id, bbox
         category_objs = Category.objects.filter(bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"])
         category_obj = category_objs.first()
         category_objs.filter(~Q(id=category_obj.id)).delete()
+
+    # Category with name "unannotated" is created when a bbox is created in Species stage or beyond.
+    # Delete this object once a proper annotation has been made
+    if Category.objects.filter(~Q(name=UNANNOTATED_CATEGORY), bounding_box=bbox_obj).exists():
+        Category.objects.filter(name=UNANNOTATED_CATEGORY, bounding_box=bbox_obj).delete()
 
     # First handle the case of 'accept' votes. This can happen in 3 cases,
     # 1) The user is staff
@@ -393,7 +448,6 @@ def process_species(formatted_annotations, bbox_id, bbox_obj, annotator):
 
             if species_obj.created_by != annotator:
                 vote(species_obj, annotator, accept=True)
-
         except ObjectDoesNotExist:
             species_obj = Species.objects.create(
                 bounding_box=bbox_obj,
@@ -443,6 +497,7 @@ def process_annotations(
     initial_bboxes: list,
     user: settings.AUTH_USER_MODEL,
     social_media_worthy_vote: int,
+    batch_tag_images: list,
     staff_review_needed: bool = False,
     skip: bool = False,
 ):
@@ -481,36 +536,10 @@ def process_annotations(
         image=image,
         user=user,
         annotator=annotator,
+        batch_tag_images=batch_tag_images,
     )
 
     return handler_success
-
-
-# Function to process a list of annotations for MegaDetector's Object Detection model
-# Annotations follow the Annotorious format
-def process_md_annotations(
-    image_id: str,
-    annotations: list,
-    initial_bboxes: list,
-    user: settings.AUTH_USER_MODEL,
-    social_media_worthy_vote: int,
-    staff_review_needed: bool = False,
-    skip: bool = False,
-):
-    """Function to process a list of annotations for MegaDetector's Object Detection model
-
-    Annotations follow the Annotorious format
-    """
-    return process_annotations(
-        OBJECT_ANNOTATION_TYPE,
-        image_id=image_id,
-        annotations=annotations,
-        initial_bboxes=initial_bboxes,
-        user=user,
-        social_media_worthy_vote=social_media_worthy_vote,
-        staff_review_needed=staff_review_needed,
-        skip=skip,
-    )
 
 
 # Function to process a list of annotations for MegaDetector's Object Detection model
@@ -521,6 +550,7 @@ def process_species_annotations(
     initial_bboxes: list,
     user: settings.AUTH_USER_MODEL,
     social_media_worthy_vote: int,
+    batch_tag_images: list,
     staff_review_needed: bool = False,
     skip: bool = False,
 ) -> bool:
@@ -537,6 +567,7 @@ def process_species_annotations(
         social_media_worthy_vote=social_media_worthy_vote,
         staff_review_needed=staff_review_needed,
         skip=skip,
+        batch_tag_images=batch_tag_images,
     )
 
 

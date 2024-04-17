@@ -82,6 +82,8 @@ class Image(TimeStampedModel):
 
     # Content specific information extracted from the EXIF by dropbox
     trigger_timestamp = models.DateTimeField(blank=True, null=True)
+    time_correction_applied = models.BooleanField(default=False)
+
     # In an ideal world, height/weight & lat/long would be separate classes but seems needless here and are stored as pure values
     height = models.IntegerField(blank=True, null=True)
     width = models.IntegerField(blank=True, null=True)
@@ -105,6 +107,9 @@ class Image(TimeStampedModel):
     activity_checked_by = models.ManyToManyField(Annotator, related_name="checked_bbox_for_activity", blank=True)
     activity_skipped_by = models.ManyToManyField(Annotator, related_name="skipped_bbox_for_activity", blank=True)
 
+    # Save the detections from the cloud run for re-use. This is a list in string form that should be converted back to a list.
+    species_ai_detections = models.CharField(max_length=1024, null=True)
+
     # Flag for Staff Review. This field is used to indicate images that should be reviewed later by staff users.
     staff_review_needed = models.BooleanField(default=False)
 
@@ -120,7 +125,7 @@ class Image(TimeStampedModel):
 
     # Additional field to support incremental migration to the new precomputed flags
     use_precomputed_flags = models.BooleanField(default=False)
-    
+
     # Custom manager
     objects = ImageManager()
 

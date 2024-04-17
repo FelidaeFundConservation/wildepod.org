@@ -5,6 +5,7 @@ from .views import (
     ExploreIndexView,
     ExploreMapView,
     ExplorePopularImagesView,
+    PreviewSnapshotImagesView,
     PriorityView,
     RemovePopularImageView,
     SearchDataView,
@@ -20,10 +21,13 @@ urlpatterns = [
     path("", ExploreMapView.as_view(), name="index"),
     path("data/snapshot/", SnapshotCreateView.as_view(), name="data_snapshot_create"),
     path("data/snapshots/", SnapshotListView.as_view(), name="data_snapshots"),
+    path(
+        "data/snapshots/preview-snapshot-images/", PreviewSnapshotImagesView.as_view(), name="preview_snapshot_images"
+    ),
     path("map/", ExploreMapView.as_view(), name="map"),
     # path("megadetector/", ExploreMegadetectorView.as_view(), name="megadetector"),
     path(
-        "popular-images/remove/<uuid:pk>/",
+        "popular-images/remove/",
         RemovePopularImageView.as_view(),
         name="remove_popular_image",
     ),

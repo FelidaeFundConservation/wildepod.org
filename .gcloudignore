@@ -22,6 +22,9 @@ scratch/
 .ipynb_checkpoints/
 db.sqlite3
 db.sqlite3-journal
+siteapps/images/management/commands/export/datasets
+siteapps/images/management/commands/export/runs
+siteapps/images/management/commands/export/yolov8n.pt
 
 ### Python template
 # Byte-compiled / optimized / DLL files
@@ -244,3 +247,5 @@ tags
 
 nohup.out
 .sass-cache/
+
+*.pt

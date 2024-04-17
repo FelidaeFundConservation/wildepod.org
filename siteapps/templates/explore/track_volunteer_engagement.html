@@ -14,88 +14,40 @@
                    class="table mt-2 mt-md-4 align-middle text-center">
                 <thead>
                     <tr>
+                        <th scope="col"></th>
                         <th scope="col">Name</th>
-                        <th scope="col"># Of Annotations (Past Week)</th>
-                        <th scope="col"># Of Annotations (Past Month)</th>
-                        <th scope="col"># Of Annotations (All Time)</th>
+                        <th scope="col">Total Annotations (Past Week)</th>
+                        <th scope="col">Total Annotations (Past Month)</th>
+                        <th scope="col">Total Annotations (All Time)</th>
+                        <th scope="col" class="d-none">Category Annotations (Past Week)</th>
+                        <th scope="col" class="d-none">Category Annotations (Past Month)</th>
+                        <th scope="col" class="d-none">Category Annotations (All Time)</th>
+                        <th scope="col" class="d-none">Species Annotations (Past Week)</th>
+                        <th scope="col" class="d-none">Species Annotations (Past Month)</th>
+                        <th scope="col" class="d-none">Species Annotations (All Time)</th>
+                        <th scope="col" class="d-none">Activity Annotations (Past Week)</th>
+                        <th scope="col" class="d-none">Activity Annotations (Past Month)</th>
+                        <th scope="col" class="d-none">Activity Annotations (All Time)</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for volunteer in volunteer_info %}
                         <tr id="row-{{ volunteer.name_no_spaces }}"
                             onclick="toggleRowDetailedBreakdown('{{ volunteer.name_no_spaces }}')">
+                            <td>&nbsp;</td>
                             <td>{{ volunteer.name }}</td>
                             <td>{{ volunteer.annotations_past_week }}</td>
                             <td>{{ volunteer.annotations_past_month }}</td>
                             <td>{{ volunteer.annotations_all_time }}</td>
-                        </tr>
-                        <tr id="detailedBreakdown-{{ volunteer.name_no_spaces }}" hidden>
-                            <td colspan="4" style="text-align: center">
-                                <div style="display: flex;">
-                                    <div style="flex: 1; padding: 10px; border: 1px solid #ccc;">
-                                        <p>
-                                            <b>{{ volunteer.name }}'s Activity</b>
-                                        </p>
-                                    </div>
-                                    <div style="flex: 1; padding: 10px; border: 1px solid #ccc;">
-                                        <h5>Category Annotations</h5>
-                                        <hr>
-                                        <p>
-                                            <b>Past Week</b>
-                                        </p>
-                                        <p>{{ volunteer.annotations_past_week_category }}</p>
-                                        <br>
-                                        <p>
-                                            <b>Past Month</b>
-                                        </p>
-                                        <p>{{ volunteer.annotations_past_month_category }}</p>
-                                        <br>
-                                        <p>
-                                            <b>All Time</b>
-                                        </p>
-                                        <p>{{ volunteer.annotations_all_time_category }}</p>
-                                    </div>
-                                    <div style="flex: 1; padding: 10px; border: 1px solid #ccc;">
-                                        <h5>Species Annotations</h5>
-                                        <hr>
-                                        <p>
-                                            <b>Past Week</b>
-                                        </p>
-                                        <p>{{ volunteer.annotations_past_week_species }}</p>
-                                        <br>
-                                        <p>
-                                            <b>Past Month</b>
-                                        </p>
-                                        <p>{{ volunteer.annotations_past_month_species }}</p>
-                                        <br>
-                                        <p>
-                                            <b>All Time</b>
-                                        </p>
-                                        <p>{{ volunteer.annotations_all_time_species }}</p>
-                                    </div>
-                                    <div style="flex: 1; padding: 10px; border: 1px solid #ccc;">
-                                        <h5>Activity Annotations</h5>
-                                        <hr>
-                                        <p>
-                                            <b>Past Week</b>
-                                        </p>
-                                        <p>{{ volunteer.annotations_past_week_activity }}</p>
-                                        <br>
-                                        <p>
-                                            <b>Past Month</b>
-                                        </p>
-                                        <p>{{ volunteer.annotations_past_month_activity }}</p>
-                                        <br>
-                                        <p>
-                                            <b>All Time</b>
-                                        </p>
-                                        <p>{{ volunteer.annotations_all_time_activity }}</p>
-                                    </div>
-                                </div>
-                            </td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
+                            <td class="d-none">{{ volunteer.annotations_past_week_category }}</td>
+                            <td class="d-none">{{ volunteer.annotations_past_month_category }}</td>
+                            <td class="d-none">{{ volunteer.annotations_all_time_category }}</td>
+                            <td class="d-none">{{ volunteer.annotations_past_week_species }}</td>
+                            <td class="d-none">{{ volunteer.annotations_past_month_species }}</td>
+                            <td class="d-none">{{ volunteer.annotations_all_time_species }}</td>
+                            <td class="d-none">{{ volunteer.annotations_past_week_activity }}</td>
+                            <td class="d-none">{{ volunteer.annotations_past_month_activity }}</td>
+                            <td class="d-none">{{ volunteer.annotations_all_time_activity }}</td>
                         </tr>
                     {% endfor %}
                 </tbody>
@@ -111,8 +63,8 @@
         </div>
         <hr>
         <div class="row justify-content-center">
-            <div class="card col-3 p-0 mx-2">
-                <div class="card-header">Category Rates</div>
+            <div class="card col-3 p-0 mx-2 opacity-50">
+                <div class="card-header">Category Rates (deprecated)</div>
                 <div class="card-body text-center">
                     <h1>{{ daily_category_img_avg }} images/day</h1>
                     <h5 class="small">{{ daily_category_avg }} boxes/day</h5>
@@ -153,6 +105,74 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.min.js"></script>
     <script>
+        function format(d) {
+    return (
+        `<div class="w-100">
+            <div style="display: flex;">
+                <div style="flex: 1; padding: 10px; border: 1px solid #ccc;">
+                    <p>
+                        <b>${d.name}'s Activity</b>
+                    </p>
+                </div>
+                <div style="flex: 1; padding: 10px; border: 1px solid #ccc;">
+                    <h5>Category Annotations</h5>
+                    <hr>
+                    <p>
+                        <b>Past Week</b>
+                    </p>
+                    <p>${d.categoryPastWeek}</p>
+                    <br>
+                    <p>
+                        <b>Past Month</b>
+                    </p>
+                    <p>${d.categoryPastMonth}</p>
+                    <br>
+                    <p>
+                        <b>All Time</b>
+                    </p>
+                    <p>${d.categoryAllTime}</p>
+                </div>
+                <div style="flex: 1; padding: 10px; border: 1px solid #ccc;">
+                    <h5>Species Annotations</h5>
+                    <hr>
+                    <p>
+                        <b>Past Week</b>
+                    </p>
+                    <p>${d.speciesPastWeek}</p>
+                    <br>
+                    <p>
+                        <b>Past Month</b>
+                    </p>
+                    <p>${d.speciesPastMonth}</p>
+                    <br>
+                    <p>
+                        <b>All Time</b>
+                    </p>
+                    <p>${d.speciesAllTime}</p>
+                </div>
+                <div style="flex: 1; padding: 10px; border: 1px solid #ccc;">
+                    <h5>Activity Annotations</h5>
+                    <hr>
+                    <p>
+                        <b>Past Week</b>
+                    </p>
+                    <p>${d.activityPastWeek}</p>
+                    <br>
+                    <p>
+                        <b>Past Month</b>
+                    </p>
+                    <p>${d.activityPastMonth}</p>
+                    <br>
+                    <p>
+                        <b>All Time</b>
+                    </p>
+                    <p>${d.activityAllTime}</p>
+                </div>
+            </div>
+        </div>`
+    );
+        }
+
     $(document).ready(function () {
         $('tr[id^="row-"]').css('border-left', '10px solid transparent');
 
@@ -162,7 +182,40 @@
             $(this).css('border-left', '10px solid transparent');
         });
 
-        $(`#volunteer-engagement-table`).DataTable({ order: [[1, 'desc']] });
+        let table = $(`#volunteer-engagement-table`).DataTable({
+            columns: [
+                {
+                    className: 'dt-control',
+                    data: "",
+                },
+                { data: 'name' },
+                { data: 'totalPastWeek' },
+                { data: 'totalPastMonth' },
+                { data: 'totalAllTime' },
+                { data: 'categoryPastWeek' },
+                { data: 'categoryPastMonth' },
+                { data: 'categoryAllTime' },
+                { data: 'speciesPastWeek' },
+                { data: 'speciesPastMonth' },
+                { data: 'speciesAllTime' },
+                { data: 'activityPastWeek' },
+                { data: 'activityPastMonth' },
+                { data: 'activityAllTime' },
+            ],
+            order: [[1, 'desc']]
+        });
+
+        table.on('click', 'td.dt-control', function (e) {
+            let tr = e.target.closest('tr');
+            let row = table.row(tr);
+
+            if (row.child.isShown()) {
+                row.child.hide();
+            }
+            else {
+                row.child(format(row.data())).show();
+            }
+        });
 
         // Daily annotations chart
         const days = []
@@ -188,8 +241,8 @@
                     label: "Total Annotations"
                 },
                 {
-                    backgroundColor:"rgba(0,128,0,1.0)",
-                    borderColor: "rgba(0,128,0,0.5)",
+                    backgroundColor:"rgba(211,211,211,0.5)",
+                    borderColor: "rgba(211,211,211,0.5)",
                     pointRadius: pointRadius,
                     data: {{ daily_category_counts }},
                     label: "Category Annotations",
@@ -212,18 +265,5 @@
             },
         });
     });
-
-    function toggleRowDetailedBreakdown(name) {
-        let rowElement = $(`#row-${name}`);
-        let detailsElement = $(`#detailedBreakdown-${name}`);
-
-        if (detailsElement.is(':hidden')) {
-            detailsElement.removeAttr('hidden');
-            rowElement.css('background-color', 'yellow');
-        } else {
-            detailsElement.attr('hidden', 'true');
-            rowElement.css('background-color', '');
-        }
-    }
     </script>
 {% endblock content %}

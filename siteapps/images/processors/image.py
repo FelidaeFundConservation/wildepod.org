@@ -221,6 +221,7 @@ def process_image(image: Image):
                 logging.info(f"Species detected: {image.species_ai_detections}")
 
             image.processed = True
+            image.use_precomputed_flags = True
             image.save()
             logging.info("Successfully saved image to database.")
         except Exception as e:

@@ -126,6 +126,7 @@ class Command(BaseCommand):
 
         print(f"Querying images... please wait a moment...\n")
 
+        # NOTE: Change this query as needed
         images_tally = (
             Image.objects.filter(
                 Exists(
@@ -137,11 +138,10 @@ class Command(BaseCommand):
                         ),
                     )
                     .filter(
-                        validity=None,
                         confidence__gte=F("confidence_threshold"),
                     )
                 ),
-                species_pipeline_complete=False,
+                use_precomputed_flags=False,
             )
             .distinct()
             .order_by("-upload__priority", "trigger_timestamp")

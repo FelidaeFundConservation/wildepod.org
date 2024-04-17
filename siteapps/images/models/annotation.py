@@ -190,7 +190,7 @@ class BoundingBox(TimeStampedModel):
             ("VALID", "Valid"),
         ),
         null=True,
-        default=None,
+        default="UNCERTAIN",
     )
 
     objects = BoundingBoxManager()

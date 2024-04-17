@@ -9,6 +9,7 @@ import requests
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import connections
 from django.db.models import BooleanField, Case, CharField, Exists, F, OuterRef, Q, Subquery, Value, When
 from django.http.response import JsonResponse
 from django.shortcuts import redirect
@@ -354,8 +355,13 @@ def skip_ineligible_images(queue_name, queue, annotator):
 
     def calculate_flags_parallel(image_ids):
         with ThreadPoolExecutor(max_workers=10) as executor:
+
+            def on_done(future):
+                connections.close_all()
+
             for image_id in image_ids:
-                executor.submit(recalculate_flags, image_id)
+                future = executor.submit(recalculate_flags, image_id)
+                future.add_done_callback(on_done)
 
     # Determine conditions where the image should be skipped or not
     def get_eligibility(image):

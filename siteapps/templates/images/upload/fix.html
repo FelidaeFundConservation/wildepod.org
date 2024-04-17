@@ -13,6 +13,17 @@
         <nav>
             <div class="nav nav-tabs my-4" id="nav-tab" role="tablist">
                 <a class="nav-link active"
+                   id="nav-recent-tab"
+                   data-bs-toggle="tab"
+                   href="#nav-recent"
+                   role="tab"
+                   aria-controls="nav-recent"
+                   aria-selected="false">
+                    <text class="small">
+                    Recent Uploads
+                    </text>
+                </a>
+                <a class="nav-link"
                    id="nav-no-correction-tab"
                    data-bs-toggle="tab"
                    href="#nav-no-correction"
@@ -44,6 +55,53 @@
             </div>
             <div class="tab-content upload-container">
                 <div class="tab-pane fade p-0 text-center show active"
+                     id="nav-recent"
+                     role="tabpanel"
+                     aria-labelledby="nav-recent-tab">
+                    <table class="upload-list table mt-2 mt-md-4 align-middle text-center">
+                        <thead>
+                            <tr>
+                                <th scope="col">Action</th>
+                                <th scope="col">Station ID</th>
+                                <th scope="col">Microsite</th>
+                                <th scope="col">Macrosite</th>
+                                <th scope="col">Retrieved On</th>
+                                <th scope="col"># Images</th>
+                                {% if user.is_staff %}
+                                    <th scope="col">Volunteer</th>
+                                    <th scope="col">Time Error Details</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for object in recent_uploads %}
+                                {% if not object.time_fix_details and not object.time_correction %}
+                                    <tr>
+                                        <td>
+                                            <a href="{% url 'images:create_time_correction' object.id %}">
+                                                <button type="button" class="btn btn-light">Create</button>
+                                            </a>
+                                        </td>
+                                        <td>{{ object.camera_station.station_id }}</td>
+                                        <td>{{ object.camera_station.micro_site }}</td>
+                                        <td>{{ object.camera_station.micro_site.macro_site }}</td>
+                                        <td>{{ object.date_retrieved }}</td>
+                                        {% if object.processed %}
+                                            <td>{{ object.images.all.count }}</td>
+                                        {% else %}
+                                            <td>-</td>
+                                        {% endif %}
+                                        {% if user.is_staff %}
+                                            <td>{{ object.volunteer.name }}</td>
+                                            <td>{{ object.time_error_details }}</td>
+                                        {% endif %}
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="tab-pane fade p-0 text-center"
                      id="nav-no-correction"
                      role="tabpanel"
                      aria-labelledby="nav-no-correction-tab">
@@ -54,7 +112,7 @@
                                 <th scope="col">Station ID</th>
                                 <th scope="col">Microsite</th>
                                 <th scope="col">Macrosite</th>
-                                <th scope="col">First Image Timestamp</th>
+                                <th scope="col">Retrieved At</th>
                                 <th scope="col"># Images</th>
                                 {% if user.is_staff %}
                                     <th scope="col">Volunteer</th>
@@ -63,7 +121,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for object, first_timestamp in zipped_data %}
+                            {% for object in uploads %}
                                 {% if not object.time_fix_details and not object.time_correction %}
                                     <tr>
                                         <td>
@@ -84,7 +142,7 @@
                                         <td>{{ object.camera_station.station_id }}</td>
                                         <td>{{ object.camera_station.micro_site }}</td>
                                         <td>{{ object.camera_station.micro_site.macro_site }}</td>
-                                        <td>{{ first_timestamp }}</td>
+                                        <td>{{ object.date_retrieved }}</td>
                                         {% if object.processed %}
                                             <td>{{ object.images.all.count }}</td>
                                         {% else %}
@@ -111,7 +169,7 @@
                                 <th scope="col">Station ID</th>
                                 <th scope="col">Microsite</th>
                                 <th scope="col">Macrosite</th>
-                                <th scope="col">First Image Timestamp</th>
+                                <th scope="col">Retrieved At</th>
                                 <th scope="col"># Images</th>
                                 {% if user.is_staff %}
                                     <th scope="col">Volunteer</th>
@@ -125,7 +183,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for object, first_timestamp in zipped_data %}
+                            {% for object in uploads %}
                                 {% if object.time_correction and not object.time_correction.applied_at %}
                                     <tr>
                                         <td>
@@ -146,7 +204,7 @@
                                         <td>{{ object.camera_station.station_id }}</td>
                                         <td>{{ object.camera_station.micro_site }}</td>
                                         <td>{{ object.camera_station.micro_site.macro_site }}</td>
-                                        <td>{{ first_timestamp }}</td>
+                                        <td>{{ object.date_retrieved }}</td>
                                         {% if object.processed %}
                                             <td>{{ object.images.all.count }}</td>
                                         {% else %}
@@ -178,7 +236,7 @@
                                 <th scope="col">Station ID</th>
                                 <th scope="col">Microsite</th>
                                 <th scope="col">Macrosite</th>
-                                <th scope="col">First Image Timestamp</th>
+                                <th scope="col">Retrieved At</th>
                                 <th scope="col"># Images</th>
                                 {% if user.is_staff %}
                                     <th scope="col">Volunteer</th>
@@ -188,7 +246,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for object, first_timestamp in zipped_data %}
+                            {% for object in uploads %}
                                 {% if object.time_correction.applied_at or object.time_fix_details %}
                                     <tr>
                                         <td>
@@ -209,7 +267,7 @@
                                         <td>{{ object.camera_station.station_id }}</td>
                                         <td>{{ object.camera_station.micro_site }}</td>
                                         <td>{{ object.camera_station.micro_site.macro_site }}</td>
-                                        <td>{{ first_timestamp }}</td>
+                                        <td>{{ object.date_retrieved }}</td>
                                         {% if object.processed %}
                                             <td>{{ object.images.all.count }}</td>
                                         {% else %}
@@ -234,5 +292,8 @@
     <link rel="stylesheet"
           href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.css" />
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.js"></script>
-    <script>$(`.upload-list`).DataTable();</script>
+    <script>$(`.upload-list`).DataTable({
+        "order": [[ 4, "asc" ]]
+    });
+    </script>
 {% endblock %}

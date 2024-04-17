@@ -289,6 +289,9 @@
                                                 <li class="list-group-item">
                                                     <small><kbd>BACKSPACE</kbd>&nbsp;&nbsp;<i class="bi bi-arrow-right"></i><i>&nbsp;&nbsp;Delete bounding box</i></small>
                                                 </li>
+                                                <li class="list-group-item">
+                                                    <small><kbd>SHIFT</kbd> + <kbd>ENTER</kbd>&nbsp;&nbsp;<i class="bi bi-arrow-right"></i><i>&nbsp;&nbsp;Submit annotations</i></small>
+                                                </li>
                                             </ul>
                                         </div>
                                     </div>
@@ -542,6 +545,11 @@
 
                 hoveredAnnotation = null;
                 selected = null;
+            }
+            else if (event.key === 'Enter' && event.shiftKey) {
+                const messageHtml = `<kbd>SHIFT</kbd> + <kbd>ENTER</kbd>&nbsp;&nbsp;Submitting annotations...</i>`;
+                appendToast("shortcut", "submit", messageHtml);
+                $('#save_annotations').click();
             }
             else if (event.code === "Space") {
                 // Hide all bboxes keyboard shortcut
@@ -1025,7 +1033,6 @@
                 {% block submit_annotations %}
                 submitAnnotations(skip = false);
                 {% endblock submit_annotations %}
-                $(`#nav-batch-tag-tab`).tab('show');
             });
 
             // Skip annotations to the server

@@ -1,4 +1,5 @@
 import logging
+import os
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 
@@ -23,6 +24,7 @@ class Command(BaseCommand):
 
         try:
             PATH = "./siteapps/images/management/commands/export/"
+            os.makedirs(PATH, exist_ok=True)
 
             logging.info(f"Gathering data from images...")
 
@@ -124,9 +126,13 @@ class Command(BaseCommand):
             with ThreadPoolExecutor(max_workers=10) as executor:
                 for image in training:
                     executor.submit(get_data, image, "train")
+                    os.makedirs(f"{PATH}/datasets/wildepod/images/train/", exist_ok=True)
+                    os.makedirs(f"{PATH}/datasets/wildepod/labels/train/", exist_ok=True)
 
                 for image in validation:
                     executor.submit(get_data, image, "val")
+                    os.makedirs(f"{PATH}/datasets/wildepod/images/val/", exist_ok=True)
+                    os.makedirs(f"{PATH}/datasets/wildepod/labels/val/", exist_ok=True)
 
         except Exception as e:
             raise CommandError(e)

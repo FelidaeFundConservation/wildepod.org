@@ -8,9 +8,9 @@ import google.oauth2.id_token
 import requests
 from django.conf import settings
 from images.models import Annotator, Bot, BoundingBox, Category, Image
+from my_utils.storages import MediaRootGoogleCloudStorage
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
-from utils.storages import MediaRootGoogleCloudStorage
 
 # Create a dropbox client
 dbx = dropbox.Dropbox(
@@ -221,6 +221,7 @@ def process_image(image: Image):
                 logging.info(f"Species detected: {image.species_ai_detections}")
 
             image.processed = True
+            image.use_precomputed_flags = True
             image.save()
             logging.info("Successfully saved image to database.")
         except Exception as e:

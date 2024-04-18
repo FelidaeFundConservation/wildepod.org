@@ -253,7 +253,7 @@ def get_daylight_savings_date(month, year):
 
     second_sunday_date = days_to_first_sunday + 7
 
-    if month == "03":
+    if month == "03" or month == "3":
         return datetime(year=int(year), month=int(month), day=second_sunday_date, hour=2)
     elif month == "11":
         return datetime(year=int(year), month=int(month), day=days_to_first_sunday, hour=2)

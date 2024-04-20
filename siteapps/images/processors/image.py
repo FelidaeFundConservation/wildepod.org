@@ -180,6 +180,7 @@ def add_bounding_boxes(image: Image, image_url: str, bot: Bot, id_token: str, an
             w=detection["bbox"][2],
             h=detection["bbox"][3],
             created_by=annotator,
+            confidence_threshold=bot.threshold,
         )
         if created:
             logging.info(

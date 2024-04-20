@@ -17,12 +17,15 @@ class UploadForm(forms.ModelForm):
     )
 
     time_correction_years = forms.IntegerField(
-        initial=0, required=False, help_text="Make sure these values are correct."
+        label="Years to offset by",
+        initial=0,
+        required=False,
+        help_text="Example: -3 months, +2 days turns Feb 7th, 2024 to Nov 9th, 2023",
     )
-    time_correction_months = forms.IntegerField(initial=0, required=False)
-    time_correction_days = forms.IntegerField(initial=0, required=False)
-    time_correction_hours = forms.IntegerField(initial=0, required=False)
-    time_correction_minutes = forms.IntegerField(initial=0, required=False)
+    time_correction_months = forms.IntegerField(label="Months to offset by", initial=0, required=False)
+    time_correction_days = forms.IntegerField(label="Days to offset by", initial=0, required=False)
+    time_correction_hours = forms.IntegerField(label="Hours to offset by", initial=0, required=False)
+    time_correction_minutes = forms.IntegerField(label="Minutes to offset by", initial=0, required=False)
 
     start_date = forms.DateTimeField(
         label="Error start date",

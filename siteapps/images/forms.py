@@ -25,15 +25,17 @@ class UploadForm(forms.ModelForm):
     time_correction_minutes = forms.IntegerField(initial=0, required=False)
 
     start_date = forms.DateTimeField(
+        label="Error start date",
         widget=forms.widgets.TextInput(attrs={"type": "datetime-local"}),
         required=False,
-        help_text="Time correction will only apply to images later than this date.",
+        help_text="For modifying only a part of the upload. Images with timestamps before this date will not be changed.",
     )
 
     end_date = forms.DateTimeField(
+        label="Error end date",
         widget=forms.widgets.TextInput(attrs={"type": "datetime-local"}),
         required=False,
-        help_text="Time correction will only apply to images before this date.",
+        help_text="For modifying only a part of the upload. Images with timestamps after this date will not be changed.",
     )
 
     daylight_savings_correction = forms.CharField(
@@ -88,6 +90,9 @@ class UploadForm(forms.ModelForm):
             ),
             Row(
                 Column("daylight_savings_correction", css_class="form-group"),
+                HTML(
+                    "<text class='small'><i>(Please check the fix preview to confirm all timestamp transformations are correct before submitting.)</i></text>"
+                ),
                 css_class="form-row mb-3 px-3",
             ),
             Row(

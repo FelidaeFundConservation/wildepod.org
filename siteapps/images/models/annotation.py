@@ -176,6 +176,9 @@ class BoundingBox(TimeStampedModel):
     # Later, the human confidence itself can be added in as a function of tenure
     confidence = models.FloatField(default=1.0)
 
+    # The threshold of the bot that created the bounding box to show in the pipeline.
+    confidence_threshold = models.FloatField(default=0.0)
+
     # List of accept/rejects for this annotation
     accepted_by = models.ManyToManyField(Annotator, related_name="accepted_annotation", blank=True)
     rejected_by = models.ManyToManyField(Annotator, related_name="rejected_annotation", blank=True)

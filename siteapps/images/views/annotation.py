@@ -170,14 +170,9 @@ def species_pipeline_query(images, annotator):
         # It must not be checked or skipped by the current annotator
         ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
         # Image has at least one bounding box tagged by MegaDetector above the predetermined threshold
-        Exists(
-            BoundingBox.objects.filter(image=OuterRef("pk")).filter(
-                ~Q(validity__in=["Invalid", None]),
-                confidence__gte=F("confidence_threshold"),
-            )
-        ),
+        Q(has_bbox_above_confidence_threshold=True),
         # Image has at least 1 uncertain bounding box
-        Exists(BoundingBox.objects.filter(image=OuterRef("pk"), validity="Uncertain"))
+        Q(has_uncertain_bbox=True)
         # OR is species incomplete, excluding images with only people/vehicles if category's been confirmed
         | (
             ~Q(has_humans=True, has_animals=False)
@@ -1189,17 +1184,19 @@ def calculateSpeciesAnnotationFlags(image):
         and all_bboxes_have_species
         and image.category_pipeline_complete
     ):
-        image.has_wild_animals = species_annotations.filter(
-            name__species_group="WILD", bounding_box__validity="Valid"
-        ).exists()
-        image.has_cats = species_annotations.filter(
-            name__name__in=["Bobcat", "Puma"], bounding_box__validity="Valid"
-        ).exists()
+        image.has_wild_animals = species_annotations.filter(name__species_group="WILD").exists()
+        image.has_cats = species_annotations.filter(name__name__in=["Bobcat", "Puma"]).exists()
         image.species_pipeline_complete = True
     else:
         # Reset the flags if conditions not met (i.e. retroactively send image back)
         image.species_pipeline_complete = False
         image.has_wild_animals = False
+
+    # bbox-related precomputed flags
+    image.has_bbox_above_confidence_threshold = image.boundingbox_set.filter(
+        ~Q(validity__in=["Invalid", None]), image=image, confidence__gte=F("confidence_threshold")
+    ).exists()
+    image.has_uncertain_bbox = image.boundingbox_set.filter(validity="Uncertain").exists()
 
     species_annotations_info = []
     for species in list(species_annotations):

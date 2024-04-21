@@ -7,6 +7,7 @@ import google.auth.transport.requests
 import google.oauth2.id_token
 import requests
 from django.conf import settings
+from django.db.models import F, Q
 from images.models import Annotator, Bot, BoundingBox, Category, Image
 from my_utils.storages import MediaRootGoogleCloudStorage
 from requests.adapters import HTTPAdapter
@@ -195,6 +196,13 @@ def add_bounding_boxes(image: Image, image_url: str, bot: Bot, id_token: str, an
             created_by=annotator,
             confidence=detection["conf"],
         )
+
+    # Set bbox-related pre-computed flags
+    image.has_bbox_above_confidence_threshold = image.boundingbox_set.filter(
+        ~Q(validity__in=["Invalid", None]), image=image, confidence__gte=F("confidence_threshold")
+    ).exists()
+    image.has_uncertain_bbox = image.boundingbox_set.filter(validity="Uncertain").exists()
+    image.save()
 
     logging.info("All bounding boxes created successfully.")
 

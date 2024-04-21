@@ -124,6 +124,12 @@ class Image(TimeStampedModel):
     has_wild_animals = models.BooleanField(default=False)
     has_cats = models.BooleanField(default=False)
 
+    # Has at least one bbox above confidence threshold
+    has_bbox_above_confidence_threshold = models.BooleanField(default=False)
+
+    # Has uncertain bboxes that are yet to be validated
+    has_uncertain_bbox = models.BooleanField(default=False)
+
     # Additional field to support incremental migration to the new precomputed flags
     use_precomputed_flags = models.BooleanField(default=False)
 

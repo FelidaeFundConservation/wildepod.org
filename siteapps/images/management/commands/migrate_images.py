@@ -117,8 +117,12 @@ class Command(BaseCommand):
             if image.species_ai_detections:
                 image.has_cats = "Puma" in image.species_ai_detections or "Bobcat" in image.species_ai_detections
 
+            # Set image bbox-related precomputed flags
+            image.has_bbox_above_confidence_threshold = image.boundingbox_set.filter(
+                ~Q(validity__in=["Invalid", None]), image=image, confidence__gte=F("confidence_threshold")
+            ).exists()
+            image.has_uncertain_bbox = image.boundingbox_set.filter(validity="Uncertain").exists()
             # Set the confidence threshold for bboxes
-            bboxes = BoundingBox.objects.filter(image=image, confidence_threshold=0.0)
             for bbox in bboxes:
                 if bbox.created_by.bot is not None:
                     bbox.confidence_threshold = bbox.created_by.bot.threshold
@@ -171,6 +175,7 @@ class Command(BaseCommand):
                         confidence__gte=F("confidence_threshold"),
                     )
                 ),
+                species_pipeline_complete=False,
                 **kwargs,
             )
             .distinct()

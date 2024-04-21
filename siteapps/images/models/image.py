@@ -75,6 +75,9 @@ class Image(TimeStampedModel):
     # but since the content is mostly images, videos are parked under "Image" as a special type
     is_video = models.BooleanField(default=False)
 
+    # These are the nearby images in the upload set
+    context_image_gcloud_paths = models.TextField(null=True)
+
     # Processed flag. A general flag to indicate if the image went through the custom processing pipeline
     # This will be initially only have metadata retrieved but will later include thumbnail creation/storage
     # and additional ML processing.

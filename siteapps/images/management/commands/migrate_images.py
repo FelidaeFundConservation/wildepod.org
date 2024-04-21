@@ -1,6 +1,7 @@
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
 from io import BytesIO
 
 import requests
@@ -118,15 +119,33 @@ class Command(BaseCommand):
                 image.has_cats = "Puma" in image.species_ai_detections or "Bobcat" in image.species_ai_detections
 
             # Set image bbox-related precomputed flags
-            image.has_bbox_above_confidence_threshold = image.boundingbox_set.filter(
+            bboxes = image.boundingbox_set.all()
+            image.has_bbox_above_confidence_threshold = bboxes.filter(
                 ~Q(validity__in=["Invalid", None]), image=image, confidence__gte=F("confidence_threshold")
             ).exists()
-            image.has_uncertain_bbox = image.boundingbox_set.filter(validity="Uncertain").exists()
+            image.has_uncertain_bbox = bboxes.filter(validity="Uncertain").exists()
             # Set the confidence threshold for bboxes
             for bbox in bboxes:
                 if bbox.created_by.bot is not None:
                     bbox.confidence_threshold = bbox.created_by.bot.threshold
                     bbox.save()
+
+            # Set context images
+            image.context_image_gcloud_paths = list(
+                Image.objects.filter(
+                    upload=image.upload,
+                    upload__camera_station=image.upload.camera_station,
+                    trigger_timestamp__lt=image.trigger_timestamp,
+                    trigger_timestamp__gt=image.trigger_timestamp - timedelta(minutes=10),
+                ).values_list("thumbnail_gcloud_path", flat=True)[:20]
+            ) + list(
+                Image.objects.filter(
+                    upload=image.upload,
+                    upload__camera_station=image.upload.camera_station,
+                    trigger_timestamp__gte=image.trigger_timestamp,
+                    trigger_timestamp__lt=image.trigger_timestamp + timedelta(minutes=10),
+                ).values_list("thumbnail_gcloud_path", flat=True)[:20]
+            )
 
             if model_name:
                 try:

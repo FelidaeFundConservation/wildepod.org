@@ -84,7 +84,7 @@ class Image(TimeStampedModel):
     processed = models.BooleanField(default=False)
 
     # Content specific information extracted from the EXIF by dropbox
-    trigger_timestamp = models.DateTimeField(blank=True, null=True)
+    trigger_timestamp = models.DateTimeField(blank=True, null=True, db_index=True)
     time_correction_applied = models.BooleanField(default=False)
 
     # In an ideal world, height/weight & lat/long would be separate classes but seems needless here and are stored as pure values

@@ -25,6 +25,31 @@ dbx = dropbox.Dropbox(
 MAX_THREADS_FOR_IMAGE_PROCESSING = 5
 
 
+def precompute_context_images(upload):
+    # Precompute context images for each img in the upload
+    CONTEXT_AMOUNT = 20
+
+    upload_images = Image.objects.filter(upload=upload)
+
+    for image in upload_images:
+        image.context_image_gcloud_paths = list(
+            Image.objects.filter(
+                upload=image.upload,
+                upload__camera_station=image.upload.camera_station,
+                trigger_timestamp__lt=image.trigger_timestamp,
+                trigger_timestamp__gt=image.trigger_timestamp - timedelta(minutes=10),
+            ).values_list("thumbnail_gcloud_path", flat=True)[:CONTEXT_AMOUNT]
+        ) + list(
+            Image.objects.filter(
+                upload=image.upload,
+                upload__camera_station=image.upload.camera_station,
+                trigger_timestamp__gte=image.trigger_timestamp,
+                trigger_timestamp__lt=image.trigger_timestamp + timedelta(minutes=10),
+            ).values_list("thumbnail_gcloud_path", flat=True)[:CONTEXT_AMOUNT]
+        )
+        image.save()
+
+
 def get_dropbox_file_listing(dropbox_folder_path: str) -> list:
     """Function to get a list of files in a dropbox directory."""
 
@@ -257,28 +282,7 @@ def process_upload(upload_id: uuid.UUID):
 
     # Only if all files are successfully processed, mark the upload as processed
     if all(processed_status):
-        # Precompute context images
-        CONTEXT_AMOUNT = 20
-
-        upload_images = Image.objects.filter(upload=upload)
-
-        for image in upload_images:
-            image.context_image_gcloud_paths = list(
-                Image.objects.filter(
-                    upload=image.upload,
-                    upload__camera_station=image.upload.camera_station,
-                    trigger_timestamp__lt=image.trigger_timestamp,
-                    trigger_timestamp__gt=image.trigger_timestamp - timedelta(minutes=10),
-                ).values_list("thumbnail_gcloud_path", flat=True)[:CONTEXT_AMOUNT]
-            ) + list(
-                Image.objects.filter(
-                    upload=image.upload,
-                    upload__camera_station=image.upload.camera_station,
-                    trigger_timestamp__gte=image.trigger_timestamp,
-                    trigger_timestamp__lt=image.trigger_timestamp + timedelta(minutes=10),
-                ).values_list("thumbnail_gcloud_path", flat=True)[:CONTEXT_AMOUNT]
-            )
-            image.save()
+        precompute_context_images(upload)
         # NOTE: Processed is set to True for non-image files by default since they don't require any processing
         # Deleted duplicate files also return True
         logging.info("All images processed. Marking upload as processed..")

@@ -166,47 +166,27 @@ def staff_review_query_filter(images, annotator):
 
 # Filter criteria for an image to appear in the Species pipeline
 def species_pipeline_query(images, annotator):
-    images = (
-        images.filter(
-            # It must not be checked or skipped by the current annotator
-            ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
-            # Image has at least one bounding box tagged by MegaDetector above the predetermined threshold
-            Exists(
-                BoundingBox.objects.filter(image=OuterRef("pk"))
-                .annotate(
-                    # TODO: This calculation can happen after MegaDetector processing, and we can set a flag.
-                    confidence_threshold=Case(
-                        When(created_by__type="bot", then="created_by__bot__threshold"),
-                        default=0.0,
-                    ),
-                )
-                .filter(
-                    ~Q(validity__in=["Invalid", None]),
-                    confidence__gte=F("confidence_threshold"),
-                )
-            ),
-            # Image has at least 1 uncertain bounding box
-            Exists(BoundingBox.objects.filter(image=OuterRef("pk"), validity="Uncertain"))
-            # OR is species incomplete, excluding images with only people/vehicles if category's been confirmed
-            | (
-                ~Q(has_humans=True, has_animals=False)
-                & ~Q(has_vehicles=True, has_animals=False)
-                & Q(category_pipeline_complete=True, species_pipeline_complete=False)
-            ),
-            # Image has been preprocessed and we can use precomputed flags
-            use_precomputed_flags=True,
-        )
-        .annotate(
-            # Potential cats first
-            has_cats=Case(
-                When(species_ai_detections__contains="Puma", then=Value(1)),
-                When(species_ai_detections__contains="Bobcat", then=Value(1)),
-                default=Value(0),
-                output_field=BooleanField(),
+    images = images.filter(
+        # It must not be checked or skipped by the current annotator
+        ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
+        # Image has at least one bounding box tagged by MegaDetector above the predetermined threshold
+        Exists(
+            BoundingBox.objects.filter(image=OuterRef("pk")).filter(
+                ~Q(validity__in=["Invalid", None]),
+                confidence__gte=F("confidence_threshold"),
             )
-        )
-        .order_by("-upload__priority", "-has_cats", "upload__camera_station", "trigger_timestamp")
-    )
+        ),
+        # Image has at least 1 uncertain bounding box
+        Exists(BoundingBox.objects.filter(image=OuterRef("pk"), validity="Uncertain"))
+        # OR is species incomplete, excluding images with only people/vehicles if category's been confirmed
+        | (
+            ~Q(has_humans=True, has_animals=False)
+            & ~Q(has_vehicles=True, has_animals=False)
+            & Q(category_pipeline_complete=True, species_pipeline_complete=False)
+        ),
+        # Image has been preprocessed and we can use precomputed flags
+        use_precomputed_flags=True,
+    ).order_by("-upload__priority", "-has_cats", "upload__camera_station", "trigger_timestamp")
 
     images = staff_review_query_filter(images, annotator)
 
@@ -1209,7 +1189,12 @@ def calculateSpeciesAnnotationFlags(image):
         and all_bboxes_have_species
         and image.category_pipeline_complete
     ):
-        image.has_wild_animals = species_annotations.filter(name__species_group="WILD").exists()
+        image.has_wild_animals = species_annotations.filter(
+            name__species_group="WILD", bounding_box__validity="Valid"
+        ).exists()
+        image.has_cats = species_annotations.filter(
+            name__name__in=["Bobcat", "Puma"], bounding_box__validity="Valid"
+        ).exists()
         image.species_pipeline_complete = True
     else:
         # Reset the flags if conditions not met (i.e. retroactively send image back)

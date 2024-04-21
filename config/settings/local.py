@@ -55,7 +55,7 @@ ADMIN_URL_SUFFIX = ""
 # ------------------------------------------------------------------------------
 GS_BUCKET_NAME = env("GS_BUCKET_NAME_DEV")
 GS_DEFAULT_ACL = "publicRead"
-DEFAULT_FILE_STORAGE = "siteapps.utils.storages.MediaRootGoogleCloudStorage"
+DEFAULT_FILE_STORAGE = "siteapps.my_utils.storages.MediaRootGoogleCloudStorage"
 MEDIA_URL = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/media/"
 
 # EMAIL

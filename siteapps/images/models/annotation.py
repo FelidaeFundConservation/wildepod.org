@@ -20,10 +20,6 @@ class BaseAnnotationManager(models.Manager):
         # Combining multiple aggregations with annotate() will yield the wrong results because joins are used instead of subqueries
         # https://docs.djangoproject.com/en/4.0/topics/db/aggregation/#combining-multiple-aggregations
         return self.annotate(
-            confidence_threshold=Case(
-                When(created_by__type="bot", then="created_by__bot__threshold"),
-                default=0.0,
-            ),
             keep=ExpressionWrapper(Q(confidence__gte=F("confidence_threshold")), output_field=models.BooleanField()),
             num_accepted=Coalesce(Count("accepted_by", distinct=True), 0),
             num_rejected=Coalesce(Count("rejected_by", distinct=True), 0),

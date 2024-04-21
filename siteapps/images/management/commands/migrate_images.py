@@ -49,9 +49,15 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--macrosite", type=str, default=None, nargs="?", help="Camera station to filter images by."
+        ),
+        parser.add_argument(
+            "--skip_main_flags",
+            action="store_true",
+            help="Recalculate main annotation pipeline eligibility flags.",
         )
 
     def handle(self, *args, **options):
+        skip_main_flags = options.get("skip_main_flags")
         model_name = options.get("model_name")
         camera_station = options.get("camera_station")
         macrosite = options.get("macrosite")
@@ -100,10 +106,23 @@ class Command(BaseCommand):
 
         def process_image(image):
             nonlocal image_count
-            # Handles all checks and flag setting.
-            calculateCategoryAnnotationFlags(image)
-            calculateSpeciesAnnotationFlags(image)
-            calculateActivityAnnotationFlags(image)
+            nonlocal skip_main_flags
+            # Handles all checks and flag setting for main annotation criteria.
+            if not skip_main_flags:
+                calculateCategoryAnnotationFlags(image)
+                calculateSpeciesAnnotationFlags(image)
+                calculateActivityAnnotationFlags(image)
+
+            # Set if the image has AI detected cats
+            if image.species_ai_detections:
+                image.has_cats = "Puma" in image.species_ai_detections or "Bobcat" in image.species_ai_detections
+
+            # Set the confidence threshold for bboxes
+            bboxes = BoundingBox.objects.filter(image=image, confidence_threshold=0.0)
+            for bbox in bboxes:
+                if bbox.created_by.bot is not None:
+                    bbox.confidence_threshold = bbox.created_by.bot.threshold
+                    bbox.save()
 
             if model_name:
                 try:
@@ -122,8 +141,6 @@ class Command(BaseCommand):
                     f"{Fore.YELLOW}\n==================================={Style.RESET_ALL}"
                     f"\nTime elapsed: {time.time() - start_time:.2f} seconds"
                     f"\nImages checked: {image_count} of {total_image_count}"
-                    f"\nExample detections: {image.species_ai_detections}"
-                    f"\nExample Image: https://wildepod.org/images/image/{image.id}"
                     f"\n",
                     end="\r",
                     flush=True,
@@ -150,18 +167,10 @@ class Command(BaseCommand):
         images_tally = (
             Image.objects.filter(
                 Exists(
-                    BoundingBox.objects.filter(image=OuterRef("pk"))
-                    .annotate(
-                        confidence_threshold=Case(
-                            When(created_by__type="bot", then="created_by__bot__threshold"),
-                            default=0.0,
-                        ),
-                    )
-                    .filter(
+                    BoundingBox.objects.filter(image=OuterRef("pk")).filter(
                         confidence__gte=F("confidence_threshold"),
                     )
                 ),
-                use_precomputed_flags=False,
                 **kwargs,
             )
             .distinct()

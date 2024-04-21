@@ -223,6 +223,7 @@ def process_image(image: Image):
 
             image.processed = True
             image.use_precomputed_flags = True
+            image.has_cats = "Puma" in image.species_ai_detections or "Bobcat" in image.species_ai_detections
             image.save()
             logging.info("Successfully saved image to database.")
         except Exception as e:

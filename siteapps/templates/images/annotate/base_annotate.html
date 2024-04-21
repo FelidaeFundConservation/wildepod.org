@@ -309,10 +309,10 @@
                                                  data-ride="carousel"
                                                  data-interval="false">
                                                 <div class="carousel-inner">
-                                                    {% for context_image in context_images %}
-                                                        <div class="carousel-item {% if context_image.id == image.id %}active{% endif %}">
+                                                    {% for context_image_gcloud_path in context_images %}
+                                                        <div class="carousel-item {% if context_image_gcloud_path == image.thumbnail_gcloud_path %}active{% endif %}">
                                                             <img class="img-fluid rounded context-image"
-                                                                 src="{% get_media_prefix %}{{ context_image.thumbnail_gcloud_path }}"
+                                                                 src="{% get_media_prefix %}{{ context_image_gcloud_path }}"
                                                                  style="margin-top: 5px;
                                                                         margin-bottom: 5px"
                                                                  onmouseover="displayContextImage(this);"

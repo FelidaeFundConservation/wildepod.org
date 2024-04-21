@@ -528,10 +528,13 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         get_annotation_history(context, queue, queue_name, annotator)
 
         # Gather surrounding context images
-        try:
-            get_context_images(queue=queue, context=context)
-        except Exception:
-            logging.info(f"Failed to get context images for image {image_id}.")
+        if image.context_image_gcloud_paths:
+            try:
+                from ast import literal_eval
+
+                context["context_images"] = literal_eval(str(image.context_image_gcloud_paths))
+            except Exception:
+                logging.info(f"Failed to get context images for image {image_id}.")
 
         # Gather all annotations for bounding boxes to display in admin view.
         get_all_annotations(image=image, context=context)
@@ -544,6 +547,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         # Get burst images for multi-image tagging
         if queue["index"] < context["queue_length"]:
             get_burst_images(context=context, queue=queue, queue_name=queue_name, annotator=annotator)
+
     else:
         image = None
         context["image"] = None
@@ -613,24 +617,6 @@ def get_valid_or_uncertain_bboxes(image):
     annotate(zipped_querysets)
 
     return [bbox_obj for bbox_obj, bbox_values in zipped_querysets if bbox_values.get("status") != "Invalid"]
-
-
-def get_context_images(queue, context):
-    CONTEXT_AMOUNT = 20
-
-    context["context_images"] = list(
-        Image.objects.filter(
-            upload__camera_station=context["image"].upload.camera_station,
-            trigger_timestamp__lt=context["image"].trigger_timestamp,
-            trigger_timestamp__gt=context["image"].trigger_timestamp - datetime.timedelta(minutes=10),
-        )[:CONTEXT_AMOUNT]
-    ) + list(
-        Image.objects.filter(
-            upload__camera_station=context["image"].upload.camera_station,
-            trigger_timestamp__gte=context["image"].trigger_timestamp,
-            trigger_timestamp__lt=context["image"].trigger_timestamp + datetime.timedelta(minutes=10),
-        )[:CONTEXT_AMOUNT]
-    )
 
 
 def get_all_annotations(image, context):

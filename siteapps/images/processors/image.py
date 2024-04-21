@@ -9,7 +9,6 @@ import requests
 from django.conf import settings
 from django.db.models import F, Q
 from images.models import Annotator, Bot, BoundingBox, Category, Image
-from images.views.annotation import has_bbox_above_confidence_threshold
 from my_utils.storages import MediaRootGoogleCloudStorage
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
@@ -41,6 +40,12 @@ http.mount("https://", adapter)
 http.mount("http://", adapter)
 
 MEGADETECTOR_LABEL_MAP = {"1": "animal", "2": "person", "3": "vehicle"}
+
+
+def has_bbox_above_confidence_threshold(image):
+    return image.boundingbox_set.filter(
+        ~Q(validity__in=["Invalid", None]), image=image, confidence__gte=F("confidence_threshold")
+    ).exists()
 
 
 # Function to save the thumbnails of the image

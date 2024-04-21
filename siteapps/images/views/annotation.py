@@ -983,6 +983,12 @@ Pipeline flag calculations.
 """
 
 
+def has_bbox_above_confidence_threshold(image):
+    return image.boundingbox_set.filter(
+        ~Q(validity__in=["Invalid", None]), image=image, confidence__gte=F("confidence_threshold")
+    ).exists()
+
+
 def annotate(zipped_querysets):
     # Alternative to .annotate() to calculate object properties, which returns incorrect data due to multiple aggregations.
     # Takes a zip object containing a list of annotation objects to reference,
@@ -1179,9 +1185,7 @@ def calculateSpeciesAnnotationFlags(image):
         image.has_wild_animals = False
 
     # bbox-related precomputed flags
-    image.has_bbox_above_confidence_threshold = image.boundingbox_set.filter(
-        ~Q(validity__in=["Invalid", None]), image=image, confidence__gte=F("confidence_threshold")
-    ).exists()
+    image.has_bbox_above_confidence_threshold = has_bbox_above_confidence_threshold(image)
     image.has_uncertain_bbox = image.boundingbox_set.filter(validity="Uncertain").exists()
 
     species_annotations_info = []

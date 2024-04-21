@@ -29,7 +29,12 @@ from images.models import (
     SpeciesName,
 )
 from images.models.custom_fields import get_filter_params
-from images.processors import process_activity_annotations, process_species_annotations, run_model_inference
+from images.processors import (
+    has_bbox_above_confidence_threshold,
+    process_activity_annotations,
+    process_species_annotations,
+    run_model_inference,
+)
 from PIL import Image as PILImage
 
 MAX_VOTES_PER_IMAGE = 2
@@ -981,12 +986,6 @@ class ChangeAnnotationView(LoginRequiredMixin, View):
 """
 Pipeline flag calculations.
 """
-
-
-def has_bbox_above_confidence_threshold(image):
-    return image.boundingbox_set.filter(
-        ~Q(validity__in=["Invalid", None]), image=image, confidence__gte=F("confidence_threshold")
-    ).exists()
 
 
 def annotate(zipped_querysets):

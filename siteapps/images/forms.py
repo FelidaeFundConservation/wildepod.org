@@ -17,23 +17,28 @@ class UploadForm(forms.ModelForm):
     )
 
     time_correction_years = forms.IntegerField(
-        initial=0, required=False, help_text="Make sure these values are correct."
+        label="Years to offset by",
+        initial=0,
+        required=False,
+        help_text="Example: -3 months, +2 days turns Feb 7th, 2024 to Nov 9th, 2023",
     )
-    time_correction_months = forms.IntegerField(initial=0, required=False)
-    time_correction_days = forms.IntegerField(initial=0, required=False)
-    time_correction_hours = forms.IntegerField(initial=0, required=False)
-    time_correction_minutes = forms.IntegerField(initial=0, required=False)
+    time_correction_months = forms.IntegerField(label="Months to offset by", initial=0, required=False)
+    time_correction_days = forms.IntegerField(label="Days to offset by", initial=0, required=False)
+    time_correction_hours = forms.IntegerField(label="Hours to offset by", initial=0, required=False)
+    time_correction_minutes = forms.IntegerField(label="Minutes to offset by", initial=0, required=False)
 
     start_date = forms.DateTimeField(
+        label="Error start date",
         widget=forms.widgets.TextInput(attrs={"type": "datetime-local"}),
         required=False,
-        help_text="Time correction will only apply to images later than this date.",
+        help_text="For modifying only a part of the upload. Images with timestamps before this date will not be changed.",
     )
 
     end_date = forms.DateTimeField(
+        label="Error end date",
         widget=forms.widgets.TextInput(attrs={"type": "datetime-local"}),
         required=False,
-        help_text="Time correction will only apply to images before this date.",
+        help_text="For modifying only a part of the upload. Images with timestamps after this date will not be changed.",
     )
 
     daylight_savings_correction = forms.CharField(
@@ -88,6 +93,9 @@ class UploadForm(forms.ModelForm):
             ),
             Row(
                 Column("daylight_savings_correction", css_class="form-group"),
+                HTML(
+                    "<text class='small'><i>(Please check the fix preview to confirm all timestamp transformations are correct before submitting.)</i></text>"
+                ),
                 css_class="form-row mb-3 px-3",
             ),
             Row(

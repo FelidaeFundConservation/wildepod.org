@@ -109,6 +109,7 @@ class Upload(TimeStampedModel):
             ("4", "Highest"),
         ),
         default="1",
+        db_index=True,
     )
 
     # History of model instance changes

@@ -20,10 +20,6 @@ class BaseAnnotationManager(models.Manager):
         # Combining multiple aggregations with annotate() will yield the wrong results because joins are used instead of subqueries
         # https://docs.djangoproject.com/en/4.0/topics/db/aggregation/#combining-multiple-aggregations
         return self.annotate(
-            confidence_threshold=Case(
-                When(created_by__type="bot", then="created_by__bot__threshold"),
-                default=0.0,
-            ),
             keep=ExpressionWrapper(Q(confidence__gte=F("confidence_threshold")), output_field=models.BooleanField()),
             num_accepted=Coalesce(Count("accepted_by", distinct=True), 0),
             num_rejected=Coalesce(Count("rejected_by", distinct=True), 0),
@@ -175,6 +171,9 @@ class BoundingBox(TimeStampedModel):
     # This is the score from the model if its a bot. It is 1 if its by a human initially
     # Later, the human confidence itself can be added in as a function of tenure
     confidence = models.FloatField(default=1.0)
+
+    # The threshold of the bot that created the bounding box to show in the pipeline.
+    confidence_threshold = models.FloatField(default=0.0)
 
     # List of accept/rejects for this annotation
     accepted_by = models.ManyToManyField(Annotator, related_name="accepted_annotation", blank=True)

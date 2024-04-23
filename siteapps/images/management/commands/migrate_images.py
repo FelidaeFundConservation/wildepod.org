@@ -1,6 +1,7 @@
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
 from io import BytesIO
 
 import requests
@@ -49,9 +50,15 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--macrosite", type=str, default=None, nargs="?", help="Camera station to filter images by."
+        ),
+        parser.add_argument(
+            "--skip_main_flags",
+            action="store_true",
+            help="Recalculate main annotation pipeline eligibility flags.",
         )
 
     def handle(self, *args, **options):
+        skip_main_flags = options.get("skip_main_flags")
         model_name = options.get("model_name")
         camera_station = options.get("camera_station")
         macrosite = options.get("macrosite")
@@ -100,10 +107,45 @@ class Command(BaseCommand):
 
         def process_image(image):
             nonlocal image_count
-            # Handles all checks and flag setting.
-            calculateCategoryAnnotationFlags(image)
-            calculateSpeciesAnnotationFlags(image)
-            calculateActivityAnnotationFlags(image)
+            nonlocal skip_main_flags
+            # Handles all checks and flag setting for main annotation criteria.
+            if not skip_main_flags:
+                calculateCategoryAnnotationFlags(image)
+                calculateSpeciesAnnotationFlags(image)
+                calculateActivityAnnotationFlags(image)
+
+            # Set if the image has AI detected cats
+            if image.species_ai_detections:
+                image.has_cats = "Puma" in image.species_ai_detections or "Bobcat" in image.species_ai_detections
+
+            # Set image bbox-related precomputed flags
+            bboxes = image.boundingbox_set.all()
+            image.has_bbox_above_confidence_threshold = bboxes.filter(
+                ~Q(validity__in=["Invalid", None]), image=image, confidence__gte=F("confidence_threshold")
+            ).exists()
+            image.has_uncertain_bbox = bboxes.filter(validity="Uncertain").exists()
+            # Set the confidence threshold for bboxes
+            for bbox in bboxes:
+                if bbox.created_by.bot is not None:
+                    bbox.confidence_threshold = bbox.created_by.bot.threshold
+                    bbox.save()
+
+            # Set context images
+            image.context_image_gcloud_paths = list(
+                Image.objects.filter(
+                    upload=image.upload,
+                    upload__camera_station=image.upload.camera_station,
+                    trigger_timestamp__lt=image.trigger_timestamp,
+                    trigger_timestamp__gt=image.trigger_timestamp - timedelta(minutes=10),
+                ).values_list("thumbnail_gcloud_path", flat=True)[:20]
+            ) + list(
+                Image.objects.filter(
+                    upload=image.upload,
+                    upload__camera_station=image.upload.camera_station,
+                    trigger_timestamp__gte=image.trigger_timestamp,
+                    trigger_timestamp__lt=image.trigger_timestamp + timedelta(minutes=10),
+                ).values_list("thumbnail_gcloud_path", flat=True)[:20]
+            )
 
             if model_name:
                 try:
@@ -122,8 +164,6 @@ class Command(BaseCommand):
                     f"{Fore.YELLOW}\n==================================={Style.RESET_ALL}"
                     f"\nTime elapsed: {time.time() - start_time:.2f} seconds"
                     f"\nImages checked: {image_count} of {total_image_count}"
-                    f"\nExample detections: {image.species_ai_detections}"
-                    f"\nExample Image: https://wildepod.org/images/image/{image.id}"
                     f"\n",
                     end="\r",
                     flush=True,
@@ -150,18 +190,11 @@ class Command(BaseCommand):
         images_tally = (
             Image.objects.filter(
                 Exists(
-                    BoundingBox.objects.filter(image=OuterRef("pk"))
-                    .annotate(
-                        confidence_threshold=Case(
-                            When(created_by__type="bot", then="created_by__bot__threshold"),
-                            default=0.0,
-                        ),
-                    )
-                    .filter(
+                    BoundingBox.objects.filter(image=OuterRef("pk")).filter(
                         confidence__gte=F("confidence_threshold"),
                     )
                 ),
-                use_precomputed_flags=False,
+                species_pipeline_complete=False,
                 **kwargs,
             )
             .distinct()

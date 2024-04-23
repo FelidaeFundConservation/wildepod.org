@@ -7,6 +7,7 @@ import google.auth.transport.requests
 import google.oauth2.id_token
 import requests
 from django.conf import settings
+from django.db.models import F, Q
 from images.models import Annotator, Bot, BoundingBox, Category, Image
 from my_utils.storages import MediaRootGoogleCloudStorage
 from requests.adapters import HTTPAdapter
@@ -39,6 +40,12 @@ http.mount("https://", adapter)
 http.mount("http://", adapter)
 
 MEGADETECTOR_LABEL_MAP = {"1": "animal", "2": "person", "3": "vehicle"}
+
+
+def has_bbox_above_confidence_threshold(image):
+    return image.boundingbox_set.filter(
+        ~Q(validity__in=["Invalid", None]), image=image, confidence__gte=F("confidence_threshold")
+    ).exists()
 
 
 # Function to save the thumbnails of the image
@@ -180,6 +187,7 @@ def add_bounding_boxes(image: Image, image_url: str, bot: Bot, id_token: str, an
             w=detection["bbox"][2],
             h=detection["bbox"][3],
             created_by=annotator,
+            confidence_threshold=bot.threshold,
         )
         if created:
             logging.info(
@@ -194,6 +202,11 @@ def add_bounding_boxes(image: Image, image_url: str, bot: Bot, id_token: str, an
             created_by=annotator,
             confidence=detection["conf"],
         )
+
+    # Set bbox-related pre-computed flags
+    image.has_bbox_above_confidence_threshold = has_bbox_above_confidence_threshold(image)
+    image.has_uncertain_bbox = image.boundingbox_set.filter(validity="Uncertain").exists()
+    image.save()
 
     logging.info("All bounding boxes created successfully.")
 
@@ -222,6 +235,7 @@ def process_image(image: Image):
 
             image.processed = True
             image.use_precomputed_flags = True
+            image.has_cats = "Puma" in image.species_ai_detections or "Bobcat" in image.species_ai_detections
             image.save()
             logging.info("Successfully saved image to database.")
         except Exception as e:

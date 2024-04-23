@@ -29,7 +29,12 @@ from images.models import (
     SpeciesName,
 )
 from images.models.custom_fields import get_filter_params
-from images.processors import process_activity_annotations, process_species_annotations, run_model_inference
+from images.processors import (
+    has_bbox_above_confidence_threshold,
+    process_activity_annotations,
+    process_species_annotations,
+    run_model_inference,
+)
 from PIL import Image as PILImage
 
 MAX_VOTES_PER_IMAGE = 2
@@ -166,47 +171,22 @@ def staff_review_query_filter(images, annotator):
 
 # Filter criteria for an image to appear in the Species pipeline
 def species_pipeline_query(images, annotator):
-    images = (
-        images.filter(
-            # It must not be checked or skipped by the current annotator
-            ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
-            # Image has at least one bounding box tagged by MegaDetector above the predetermined threshold
-            Exists(
-                BoundingBox.objects.filter(image=OuterRef("pk"))
-                .annotate(
-                    # TODO: This calculation can happen after MegaDetector processing, and we can set a flag.
-                    confidence_threshold=Case(
-                        When(created_by__type="bot", then="created_by__bot__threshold"),
-                        default=0.0,
-                    ),
-                )
-                .filter(
-                    ~Q(validity__in=["Invalid", None]),
-                    confidence__gte=F("confidence_threshold"),
-                )
-            ),
-            # Image has at least 1 uncertain bounding box
-            Exists(BoundingBox.objects.filter(image=OuterRef("pk"), validity="Uncertain"))
-            # OR is species incomplete, excluding images with only people/vehicles if category's been confirmed
-            | (
-                ~Q(has_humans=True, has_animals=False)
-                & ~Q(has_vehicles=True, has_animals=False)
-                & Q(category_pipeline_complete=True, species_pipeline_complete=False)
-            ),
-            # Image has been preprocessed and we can use precomputed flags
-            use_precomputed_flags=True,
-        )
-        .annotate(
-            # Potential cats first
-            has_cats=Case(
-                When(species_ai_detections__contains="Puma", then=Value(1)),
-                When(species_ai_detections__contains="Bobcat", then=Value(1)),
-                default=Value(0),
-                output_field=BooleanField(),
-            )
-        )
-        .order_by("-upload__priority", "-has_cats", "upload__camera_station", "trigger_timestamp")
-    )
+    images = images.filter(
+        # It must not be checked or skipped by the current annotator
+        ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
+        # Image has at least one bounding box tagged by MegaDetector above the predetermined threshold
+        Q(has_bbox_above_confidence_threshold=True),
+        # Image has at least 1 uncertain bounding box
+        Q(has_uncertain_bbox=True)
+        # OR is species incomplete, excluding images with only people/vehicles if category's been confirmed
+        | (
+            ~Q(has_humans=True, has_animals=False)
+            & ~Q(has_vehicles=True, has_animals=False)
+            & Q(category_pipeline_complete=True, species_pipeline_complete=False)
+        ),
+        # Image has been preprocessed and we can use precomputed flags
+        use_precomputed_flags=True,
+    ).order_by("-upload__priority", "-has_cats", "upload__camera_station", "trigger_timestamp")
 
     images = staff_review_query_filter(images, annotator)
 
@@ -553,10 +533,13 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         get_annotation_history(context, queue, queue_name, annotator)
 
         # Gather surrounding context images
-        try:
-            get_context_images(queue=queue, context=context)
-        except Exception:
-            logging.info(f"Failed to get context images for image {image_id}.")
+        if image.context_image_gcloud_paths:
+            try:
+                from ast import literal_eval
+
+                context["context_images"] = literal_eval(str(image.context_image_gcloud_paths))
+            except Exception:
+                logging.info(f"Failed to get context images for image {image_id}.")
 
         # Gather all annotations for bounding boxes to display in admin view.
         get_all_annotations(image=image, context=context)
@@ -569,6 +552,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         # Get burst images for multi-image tagging
         if queue["index"] < context["queue_length"]:
             get_burst_images(context=context, queue=queue, queue_name=queue_name, annotator=annotator)
+
     else:
         image = None
         context["image"] = None
@@ -638,24 +622,6 @@ def get_valid_or_uncertain_bboxes(image):
     annotate(zipped_querysets)
 
     return [bbox_obj for bbox_obj, bbox_values in zipped_querysets if bbox_values.get("status") != "Invalid"]
-
-
-def get_context_images(queue, context):
-    CONTEXT_AMOUNT = 20
-
-    context["context_images"] = list(
-        Image.objects.filter(
-            upload__camera_station=context["image"].upload.camera_station,
-            trigger_timestamp__lt=context["image"].trigger_timestamp,
-            trigger_timestamp__gt=context["image"].trigger_timestamp - datetime.timedelta(minutes=10),
-        )[:CONTEXT_AMOUNT]
-    ) + list(
-        Image.objects.filter(
-            upload__camera_station=context["image"].upload.camera_station,
-            trigger_timestamp__gte=context["image"].trigger_timestamp,
-            trigger_timestamp__lt=context["image"].trigger_timestamp + datetime.timedelta(minutes=10),
-        )[:CONTEXT_AMOUNT]
-    )
 
 
 def get_all_annotations(image, context):
@@ -1210,11 +1176,16 @@ def calculateSpeciesAnnotationFlags(image):
         and image.category_pipeline_complete
     ):
         image.has_wild_animals = species_annotations.filter(name__species_group="WILD").exists()
+        image.has_cats = species_annotations.filter(name__name__in=["Bobcat", "Puma"]).exists()
         image.species_pipeline_complete = True
     else:
         # Reset the flags if conditions not met (i.e. retroactively send image back)
         image.species_pipeline_complete = False
         image.has_wild_animals = False
+
+    # bbox-related precomputed flags
+    image.has_bbox_above_confidence_threshold = has_bbox_above_confidence_threshold(image)
+    image.has_uncertain_bbox = image.boundingbox_set.filter(validity="Uncertain").exists()
 
     species_annotations_info = []
     for species in list(species_annotations):

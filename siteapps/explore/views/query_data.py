@@ -6,8 +6,7 @@ from crispy_forms.layout import Column, Fieldset, Layout, Row, Submit
 from django import forms
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import (Case, Count, Exists, F, IntegerField, OuterRef,
-                              Q, Subquery, Sum, Value, When)
+from django.db.models import Case, Count, Exists, F, IntegerField, OuterRef, Q, Subquery, Sum, Value, When
 from django.db.models.functions import Cast
 from django.shortcuts import render
 from django.views.generic import FormView
@@ -69,35 +68,28 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                 filterset["upload__camera_station__micro_site__macro_site__in"] = macrosites
 
             # Image has at least one bounding box tagged by MegaDetector above the predetermined threshold
-            bounding_box_md_filter = BoundingBox.objects.filter(
-                    image=OuterRef("pk")
-                ).annotate(
-                    confidence_threshold=Case(
-                        When(created_by__type="bot", then="created_by__bot__threshold"),
-                        default=0.0,
-                    )
-                ).filter(
-                    confidence__gte=F("confidence_threshold")
-                )
-            
+            bounding_box_md_filter = BoundingBox.objects.filter(image=OuterRef("pk")).filter(
+                confidence__gte=F("confidence_threshold")
+            )
+
             queryset = Image.objects.filter(**filterset)
             aggregate_column_name = "upload__camera_station__micro_site__macro_site__name"
-            queryset = queryset.values(aggregate_column_name).annotate(
+            queryset = (
+                queryset.values(aggregate_column_name)
+                .annotate(
                     name=F(aggregate_column_name),
                     total=Count("id"),
-                    objects_detected_md=Count(
-                        Case(
-                            When(Exists(bounding_box_md_filter), then=1)
-                        )
-                    ),
+                    objects_detected_md=Count(Case(When(Exists(bounding_box_md_filter), then=1))),
                     category_complete=Sum(Cast("category_pipeline_complete", IntegerField())),
                     has_animals=Sum(Cast("has_animals", IntegerField())),
                     has_humans=Sum(Cast("has_humans", IntegerField())),
                     has_vehicles=Sum(Cast("has_vehicles", IntegerField())),
                     species_complete=Sum(Cast("species_pipeline_complete", IntegerField())),
                     has_wild_animals=Sum(Cast("has_wild_animals", IntegerField())),
-                    activity_complete=Sum(Cast("activity_pipeline_complete", IntegerField()))
-                ).order_by("-total")
+                    activity_complete=Sum(Cast("activity_pipeline_complete", IntegerField())),
+                )
+                .order_by("-total")
+            )
 
             results = list(queryset)
             logging.info(f"Querying data : {queryset.query}")

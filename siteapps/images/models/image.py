@@ -75,13 +75,16 @@ class Image(TimeStampedModel):
     # but since the content is mostly images, videos are parked under "Image" as a special type
     is_video = models.BooleanField(default=False)
 
+    # These are the nearby images in the upload set
+    context_image_gcloud_paths = models.TextField(null=True)
+
     # Processed flag. A general flag to indicate if the image went through the custom processing pipeline
     # This will be initially only have metadata retrieved but will later include thumbnail creation/storage
     # and additional ML processing.
     processed = models.BooleanField(default=False)
 
     # Content specific information extracted from the EXIF by dropbox
-    trigger_timestamp = models.DateTimeField(blank=True, null=True)
+    trigger_timestamp = models.DateTimeField(blank=True, null=True, db_index=True)
     time_correction_applied = models.BooleanField(default=False)
 
     # In an ideal world, height/weight & lat/long would be separate classes but seems needless here and are stored as pure values
@@ -122,6 +125,13 @@ class Image(TimeStampedModel):
     has_humans = models.BooleanField(default=False)
     has_vehicles = models.BooleanField(default=False)
     has_wild_animals = models.BooleanField(default=False)
+    has_cats = models.BooleanField(default=False)
+
+    # Has at least one bbox above confidence threshold
+    has_bbox_above_confidence_threshold = models.BooleanField(default=False)
+
+    # Has uncertain bboxes that are yet to be validated
+    has_uncertain_bbox = models.BooleanField(default=False)
 
     # Additional field to support incremental migration to the new precomputed flags
     use_precomputed_flags = models.BooleanField(default=False)

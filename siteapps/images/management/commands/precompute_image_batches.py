@@ -1,14 +1,7 @@
-from concurrent.futures import ThreadPoolExecutor
-
-import requests
 from django.conf import settings
-from django.core.management.base import BaseCommand, CommandError
-from django.db import connection
-from django.db.models import Case, Exists, F, OuterRef, Prefetch, Q, When
+from django.core.management.base import BaseCommand
 from images.models import Annotator, BoundingBox, Category, Image, ImageQueue
 from images.views import activity_pipeline_query, species_pipeline_query
-from images.views.annotation import calculateActivityAnnotationFlags, calculateSpeciesAnnotationFlags
-from PIL import Image as PILImage
 
 NUM_QUEUES = 50
 

@@ -399,10 +399,13 @@ def skip_ineligible_images(queue_name, queue, annotator):
     return image
 
 
-def get_annotation_history(context, queue, queue_name, annotator):
+def get_annotation_history(context, queue, queue_name, annotator, precomputed_queue=None):
     HISTORY_LENGTH = 10
 
-    image_history = Image.objects.filter(id__in=queue["images"])
+    if precomputed_queue:
+        image_history = precomputed_queue.images.all()
+    else:
+        image_history = Image.objects.filter(id__in=queue["images"])
     context["previous_annotations"] = []
 
     if SPECIES_QUEUE_NAME in queue_name:
@@ -438,14 +441,22 @@ def get_annotation_history(context, queue, queue_name, annotator):
     context["previous_annotation_info"] = zip(context["previous_queue_images"], context["previous_annotations"])
 
 
-def get_burst_images(context, queue, queue_name, annotator):
+def get_burst_images(context, queue, queue_name, annotator, precomputed_queue=None, current_queue_image=None):
     BURST_TIME_THRESHOLD = 120
 
     images = []
-    prev_timestamp = Image.objects.get(id=queue["images"][queue["index"]]).trigger_timestamp
+
+    if precomputed_queue:
+        image_ids = precomputed_queue.images.filter(
+            trigger_timestamp__gt=current_queue_image.trigger_timestamp
+        ).values_list("id", flat=True)
+        prev_timestamp = current_queue_image.trigger_timestamp
+    else:
+        image_ids = queue["images"][queue["index"] + 1 :]
+        prev_timestamp = Image.objects.get(id=queue["images"][queue["index"]]).trigger_timestamp
 
     # Check only the next images in queue
-    for image_id in queue["images"][queue["index"] + 1 :]:
+    for image_id in image_ids:
 
         # Make sure the batch images haven't already been voted/completed
         try:
@@ -593,8 +604,10 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         context["luma_adjustment"] = calculate_image_luma(image, context["bounding_boxes"])
 
         # Get previously annotated images and their information
-        get_annotation_history(context, queue, queue_name, annotator)
-
+        if precomputed_queue:
+            get_annotation_history(context, queue, queue_name, annotator, precomputed_queue=precomputed_queue)
+        else:
+            get_annotation_history(context, queue, queue_name, annotator)
         # Gather surrounding context images
         if image.context_image_gcloud_paths:
             try:
@@ -613,7 +626,16 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         )
 
         # Get burst images for multi-image tagging
-        if queue["index"] < context["queue_length"]:
+        if precomputed_queue:
+            get_burst_images(
+                context=context,
+                queue=queue,
+                queue_name=queue_name,
+                annotator=annotator,
+                precomputed_queue=precomputed_queue,
+                current_queue_image=image,
+            )
+        elif queue["index"] < context["queue_length"]:
             get_burst_images(context=context, queue=queue, queue_name=queue_name, annotator=annotator)
 
     else:

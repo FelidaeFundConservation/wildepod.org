@@ -12,7 +12,7 @@ class Command(BaseCommand):
     help = "Precompute batches of images to assign to annotators, instead of querying entire database each time."
 
     def handle(self, *args, **options):
-        images = Image.objects.all()
+        images = Image.objects.all().exclude(species_ai_detections__in=["[]", "['Unknown']"])
         images = species_pipeline_query(images=images, annotator=None)[: settings.ANNOTATION_QUEUE_SIZE * NUM_QUEUES]
 
         # Remove previously cached queues

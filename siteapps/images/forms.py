@@ -42,6 +42,14 @@ class UploadForm(forms.ModelForm):
         help_text="If there was a daylight savings shift, specify the month the shift occurred (March or November)",
     )
 
+    upload_method_choices = Upload._meta.get_field("upload_method").choices
+    upload_method = forms.ChoiceField(
+        label="Upload Method",
+        choices=upload_method_choices,
+        widget=forms.Select,
+        initial="E",
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
@@ -59,6 +67,10 @@ class UploadForm(forms.ModelForm):
                 Column("volunteer", css_class="form-group col-md-4"),
                 Column("date_retrieved", css_class="form-group col-md-4"),
                 Column("last_action", css_class="form-group col-md-4"),
+                css_class="form-row mb-3 px-3",
+            ),
+            Row(
+                Column("upload_method", css_class="form-group"),
                 css_class="form-row mb-3 px-3",
             ),
             Row(Column("comments", css_class="form-group"), css_class="form-row mb-3 px-3"),
@@ -109,6 +121,7 @@ class UploadForm(forms.ModelForm):
             "volunteer",
             "last_action",
             "comments",
+            "upload_method",
         ]
 
         labels = {

@@ -153,22 +153,9 @@ class Upload(TimeStampedModel):
                 self.dropbox_request_open = response.is_open
             else:
                 response = dbx.files_create_folder(self.dropbox_folder_path)
-                # Get the user's Dropbox root info
-                root_info = dbx.users_get_current_account().root_info
 
-                app_folder = "wildepod_prod" if is_prod else "wildepod_staging"
-
-                # Construct and encode the absolute dropbox url from the information we have. There is some hardcoding here
-                # since we can only retrieve the relative paths via the Dropbox API
-                full_dropbox_url = (
-                    "https://www.dropbox.com/work"
-                    + root_info.home_path
-                    + "/Apps/"
-                    + app_folder
-                    + self.dropbox_folder_path
-                )
-                full_dropbox_url = quote(full_dropbox_url, safe=":/")
-                self.dropbox_direct_url = full_dropbox_url
+                # Construct and encode the absolute dropbox url 
+                self.dropbox_direct_url = settings.DROPBOX_URL_PREFIX + quote(self.dropbox_folder_path, safe=":/")
 
         super().save(*args, **kwargs)
 

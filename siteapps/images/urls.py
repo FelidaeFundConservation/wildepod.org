@@ -6,6 +6,7 @@ from .views import (
     AnnotateSpeciesView,
     ApplyTimeCorrectionView,
     ChangeAnnotationView,
+    CheckDropbox2FAEmailView,
     CustomAnnotationView,
     DeleteAnnotationView,
     FixUploadSetsView,
@@ -128,5 +129,10 @@ urlpatterns = [
         "time-correction-status",
         TimeCorrectionStatusView.as_view(),
         name="time_correction_status",
+    ),
+    path(
+        "uploads/check-dropbox-2fa-email/",
+        CheckDropbox2FAEmailView.as_view(),
+        name="check_dropbox_2fa_email",
     ),
 ]

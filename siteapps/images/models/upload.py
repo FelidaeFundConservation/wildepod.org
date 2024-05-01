@@ -132,8 +132,7 @@ class Upload(TimeStampedModel):
         is_prod = "prod" in settings.WSGI_APPLICATION
         is_staging = "staging" in settings.WSGI_APPLICATION
         # If the object is being created for the first time, create a Dropbox request url and populate relevant fields
-        # and (is_prod or is_staging)
-        if self._state.adding:
+        if self._state.adding and (is_prod or is_staging):
             # First auto-generate a foldername. Always lowercase since dropbox is case insensitive anyway
             self.dropbox_folder_name = (
                 f"{self.date_retrieved.date()} - {self.camera_station.micro_site.macro_site.name} -"

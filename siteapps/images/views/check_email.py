@@ -49,7 +49,8 @@ class CheckDropbox2FAEmailView(LoginRequiredMixin, View):
 
 
     def parse_email(self, msg):
-        # Construct a regular expression pattern
+        # Construct a regular expression pattern.
+        # TODO: This has hardcoded text from the email and is brittle to any changes in wording. 
         pattern = r'security code.*?(\d{6}).*?We noticed'
         
         # Search for the pattern in the message
@@ -67,8 +68,6 @@ class CheckDropbox2FAEmailView(LoginRequiredMixin, View):
         imap_url = settings.EMAIL_2FA_IMAP_URL
         user = settings.EMAIL_2FA_USER
         password = settings.EMAIL_2FA_PASSWORD
-        
-        #'riwf hvry cgot lshz'
 
         # this is done to make SSL connection with GMAIL
         con = imaplib.IMAP4_SSL(imap_url) 
@@ -79,7 +78,7 @@ class CheckDropbox2FAEmailView(LoginRequiredMixin, View):
         # calling function to check for email under this label
         con.select('Inbox') 
         
-        # fetching emails from this user "tu**h*****1@gmail.com"
+        # fetching emails from Dropbox
         msg = self.get_last_email('no-reply@dropbox.com', con)
         if msg:
             code = self.parse_email(msg)

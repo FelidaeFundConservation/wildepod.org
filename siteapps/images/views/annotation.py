@@ -508,7 +508,7 @@ def get_precomputed_queue(queue_name, annotator):
     queue_condition = Exists(
         Image.objects.filter(
             annotator_check,
-            queue_images=OuterRef("pk"),
+            queue=OuterRef("pk"),
             **pipeline_kwarg,
         )
     )

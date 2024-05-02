@@ -258,4 +258,4 @@ class ImageQueue(TimeStampedModel):
         Annotator, on_delete=models.PROTECT, related_name="assigned_to_annotator", default=None, null=True
     )
     # The images to be annotated
-    images = models.ManyToManyField(Image, related_name="queue_images", blank=True)
+    images = models.ManyToManyField(Image, related_name="queue", blank=True)

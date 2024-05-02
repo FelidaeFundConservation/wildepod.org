@@ -37,7 +37,7 @@ class CheckDropbox2FAEmailView(LoginRequiredMixin, View):
 
             if message_ids:
                 # By default, Gmail orders messages in order of which they were received. So we can fetch the last message.
-                last_message_id = message_ids[0]
+                last_message_id = message_ids[-1]
 
                 typ, byte_msg = con.fetch(last_message_id, '(RFC822)')
                 msg = email.message_from_bytes(byte_msg[0][1])

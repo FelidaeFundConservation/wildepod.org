@@ -10,10 +10,11 @@ from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import connections
-from django.db.models import BooleanField, Case, CharField, Exists, F, OuterRef, Q, Subquery, Value, When
+from django.db.models import BooleanField, Case, CharField, Count, Exists, F, OuterRef, Q, Subquery, Value, When
 from django.http.response import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils import timezone
 from django.views.generic import FormView
 from django.views.generic.base import TemplateView, View
 from images.forms import AnnotationForm
@@ -25,6 +26,7 @@ from images.models import (
     BoundingBox,
     Category,
     Image,
+    ImageQueue,
     Species,
     SpeciesName,
 )
@@ -171,6 +173,7 @@ def staff_review_query_filter(images, annotator):
 
 # Filter criteria for an image to appear in the Species pipeline
 def species_pipeline_query(images, annotator):
+    # Only queried when there's no precomputed queues available
     images = images.filter(
         # It must not be checked or skipped by the current annotator
         ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
@@ -396,10 +399,13 @@ def skip_ineligible_images(queue_name, queue, annotator):
     return image
 
 
-def get_annotation_history(context, queue, queue_name, annotator):
+def get_annotation_history(context, queue, queue_name, annotator, precomputed_queue=None):
     HISTORY_LENGTH = 10
 
-    image_history = Image.objects.filter(id__in=queue["images"])
+    if precomputed_queue:
+        image_history = precomputed_queue.images.all()
+    else:
+        image_history = Image.objects.filter(id__in=queue["images"])
     context["previous_annotations"] = []
 
     if SPECIES_QUEUE_NAME in queue_name:
@@ -435,14 +441,22 @@ def get_annotation_history(context, queue, queue_name, annotator):
     context["previous_annotation_info"] = zip(context["previous_queue_images"], context["previous_annotations"])
 
 
-def get_burst_images(context, queue, queue_name, annotator):
+def get_burst_images(context, queue, queue_name, annotator, precomputed_queue=None, current_queue_image=None):
     BURST_TIME_THRESHOLD = 120
 
     images = []
-    prev_timestamp = Image.objects.get(id=queue["images"][queue["index"]]).trigger_timestamp
+
+    if precomputed_queue:
+        image_ids = precomputed_queue.images.filter(
+            trigger_timestamp__gt=current_queue_image.trigger_timestamp
+        ).values_list("id", flat=True)
+        prev_timestamp = current_queue_image.trigger_timestamp
+    else:
+        image_ids = queue["images"][queue["index"] + 1 :]
+        prev_timestamp = Image.objects.get(id=queue["images"][queue["index"]]).trigger_timestamp
 
     # Check only the next images in queue
-    for image_id in queue["images"][queue["index"] + 1 :]:
+    for image_id in image_ids:
 
         # Make sure the batch images haven't already been voted/completed
         try:
@@ -474,6 +488,58 @@ def get_burst_images(context, queue, queue_name, annotator):
     ]
 
 
+# Get pipeline-specific query filters for precomputed queue
+def get_pipeline_filters(queue_name, annotator):
+    # Try to get an eligible precomputed queue
+    pipeline_kwarg = {}
+    if SPECIES_QUEUE_NAME in queue_name:
+        annotator_check = ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator])
+        pipeline_kwarg["species_pipeline_complete"] = False
+    elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
+        annotator_check = ~Q(activity_checked_by__in=[annotator]) & ~Q(activity_skipped_by__in=[annotator])
+        pipeline_kwarg["activity_pipeline_complete"] = False
+
+    return annotator_check, pipeline_kwarg
+
+
+# Try to get a valid precomputed queue
+def get_precomputed_queue(queue_name, annotator):
+    annotator_check, pipeline_kwarg = get_pipeline_filters(queue_name, annotator)
+    queue_condition = Exists(
+        Image.objects.filter(
+            annotator_check,
+            queue=OuterRef("pk"),
+            **pipeline_kwarg,
+        )
+    )
+
+    precomputed_queue = ImageQueue.objects.annotate(has_eligible_image=queue_condition).filter(
+        assigned_to=annotator, has_eligible_image=True
+    )
+    if precomputed_queue.exists():
+        precomputed_queue = precomputed_queue.first()
+        logging.info("Got image from assigned precomputed queue.")
+    else:
+        logging.info("No assigned precomputed queue. Attempting to assign...")
+        try:
+            precomputed_queue = (
+                ImageQueue.objects.annotate(has_eligible_image=queue_condition)
+                .filter(
+                    Q(modified__lte=timezone.now() - datetime.timedelta(hours=1)) | Q(assigned_to=None),
+                    has_eligible_image=True,
+                )
+                .first()
+            )
+            precomputed_queue.assigned_to = annotator
+            precomputed_queue.save()
+            logging.info("Successfully assigned a precomputed queue.")
+        except Exception as e:
+            precomputed_queue = None
+            logging.info("No precomputed queues left to assign. Querying images...")
+
+    return precomputed_queue
+
+
 # Retrieves data to pass to the views through context (namely queue images and annotations info).
 def populate_view_context(queue_name, context, self, activity_category=None):
     # First get the annotator object for the user
@@ -497,7 +563,15 @@ def populate_view_context(queue_name, context, self, activity_category=None):
 
     return_to_image_id = None
 
-    if queue_available:
+    # Try to get precomputed queue for the pipeline
+    annotator_check, pipeline_kwarg = get_pipeline_filters(queue_name, annotator)
+    precomputed_queue = get_precomputed_queue(queue_name=queue_name, annotator=annotator)
+
+    # Get eligible images from precomputed queue if it exists
+    if precomputed_queue:
+        image_id = precomputed_queue.images.filter(annotator_check, **pipeline_kwarg).first().id
+    # Use old queue system as a fallback method if the precomputed queues run out
+    elif queue_available:
         image_id, return_to_image_id = get_next_queue_image(self=self, context=context, queue=queue)
     else:
         logging.info("Gathering new queue of images...")
@@ -515,7 +589,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
     if image_id:
         image = Image.objects.get(id=image_id)
 
-        if return_to_image_id is None:
+        if return_to_image_id is None and not precomputed_queue:
             skip_result = skip_ineligible_images(queue_name=queue_name, queue=queue, annotator=annotator)
             image = skip_result if skip_result else image
 
@@ -530,8 +604,10 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         context["luma_adjustment"] = calculate_image_luma(image, context["bounding_boxes"])
 
         # Get previously annotated images and their information
-        get_annotation_history(context, queue, queue_name, annotator)
-
+        if precomputed_queue:
+            get_annotation_history(context, queue, queue_name, annotator, precomputed_queue=precomputed_queue)
+        else:
+            get_annotation_history(context, queue, queue_name, annotator)
         # Gather surrounding context images
         if image.context_image_gcloud_paths:
             try:
@@ -550,7 +626,16 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         )
 
         # Get burst images for multi-image tagging
-        if queue["index"] < context["queue_length"]:
+        if precomputed_queue:
+            get_burst_images(
+                context=context,
+                queue=queue,
+                queue_name=queue_name,
+                annotator=annotator,
+                precomputed_queue=precomputed_queue,
+                current_queue_image=image,
+            )
+        elif queue["index"] < context["queue_length"]:
             get_burst_images(context=context, queue=queue, queue_name=queue_name, annotator=annotator)
 
     else:

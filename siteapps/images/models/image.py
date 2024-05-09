@@ -238,3 +238,24 @@ class Image(TimeStampedModel):
         # indexes = [
         #     models.Index(fields=['upload',])
         # ]
+
+
+# A precomputed batch of images to annotate
+class ImageQueue(TimeStampedModel):
+    # Which stage the images are in
+    pipeline_name = models.CharField(
+        "Pipeline",
+        max_length=250,
+        choices=(
+            ("SPECIES", "Species"),
+            ("ACTIVITY_HUMAN", "Human Activity"),
+            ("ACTIVITY_ANIMAL", "Animal Activity"),
+        ),
+        default="SPECIES",
+    )
+    # The annotator this queue is currently assigned to.
+    assigned_to = models.ForeignKey(
+        Annotator, on_delete=models.PROTECT, related_name="assigned_to_annotator", default=None, null=True
+    )
+    # The images to be annotated
+    images = models.ManyToManyField(Image, related_name="queue", blank=True)

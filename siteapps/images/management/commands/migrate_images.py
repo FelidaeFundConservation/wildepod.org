@@ -12,6 +12,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
 from django.db.models import Case, Exists, F, OuterRef, Prefetch, Q, When
 from images.models import Annotator, BoundingBox, Category, Image
+from images.views import activity_pipeline_query, species_pipeline_query
 from images.views.annotation import (
     calculateActivityAnnotationFlags,
     calculateCategoryAnnotationFlags,
@@ -187,7 +188,7 @@ class Command(BaseCommand):
         print(f"\nQuerying images... please wait a moment...\n")
 
         # NOTE: Change this query as needed if provided args aren't enough
-        images_tally = (
+        images_tally = species_pipeline_query(
             Image.objects.filter(
                 Exists(
                     BoundingBox.objects.filter(image=OuterRef("pk")).filter(
@@ -196,9 +197,11 @@ class Command(BaseCommand):
                 ),
                 species_pipeline_complete=False,
                 **kwargs,
+                upload__priority=4,
             )
             .distinct()
-            .order_by("-upload__priority", "trigger_timestamp")
+            .order_by("-upload__priority", "trigger_timestamp"),
+            annotator=None,
         )
 
         images = images_tally.iterator(chunk_size=chunk_size)

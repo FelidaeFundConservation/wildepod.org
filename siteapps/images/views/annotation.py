@@ -447,9 +447,11 @@ def get_burst_images(context, queue, queue_name, annotator, precomputed_queue=No
     images = []
 
     if precomputed_queue:
-        image_ids = precomputed_queue.images.filter(
-            trigger_timestamp__gt=current_queue_image.trigger_timestamp
-        ).values_list("id", flat=True)
+        image_ids = (
+            precomputed_queue.images.filter(trigger_timestamp__gt=current_queue_image.trigger_timestamp)
+            .order_by("trigger_timestamp")
+            .values_list("id", flat=True)
+        )
         prev_timestamp = current_queue_image.trigger_timestamp
     else:
         image_ids = queue["images"][queue["index"] + 1 :]
@@ -508,6 +510,7 @@ def get_precomputed_queue(queue_name, annotator):
     queue_condition = Exists(
         Image.objects.filter(
             annotator_check,
+            has_bbox_above_confidence_threshold=True,
             queue=OuterRef("pk"),
             **pipeline_kwarg,
         )
@@ -569,7 +572,11 @@ def populate_view_context(queue_name, context, self, activity_category=None):
 
     # Get eligible images from precomputed queue if it exists
     if precomputed_queue:
-        image_id = precomputed_queue.images.filter(annotator_check, **pipeline_kwarg).first().id
+        image_id = (
+            precomputed_queue.images.filter(annotator_check, has_bbox_above_confidence_threshold=True, **pipeline_kwarg)
+            .first()
+            .id
+        )
     # Use old queue system as a fallback method if the precomputed queues run out
     elif queue_available:
         image_id, return_to_image_id = get_next_queue_image(self=self, context=context, queue=queue)

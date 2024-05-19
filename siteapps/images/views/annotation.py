@@ -299,10 +299,16 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
     return queue, image_ids[0] if image_ids else None
 
 
-def get_next_queue_image(self, context, queue):
+def get_reannotation_image(self, context):
     # Exists if user is returning to a previous image
     return_to_image_id = self.request.session.pop("return_to_image_id", None)
     context["is_reannotation"] = return_to_image_id is not None
+
+    return return_to_image_id
+
+
+def get_next_queue_image(self, context, queue):
+    return_to_image_id = get_reannotation_image(self, context)
 
     # If not returning to prev. image,
     # get the next image_id from the existing queue
@@ -564,18 +570,20 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         and queue["index"] < len(queue["images"])
     )
 
-    return_to_image_id = None
-
     # Try to get precomputed queue for the pipeline
     annotator_check, pipeline_kwarg = get_pipeline_filters(queue_name, annotator)
     precomputed_queue = get_precomputed_queue(queue_name=queue_name, annotator=annotator)
 
+    # Image to reannotate to in annotation history, if it exists
+    return_to_image_id = None
+
     # Get eligible images from precomputed queue if it exists
     if precomputed_queue:
+        return_to_image_id = get_reannotation_image(self, context)
         image_id = (
-            precomputed_queue.images.filter(annotator_check, has_bbox_above_confidence_threshold=True, **pipeline_kwarg)
-            .first()
-            .id
+            return_to_image_id
+            if return_to_image_id
+            else precomputed_queue.images.filter(annotator_check, has_bbox_above_confidence_threshold=True, **pipeline_kwarg).first().id
         )
     # Use old queue system as a fallback method if the precomputed queues run out
     elif queue_available:
@@ -604,7 +612,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         context["social_media_worthy"] = image.social_media_worthy
         context["staff_review_needed"] = image.staff_review_needed
         context["bounding_boxes"] = get_valid_or_uncertain_bboxes(image=image)
-        context["queue_index"] = queue["index"]
+        context["queue_index"] = queue["index"] if queue else None
         context["queue_length"] = len(queue["images"])
 
         # Calculate image luma

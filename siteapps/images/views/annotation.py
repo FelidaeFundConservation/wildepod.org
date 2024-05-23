@@ -583,7 +583,11 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         image_id = (
             return_to_image_id
             if return_to_image_id
-            else precomputed_queue.images.filter(annotator_check, has_bbox_above_confidence_threshold=True, **pipeline_kwarg).first().id
+            else precomputed_queue.images.filter(
+                annotator_check, has_bbox_above_confidence_threshold=True, **pipeline_kwarg
+            )
+            .first()
+            .id
         )
     # Use old queue system as a fallback method if the precomputed queues run out
     elif queue_available:
@@ -613,7 +617,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         context["staff_review_needed"] = image.staff_review_needed
         context["bounding_boxes"] = get_valid_or_uncertain_bboxes(image=image)
         context["queue_index"] = queue["index"] if queue else None
-        context["queue_length"] = len(queue["images"])
+        context["queue_length"] = len(queue["images"]) if queue else None
 
         # Calculate image luma
         context["luma_adjustment"] = calculate_image_luma(image, context["bounding_boxes"])

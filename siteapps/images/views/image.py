@@ -28,11 +28,15 @@ class ImageDetailView(LoginRequiredMixin, DetailView):
             ).first()
         except ObjectDoesNotExist:
             pass
+        except BaseException:
+            pass
         try:
             context["previous_image"] = Image.objects.filter(
                 upload=img_obj.upload, trigger_timestamp__lt=img_obj.trigger_timestamp
             ).last()
         except ObjectDoesNotExist:
+            pass
+        except BaseException:
             pass
 
         context["pipeline"] = "species"

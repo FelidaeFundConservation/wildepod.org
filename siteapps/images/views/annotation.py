@@ -949,10 +949,11 @@ def annotation_processor(queue_name, annotation_type, request):
         queue = settings.DATASTORE_CLIENT.get(settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id)))
 
         # Update the index
-        queue["index"] += 1 if not is_reannotation else 0
+        if queue:
+            queue["index"] += 1 if not is_reannotation else 0
 
-        # Update the datastore
-        settings.DATASTORE_CLIENT.put(queue)
+            # Update the datastore
+            settings.DATASTORE_CLIENT.put(queue)
 
         if not skip:
             annotator, created = Annotator.objects.get_or_create(type="human", human=request.user)

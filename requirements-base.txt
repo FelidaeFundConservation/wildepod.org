@@ -35,3 +35,7 @@ rcssmin==1.1.0  # https://github.com/ndparker/rcssmin
 # ------------------------------------------------------------------------------
 requests==2.27.1  # https://github.com/psf/requests
 whitenoise==6.4.0 # https://github.com/evansd/whitenoise
+certifi>=2023.7.22 # not directly required, pinned by Snyk to avoid a vulnerability
+idna>=3.7 # not directly required, pinned by Snyk to avoid a vulnerability
+pyjwt>=2.4.0 # not directly required, pinned by Snyk to avoid a vulnerability
+rsa>=4.7 # not directly required, pinned by Snyk to avoid a vulnerability

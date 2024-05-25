@@ -32,22 +32,23 @@ def precompute_context_images(upload):
     upload_images = Image.objects.filter(upload=upload)
 
     for image in upload_images:
-        image.context_image_gcloud_paths = list(
-            Image.objects.filter(
-                upload=image.upload,
-                upload__camera_station=image.upload.camera_station,
-                trigger_timestamp__lt=image.trigger_timestamp,
-                trigger_timestamp__gt=image.trigger_timestamp - timedelta(minutes=10),
-            ).values_list("thumbnail_gcloud_path", flat=True)[:CONTEXT_AMOUNT]
-        ) + list(
-            Image.objects.filter(
-                upload=image.upload,
-                upload__camera_station=image.upload.camera_station,
-                trigger_timestamp__gte=image.trigger_timestamp,
-                trigger_timestamp__lt=image.trigger_timestamp + timedelta(minutes=10),
-            ).values_list("thumbnail_gcloud_path", flat=True)[:CONTEXT_AMOUNT]
-        )
-        image.save()
+        if image.trigger_timestamp is not None:
+            image.context_image_gcloud_paths = list(
+                Image.objects.filter(
+                    upload=image.upload,
+                    upload__camera_station=image.upload.camera_station,
+                    trigger_timestamp__lt=image.trigger_timestamp,
+                    trigger_timestamp__gt=image.trigger_timestamp - timedelta(minutes=10),
+                ).values_list("thumbnail_gcloud_path", flat=True)[:CONTEXT_AMOUNT]
+            ) + list(
+                Image.objects.filter(
+                    upload=image.upload,
+                    upload__camera_station=image.upload.camera_station,
+                    trigger_timestamp__gte=image.trigger_timestamp,
+                    trigger_timestamp__lt=image.trigger_timestamp + timedelta(minutes=10),
+                ).values_list("thumbnail_gcloud_path", flat=True)[:CONTEXT_AMOUNT]
+            )
+            image.save()
 
 
 def get_dropbox_file_listing(dropbox_folder_path: str) -> list:

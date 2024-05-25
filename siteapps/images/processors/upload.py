@@ -196,10 +196,12 @@ def process_upload(upload_id: uuid.UUID):
         logging.info(f"Upload '{upload.id}' already processed. Skipping processing..")
         return
 
-    logging.info("Closing dropbox request..")
-    # If not, first close the dropbox request & update the object status
-    dbx.file_requests_update(id=upload.dropbox_request_id, open=False)
-    upload.dropbox_request_open = False
+    if upload.upload_method == "E":
+        logging.info("Closing dropbox request..")
+        # If not, first close the dropbox request & update the object status
+        dbx.file_requests_update(id=upload.dropbox_request_id, open=False)
+        upload.dropbox_request_open = False
+
     # Save the upload object
     upload.save()
     logging.info("Successfully closed dropbox request.")

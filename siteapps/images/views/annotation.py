@@ -507,6 +507,10 @@ def get_pipeline_filters(queue_name, annotator):
         annotator_check = ~Q(activity_checked_by__in=[annotator]) & ~Q(activity_skipped_by__in=[annotator])
         pipeline_kwarg["activity_pipeline_complete"] = False
 
+    # Exclude staff review images if not staff
+    if not annotator.human.is_staff:
+        pipeline_kwarg["staff_review_needed"] = False
+
     return annotator_check, pipeline_kwarg
 
 

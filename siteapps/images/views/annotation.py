@@ -458,6 +458,7 @@ def skip_ineligible_images(queue_name, queue, annotator):
     Arguments
     ---
         - queue (google.cloud.datastore.entity.Entity): The retrieved data object from the Datastore for reading the index and images.
+
     Returns
     ---
         - queue_name (string): One of the predefined constant values used to identify the pipeline. (ex. SPECIES_QUEUE_NAME).
@@ -721,7 +722,7 @@ def get_precomputed_queue(queue_name, annotator):
 
     Returns
     ---
-        - precomputed_queue (django.db.models.Q): The assigned precomputed queue associated with an annotator. None if doesn't exist or couldn't assign.
+        - precomputed_queue (images.models.ImageQueue): The assigned precomputed queue associated with an annotator. None if doesn't exist or couldn't assign.
     """
     annotator_check, pipeline_kwarg = get_pipeline_filters(queue_name, annotator)
     queue_condition = Exists(
@@ -1370,7 +1371,7 @@ def annotate(zipped_querysets):
 
     Arguments
     ---
-        - zipped_queryset (iterator): An iterator object containing tuples of annotation objects and their respective values list.
+        - zipped_querysets (iterator): An iterator object containing tuples of annotation objects and their respective values list.
     """
 
     for obj, annotation in zipped_querysets:

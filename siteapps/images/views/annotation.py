@@ -403,22 +403,41 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
     return queue, image_ids[0] if image_ids else None
 
 
+def get_reannotation_image(self, context):
+    """
+    Extracts the selected image ID to return to and reannotate if it exists in the context dict.
+    After returned, can be used to override the original next queue image so it's displayed instead.
+
+    Arguments
+    ---
+        - self (django.views.View): The self variable of the view to extract the image ID from session storage, if it exists.
+        - context (dict): The calling view's context dict to set the reannotation flag in.
+
+    Returns
+    ---
+        - return_to_image_id (String): The id of the image the annotator chose to go back to and reannotate, if any.
+    """
+    # Exists if user is returning to a previous image
+    return_to_image_id = self.request.session.pop("return_to_image_id", None)
+    context["is_reannotation"] = return_to_image_id is not None
+
+    return return_to_image_id
+
+
 def get_next_queue_image(self, context, queue):
     """
     Gets the next single image to be annotated from the queue. This is only called if there's no precomputed queue available.
 
     Arguments
     ---
-        - self (django.views.View): The self variable of the view to extract the image to return to after reannotating if it exists.
-        - context (dict): The calling view's context dict to modify/save the "image to return to after reannotating" data into.
+        - self (django.views.View): The self variable of the view.
+        - context (dict): The calling view's context dict.
         - queue (google.cloud.datastore.entity.Entity): The retrieved data object from the Datastore for reading the index and images.
     Returns
     ---
         - image_id (String): The id of the next image to show for annotation.
     """
-    # Exists if user is returning to a previous image
-    return_to_image_id = self.request.session.pop("return_to_image_id", None)
-    context["is_reannotation"] = return_to_image_id is not None
+    return_to_image_id = get_reannotation_image(self, context)
 
     # If not returning to prev. image,
     # get the next image_id from the existing queue
@@ -613,9 +632,11 @@ def get_burst_images(context, queue, queue_name, annotator, precomputed_queue=No
     images = []
 
     if precomputed_queue:
-        image_ids = precomputed_queue.images.filter(
-            trigger_timestamp__gt=current_queue_image.trigger_timestamp
-        ).values_list("id", flat=True)
+        image_ids = (
+            precomputed_queue.images.filter(trigger_timestamp__gt=current_queue_image.trigger_timestamp)
+            .order_by("trigger_timestamp")
+            .values_list("id", flat=True)
+        )
         prev_timestamp = current_queue_image.trigger_timestamp
     else:
         image_ids = queue["images"][queue["index"] + 1 :]
@@ -679,6 +700,10 @@ def get_pipeline_filters(queue_name, annotator):
         annotator_check = ~Q(activity_checked_by__in=[annotator]) & ~Q(activity_skipped_by__in=[annotator])
         pipeline_kwarg["activity_pipeline_complete"] = False
 
+    # Exclude staff review images if not staff
+    if not annotator.human.is_staff:
+        pipeline_kwarg["staff_review_needed"] = False
+
     return annotator_check, pipeline_kwarg
 
 
@@ -702,6 +727,7 @@ def get_precomputed_queue(queue_name, annotator):
     queue_condition = Exists(
         Image.objects.filter(
             annotator_check,
+            has_bbox_above_confidence_threshold=True,
             queue=OuterRef("pk"),
             **pipeline_kwarg,
         )
@@ -768,15 +794,25 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         and queue["index"] < len(queue["images"])
     )
 
-    return_to_image_id = None
-
     # Try to get precomputed queue for the pipeline
     annotator_check, pipeline_kwarg = get_pipeline_filters(queue_name, annotator)
     precomputed_queue = get_precomputed_queue(queue_name=queue_name, annotator=annotator)
 
+    # Image to reannotate to in annotation history, if it exists
+    return_to_image_id = None
+
     # Get eligible images from precomputed queue if it exists
     if precomputed_queue:
-        image_id = precomputed_queue.images.filter(annotator_check, **pipeline_kwarg).first().id
+        return_to_image_id = get_reannotation_image(self, context)
+        image_id = (
+            return_to_image_id
+            if return_to_image_id
+            else precomputed_queue.images.filter(
+                annotator_check, has_bbox_above_confidence_threshold=True, **pipeline_kwarg
+            )
+            .first()
+            .id
+        )
     # Use old queue system as a fallback method if the precomputed queues run out
     elif queue_available:
         image_id, return_to_image_id = get_next_queue_image(self=self, context=context, queue=queue)
@@ -804,8 +840,8 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         context["social_media_worthy"] = image.social_media_worthy
         context["staff_review_needed"] = image.staff_review_needed
         context["bounding_boxes"] = get_valid_or_uncertain_bboxes(image=image)
-        context["queue_index"] = queue["index"]
-        context["queue_length"] = len(queue["images"])
+        context["queue_index"] = queue["index"] if queue else None
+        context["queue_length"] = len(queue["images"]) if queue else None
 
         # Calculate image luma
         context["luma_adjustment"] = calculate_image_luma(image, context["bounding_boxes"])
@@ -1179,10 +1215,11 @@ def annotation_processor(queue_name, annotation_type, request):
         queue = settings.DATASTORE_CLIENT.get(settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id)))
 
         # Update the index
-        queue["index"] += 1 if not is_reannotation else 0
+        if queue:
+            queue["index"] += 1 if not is_reannotation else 0
 
-        # Update the datastore
-        settings.DATASTORE_CLIENT.put(queue)
+            # Update the datastore
+            settings.DATASTORE_CLIENT.put(queue)
 
         if not skip:
             annotator, created = Annotator.objects.get_or_create(type="human", human=request.user)

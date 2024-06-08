@@ -32,22 +32,23 @@ def precompute_context_images(upload):
     upload_images = Image.objects.filter(upload=upload)
 
     for image in upload_images:
-        image.context_image_gcloud_paths = list(
-            Image.objects.filter(
-                upload=image.upload,
-                upload__camera_station=image.upload.camera_station,
-                trigger_timestamp__lt=image.trigger_timestamp,
-                trigger_timestamp__gt=image.trigger_timestamp - timedelta(minutes=10),
-            ).values_list("thumbnail_gcloud_path", flat=True)[:CONTEXT_AMOUNT]
-        ) + list(
-            Image.objects.filter(
-                upload=image.upload,
-                upload__camera_station=image.upload.camera_station,
-                trigger_timestamp__gte=image.trigger_timestamp,
-                trigger_timestamp__lt=image.trigger_timestamp + timedelta(minutes=10),
-            ).values_list("thumbnail_gcloud_path", flat=True)[:CONTEXT_AMOUNT]
-        )
-        image.save()
+        if image.trigger_timestamp is not None:
+            image.context_image_gcloud_paths = list(
+                Image.objects.filter(
+                    upload=image.upload,
+                    upload__camera_station=image.upload.camera_station,
+                    trigger_timestamp__lt=image.trigger_timestamp,
+                    trigger_timestamp__gt=image.trigger_timestamp - timedelta(minutes=10),
+                ).values_list("thumbnail_gcloud_path", flat=True)[:CONTEXT_AMOUNT]
+            ) + list(
+                Image.objects.filter(
+                    upload=image.upload,
+                    upload__camera_station=image.upload.camera_station,
+                    trigger_timestamp__gte=image.trigger_timestamp,
+                    trigger_timestamp__lt=image.trigger_timestamp + timedelta(minutes=10),
+                ).values_list("thumbnail_gcloud_path", flat=True)[:CONTEXT_AMOUNT]
+            )
+            image.save()
 
 
 def get_dropbox_file_listing(dropbox_folder_path: str) -> list:
@@ -196,10 +197,12 @@ def process_upload(upload_id: uuid.UUID):
         logging.info(f"Upload '{upload.id}' already processed. Skipping processing..")
         return
 
-    logging.info("Closing dropbox request..")
-    # If not, first close the dropbox request & update the object status
-    dbx.file_requests_update(id=upload.dropbox_request_id, open=False)
-    upload.dropbox_request_open = False
+    if upload.upload_method == "E":
+        logging.info("Closing dropbox request..")
+        # If not, first close the dropbox request & update the object status
+        dbx.file_requests_update(id=upload.dropbox_request_id, open=False)
+        upload.dropbox_request_open = False
+
     # Save the upload object
     upload.save()
     logging.info("Successfully closed dropbox request.")

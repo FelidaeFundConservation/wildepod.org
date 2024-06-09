@@ -173,6 +173,12 @@ Note: The build may take awhile, so the console may show an error temporarily if
 
 ### Image Queue System
 
-This visualizes how images are gathered and shown to the annotators.
+This figure visualizes how images are gathered and shown to the annotators.
 
 ![WildepodQueueLogic](https://github.com/FelidaeFundConservation/wildepod.org/assets/78624502/0b860b23-459c-4586-9af4-7b490b0a126a)
+---
+### Image Data Loading
+
+This figure visualizes what data is calculated and retrieved from an image-to-be-annotated. 
+
+![WildepodLoadImage](https://github.com/FelidaeFundConservation/wildepod.org/assets/78624502/377f10a0-a711-4a1f-9c80-f6cb098b6b8d)

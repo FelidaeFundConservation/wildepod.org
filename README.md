@@ -167,3 +167,12 @@ Pillow==9.0.1
 (For a new 2nd gen cloud function, steps should be the same, albeit with some additional setup.)
 
 Note: The build may take awhile, so the console may show an error temporarily if it doesn't complete within a certain time. This should clear once the build completes. If the error persists after 20 or so minutes, there's likely an actual error, and you should check the logs to troubleshoot.
+
+---
+# System Overview Flowcharts
+
+### Image Queue System
+
+This visualizes how images are gathered and shown to the annotators.
+
+![WildepodQueueLogic](https://github.com/FelidaeFundConservation/wildepod.org/assets/78624502/0b860b23-459c-4586-9af4-7b490b0a126a)

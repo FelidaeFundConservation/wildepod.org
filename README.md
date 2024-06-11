@@ -182,3 +182,11 @@ This figure visualizes how images are gathered and shown to the annotators.
 This figure visualizes what data is calculated and retrieved from an image-to-be-annotated. 
 
 ![WildepodLoadImage](https://github.com/FelidaeFundConservation/wildepod.org/assets/78624502/377f10a0-a711-4a1f-9c80-f6cb098b6b8d)
+---
+### Save Image/Annotations
+
+This figure visualizes the process of saving and updating image annotations.
+
+![WildepodSaveAnnotations](https://github.com/FelidaeFundConservation/wildepod.org/assets/78624502/4ad75091-5e05-46e7-8feb-8707afc14524)
+---
+

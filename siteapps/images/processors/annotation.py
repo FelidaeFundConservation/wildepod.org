@@ -14,7 +14,7 @@ OBJECT_ANNOTATION_TYPE = "OBJECT"
 SPECIES_ANNOTATION_TYPE = "SPECIES"
 ACTIVITY_ANNOTATION_TYPE = "ACTIVITY"
 
-UNANNOTATED_CATEGORY = "unannotated"
+UNKNOWN_CATEGORY = "unknown"
 
 PERSON_CATEGORY = "person"
 ANIMAL_CATEGORY = "animal"
@@ -147,22 +147,11 @@ def create_bbox(annotation_type: str, annotation_dict: Dict[str, Any], image_obj
         logging.info("New bounding box created in Species stage.")
 
         # Based on species_group field, set the category if possible.
-        # If not, set category as 'unannotated.'
+        # If not, set category as 'unknown.'
         infer_category(species_name=annotation_dict["category"], bbox_obj=bbox_obj, annotator=annotator)
 
     elif annotation_type == ACTIVITY_ANNOTATION_TYPE:
-        create_category({"category": UNANNOTATED_CATEGORY, "confidence": 1}, bbox_obj, annotator)
-
-        if not SpeciesName.objects.filter(name=UNANNOTATED_CATEGORY).exists():
-            SpeciesName.objects.create(name=UNANNOTATED_CATEGORY, scientific_name=UNANNOTATED_CATEGORY)
-            logging.info(
-                "SpeciesName 'unannotated' object not found while creating new bbox in Activity stage. Created object."
-            )
-
-        create_species({"category": UNANNOTATED_CATEGORY, "confidence": 1}, bbox_obj, annotator)
         create_activity(annotation_dict, bbox_obj, annotator)
-
-        logging.info("New bounding box created in Activity stage. 'unannotated' Category and Species objects added.")
 
     return
 
@@ -304,13 +293,14 @@ def handle_changes(annotation_type, initial_bboxes, formatted_annotations, image
 
     return True
 
+
 # Create or vote on the category after inferring it
 def handle_inference(category, bbox_obj, annotator):
     target_category = Category.objects.filter(bounding_box=bbox_obj, name=category)
 
     if target_category.exists():
         category_obj = target_category.first()
-        
+
         vote(category_obj, annotator, accept=True)
         # Delete duplicate categories
         target_category.exclude(id=category_obj.id).delete()
@@ -328,6 +318,9 @@ def handle_inference(category, bbox_obj, annotator):
         Category.objects.filter(~Q(id=category.id), bounding_box=bbox_obj, name=category).delete()
         vote(category, annotator, accept=False)
 
+    # Delete old 'unannotated' categories as they cause issues
+    Category.objects.filter(bounding_box=bbox_obj, name="unannotated").delete()
+
 
 # Infer the Category based on the Species annotation if possible
 def infer_category(species_name, bbox_obj, annotator):
@@ -342,16 +335,11 @@ def infer_category(species_name, bbox_obj, annotator):
     elif species_group == "VEHICLE":
         handle_inference(category=VEHICLE_CATEGORY, bbox_obj=bbox_obj, annotator=annotator)
     else:
-        logging.info(f"Unable to infer category for {species_name}. Adding 'unannotated' Category object.")
-        handle_inference(category=UNANNOTATED_CATEGORY, bbox_obj=bbox_obj, annotator=annotator)
+        logging.info(f"Unable to infer category for {species_name}. Adding 'unknown' Category object.")
+        handle_inference(category=UNKNOWN_CATEGORY, bbox_obj=bbox_obj, annotator=annotator)
 
 
 def process_species(formatted_annotations, bbox_id, bbox_obj, annotator):
-    # Species with name "unannotated" is created when a bbox is created in Activity stage.
-    # Delete this object once a proper annotation has been made
-    if Species.objects.filter(~Q(name__name=UNANNOTATED_CATEGORY), bounding_box=bbox_obj).exists():
-        Species.objects.filter(name__name=UNANNOTATED_CATEGORY, bounding_box=bbox_obj).delete()
-
     if formatted_annotations[bbox_id]["category"]:
         species_name_obj = SpeciesName.objects.get(name=formatted_annotations[bbox_id]["category"])
         try:

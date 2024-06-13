@@ -49,7 +49,7 @@ SPECIES_QUEUE_NAME = "AnnotateSpeciesQueue"
 ACTIVITY_HUMAN_QUEUE_NAME = "AnnotateHumanBehaviorQueue"
 ACTIVITY_ANIMAL_QUEUE_NAME = "AnnotateAnimalActivityQueue"
 
-UNANNOTATED_CATEGORY = "unannotated"
+UNKNOWN_CATEGORY = "unknown"
 
 STAFF_OR_EXPERT_CHECK = Q(human__is_staff=True) | Q(human__is_expert=True)
 STAFF_OR_EXPERT_VOTE_MULTIPLIER = 2
@@ -671,7 +671,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
         # Current image
         species_inference_current(image, context)
 
-    context["species_list"] = SpeciesName.objects.filter(~Q(name=UNANNOTATED_CATEGORY), active=True)
+    context["species_list"] = SpeciesName.objects.filter(~Q(name=UNKNOWN_CATEGORY), active=True)
     context["birds_list"] = context["species_list"].filter(is_bird=True)
 
     context["activity_list"] = ActivityType.objects.filter(category=activity_category)
@@ -1176,19 +1176,12 @@ def calculateCategoryAnnotationFlags(image):
         bbox[1].get("status") != "Invalid" for bbox in zipped_bbox_querysets
     )
 
-    all_bboxes_have_category = not category_objs.filter(name=UNANNOTATED_CATEGORY).exists()
-
     # Save bbox validity status
     for bbox in zipped_bbox_querysets:
         bbox[0].validity = bbox[1].get("status")
         bbox[0].save()
 
-    if (
-        not category_has_uncertain_annotation
-        and image.processed
-        and not_invalid_bbox_count_gt
-        and all_bboxes_have_category
-    ):
+    if not category_has_uncertain_annotation and image.processed and not_invalid_bbox_count_gt:
         image.has_humans = category_annotations.filter(name="person").exists()
         image.has_animals = category_annotations.filter(name="animal").exists()
         image.has_vehicles = category_annotations.filter(name="vehicle").exists()
@@ -1239,7 +1232,6 @@ def calculateCategoryAnnotationFlags(image):
             },
             "processed": image.processed,
             "bounding_boxes_gte_zero": not_invalid_bbox_count_gt,
-            "all_bboxes_have_category": all_bboxes_have_category,
         },
         "pipeline_flags": {
             "has_humans": image.has_humans,
@@ -1274,14 +1266,11 @@ def calculateSpeciesAnnotationFlags(image):
 
     annotation_checked_by_gte = image.species_checked_by.all().count() >= MAX_VOTES_PER_IMAGE
 
-    all_bboxes_have_species = not species_objs.filter(name__name=UNANNOTATED_CATEGORY).exists()
-
     if (
         not species_has_uncertain_annotation
         and species_has_valid_annotation
         and (annotation_checked_by_gte or has_staff_or_expert_vote)
         and image.processed
-        and all_bboxes_have_species
         and image.category_pipeline_complete
     ):
         image.has_wild_animals = species_annotations.filter(name__species_group="WILD").exists()
@@ -1322,7 +1311,6 @@ def calculateSpeciesAnnotationFlags(image):
                 "has_staff_or_expert_vote": has_staff_or_expert_vote,
             },
             "processed": image.processed,
-            "all_bboxes_have_species": all_bboxes_have_species,
         },
         "pipeline_flags": {
             "has_wild_animals": image.has_wild_animals,

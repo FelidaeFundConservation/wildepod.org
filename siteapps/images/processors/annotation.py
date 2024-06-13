@@ -304,13 +304,16 @@ def handle_changes(annotation_type, initial_bboxes, formatted_annotations, image
 
     return True
 
-
 # Create or vote on the category after inferring it
 def handle_inference(category, bbox_obj, annotator):
     target_category = Category.objects.filter(bounding_box=bbox_obj, name=category)
 
     if target_category.exists():
-        vote(target_category.first(), annotator, accept=True)
+        category_obj = target_category.first()
+        
+        vote(category_obj, annotator, accept=True)
+        # Delete duplicate categories
+        target_category.exclude(id=category_obj.id).delete()
     else:
         create_category({"category": category, "confidence": 1}, bbox_obj, annotator)
 
@@ -321,6 +324,8 @@ def handle_inference(category, bbox_obj, annotator):
     other_categories = Category.objects.filter(bounding_box=bbox_obj).exclude(name=category)
 
     for category in other_categories:
+        # Delete duplicate categories with same name
+        Category.objects.filter(~Q(id=category.id), bounding_box=bbox_obj, name=category).delete()
         vote(category, annotator, accept=False)
 
 

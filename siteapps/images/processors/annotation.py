@@ -352,7 +352,7 @@ def infer_category(species_name, bbox_obj, annotator):
         handle_inference(category=VEHICLE_CATEGORY, bbox_obj=bbox_obj, annotator=annotator)
     else:
         logging.info(f"Unable to infer category for {species_name}. Adding 'unannotated' Category object.")
-        create_category({"category": UNANNOTATED_CATEGORY, "confidence": 1}, bbox_obj, annotator)
+        handle_inference(category=UNANNOTATED_CATEGORY, bbox_obj=bbox_obj, annotator=annotator)
 
 
 def process_category(initial_bboxes, formatted_annotations, image, bbox_id, bbox_obj, user, annotator):

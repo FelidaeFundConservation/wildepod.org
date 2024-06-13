@@ -153,7 +153,7 @@ def create_bbox(annotation_type: str, annotation_dict: Dict[str, Any], image_obj
     elif annotation_type == ACTIVITY_ANNOTATION_TYPE:
         create_activity(annotation_dict, bbox_obj, annotator)
 
-    return
+    return bbox_obj
 
 
 def handle_bbox_additions(annotation_type, initial_bboxes, formatted_annotations, image, annotator):
@@ -195,6 +195,47 @@ def handle_bbox_deletions(initial_bboxes, formatted_annotations, user, annotator
     logging.info("Successfully removed all deleted bounding boxes")
 
 
+def edit_bbox_coordinates(user, bbox_obj, formatted_annotations, annotator, image):
+    bbox_id = str(bbox_obj.id)
+
+    new_x = formatted_annotations[bbox_id]["x"]
+    new_y = formatted_annotations[bbox_id]["y"]
+    new_w = formatted_annotations[bbox_id]["w"]
+    new_h = formatted_annotations[bbox_id]["h"]
+
+    # If the user is expert/staff or original annotator, we directly edit the bounding box
+    if (
+        user.is_staff
+        or user.is_expert
+        or bbox_obj.created_by == annotator
+        or all(
+            [
+                abs(bbox_obj.x - new_x) < 0.02,
+                abs(bbox_obj.y - new_y) < 0.02,
+                abs(bbox_obj.w - new_w) < 0.02,
+                abs(bbox_obj.h - new_h) < 0.02,
+            ]
+        )
+    ):
+        bbox_obj.x = new_x
+        bbox_obj.y = new_y
+        bbox_obj.w = new_w
+        bbox_obj.h = new_h
+        bbox_obj.save()
+    else:
+        # Original bounding box was modified significantly by the annotator. Cast a reject vote on the original.
+        vote(bbox_obj, annotator, accept=False)
+        # Create a new bounding box
+        bbox_obj = create_bbox(
+            annotation_type=OBJECT_ANNOTATION_TYPE,
+            annotation_dict=formatted_annotations[bbox_id],
+            image_obj=image,
+            annotator=annotator,
+        )
+
+    return bbox_obj
+
+
 def handle_bbox_updates(
     annotation_type, initial_bboxes, formatted_annotations, image, user, annotator, batch_tag_images
 ):
@@ -204,6 +245,14 @@ def handle_bbox_updates(
             # Get the initial bounding box & category object
             try:
                 bbox_obj = BoundingBox.objects.get(id=bbox_id)
+                # Edit bbox if changes made, create separate object is change is large
+                bbox_obj = edit_bbox_coordinates(
+                    user=user,
+                    bbox_obj=bbox_obj,
+                    formatted_annotations=formatted_annotations,
+                    annotator=annotator,
+                    image=image,
+                )
             except ObjectDoesNotExist:
                 logging.info(f"Bounding box with id {bbox_id} doesn't exist. Skipping update.'")
                 continue

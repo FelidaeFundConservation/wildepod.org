@@ -189,4 +189,9 @@ This figure visualizes the process of saving and updating image annotations.
 
 ![WildepodSaveAnnotations](https://github.com/FelidaeFundConservation/wildepod.org/assets/78624502/4ad75091-5e05-46e7-8feb-8707afc14524)
 ---
+### Upload Processing
+
+This figure visualizes how user upload sets are created and processed.
+
+![WildepodImageUpload drawio](https://github.com/FelidaeFundConservation/wildepod.org/assets/78624502/ef0bf6e4-8647-4990-96ab-28c76c4fca69)
 

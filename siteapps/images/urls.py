@@ -61,6 +61,12 @@ urlpatterns = [
     path("image/<uuid:pk>", ImageDetailView.as_view(), name="image"),
     path("annotate/species", AnnotateSpeciesView.as_view(), name="annotate_species"),
     path(
+        "annotate/species/staff_review",
+        AnnotateSpeciesView.as_view(),
+        name="staff_annotate_species",
+        kwargs={"staff_review": True},
+    ),
+    path(
         "annotate/custom_annotation",
         CustomAnnotationView.as_view(),
         name="custom_annotation",

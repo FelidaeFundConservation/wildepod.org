@@ -90,6 +90,9 @@
                                             <li>
                                                 <a class="dropdown-item" href="{% url 'explore:query_data' %}">Query Data</a>
                                             </li>
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'images:search_images' %}">Search Images</a>
+                                            </li>
                                         {% endif %}
                                         <li>
                                             <a class="dropdown-item" href="{% url 'explore:map' %}">Camera Stations</a>
@@ -124,6 +127,12 @@
                                        aria-expanded="false">Classify</a>
                                     <ul class="dropdown-menu nav-dropdown text-center text-md-start"
                                         aria-labelledby="navbarAnnotateDropdown">
+                                        {% if user.is_staff %}
+                                            <li>
+                                                <a class="dropdown-item"
+                                                   href="{% url 'images:staff_annotate_species' %}">Staff Review Needed</a>
+                                            </li>
+                                        {% endif %}
                                         <li>
                                             <a class="dropdown-item" href="{% url 'images:annotate_species' %}">Category & Species</a>
                                         </li>
@@ -135,9 +144,6 @@
                                             <li>
                                                 <a class="dropdown-item"
                                                    href="{% url 'images:annotate_activity' category='human' %}">Human Behavior</a>
-                                            </li>
-                                            <li>
-                                                <a class="dropdown-item" href="{% url 'images:search_images' %}">Search Images</a>
                                             </li>
                                         {% endif %}
                                         <li>

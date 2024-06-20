@@ -214,7 +214,7 @@ def staff_review_query_filter(images, annotator):
     ---
         - images (QuerySet<images.models.Image>): The filtered or ordered queryset of images.
     """
-    if "prod" in settings.WSGI_APPLICATION and annotator and annotator.human.is_staff:
+    if annotator and annotator.human.is_staff:
         # Show images needing review first
         images = images.order_by("-staff_review_needed")
     else:
@@ -762,7 +762,8 @@ def get_precomputed_queue(queue_name, annotator):
 
 
 # Retrieves data to pass to the views through context (namely queue images and annotations info).
-def populate_view_context(queue_name, context, self, activity_category=None):
+def populate_view_context(queue_name, context, self, activity_category=None, staff_review=False):
+
     """
     Sets data in view context to access from the annotation view templates,
     including the image data, bounding boxes, species suggestions, and more.
@@ -797,7 +798,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
 
     # Try to get precomputed queue for the pipeline
     annotator_check, pipeline_kwarg = get_pipeline_filters(queue_name, annotator)
-    precomputed_queue = get_precomputed_queue(queue_name=queue_name, annotator=annotator)
+    precomputed_queue = None if staff_review else get_precomputed_queue(queue_name=queue_name, annotator=annotator)
 
     # Image to reannotate to in annotation history, if it exists
     return_to_image_id = None
@@ -833,7 +834,7 @@ def populate_view_context(queue_name, context, self, activity_category=None):
     if image_id:
         image = Image.objects.get(id=image_id)
 
-        if return_to_image_id is None and not precomputed_queue:
+        if return_to_image_id is None and not precomputed_queue and not staff_review:
             skip_result = skip_ineligible_images(queue_name=queue_name, queue=queue, annotator=annotator)
             image = skip_result if skip_result else image
 
@@ -1046,13 +1047,13 @@ class CustomAnnotationView(LoginRequiredMixin, FormView, TemplateView):
 
 
 # Sets filterset for custom annotations
-def set_view_filterset(self):
+def set_view_filterset(self, staff_review=False):
     start_date = self.request.GET.get("start_date")
     end_date = self.request.GET.get("end_date")
     camera_id = None if self.request.GET.get("camera_id") == "None" else self.request.GET.get("camera_id")
     macrosite_name = self.request.GET.get("macrosite_name")
 
-    self.filterset = get_filter_params(start_date, end_date, macrosite_name, camera_id)
+    self.filterset = get_filter_params(start_date, end_date, macrosite_name, camera_id, staff_review)
 
 
 class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
@@ -1060,14 +1061,14 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
     template_name = "images/annotate/species.html"
 
     def get(self, request, *args, **kwargs):
-        set_view_filterset(self)
+        set_view_filterset(self, staff_review=kwargs.get("staff_review", False))
 
         return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        populate_view_context(SPECIES_QUEUE_NAME, context, self)
+        populate_view_context(SPECIES_QUEUE_NAME, context, self, staff_review=kwargs.get("staff_review", False))
 
         return context
 

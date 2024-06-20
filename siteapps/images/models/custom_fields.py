@@ -1,7 +1,7 @@
 import datetime
 
 
-def get_filter_params(start_date, end_date, macrosite_name, camera_id):
+def get_filter_params(start_date, end_date, macrosite_name, camera_id, staff_review_needed=None):
     filters = {}
 
     if start_date and start_date != "None":
@@ -19,5 +19,8 @@ def get_filter_params(start_date, end_date, macrosite_name, camera_id):
 
     if camera_id and camera_id != "None":
         filters["upload__camera_station__station_id"] = camera_id
+
+    if staff_review_needed:
+        filters["staff_review_needed"] = True
 
     return filters

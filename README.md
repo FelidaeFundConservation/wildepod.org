@@ -167,3 +167,31 @@ Pillow==9.0.1
 (For a new 2nd gen cloud function, steps should be the same, albeit with some additional setup.)
 
 Note: The build may take awhile, so the console may show an error temporarily if it doesn't complete within a certain time. This should clear once the build completes. If the error persists after 20 or so minutes, there's likely an actual error, and you should check the logs to troubleshoot.
+
+---
+# System Overview Flowcharts
+
+### Image Queue System
+
+This figure visualizes how images are gathered and shown to the annotators.
+
+![WildepodQueueLogic](https://github.com/FelidaeFundConservation/wildepod.org/assets/78624502/0b860b23-459c-4586-9af4-7b490b0a126a)
+---
+### Image Data Loading
+
+This figure visualizes what data is calculated and retrieved from an image-to-be-annotated. 
+
+![WildepodLoadImage](https://github.com/FelidaeFundConservation/wildepod.org/assets/78624502/377f10a0-a711-4a1f-9c80-f6cb098b6b8d)
+---
+### Save Image/Annotations
+
+This figure visualizes the process of saving and updating image annotations.
+
+![WildepodSaveAnnotations](https://github.com/FelidaeFundConservation/wildepod.org/assets/78624502/4ad75091-5e05-46e7-8feb-8707afc14524)
+---
+### Upload Processing
+
+This figure visualizes how user upload sets are created and processed.
+
+![WildepodImageUpload drawio](https://github.com/FelidaeFundConservation/wildepod.org/assets/78624502/ef0bf6e4-8647-4990-96ab-28c76c4fca69)
+

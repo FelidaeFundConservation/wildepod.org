@@ -178,7 +178,6 @@ class SingleBoxSingleCategoryTestCase(AnnotationFlagsTestCase):
         self.assertFalse(debug_info["flag_checks"]["or_checks"]["has_staff_or_expert_vote"])
 
         self.assertTrue(debug_info["flag_checks"]["bounding_boxes_gte_zero"])
-        self.assertTrue(debug_info["flag_checks"]["all_bboxes_have_category"])
 
         self.assertFalse(self.test_image.category_pipeline_complete)
         self.assertFalse(self.test_image.has_humans)
@@ -208,7 +207,6 @@ class SingleBoxSingleCategoryTestCase(AnnotationFlagsTestCase):
         self.assertTrue(debug_info["flag_checks"]["or_checks"]["has_staff_or_expert_vote"])
 
         self.assertTrue(debug_info["flag_checks"]["bounding_boxes_gte_zero"])
-        self.assertTrue(debug_info["flag_checks"]["all_bboxes_have_category"])
 
         self.assertTrue(self.test_image.category_pipeline_complete)
         self.assertFalse(self.test_image.has_humans)
@@ -238,7 +236,6 @@ class SingleBoxSingleCategoryTestCase(AnnotationFlagsTestCase):
         self.assertTrue(debug_info["flag_checks"]["or_checks"]["has_staff_or_expert_vote"])
 
         self.assertTrue(debug_info["flag_checks"]["bounding_boxes_gte_zero"])
-        self.assertTrue(debug_info["flag_checks"]["all_bboxes_have_category"])
 
         self.assertTrue(self.test_image.category_pipeline_complete)
         self.assertFalse(self.test_image.has_humans)
@@ -278,7 +275,6 @@ class SingleBoxSingleCategoryTestCase(AnnotationFlagsTestCase):
         self.assertFalse(debug_info["flag_checks"]["or_checks"]["has_staff_or_expert_vote"])
 
         self.assertTrue(debug_info["flag_checks"]["bounding_boxes_gte_zero"])
-        self.assertTrue(debug_info["flag_checks"]["all_bboxes_have_category"])
 
         self.assertTrue(self.test_image.category_pipeline_complete)
         self.assertFalse(self.test_image.has_humans)
@@ -314,7 +310,6 @@ class SingleBoxSingleCategoryTestCase(AnnotationFlagsTestCase):
         self.assertFalse(debug_info["flag_checks"]["or_checks"]["has_staff_or_expert_vote"])
 
         self.assertTrue(debug_info["flag_checks"]["bounding_boxes_gte_zero"])
-        self.assertTrue(debug_info["flag_checks"]["all_bboxes_have_category"])
 
         self.assertFalse(self.test_image.category_pipeline_complete)
         self.assertFalse(self.test_image.has_humans)

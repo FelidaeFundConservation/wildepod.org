@@ -39,6 +39,7 @@ from images.processors import (
 )
 from PIL import Image as PILImage
 
+# TODO: There might be some duplicate constants between here and the settings. Should probably move these to the base settings file.
 MAX_VOTES_PER_IMAGE = 2
 VOTE_THRESHOLD = 1
 
@@ -64,6 +65,17 @@ class BboxAnnotationInfo:
 
 
 def get_pil_image(image):
+    """
+    Retrieves the thumbnail of an image.
+
+    Arguments
+    ---
+        - image (models.Image): The image object to retrieve the thumbnail from.
+
+    Returns
+    ---
+        - PIL.Image: The image thumbnail data as a PIL image object.
+    """
     image_file_path = f"{settings.MEDIA_URL}{image.thumbnail_gcloud_path}"
     response = requests.get(image_file_path)
 
@@ -77,6 +89,18 @@ def get_pil_image(image):
 
 
 def calculate_image_luma(image, bboxes):
+    """
+    Calculates the percent adjustment needed to brighten the image's subjects to the target luma value (set to 13).
+
+    Arguments
+    ---
+        - image (images.models.Image): An image object to get the image data from.
+        - bboxes (images.models.BoundingBox): The image's bounding box objects to extract coordinates from. Only pixels enclosed by these boxes are used in the calculations.
+
+    Returns
+    ---
+        - adjustment_percentage (int): The percent increase needed to achieve the optimal brightness, expressed as a whole number (ex. 54 -> 54%).
+    """
     TARGET_LUMA = 13
 
     # Get the image data
@@ -127,6 +151,21 @@ def calculate_image_luma(image, bboxes):
 
 # Get the users annotation counts to increment
 def get_or_set_annotation_count(request, queue_name, annotator, annotation_num=0):
+    """
+    Increments a user's cached annotation count, or calculates and caches the count if it doesn't exist.
+
+    Arguments
+    ---
+        - request (HttpRequest): The request object to save the annotation count in session storage. Forwarded from the calling view.
+        - queue_name (string): One of the predefined constant values used to identify the pipeline the user annotated in. (ex. SPECIES_QUEUE_NAME).
+        - annotator (images.models.Annotator): The annotator object used to identify the user annotating.
+        - annotation_num (int): The number of annotations made, including tags from multiple/batch tagging.
+
+    Returns
+    ---
+        - count (int): The number of annotations added to the user's annotation count.
+    """
+
     user_annotations_q_filter = (
         Q(created_by__in=[annotator]) | Q(accepted_by__in=[annotator]) | Q(rejected_by__in=[annotator])
     )
@@ -161,6 +200,20 @@ def get_or_set_annotation_count(request, queue_name, annotator, annotation_num=0
 
 
 def staff_review_query_filter(images, annotator):
+    """
+    Filters and reorders a set of images based on staff status.
+        - For staff, "flagged for staff" images are reordered to appear first.
+        - For non-staff, "flagged for staff" images are excluded from appearing.
+
+    Arguments
+    ---
+        - images (QuerySet<images.models.Image>): The queryset of images to filter down/order on.
+        - annotator (images.models.Annotator): The annotator object, used to filter out images they've already been skipped/voted on.
+
+    Returns
+    ---
+        - images (QuerySet<images.models.Image>): The filtered or ordered queryset of images.
+    """
     if "prod" in settings.WSGI_APPLICATION and annotator and annotator.human.is_staff:
         # Show images needing review first
         images = images.order_by("-staff_review_needed")
@@ -173,6 +226,21 @@ def staff_review_query_filter(images, annotator):
 
 # Filter criteria for an image to appear in the Species pipeline
 def species_pipeline_query(images, annotator):
+    """
+    Filters and reorders a set of images based on Species pipeline eligibility.
+    - Image must not be checked or skipped by the current annotator.
+    - Image has at least one bounding box tagged by MegaDetector above the predetermined threshold.
+    - Image has at least 1 uncertain bounding box OR is species incomplete.
+    - Image has been preprocessed.
+
+    Arguments
+    ---
+        images (QuerySet<images.models.Image>): The queryset of images to filter down/order on.
+        annotator (images.models.Annotator): The annotator object, used to filter out images they've already been skipped/voted on.
+
+    Returns:
+        images (QuerySet<images.models.Image>): The filtered and ordered queryset of images.
+    """
     # Only queried when there's no precomputed queues available
     images = images.filter(
         # It must not be checked or skipped by the current annotator
@@ -198,6 +266,22 @@ def species_pipeline_query(images, annotator):
 
 # Filter criteria for an image to appear in the Activity pipelines
 def activity_pipeline_query(images, annotator, activity_category):
+    """
+    Filters and reorders a set of images based on Activity pipeline eligibility.
+    - Image must not be checked or skipped by the current annotator.
+    - Image hasn't completed the Activity Pipeline.
+    - Image has been preprocessed.
+
+    Arguments
+    ---
+        images (QuerySet<images.models.Image>): The queryset of images to filter down/order on.
+        annotator (images.models.Annotator): The annotator object, used to filter out images they've already been skipped/voted on.
+
+    Returns
+    ---
+        images (QuerySet<images.models.Image>):
+            The filtered and ordered queryset of images.
+    """
     images = images.filter(
         # It must not be checked or skipped by the current annotator
         ~Q(activity_checked_by__in=[annotator]) & ~Q(activity_skipped_by__in=[annotator]),
@@ -221,6 +305,26 @@ def activity_pipeline_query(images, annotator, activity_category):
 
 
 def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_category):
+    """
+    Gets a new queue of images based on criteria, and caches the results in Datastore.
+    This is the legacy queue system and is only called when the precomputed queues run out.
+
+    Arguments
+    ---
+        - self (django.views.View): The self variable of the view to extract the request data from.
+        - queue (google.cloud.datastore.entity.Entity): The retrieved data object from the Datastore.
+        - queue_name (string): One of the predefined constant values used to identify the pipeline. (ex. SPECIES_QUEUE_NAME).
+        - queue_key (string): The dictionary key name to cache the results in Datastore.
+        - annotator (images.models.Annotator): The annotator object, used for filtering and identifying objects.
+        - activity_category (string): One of the predefined constant values used to distinguish
+            between either the human or animal activity pipeline (ex. CATEGORY_HUMAN).
+            None if not annotating Activity.
+
+    Returns
+    ---
+        - queue (google.cloud.datastore.entity.Entity): The newly assigned list of images assigned to the queue.
+        - image_id (String): The id of the first image in the queue, or None if it doesn't exist.
+    """
     # Get images based on the following set of filters
     images = Image.objects.filter(**self.filterset)
 
@@ -300,6 +404,19 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
 
 
 def get_reannotation_image(self, context):
+    """
+    Extracts the selected image ID to return to and reannotate if it exists in the context dict.
+    After returned, can be used to override the original next queue image so it's displayed instead.
+
+    Arguments
+    ---
+        - self (django.views.View): The self variable of the view to extract the image ID from session storage, if it exists.
+        - context (dict): The calling view's context dict to set the reannotation flag in.
+
+    Returns
+    ---
+        - return_to_image_id (String): The id of the image the annotator chose to go back to and reannotate, if any.
+    """
     # Exists if user is returning to a previous image
     return_to_image_id = self.request.session.pop("return_to_image_id", None)
     context["is_reannotation"] = return_to_image_id is not None
@@ -308,6 +425,18 @@ def get_reannotation_image(self, context):
 
 
 def get_next_queue_image(self, context, queue):
+    """
+    Gets the next single image to be annotated from the queue. This is only called if there's no precomputed queue available.
+
+    Arguments
+    ---
+        - self (django.views.View): The self variable of the view.
+        - context (dict): The calling view's context dict.
+        - queue (google.cloud.datastore.entity.Entity): The retrieved data object from the Datastore for reading the index and images.
+    Returns
+    ---
+        - image_id (String): The id of the next image to show for annotation.
+    """
     return_to_image_id = get_reannotation_image(self, context)
 
     # If not returning to prev. image,
@@ -317,6 +446,25 @@ def get_next_queue_image(self, context, queue):
 
 # Skip images completed or made ineligible by other annotators since the queue was built
 def skip_ineligible_images(queue_name, queue, annotator):
+    """
+    Checks images in a cached Datastore queue, and increments the queue index until an eligible image to annotate is found.
+    This is not executed if using a precomputed queue.
+
+    An eligible image to annotate is defined as:
+        1) Pipeline incomplete - ex. species not annotated and completed by another annotator after the caching
+        2) Pipeline eligible - ex. fulfills "has uncertain bounding boxes" requriement to appear in the species pipeline
+        3) Has not been voted on by the current user.
+
+    Arguments
+    ---
+        - queue (google.cloud.datastore.entity.Entity): The retrieved data object from the Datastore for reading the index and images.
+
+    Returns
+    ---
+        - queue_name (string): One of the predefined constant values used to identify the pipeline. (ex. SPECIES_QUEUE_NAME).
+        - queue (google.cloud.datastore.entity.Entity): The retrieved data object from the Datastore.
+        - annotator (images.models.Annotator): The annotator object, used to determine user-specific annotation status.
+    """
     pipeline_completed = True
     pipeline_eligible = True
     already_voted = False
@@ -406,6 +554,21 @@ def skip_ineligible_images(queue_name, queue, annotator):
 
 
 def get_annotation_history(context, queue, queue_name, annotator, precomputed_queue=None):
+    """
+    Retrieves information on the last few images an annotator skipped or edited, and save it in the provided context dict.
+
+    Arguments
+    ---
+        - context (dict): The calling view's context dict to save the history images to.
+        - queue (google.cloud.datastore.entity.Entity): The retrieved data object from the Datastore to check for previous images.
+        - queue_name (string): One of the predefined constant values used to identify the pipeline. (ex. SPECIES_QUEUE_NAME).
+        - annotator (images.models.Annotator): The annotator object, used for filtering user-specific history.
+        - precomputed_queue (images.models.ImageQueue): A precomputed queue object to check in place of a normal queue, if it exists.
+
+    Returns
+    ---
+        - None: No return value, but sets the history images in the provided view context.
+    """
     HISTORY_LENGTH = 10
 
     if precomputed_queue:
@@ -448,6 +611,23 @@ def get_annotation_history(context, queue, queue_name, annotator, precomputed_qu
 
 
 def get_burst_images(context, queue, queue_name, annotator, precomputed_queue=None, current_queue_image=None):
+    """
+    Get images closely within the same time of the currently annotated image.
+
+    Arguments
+    ---
+        - context (dict): The calling view's context dict to save the burst images to.
+        - queue (google.cloud.datastore.entity.Entity): The retrieved data object from the Datastore to check images from.
+        - queue_name (string): One of the predefined constant values used to identify the pipeline. (ex. SPECIES_QUEUE_NAME).
+        - annotator (images.models.Annotator): The annotator object, used for filtering out already checked images by the annotator.
+        - precomputed_queue (images.models.ImageQueue): A precomputed queue object to check in place of a normal queue, if it exists.
+        - current_queue_image (images.models.Image): If precompute queue exists, this is used to determine the timestamp range to check for burst images around.
+
+    Returns
+    ---
+        - None: No return value, but sets the burst images in the provided view context.
+    """
+
     BURST_TIME_THRESHOLD = 120
 
     images = []
@@ -498,6 +678,20 @@ def get_burst_images(context, queue, queue_name, annotator, precomputed_queue=No
 
 # Get pipeline-specific query filters for precomputed queue
 def get_pipeline_filters(queue_name, annotator):
+    """
+    Returns Q filters and keyword args used to determine if any valid images are left to annotate in the queue, and how to retrieve the next image if so.
+
+    Arguments
+    ---
+        - queue_name (string): One of the predefined constant values used to identify the pipeline. (ex. SPECIES_QUEUE_NAME).
+        - annotator (images.models.Annotator): The annotator object, for creating the annotator-specific Q filter.
+
+    Returns
+    ---
+        - annotator_check (django.db.models.Q): A Q filter that filters out images skipped by or checked by the annotator.
+        - pipeline_kwarg (dict): A dict of kwargs that when unpacked and applied to a query, filters only images that are not pipeline complete.
+                                 If annotator is not staff, also filters out flagged-for-staff images.
+    """
     # Try to get an eligible precomputed queue
     pipeline_kwarg = {}
     if SPECIES_QUEUE_NAME in queue_name:
@@ -516,6 +710,20 @@ def get_pipeline_filters(queue_name, annotator):
 
 # Try to get a valid precomputed queue
 def get_precomputed_queue(queue_name, annotator):
+    """
+    Attempts to find a precomputed queue with valid unannotated images assigned to the provided annotator.
+    If none are assigned, find a valid precomputed queue and assign it to the annotator.
+    If no valid queues exist, return None.
+
+    Arguments
+    ---
+        - queue_name (string): One of the predefined constant values used to identify the pipeline. (ex. SPECIES_QUEUE_NAME).
+        - annotator (images.models.Annotator): The annotator object to check for a queue or assign a queue to.
+
+    Returns
+    ---
+        - precomputed_queue (images.models.ImageQueue): The assigned precomputed queue associated with an annotator. None if doesn't exist or couldn't assign.
+    """
     annotator_check, pipeline_kwarg = get_pipeline_filters(queue_name, annotator)
     queue_condition = Exists(
         Image.objects.filter(
@@ -555,6 +763,19 @@ def get_precomputed_queue(queue_name, annotator):
 
 # Retrieves data to pass to the views through context (namely queue images and annotations info).
 def populate_view_context(queue_name, context, self, activity_category=None):
+    """
+    Sets data in view context to access from the annotation view templates,
+    including the image data, bounding boxes, species suggestions, and more.
+
+    Arguments
+    ---
+        - queue_name (string): One of the predefined constant values used to identify the pipeline. (ex. SPECIES_QUEUE_NAME).
+        - context (dict): The context object passed from the calling view.
+        - self (django.views.View): The self variable of the view to extract the request data from.
+        - activity_category (string): A constant value of either "human" or "animal," to determine which pipeline to use if annotating Activity,
+                                      or None if not annotating Activity.
+
+    """
     # First get the annotator object for the user
     annotator, _ = Annotator.objects.get_or_create(type="human", human=self.request.user)
 
@@ -687,6 +908,19 @@ def populate_view_context(queue_name, context, self, activity_category=None):
 
 # Detect species with AI in the current image, or get previously cached results
 def species_inference_current(image, context):
+    """
+    Checks if species inference has already been run and saved on the image.
+    If not, calls the Cloud Function and saves the list of detected species.
+
+    NOTE: All images after Feb 1 2024 should run species inference immediately on upload,
+          so there should always be cached inferences.
+
+    Arguments
+    ---
+        - image (images.models.Image): The current image being annotated.
+        - context (dict): The context object passed from the calling view, to load the list of detected species into.
+
+    """
     from ast import literal_eval
 
     # Check if current image is already inferred for species
@@ -705,6 +939,15 @@ def species_inference_current(image, context):
 
 
 def auto_flag_for_staff(image):
+    """
+    Checks the current image to see how many annotators have skipped.
+    If that number is above AUTO_REVIEW_FLAG_THRESHOLD, flag the image for staff review,
+    thereby removing it from showing to regular users.
+
+    Arguments
+    ---
+        - image (images.models.Image): The current image being annotated.
+    """
     AUTO_REVIEW_FLAG_THRESHOLD = 2
 
     if (
@@ -733,6 +976,15 @@ def get_valid_or_uncertain_bboxes(image):
 
 
 def get_all_annotations(image, context):
+    """
+    Extracts all annotation data in the current image,
+    and saves it to the view context to be accessed from the interface.
+
+    Arguments
+    ---
+        - image (images.models.Image): The current image being annotated.
+        - context (dict): The context object passed from the calling view, to save the annotation data into.
+    """
     try:
         bboxes = BoundingBox.objects.filter(image=image)
     except (ObjectDoesNotExist, IndexError):
@@ -793,7 +1045,7 @@ class CustomAnnotationView(LoginRequiredMixin, FormView, TemplateView):
             return redirect(url)
 
 
-# Sets filterset for the views' GET function
+# Sets filterset for custom annotations
 def set_view_filterset(self):
     start_date = self.request.GET.get("start_date")
     end_date = self.request.GET.get("end_date")
@@ -848,6 +1100,17 @@ class AnnotateActivityView(LoginRequiredMixin, TemplateView):
 
 # Handles annotation processing for each queue type
 def annotation_processor(queue_name, annotation_type, request):
+    """
+    Performs a variety of actions upon a user saving the image after annotation,
+    including updating the image data, creating/updating annotation objects, and recalculating pipeline flags.
+
+    Arguments
+    ---
+        - queue_name (string): One of the predefined constant values used to identify the pipeline the user annotated in. (ex. SPECIES_QUEUE_NAME).
+        - annotation_type (string): A string value used to identify the pipeline in annotation counter objects.
+        - request (HttpRequest): The request object to retrieve the data from the user's annotations.
+    """
+
     # Get the image id
     image_id = request.POST.get("image_id")
     skip = request.POST.get("skip") == "true"
@@ -1098,9 +1361,18 @@ Pipeline flag calculations.
 
 
 def annotate(zipped_querysets):
-    # Alternative to .annotate() to calculate object properties, which returns incorrect data due to multiple aggregations.
-    # Takes a zip object containing a list of annotation objects to reference,
-    # and its .value() list to append data to.
+    """
+    Alternative to the ORM .annotate() to calculate object properties, which returns incorrect data due to multiple aggregations.
+    Takes a zip object containing a list of annotation objects to reference,
+    and its .value() list to append data to.
+
+    Calculates the votes and validity of the given object (BoundingBox or Image),
+    and adds that data to the original field values list in the zipped tuples.
+
+    Arguments
+    ---
+        - zipped_querysets (iterator): An iterator object containing tuples of annotation objects and their respective values list.
+    """
 
     for obj, annotation in zipped_querysets:
         annotation["accepted_count"] = obj.accepted_by.count() + (1 if obj.created_by.type == "human" else 0)
@@ -1154,6 +1426,14 @@ def annotate(zipped_querysets):
 
 # Category Flag Checks
 def calculateCategoryAnnotationFlags(image):
+    """
+    Determines Category pipeline completion based on a number of criteria, and sets the respective flags in the image.
+    Sets flags depending on what type of objects are in the image only if pipeline complete.
+
+    Arguments
+    ---
+        - image (models.Image): The image object to check, calculate on, and update.
+    """
     category_objs = Category.objects.filter(bounding_box__image=image)
     category_annotations = category_objs.values()
 
@@ -1254,6 +1534,14 @@ def calculateCategoryAnnotationFlags(image):
 
 # Species Flag Checks
 def calculateSpeciesAnnotationFlags(image):
+    """
+    Determines Species pipeline completion based on a number of criteria, and sets the respective flags in the image.
+    Sets flags whether wild animals exists in the image only if pipeline complete.
+
+    Arguments
+    ---
+        - image (models.Image): The image object to check, calculate on, and update.
+    """
     species_objs = Species.objects.filter(bounding_box__image__id=image.id)
     species_annotations = species_objs.values()
 
@@ -1335,6 +1623,13 @@ def calculateSpeciesAnnotationFlags(image):
 
 # Activity Flag Checks
 def calculateActivityAnnotationFlags(image):
+    """
+    Determines Activity pipeline completion based on a number of criteria, and sets the respective flag in the image.
+
+    Arguments
+    ---
+        - image (models.Image): The image object to check, calculate on, and update.
+    """
     activity_objs = Activity.objects.filter(bounding_box__image__id=image.id)
     activity_annotations = activity_objs.values()
 

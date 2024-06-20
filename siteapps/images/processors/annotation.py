@@ -14,7 +14,7 @@ OBJECT_ANNOTATION_TYPE = "OBJECT"
 SPECIES_ANNOTATION_TYPE = "SPECIES"
 ACTIVITY_ANNOTATION_TYPE = "ACTIVITY"
 
-UNANNOTATED_CATEGORY = "unannotated"
+UNKNOWN_CATEGORY = "unknown"
 
 PERSON_CATEGORY = "person"
 ANIMAL_CATEGORY = "animal"
@@ -75,9 +75,7 @@ def vote(obj, annotator: Annotator, accept: bool):
 def set_image_checked_by(annotation_type, image, annotator):
     """Add an annotator to the annotation checked_by"""
     # Set image to "checked" by the annotator
-    if annotation_type == OBJECT_ANNOTATION_TYPE:
-        image.bbox_checked_by.add(annotator)
-    elif annotation_type == SPECIES_ANNOTATION_TYPE:
+    if annotation_type == SPECIES_ANNOTATION_TYPE:
         image.species_checked_by.add(annotator)
     elif annotation_type == ACTIVITY_ANNOTATION_TYPE:
         image.activity_checked_by.add(annotator)
@@ -86,9 +84,7 @@ def set_image_checked_by(annotation_type, image, annotator):
 def set_image_skipped_by(annotation_type, image, annotator):
     """Add an annotator to the annotation skipped_by"""
     # Set image to "skipped" by the annotator
-    if annotation_type == OBJECT_ANNOTATION_TYPE:
-        image.bbox_skipped_by.add(annotator)
-    elif annotation_type == SPECIES_ANNOTATION_TYPE:
+    if annotation_type == SPECIES_ANNOTATION_TYPE:
         image.species_skipped_by.add(annotator)
     elif annotation_type == ACTIVITY_ANNOTATION_TYPE:
         image.activity_skipped_by.add(annotator)
@@ -151,24 +147,13 @@ def create_bbox(annotation_type: str, annotation_dict: Dict[str, Any], image_obj
         logging.info("New bounding box created in Species stage.")
 
         # Based on species_group field, set the category if possible.
-        # If not, set category as 'unannotated.'
+        # If not, set category as 'unknown.'
         infer_category(species_name=annotation_dict["category"], bbox_obj=bbox_obj, annotator=annotator)
 
     elif annotation_type == ACTIVITY_ANNOTATION_TYPE:
-        create_category({"category": UNANNOTATED_CATEGORY, "confidence": 1}, bbox_obj, annotator)
-
-        if not SpeciesName.objects.filter(name=UNANNOTATED_CATEGORY).exists():
-            SpeciesName.objects.create(name=UNANNOTATED_CATEGORY, scientific_name=UNANNOTATED_CATEGORY)
-            logging.info(
-                "SpeciesName 'unannotated' object not found while creating new bbox in Activity stage. Created object."
-            )
-
-        create_species({"category": UNANNOTATED_CATEGORY, "confidence": 1}, bbox_obj, annotator)
         create_activity(annotation_dict, bbox_obj, annotator)
 
-        logging.info("New bounding box created in Activity stage. 'unannotated' Category and Species objects added.")
-
-    return
+    return bbox_obj
 
 
 def handle_bbox_additions(annotation_type, initial_bboxes, formatted_annotations, image, annotator):
@@ -210,6 +195,47 @@ def handle_bbox_deletions(initial_bboxes, formatted_annotations, user, annotator
     logging.info("Successfully removed all deleted bounding boxes")
 
 
+def edit_bbox_coordinates(user, bbox_obj, formatted_annotations, annotator, image):
+    bbox_id = str(bbox_obj.id)
+
+    new_x = formatted_annotations[bbox_id]["x"]
+    new_y = formatted_annotations[bbox_id]["y"]
+    new_w = formatted_annotations[bbox_id]["w"]
+    new_h = formatted_annotations[bbox_id]["h"]
+
+    # If the user is expert/staff or original annotator, we directly edit the bounding box
+    if (
+        user.is_staff
+        or user.is_expert
+        or bbox_obj.created_by == annotator
+        or all(
+            [
+                abs(bbox_obj.x - new_x) < 0.02,
+                abs(bbox_obj.y - new_y) < 0.02,
+                abs(bbox_obj.w - new_w) < 0.02,
+                abs(bbox_obj.h - new_h) < 0.02,
+            ]
+        )
+    ):
+        bbox_obj.x = new_x
+        bbox_obj.y = new_y
+        bbox_obj.w = new_w
+        bbox_obj.h = new_h
+        bbox_obj.save()
+    else:
+        # Original bounding box was modified significantly by the annotator. Cast a reject vote on the original.
+        vote(bbox_obj, annotator, accept=False)
+        # Create a new bounding box
+        bbox_obj = create_bbox(
+            annotation_type=OBJECT_ANNOTATION_TYPE,
+            annotation_dict=formatted_annotations[bbox_id],
+            image_obj=image,
+            annotator=annotator,
+        )
+
+    return bbox_obj
+
+
 def handle_bbox_updates(
     annotation_type, initial_bboxes, formatted_annotations, image, user, annotator, batch_tag_images
 ):
@@ -219,21 +245,19 @@ def handle_bbox_updates(
             # Get the initial bounding box & category object
             try:
                 bbox_obj = BoundingBox.objects.get(id=bbox_id)
+                # Edit bbox if changes made, create separate object is change is large
+                bbox_obj = edit_bbox_coordinates(
+                    user=user,
+                    bbox_obj=bbox_obj,
+                    formatted_annotations=formatted_annotations,
+                    annotator=annotator,
+                    image=image,
+                )
             except ObjectDoesNotExist:
                 logging.info(f"Bounding box with id {bbox_id} doesn't exist. Skipping update.'")
                 continue
 
-            if annotation_type == OBJECT_ANNOTATION_TYPE:
-                process_category(
-                    initial_bboxes=initial_bboxes,
-                    formatted_annotations=formatted_annotations,
-                    image=image,
-                    bbox_id=bbox_id,
-                    bbox_obj=bbox_obj,
-                    user=user,
-                    annotator=annotator,
-                )
-            elif annotation_type == SPECIES_ANNOTATION_TYPE:
+            if annotation_type == SPECIES_ANNOTATION_TYPE:
                 process_species(
                     formatted_annotations=formatted_annotations, bbox_id=bbox_id, bbox_obj=bbox_obj, annotator=annotator
                 )
@@ -283,7 +307,7 @@ def tag_batch(batch_tag_images, category, annotator):
 # Handles additions, deletions, and updates to image bboxes
 def handle_changes(annotation_type, initial_bboxes, formatted_annotations, image, user, annotator, batch_tag_images):
     # Check if annotation type is valid
-    if annotation_type not in [OBJECT_ANNOTATION_TYPE, SPECIES_ANNOTATION_TYPE, ACTIVITY_ANNOTATION_TYPE]:
+    if annotation_type not in [SPECIES_ANNOTATION_TYPE, ACTIVITY_ANNOTATION_TYPE]:
         logging.error(f"Invalid annotation type given for processor function: {annotation_type}")
         return False
 
@@ -324,7 +348,11 @@ def handle_inference(category, bbox_obj, annotator):
     target_category = Category.objects.filter(bounding_box=bbox_obj, name=category)
 
     if target_category.exists():
-        vote(target_category.first(), annotator, accept=True)
+        category_obj = target_category.first()
+
+        vote(category_obj, annotator, accept=True)
+        # Delete duplicate categories
+        target_category.exclude(id=category_obj.id).delete()
     else:
         create_category({"category": category, "confidence": 1}, bbox_obj, annotator)
 
@@ -335,7 +363,12 @@ def handle_inference(category, bbox_obj, annotator):
     other_categories = Category.objects.filter(bounding_box=bbox_obj).exclude(name=category)
 
     for category in other_categories:
+        # Delete duplicate categories with same name
+        Category.objects.filter(~Q(id=category.id), bounding_box=bbox_obj, name=category).delete()
         vote(category, annotator, accept=False)
+
+    # Delete old 'unannotated' categories as they cause issues
+    Category.objects.filter(bounding_box=bbox_obj, name="unannotated").delete()
 
 
 # Infer the Category based on the Species annotation if possible
@@ -351,96 +384,11 @@ def infer_category(species_name, bbox_obj, annotator):
     elif species_group == "VEHICLE":
         handle_inference(category=VEHICLE_CATEGORY, bbox_obj=bbox_obj, annotator=annotator)
     else:
-        logging.info(f"Unable to infer category for {species_name}. Adding 'unannotated' Category object.")
-        create_category({"category": UNANNOTATED_CATEGORY, "confidence": 1}, bbox_obj, annotator)
-
-
-def process_category(initial_bboxes, formatted_annotations, image, bbox_id, bbox_obj, user, annotator):
-    try:
-        category_obj = Category.objects.get(bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"])
-    except MultipleObjectsReturned:
-        # If there are duplicate category objects, delete all but one
-        logging.info(f"Duplicate category objects were found in image {image.id} and were deleted.")
-        category_objs = Category.objects.filter(bounding_box=bbox_obj, name=initial_bboxes[bbox_id]["category"])
-        category_obj = category_objs.first()
-        category_objs.filter(~Q(id=category_obj.id)).delete()
-
-    # Category with name "unannotated" is created when a bbox is created in Species stage or beyond.
-    # Delete this object once a proper annotation has been made
-    if Category.objects.filter(~Q(name=UNANNOTATED_CATEGORY), bounding_box=bbox_obj).exists():
-        Category.objects.filter(name=UNANNOTATED_CATEGORY, bounding_box=bbox_obj).delete()
-
-    # First handle the case of 'accept' votes. This can happen in 3 cases,
-    # 1) The user is staff
-    # 2) The user is the same as the annotator who created the bounding box
-    # 3) The user is a regular annotator but the bounding box coordinates haven't changed
-    if (
-        user.is_staff
-        or user.is_expert
-        or bbox_obj.created_by == annotator
-        or all(
-            [
-                abs(bbox_obj.x - formatted_annotations[bbox_id]["x"]) < 0.02,
-                abs(bbox_obj.y - formatted_annotations[bbox_id]["y"]) < 0.02,
-                abs(bbox_obj.w - formatted_annotations[bbox_id]["w"]) < 0.02,
-                abs(bbox_obj.h - formatted_annotations[bbox_id]["h"]) < 0.02,
-            ]
-        )
-    ):
-        # If the user is expert/staff or annotator, we directly edit the bounding box
-        if user.is_staff or user.is_expert or bbox_obj.created_by == annotator:
-            bbox_obj.x = formatted_annotations[bbox_id]["x"]
-            bbox_obj.y = formatted_annotations[bbox_id]["y"]
-            bbox_obj.w = formatted_annotations[bbox_id]["w"]
-            bbox_obj.h = formatted_annotations[bbox_id]["h"]
-            category_obj.name = formatted_annotations[bbox_id]["category"]
-            category_obj.confidence = formatted_annotations[bbox_id]["confidence"]
-            bbox_obj.save()
-            category_obj.save()
-
-        # Now set the 'accept' votes for bounding box and category
-
-        # Update accept/reject if not created by the same user
-        vote(bbox_obj, annotator, accept=True)
-
-        # Next, cast a vote for the category label if it is the same
-        if initial_bboxes[bbox_id]["category"] == formatted_annotations[bbox_id]["category"]:
-            # Vote cast only if the user is not the creator
-            vote(category_obj, annotator, accept=True)
-        # If it isn't the same, then vote reject on the existing category & create/update a new category
-        else:
-            vote(category_obj, annotator, accept=False)
-            # If the category exists, add a vote to it
-            try:
-                new_category_obj = Category.objects.get(
-                    bounding_box=bbox_obj,
-                    name=formatted_annotations[bbox_id]["category"],
-                )
-                vote(new_category_obj, annotator, accept=True)
-            # If not, create the label & link it to the bounding box
-            except ObjectDoesNotExist:
-                create_category(formatted_annotations[bbox_id], bbox_obj, annotator)
-
-    else:
-        # Handle the cases of 'reject' votes
-
-        # Original bounding box was modified significantly by the annotator. Cast a reject vote on the original.
-        vote(bbox_obj, annotator, accept=False)
-        # Create a new bounding box
-        create_bbox(
-            annotation_type=OBJECT_ANNOTATION_TYPE,
-            annotation_dict=formatted_annotations[bbox_id],
-            image_obj=image,
-            annotator=annotator,
-        )
+        logging.info(f"Unable to infer category for {species_name}. Adding 'unknown' Category object.")
+        handle_inference(category=UNKNOWN_CATEGORY, bbox_obj=bbox_obj, annotator=annotator)
 
 
 def process_species(formatted_annotations, bbox_id, bbox_obj, annotator):
-    # Species with name "unannotated" is created when a bbox is created in Activity stage.
-    # Delete this object once a proper annotation has been made
-    if Species.objects.filter(~Q(name__name=UNANNOTATED_CATEGORY), bounding_box=bbox_obj).exists():
-        Species.objects.filter(name__name=UNANNOTATED_CATEGORY, bounding_box=bbox_obj).delete()
-
     if formatted_annotations[bbox_id]["category"]:
         species_name_obj = SpeciesName.objects.get(name=formatted_annotations[bbox_id]["category"])
         try:

@@ -36,20 +36,17 @@
                  class="alert alert-warning"
                  role="alert">
                 <i class="bi bi-info-circle"></i>&nbsp;&nbsp;
-                Some snapshot images' timestamps have <a href="{% url 'images:fix_upload_sets' %}">unapplied time corrections</a>
-                and may not be accurate in the export.
+                Some upload sets have unapplied timestamp corrections. Please verify and apply them before exporting.
             </div>
             <table id="preview-snapshot">
                 <thead>
                     <tr>
-                        <th>First Timestamp</th>
-                        <th>Latest Timestamp</th>
+                        <th>Retrival Date</th>
                         <th>Microsite</th>
                         <th>Camera Station</th>
                         <th>Volunteer</th>
                         <th>Images To Be Exported</th>
-                        <th>Has Time Correction</th>
-                        <th>Images With Unapplied Correction</th>
+                        <th>Time Correction</th>
                     </tr>
                 </thead>
                 <tbody id="preview-body">
@@ -62,7 +59,7 @@
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script>
         const pageLength = 10;
-        const order = [[6, 'desc']];
+        const order = [[5, 'asc']];
 
     $('#preview-snapshot').dataTable( {
         "pageLength": pageLength,
@@ -123,20 +120,25 @@
         for (uploadInfo of uploads) {
             rowColor = "";
 
-            if (uploadInfo["imagesTimeCorrectionNotApplied"] > 0) {
+            timeCorrectionLink = `<button type="button" class="btn btn-success w-100" disabled>Ready</button>`
+
+            if (uploadInfo["timeCorrectionApplied"] == false) {
                 rowColor = `style="background-color: lightyellow;"`
                 $(`#unapplied-correction-warning`).show();
+
+                timeCorrectionLink = `<a href="/images/upload/${uploadInfo["uploadId"]}/apply_time_correction" target="_blank">
+                        <button type="button" class="btn btn-warning w-100">Apply</button>
+                </a>`
             }
+
             previewBody.append(`
                 <tr ${rowColor}>
-                    <td>${uploadInfo["firstImage"]}</td>
-                    <td>${uploadInfo["lastImage"]}</td>
+                    <td>${uploadInfo["retrievalDate"]}</td>
                     <td>${uploadInfo["microsite"]}</td>
                     <td>${uploadInfo["cameraStation"]}</td>
                     <td>${uploadInfo["volunteer"]}</td>
                     <td>${uploadInfo["imageCount"]}</td>
-                    <td>${uploadInfo["hasTimeCorrection"]}</td>
-                    <td>${uploadInfo["imagesTimeCorrectionNotApplied"]}</td>
+                    <td>${timeCorrectionLink}</td>
                 </tr>
             `)
         }

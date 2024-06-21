@@ -121,20 +121,19 @@ class PreviewSnapshotImagesView(LoginRequiredMixin, View):
 
         for upload in uploads:
             has_time_correction = bool(upload.time_correction)
-            images = upload.images.order_by("trigger_timestamp")
+            images = upload.images
 
             upload_info.append(
                 {
-                    "firstImage": str(images.first().trigger_timestamp),
-                    "lastImage": str(images.last().trigger_timestamp),
+                    "uploadId": upload.id,
+                    "retrievalDate": upload.date_retrieved.strftime("%B %d, %Y"),
                     "microsite": upload.camera_station.micro_site.name,
                     "cameraStation": upload.camera_station.station_id,
                     "volunteer": upload.volunteer.name,
-                    "imageCount": images.filter(**image_kwargs).distinct().count(),
-                    "hasTimeCorrection": has_time_correction,
-                    "imagesTimeCorrectionNotApplied": images.filter(time_correction_applied=False).distinct().count()
+                    "imageCount": images.filter(**image_kwargs).count(),
+                    "timeCorrectionApplied": not images.filter(time_correction_applied=False).exists()
                     if has_time_correction
-                    else 0,
+                    else True,
                 }
             )
 

@@ -11,6 +11,7 @@ from .models import (
     Image,
     Species,
     SpeciesName,
+    TimeCorrection,
     Upload,
 )
 
@@ -62,6 +63,15 @@ class ImageAdmin(SimpleHistoryAdmin):
         "width",
         "duration",
     )
+    ordering = ["-created"]
+    search_fields = ["id", "upload__id"]
+
+
+@admin.register(TimeCorrection)
+class TimeCorrectionAdmin(SimpleHistoryAdmin):
+    list_display = ["id", "years", "months", "days", "hours", "minutes", "daylight_savings"]
+    list_display_links = ["id", "years", "months", "days", "hours", "minutes", "daylight_savings"]
+    readonly_fields = ()
     ordering = ["-created"]
     search_fields = ["id", "upload__id"]
 

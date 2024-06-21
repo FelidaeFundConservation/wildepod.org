@@ -33,8 +33,8 @@ class CreateSnapshotForm(forms.ModelForm):
             #     css_class="text-center",
             # ),
             Row(
-                Column(Submit("submit", "Create Snapshot", css_class="form-group btn-primary")),
-                css_class="text-center",
+                Column(Submit("submit", "Create Snapshot", css_class="form-group btn-primary w-50")),
+                css_class="text-center py-2",
             ),
         )
         self.helper.form_show_errors = True

@@ -31,20 +31,20 @@ class CameraStationAction(TimeStampedModel):
 
 class TimeCorrection(TimeStampedModel):
     # The time to offset the upload images' timestamps
-    years = models.IntegerField(default=0)
-    months = models.IntegerField(default=0)
-    days = models.IntegerField(default=0)
-    hours = models.IntegerField(default=0)
-    minutes = models.IntegerField(default=0)
+    years = models.IntegerField(default=0, blank=True)
+    months = models.IntegerField(default=0, blank=True)
+    days = models.IntegerField(default=0, blank=True)
+    hours = models.IntegerField(default=0, blank=True)
+    minutes = models.IntegerField(default=0, blank=True)
 
-    start_date = models.DateTimeField(null=True)
-    end_date = models.DateTimeField(null=True)
+    start_date = models.DateTimeField(null=True, blank=True)
+    end_date = models.DateTimeField(null=True, blank=True)
 
     # The date of the daylight savings shift the upload crossed
-    daylight_savings = models.DateField(null=True)
+    daylight_savings = models.DateField(null=True, blank=True)
 
     # When the time fix transformation was applied, if it has been already
-    applied_at = models.DateTimeField(null=True)
+    applied_at = models.DateTimeField(null=True, blank=True)
 
 
 # Model to log upload events.
@@ -64,7 +64,9 @@ class Upload(TimeStampedModel):
     # Uploader
     volunteer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
-    time_correction = models.ForeignKey(TimeCorrection, on_delete=models.PROTECT, null=True, blank=True)
+    time_correction = models.ForeignKey(
+        TimeCorrection, on_delete=models.PROTECT, null=True, blank=True, related_name="upload"
+    )
 
     # Details of any time errors in the set.
     time_error_details = models.TextField(blank=True, null=True)
@@ -154,7 +156,7 @@ class Upload(TimeStampedModel):
             else:
                 response = dbx.files_create_folder(self.dropbox_folder_path)
 
-                # Construct and encode the absolute dropbox url 
+                # Construct and encode the absolute dropbox url
                 self.dropbox_direct_url = settings.DROPBOX_URL_PREFIX + quote(self.dropbox_folder_path, safe=":/")
 
         super().save(*args, **kwargs)

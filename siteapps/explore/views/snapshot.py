@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.files.base import File as DjangoFile
 from django.core.serializers.json import DjangoJSONEncoder
+from django.db.models import BooleanField, Case, Count, When
 from django.http.response import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -115,22 +116,29 @@ class PreviewSnapshotImagesView(LoginRequiredMixin, View):
             image_kwargs["trigger_timestamp__lt"] = end_date
 
         # Get uploads from macrosite
-        uploads = Upload.objects.filter(**upload_kwargs).distinct()
+        uploads = Upload.objects.filter(**upload_kwargs).values(
+            "id",
+            "date_retrieved",
+            "camera_station__micro_site__name",
+            "camera_station__station_id",
+            "volunteer__name",
+            "time_correction",
+        )
 
         upload_info = []
 
         for upload in uploads:
-            has_time_correction = bool(upload.time_correction)
-            images = upload.images
+            has_time_correction = bool(upload["time_correction"])
+            images = Image.objects.filter(**image_kwargs, upload__id=upload["id"])
 
             upload_info.append(
                 {
-                    "uploadId": upload.id,
-                    "retrievalDate": upload.date_retrieved.strftime("%B %d, %Y"),
-                    "microsite": upload.camera_station.micro_site.name,
-                    "cameraStation": upload.camera_station.station_id,
-                    "volunteer": upload.volunteer.name,
-                    "imageCount": images.filter(**image_kwargs).count(),
+                    "uploadId": upload["id"],
+                    "retrievalDate": upload["date_retrieved"].strftime("%B %d, %Y"),
+                    "microsite": upload["camera_station__micro_site__name"],
+                    "cameraStation": upload["camera_station__station_id"],
+                    "volunteer": upload["volunteer__name"],
+                    "imageCount": images.count(),
                     "timeCorrectionApplied": not images.filter(time_correction_applied=False).exists()
                     if has_time_correction
                     else True,

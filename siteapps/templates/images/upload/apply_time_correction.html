@@ -1,5 +1,6 @@
 {% extends '_base.html' %}
 {% load crispy_forms_tags %}
+{% load admin_urls %}
 {% block title %}Time Correction |{% endblock %}
 <!-- Set corresponding nav pill to active -->
 {% block nav_upload %}
@@ -89,7 +90,7 @@
       style="width: 12px;
              height: 12px"></span>
             </button>
-            <a href="/admin/images/timecorrection/{{ upload.time_correction.id }}/change/"
+            <a href="{% url 'admin:images_timecorrection_change' upload.time_correction.id %}"
                target="_blank">
                 <button id="edit-button" class="btn btn-secondary px-4 mx-2">Edit Correction</button>
             </a>

@@ -559,6 +559,10 @@ class ModifyUploadSetImagesView(StaffuserRequiredMixin, View):
                 f"Time correction not applied or partially applied to upload {upload_obj.id}. Applying to remaining {images.count()} images..."
             )
 
+            # Handle blank timestamp images
+            images.filter(trigger_timestamp=None).update(time_correction_applied=True)
+            images = images.filter(~Q(trigger_timestamp=None))
+
             for image in images.iterator(chunk_size=500):
                 try:
                     if (
@@ -613,6 +617,10 @@ class ModifyUploadSetImagesView(StaffuserRequiredMixin, View):
             logging.info(
                 f"Time correction has already been applied to upload {upload_obj.id}. Unapplying from {images.count()} images..."
             )
+
+            # Handle blank timestamp images
+            images.filter(trigger_timestamp=None).update(time_correction_applied=False)
+            images = images.filter(~Q(trigger_timestamp=None))
 
             # Shift dates for unapplying
             if time_correction.start_date:

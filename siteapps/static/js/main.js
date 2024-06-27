@@ -166,9 +166,12 @@ function createCategoryWidget(categories, speciesVotes, speciesDetections, pipel
             || (personSelected.length == 0 && vehicleSelected.length == 0)
             ? "show active" : "";
 
-        let animalTabContentHtml = `${birdsSectionHtml}
+        let animalTabContentHtml = `
             <div class="category-widget m-2 p-2 ${row}">
                 ${buttonsHtml}
+            </div>
+            ${birdsSectionHtml}
+            <div class="category-widget m-2 p-2 ${row}">
                 <hr class="mt-2">
                 <div class="selected-display-text pt-3">
                     ${displayTextHtml}

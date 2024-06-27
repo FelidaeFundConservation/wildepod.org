@@ -116,13 +116,17 @@ class PreviewSnapshotImagesView(LoginRequiredMixin, View):
             image_kwargs["trigger_timestamp__lt"] = end_date
 
         # Get uploads from macrosite
-        uploads = Upload.objects.filter(**upload_kwargs).distinct().values(
-            "id",
-            "date_retrieved",
-            "camera_station__micro_site__name",
-            "camera_station__station_id",
-            "volunteer__name",
-            "time_correction",
+        uploads = (
+            Upload.objects.filter(**upload_kwargs)
+            .distinct()
+            .values(
+                "id",
+                "date_retrieved",
+                "camera_station__micro_site__name",
+                "camera_station__station_id",
+                "volunteer__name",
+                "time_correction",
+            )
         )
 
         upload_info = []

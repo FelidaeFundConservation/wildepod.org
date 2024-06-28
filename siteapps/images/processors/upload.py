@@ -254,32 +254,48 @@ def process_upload(upload_id: uuid.UUID):
 
     # Delete files with duplicate content from dropbox directory
     if len(duplicate_files) > 0:
+        # Split list into <1000 object chunks
+        def chunk_list(lst, chunk_size):
+            for i in range(0, len(lst), chunk_size):
+                yield lst[i : i + chunk_size]
+
+        chunks = list(chunk_list(duplicate_files, 1000))
+
+        # Make Dropbox API calls
         logging.info("Attempting to delete duplicate files...")
 
-        delete_job_id = dbx.files_delete_batch(duplicate_files).get_async_job_id()
-        delete_job_status = dbx.files_delete_batch_check(delete_job_id)
+        deleted_entries_count = 0
+        deletion_error = False
 
-        # Keep checking status until deletion job finishes or fails.
-        while not delete_job_status.is_complete():
+        # Make calls to delete each chunk
+        for chunk in chunks:
+            delete_job_id = dbx.files_delete_batch(chunk).get_async_job_id()
             delete_job_status = dbx.files_delete_batch_check(delete_job_id)
 
-            if delete_job_status.is_complete():
-                deleted_entries_count = len(delete_job_status.get_complete().entries)
-                logging.info(
-                    f"{deleted_entries_count} of {len(entries)} file(s) were found to have duplicate content, and were deleted from the dropbox directory.\n"
-                    f"The {len(entries) - deleted_entries_count} remaining file(s) are unique."
-                )
-                break
-            elif delete_job_status.is_failed():
-                logging.error(
-                    f"Error deleting files with duplicate content from dropbox directory: {delete_job_status.get_failed()}"
-                )
-                break
-            else:
-                pass
+            # Keep checking status until deletion job finishes or fails.
+            while not delete_job_status.is_complete():
+                delete_job_status = dbx.files_delete_batch_check(delete_job_id)
 
-            time.sleep(3)
+                if delete_job_status.is_complete():
+                    deleted_entries_count += len(delete_job_status.get_complete().entries)
+                    logging.info("Duplicate image batch successfully deleted from Dropbox.")
+                    break
+                elif delete_job_status.is_failed():
+                    logging.error(
+                        f"Error deleting files with duplicate content from dropbox directory: {delete_job_status.get_failed()}"
+                    )
+                    deletion_error = True
+                    break
+                else:
+                    pass
 
+                time.sleep(3)
+
+        if not deletion_error:
+            logging.info(
+                f"{deleted_entries_count} of {len(entries)} file(s) were found to have duplicate content, and were deleted from the Dropbox directory.\n"
+                f"The {len(entries) - deleted_entries_count} remaining file(s) are unique."
+            )
     else:
         logging.info("No duplicate files to delete found.")
 

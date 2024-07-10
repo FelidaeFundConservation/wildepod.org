@@ -8,3 +8,4 @@ Collectfast==2.2.0  # https://github.com/antonagestam/collectfast
 google-cloud-logging==3.2.2 # https://googleapis.dev/python/logging/latest/index.html
 google-cloud-tasks==2.12.1 # https://googleapis.dev/python/tasks/latest/index.html
 gunicorn==20.1.0  # https://github.com/benoitc/gunicorn
+zipp>=3.19.1 # not directly required, pinned by Snyk to avoid a vulnerability

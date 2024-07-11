@@ -229,6 +229,13 @@ def process_upload(upload_id: uuid.UUID):
     duplicate_files_lock = threading.Lock()
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS_FOR_IMAGE_PROCESSING) as executor:
+        # Skip checking already-processed entries
+        processed_list = upload.images.filter(processed=True).values_list("dropbox_file_path", flat=True)
+        logging.info(f"{len(entries)} entries found. Skipping processed entries...")
+
+        entries = [entry for entry in entries if entry.path_lower not in processed_list]
+        logging.info(f"Processing remaining {len(entries)} entries.")
+
         # Process each entry in the dropbox directory
         futures = [
             executor.submit(

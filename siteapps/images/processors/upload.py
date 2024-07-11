@@ -22,7 +22,8 @@ dbx = dropbox.Dropbox(
 # A workaround might be to get all file metadata separately with fewer threads
 # and then hit cloud run with more threads.
 # For now, this isn't critical since the processing is largely async
-MAX_THREADS_FOR_IMAGE_PROCESSING = 5
+MAX_THREADS_FOR_IMAGE_PROCESSING = 10
+MAX_THREADS_FOR_DROPBOX_API = 15
 
 
 def precompute_context_images(upload):
@@ -74,6 +75,37 @@ def get_dropbox_file_listing(dropbox_folder_path: str) -> list:
     return entries
 
 
+def preretrieve_file_metadata(entries, metadata_dict):
+    preretrieved_metadata_lock = threading.Lock()
+
+    def append_metadata(entry):
+        data = dbx.files_get_metadata(entry.path_lower, include_media_info=True)
+
+        with preretrieved_metadata_lock:
+            metadata_dict[entry.path_lower] = data
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS_FOR_DROPBOX_API) as executor:
+        futures = [
+            executor.submit(
+                append_metadata,
+                entry=entry,
+            )
+            for entry in entries
+        ]
+
+
+def get_metadata_with_retry(preretrieved_metadata, entry, max_retries=10, delay=10):
+    retries = 0
+    while retries < max_retries:
+        try:
+            response = preretrieved_metadata[entry.path_lower]
+            return response
+        except KeyError:
+            retries += 1
+            time.sleep(delay)
+    return None
+
+
 def process_dropbox_file(
     upload: Upload,
     entry: dropbox.files.FileMetadata,
@@ -81,6 +113,7 @@ def process_dropbox_file(
     content_hashes_lock: threading.Lock,
     duplicate_files: list,
     duplicate_files_lock: threading.Lock,
+    preretrieved_metadata: dict,
 ):
     """Process each file in the dropbox directory."""
     logging.info(
@@ -93,10 +126,7 @@ def process_dropbox_file(
     # Process only files
     if isinstance(entry, dropbox.files.FileMetadata):
         # Retrieve their metadata along with media info
-        # "include_media_info" is deprecated in the files_list_folder API requiring a call for each file again
-        # TODO: Maybe this can be offloaded to an on-demand functionality that retrieves data only if needed
-        response = dbx.files_get_metadata(entry.path_lower, include_media_info=True)
-
+        response = get_metadata_with_retry(preretrieved_metadata, entry)
         # Check if the file's content matches another checked file
         # Don't create an object and stage the file for deletion if so
         with content_hashes_lock:
@@ -228,14 +258,20 @@ def process_upload(upload_id: uuid.UUID):
     content_hashes_lock = threading.Lock()
     duplicate_files_lock = threading.Lock()
 
+    # Skip checking already-processed entries
+    processed_list = upload.images.filter(processed=True).values_list("dropbox_file_path", flat=True)
+    logging.info(f"{len(entries)} entries found. Skipping processed entries...")
+
+    entries = [entry for entry in entries if entry.path_lower not in processed_list]
+    logging.info(f"Processing remaining {len(entries)} entries.")
+
+    # Pre-retrieve metadata for all files asynchronously
+    preretrieved_metadata = {}
+
+    metadata_thread = threading.Thread(target=preretrieve_file_metadata, args=(entries, preretrieved_metadata))
+    metadata_thread.start()
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS_FOR_IMAGE_PROCESSING) as executor:
-        # Skip checking already-processed entries
-        processed_list = upload.images.filter(processed=True).values_list("dropbox_file_path", flat=True)
-        logging.info(f"{len(entries)} entries found. Skipping processed entries...")
-
-        entries = [entry for entry in entries if entry.path_lower not in processed_list]
-        logging.info(f"Processing remaining {len(entries)} entries.")
-
         # Process each entry in the dropbox directory
         futures = [
             executor.submit(
@@ -246,6 +282,7 @@ def process_upload(upload_id: uuid.UUID):
                 content_hashes_lock=content_hashes_lock,
                 duplicate_files=duplicate_files,
                 duplicate_files_lock=duplicate_files_lock,
+                preretrieved_metadata=preretrieved_metadata,
             )
             for entry in entries
         ]

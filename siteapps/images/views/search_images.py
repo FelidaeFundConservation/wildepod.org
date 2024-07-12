@@ -1,3 +1,5 @@
+import json
+
 from braces.views import StaffuserRequiredMixin
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import HTML, Column, Fieldset, Layout, Row, Submit
@@ -70,7 +72,13 @@ class SearchImagesForm(forms.Form):
             Row(HTML("<div id='time-picker' class='form-group col-12 mb-2'></div>")),
             Row(HTML("<hr>")),
             Row(
-                Column(Submit("submit", "Query Images", css_class="form-group btn-primary w-100 py-2 my-1")),
+                Column(
+                    Submit(
+                        "submit",
+                        "Select a time to view results.",
+                        css_class="form-group btn-primary w-100 py-2 my-1 disabled",
+                    )
+                ),
                 css_class="text-center",
             ),
         )
@@ -88,9 +96,16 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
 
         # Use the form data to retrieve the filter conditions
         macrosites = request.POST.get("macrosites")
+        if macrosites and type(macrosites) != list:
+            macrosites = json.loads(macrosites)
+
         camera_stations = request.POST.get("camera_stations")
+        if camera_stations and type(camera_stations) != list:
+            camera_stations = json.loads(camera_stations)
 
         volunteers = request.POST.get("volunteers")
+        if volunteers and type(volunteers) != list:
+            volunteers = json.loads(volunteers)
 
         date = request.POST.get("date")
         hour = request.POST.get("hour")
@@ -100,26 +115,40 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
         annotation_type = request.POST.get("annotation_type")
 
         # Apply filters conditionally
-        filterset = {}
+        filterset = Q()
 
         if date:
-            filterset["created"] = date
+            filterset &= Q(created__date=date) | Q(modified__date=date)
+        if hour:
+            filterset &= Q(created__hour=hour) | Q(modified__hour=hour)
         if staff_review_needed:
-            filterset["staff_review_needed"] = True
-
-        if macrosites:
-            filterset["boundingbox__image__upload__camera_station__micro_site__macro_site__in"] = macrosites
-        if camera_stations:
-            filterset["boundingbox__image__upload__camera_station__in"] = camera_stations
+            staff_review_needed = json.loads(staff_review_needed)
+            filterset &= Q(bounding_box__image__staff_review_needed=staff_review_needed)
+        if len(volunteers) > 0:
+            filterset &= (
+                Q(created_by__id__in=volunteers) | Q(accepted_by__id__in=volunteers) | Q(rejected_by__id__in=volunteers)
+            )
+        if len(macrosites) > 0:
+            filterset &= Q(bounding_box__image__upload__camera_station__micro_site__macro_site__in=macrosites)
+        if len(camera_stations) > 0:
+            filterset &= Q(bounding_box__image__upload__camera_station__in=camera_stations)
 
         # Query annotation results
-        results = None
+        results = []
 
         if annotation_type == SPECIES_ANNO_TYPE:
-            results = Species.objects.filter(**filterset)
+            results = Species.objects.filter(filterset)
         elif annotation_type == ACTIVITY_ANNO_TYPE:
-            results = Activity.objects.filter(**filterset)
+            results = Activity.objects.filter(filterset)
 
-        query_result_count = results.count()
+        if len(results) > 0:
+            results = results.values(
+                "bounding_box__image__id",
+                "bounding_box__image__upload__camera_station__micro_site__macro_site__name",
+                "bounding_box__image__upload__camera_station__station_id",
+                "modified",
+                "name__name",
+                "bounding_box__image__thumbnail_gcloud_path",
+            )
 
-        return JsonResponse({"results": results, "count": query_result_count})
+        return JsonResponse({"results": list(results)})

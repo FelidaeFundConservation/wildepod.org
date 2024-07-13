@@ -142,7 +142,7 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             results = Activity.objects.filter(filterset)
 
         if len(results) > 0:
-            results = results.values(
+            results = results.order_by("-modified").values(
                 "bounding_box__image__id",
                 "bounding_box__image__upload__camera_station__micro_site__macro_site__name",
                 "bounding_box__image__upload__camera_station__station_id",

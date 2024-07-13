@@ -63,7 +63,7 @@ class SearchImagesForm(forms.Form):
             ),
             Row(
                 HTML(
-                    "<div id='date-picker' class='form-group col-12 mb-4'>(Pick a date to see annotation distribution.)<br></div>"
+                    "<div id='date-picker' class='form-group col-12 mb-4'>(Pick a date to show quick select buttons.)<br></div>"
                 )
             ),
             Row(
@@ -144,6 +144,7 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
         if len(results) > 0:
             results = results.order_by("-modified").values(
                 "bounding_box__image__id",
+                "bounding_box__image__dropbox_file_name",
                 "bounding_box__image__upload__camera_station__micro_site__macro_site__name",
                 "bounding_box__image__upload__camera_station__station_id",
                 "modified",

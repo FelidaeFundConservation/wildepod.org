@@ -24,7 +24,7 @@
         </div>
     </div>
     <div id="results-modal" class="modal" role="dialog">
-        <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-dialog modal-xl" role="document">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title"></h5>
@@ -36,9 +36,10 @@
                     <table id="results-table" class="table mt-2 mt-md-4 align-middle">
                         <thead>
                             <tr>
+                                <th scope="col">File Name</th>
                                 <th scope="col">Macrosite</th>
                                 <th scope="col">Camera Station</th>
-                                <th scope="col">Time Tagged</th>
+                                <th scope="col">Last Tagged</th>
                                 <th scope="col">Annotation</th>
                                 <th scope="col">Image</th>
                             </tr>
@@ -147,8 +148,8 @@
 
         var timePicker = $("#time-picker");
 
-        if (dateString == null){
-            $timePicker.hide();
+        if (dateString == ""){
+            timePicker.hide();
         } else {
             timePicker.show();
         }
@@ -163,7 +164,7 @@
     function queryImages(){
         var resultsBody = $("#results-body");
         $("#result-count").text("0");
-        $("#results-table").DataTable().clear();
+        $("#results-table").DataTable().clear().draw();
         resultsBody.empty();
         resultsBody.append(`
           <div class="d-flex justify-content-center">
@@ -209,6 +210,9 @@
             $('#results-body').append(`<h3 class="display-3">No results.</h3>`);
         } else {
             for (result of results){
+                var fileName = result["bounding_box__image__dropbox_file_name"]
+                var imageId = result["bounding_box__image__id"]
+
                 var macrosite = result["bounding_box__image__upload__camera_station__micro_site__macro_site__name"];
                 var cameraStation = result["bounding_box__image__upload__camera_station__station_id"];
 
@@ -227,11 +231,16 @@
                 var thumbnail = result["bounding_box__image__thumbnail_gcloud_path"];
 
                 var newRow = [
-                  macrosite,
-                  cameraStation,
-                  timeString,
-                  annotation,
-                  `<img class="w-100" src="{% get_media_prefix %}${thumbnail}" alt="Thumbnail">`
+                    fileName,
+                    macrosite,
+                    cameraStation,
+                    timeString,
+                    annotation,
+                    `
+                    <a href="/images/image/${imageId}" target="_blank">
+                        <img class="w-100" src="{% get_media_prefix %}${thumbnail}" alt="Thumbnail">
+                    </a>
+                    `
                 ];
 
                 // Add the new row to the DataTable and redraw

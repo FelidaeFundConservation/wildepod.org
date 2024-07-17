@@ -190,7 +190,7 @@ def process_dropbox_file(
 
                 # Remove corrupted images
                 img_valid = check_image_valid(img_obj)
-                if img_valid == False:
+                if img_valid is False:
                     with files_to_delete_lock:
                         files_to_delete.append(dropbox.files.DeleteArg(path=entry.path_lower))
                         img_obj.delete()
@@ -322,11 +322,15 @@ def process_upload(upload_id: uuid.UUID):
             delete_job_id = dbx.files_delete_batch(chunk).get_async_job_id()
             delete_job_status = dbx.files_delete_batch_check(delete_job_id)
 
-            # Keep checking status until deletion job finishes or fails.
-            while not delete_job_status.is_complete():
-                delete_job_status = dbx.files_delete_batch_check(delete_job_id)
+            is_complete = False
+            attempts = 0
 
-                if delete_job_status.is_complete():
+            # Keep checking status until deletion job finishes or fails.
+            while not is_complete and attempts < 20:
+                delete_job_status = dbx.files_delete_batch_check(delete_job_id)
+                is_complete = delete_job_status.is_complete()
+
+                if is_complete:
                     deleted_entries_count += len(delete_job_status.get_complete().entries)
                     logging.info("Duplicate image batch successfully deleted from Dropbox.")
                     break
@@ -339,8 +343,9 @@ def process_upload(upload_id: uuid.UUID):
                 else:
                     pass
 
-                logging.info("Still waiting for delete file response...")
+                logging.info(f"Still waiting for delete file response... - {is_complete}")
                 time.sleep(3)
+                attempts += 1
 
         if not deletion_error:
             logging.info(

@@ -128,8 +128,6 @@ def get_metadata_with_retry(preretrieved_metadata, entry, max_retries=10, delay=
 def process_dropbox_file(
     upload: Upload,
     entry: dropbox.files.FileMetadata,
-    file_content_hashes: list,
-    content_hashes_lock: threading.Lock,
     preretrieved_metadata: dict,
     files_to_delete: list,
     files_to_delete_lock: threading.Lock,
@@ -144,15 +142,12 @@ def process_dropbox_file(
         response = get_metadata_with_retry(preretrieved_metadata, entry)
         # Check if the file's content matches another checked file
         # Don't create an object and stage the file for deletion if so
-        with content_hashes_lock:
-            if response.content_hash in file_content_hashes:
-                with files_to_delete_lock:
-                    files_to_delete.append(dropbox.files.DeleteArg(path=entry.path_lower))
-                    logging.info(f"Duplicate file content found in file {response.name}. Staged for deletion.")
+        if Image.objects.filter(dropbox_content_hash=response.content_hash).exists():
+            with files_to_delete_lock:
+                files_to_delete.append(dropbox.files.DeleteArg(path=entry.path_lower))
+                logging.info(f"Duplicate file content found in file {response.name}. Staged for deletion.")
 
-                    return processed
-            else:
-                file_content_hashes.append(response.content_hash)
+                return processed
 
         # Get media info
         media_info = response.media_info.get_metadata()
@@ -263,9 +258,7 @@ def process_upload(upload_id: uuid.UUID):
     processed_status = []
 
     # Store content hashes shared between threads to check duplicates.
-    file_content_hashes = []
     files_to_delete = []
-    content_hashes_lock = threading.Lock()
     files_to_delete_lock = threading.Lock()
 
     # Skip checking already-processed entries
@@ -288,8 +281,6 @@ def process_upload(upload_id: uuid.UUID):
                 process_dropbox_file,
                 upload=upload,
                 entry=entry,
-                file_content_hashes=file_content_hashes,
-                content_hashes_lock=content_hashes_lock,
                 preretrieved_metadata=preretrieved_metadata,
                 files_to_delete=files_to_delete,
                 files_to_delete_lock=files_to_delete_lock,
@@ -345,6 +336,7 @@ def process_upload(upload_id: uuid.UUID):
                 else:
                     pass
 
+                logging.info("Still waiting for delete file response...")
                 time.sleep(3)
 
         if not deletion_error:

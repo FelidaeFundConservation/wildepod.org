@@ -62,7 +62,7 @@ class Image(TimeStampedModel):
     dropbox_file_path_display = models.TextField()
     # Dropbox's 64 character content hash. This can be used for deduplication and offsets the need to compute a local content hash
     # https://www.dropbox.com/developers/reference/content-hash
-    dropbox_content_hash = models.CharField(max_length=100, db_index=True)
+    dropbox_content_hash = models.CharField(max_length=100, db_index=True, unique=True)
     # Dropbox file id
     dropbox_file_id = models.CharField(max_length=50)
     # Dropbox share url - This might be temporary if thumbnails are saved on google storage instead

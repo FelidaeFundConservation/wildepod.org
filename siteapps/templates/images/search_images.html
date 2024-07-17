@@ -1,126 +1,66 @@
 {% extends '_base.html' %}
 {% load static %}
 {% load crispy_forms_tags %}
-
-{% block title %} Search Images {% endblock %}
+{% block title %}Search Images{% endblock %}
 <!-- Set corresponding nav pill to active -->
-{% block nav_explore %}active{% endblock nav_explore %}
-
+{% block nav_explore %}
+    active
+{% endblock nav_explore %}
 {% block header_includes %}
-<link
-    href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
-    rel="stylesheet"
-/>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+          rel="stylesheet" />
 {% endblock header_includes %}
-
 {% block content %}
-<div class="container">
-    <div class="row justify-content-evenly mt-3 pt-3">
-        <div class="col-12 col-md-10 col-lg-8">
-            {% if form.errors %}
-            <div
-                class="alert alert-danger"
-                role="alert"
-            >
-                Server error! Please try again or contact admin.
+    <div class="container">
+        <div class="row justify-content-evenly mt-3 pt-3">
+            <div class="col-12 col-md-10 col-lg-8">
+                {% if form.errors %}
+                    <div class="alert alert-danger" role="alert">Server error! Please try again or contact admin.</div>
+                {% endif %}
+                <form id="search-form" method="post" onSubmit=queryImages>
+                    {% crispy form %}
+                </form>
             </div>
-            {% endif %}
-            <form method="post">
-                {% crispy form %}
-            </form>
         </div>
     </div>
-
-    <div class="row justify-content-evenly mt-3 pt-3">
-
-        {% if form.is_valid %}
-            {% if results %}
-                <div class="alert alert-info" role="alert">
-                    There are {{ count }} result(s) for this query.
+    <div id="results-modal" class="modal" role="dialog">
+        <div class="modal-dialog modal-xl" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"></h5>
                 </div>
-                <table class="table mt-2 mt-md-4 align-middle">
-                    <thead>
-                        <tr>
-                            <th scope="col">Image ID</th>
-                            <th scope="col">Macrosite</th>
-                            <th scope="col">Camera Station</th>
-                            <th scope="col">Trigger Time</th>
-                            <th scope="col">Created Categories</th>
-                            <th scope="col">Created Species</th>
-                            <th scope="col">Created Activities</th>
-                            <th scope="col">Annotators</th>
-                            <th scope="col">Image</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for image in results %}
-                        <tr>
-                            <td><a href="{% url 'images:image' image.id %}">{{image.id}}</a></td>
-                            <td>{{ image.upload.camera_station.micro_site.macro_site }}</td>
-                            <td>{{ image.upload.camera_station.station_id }}</td>
-                            <td>{{ image.trigger_timestamp }}</td>
-                            {% load tz %}
-                            {% for key, value in annotations.items %}
-                                {% if key == image.id %}
-                                <td>
-                                    {% for item in value.category %}
-                                        {% for annotation in item.all %}
-                                            <span style="font-size: 14px;"><u>{{ annotation.name }}</u></span> by {{ annotation.created_by }}, <i>{{ annotation.created|localtime }}</i><br><br>
-                                        {% endfor %}
-                                    {% endfor %}
-                                </td>
-                                <td>
-                                    {% for item in value.species %}
-                                        {% for annotation in item.all %}
-                                            <span style="font-size: 14px;"><u>{{ annotation.name }}</u></span> by {{ annotation.created_by }}, <i>{{ annotation.created|localtime }}</i><br><br>
-                                        {% endfor %}
-                                    {% endfor %}
-                                </td>
-                                 <td>
-                                    {% for item in value.activity %}
-                                        {% for annotation in item.all %}
-                                            <span style="font-size: 14px;"><u>{{ annotation.name }}</u></span> by {{ annotation.created_by }}, <i>{{ annotation.created|localtime }}</i><br><br>
-                                        {% endfor %}
-                                    {% endfor %}
-                                </td>
-                                {% endif %}
-                            {% endfor %}
-                            <td scope="col">
-                            {% for annotator in image.bbox_checked_by.all %}{{ annotator }}, {% endfor %}<br>
-                            {% for annotator in image.species_checked_by.all %}{{ annotator }}, {% endfor %}
-                            {% for annotator in image.activity_checked_by.all %}{{ annotator }}, {% endfor %}
-                            </td>
-                            <td>
-                                <a href="{% url 'images:image' image.id %}">
-                                    <img id="{{image.id}}"
-                                         class="img-fluid m-0 p-0"
-                                         src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}"
-                                    >
-                                </a>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            {% else %}
-                {% if count == 0 %}
-                    <div class="alert alert-danger" role="alert">
-                        No results found for this query.
+                <div class="modal-body">
+                    <div class="alert alert-info" role="alert">
+                        <span id="result-count">0</span> result(s) were found for this query.
                     </div>
-                {% else %}
-                    <div class="alert alert-danger" role="alert">
-                        There are {{ count }} results for this query, which may be unmanagable. Please narrow your search criteria.
-                    </div>
-                {% endif %}
-            {% endif %}
-        {% endif %}
+                    <table id="results-table" class="table mt-2 mt-md-4 align-middle">
+                        <thead>
+                            <tr>
+                                <th scope="col">File Name</th>
+                                <th scope="col">Macrosite</th>
+                                <th scope="col">Camera Station</th>
+                                <th scope="col">Last Tagged</th>
+                                <th scope="col">Annotation</th>
+                                <th scope="col">Image</th>
+                            </tr>
+                        </thead>
+                        <tbody id="results-body">
+                        </tbody>
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <button type="button"
+                            class="btn btn-primary"
+                            data-dismiss="modal"
+                            onclick="$('#results-modal').modal('hide');">Close</button>
+                </div>
+            </div>
+        </div>
     </div>
-</div>
 {% endblock content %}
-
 {% block footer_includes %}
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script>
     $('#id_volunteers').select2({
         placeholder: '(optional) Only these volunteers will be included',
     });
@@ -130,5 +70,185 @@
     $('#id_camera_stations').select2({
         placeholder: '(optional) Only these camera stations will be included',
     });
-</script>
+
+    function addHourButtons(){
+        const hours = 24;
+
+        for (let hour = 0; hour < hours; hour++) {
+            const paddedHour = hour.toString().padStart(2, '0'); // Format hours as 'HH:00'
+
+            const button = $('<button></button>', {
+                text: paddedHour + ':00',
+                class: 'time-button btn btn-primary btn-sm m-1',
+                value: hour,
+            });
+
+            button.on('click', function() {
+                var date = new Date(`${$(`input[name="date"]`).val()}T00:00:00`);
+
+                var buttonValue = $(this).val();
+                $('input[name="hour"]').val(buttonValue);
+
+                $('#results-modal').modal('show');
+                const options = { year: 'numeric', month: 'short', day: 'numeric' };
+                const formattedDate = date.toLocaleDateString('en-US', options);
+                $('.modal-title').text(`Results For ${formattedDate} ${paddedHour}:00-${paddedHour}:59`);
+
+                queryImages();
+            });
+
+            $('#time-picker').append(button);
+        }
+
+        $('#time-picker').hide();
+    }
+
+    $(document).ready(function () {
+        addHourButtons();
+        $('#results-table').DataTable();
+    });
+
+
+     function addDateButtons(month) {
+        const year = new Date().getFullYear();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        $('#date-picker').empty();
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(year, month, day);
+            const formattedDate = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+            const button = $('<button></button>', {
+                text: formattedDate,
+                class: 'date-button btn btn-secondary btn-sm m-1',
+                value: day,
+            });
+
+            button.on('click', function() {
+                var buttonValue = $(this).val();
+
+                var year = date.getFullYear();
+                var month = date.getMonth();
+                var newDate = new Date(year, month, buttonValue);
+
+                $('input[name="date"]').val(
+                    newDate.toISOString().split('T')[0]
+                );
+            });
+
+            $('#date-picker').append(button);
+        }
+    }
+
+    $('input[name="date"]').on('change', function() {
+        var dateString = $(this).val();
+        var dateObject = new Date(dateString);
+        var month = dateObject.getMonth();
+
+        var timePicker = $("#time-picker");
+
+        if (dateString == ""){
+            timePicker.hide();
+        } else {
+            timePicker.show();
+        }
+
+        addDateButtons(month);
+    });
+
+    $('#search-form').submit(function () {
+     return false;
+    });
+
+    function queryImages(){
+        var resultsBody = $("#results-body");
+        $("#result-count").text("0");
+        $("#results-table").DataTable().clear().draw();
+        resultsBody.empty();
+        resultsBody.append(`
+          <div class="d-flex justify-content-center">
+            <div class="spinner-border" role="status">
+              <span class="sr-only">Retrieving results...</span>
+            </div>
+          </div>
+        `);
+
+
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        let data = {
+            'csrfmiddlewaretoken': csrftoken,
+            'date': $('input[name="date"]').val(),
+            'hour': $('input[name="hour"]').val(),
+            'annotation_type': $('select[name="annotation_type"]').val(),
+            'volunteers': JSON.stringify($('select[name="volunteers"]').val()),
+            'macrosites': JSON.stringify($('select[name="macrosites"]').val()),
+            'camera_stations': JSON.stringify($('select[name="camera_stations"]').val()),
+            'staff_review_needed': $('input[name="staff_review_needed"]').is(':checked'),
+        }
+
+        $.ajax({
+            url: '{% url 'images:search_images'%}',
+            method: 'POST',
+            data: data,
+            dataType: 'json',
+            success: function(data) {
+                displayResults(data);
+            }
+        });
+    }
+
+    function displayResults(data){
+        var resultsTable = $("#results-table").DataTable();
+        $('#results-body').empty();
+
+        var results = data["results"];
+        $("#result-count").text(results.length);
+
+        if (results.length == 0){
+            $('#results-body').append(`<h3 class="display-3">No results.</h3>`);
+        } else {
+            for (result of results){
+                var fileName = result["bounding_box__image__dropbox_file_name"]
+                var imageId = result["bounding_box__image__id"]
+
+                var macrosite = result["bounding_box__image__upload__camera_station__micro_site__macro_site__name"];
+                var cameraStation = result["bounding_box__image__upload__camera_station__station_id"];
+
+                var tagTime = Date.parse(result["modified"]);
+                tagTime = new Date(tagTime);
+
+                var monthName = tagTime.toLocaleString('default', { month: 'short' });
+                var day = tagTime.getDate();
+                var year = tagTime.getFullYear();
+                var hours = tagTime.getHours().toString().padStart(2, '0');
+                var minutes = tagTime.getMinutes().toString().padStart(2, '0');
+
+                var timeString = `${monthName} ${day} ${year} ${hours}:${minutes}`
+
+                var annotation = result["name__name"];
+                var thumbnail = result["bounding_box__image__thumbnail_gcloud_path"];
+
+                var newRow = [
+                    fileName,
+                    macrosite,
+                    cameraStation,
+                    timeString,
+                    annotation,
+                    `
+                    <a href="/images/image/${imageId}" target="_blank">
+                        <img class="w-100" src="{% get_media_prefix %}${thumbnail}" alt="Thumbnail">
+                    </a>
+                    `
+                ];
+
+                // Add the new row to the DataTable and redraw
+                resultsTable.row.add(newRow);
+            }
+
+            resultsTable.draw();
+        }
+    }
+    </script>
 {% endblock footer_includes %}

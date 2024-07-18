@@ -314,44 +314,41 @@ def process_upload(upload_id: uuid.UUID):
         # Make Dropbox API calls
         logging.info("Attempting to delete duplicate files...")
 
-        deleted_entries_count = 0
-        deletion_error = False
-
-        # Make calls to delete each chunk
-        for chunk in chunks:
-            delete_job_id = dbx.files_delete_batch(chunk).get_async_job_id()
-            delete_job_status = dbx.files_delete_batch_check(delete_job_id)
-
+        def poll_delete_job(delete_job_id):
             is_complete = False
+            is_failed = False
             attempts = 0
 
             # Keep checking status until deletion job finishes or fails.
-            while not is_complete and attempts < 20:
+            while not is_complete and not is_failed and attempts < 20:
                 delete_job_status = dbx.files_delete_batch_check(delete_job_id)
                 is_complete = delete_job_status.is_complete()
+                is_failed = delete_job_status.is_failed()
 
                 if is_complete:
-                    deleted_entries_count += len(delete_job_status.get_complete().entries)
                     logging.info("Duplicate image batch successfully deleted from Dropbox.")
                     break
-                elif delete_job_status.is_failed():
+                elif is_failed:
                     logging.error(
                         f"Error deleting files with duplicate content from dropbox directory: {delete_job_status.get_failed()}"
                     )
-                    deletion_error = True
                     break
                 else:
                     pass
 
-                logging.info(f"Still waiting for delete file response... - {is_complete}")
                 time.sleep(3)
                 attempts += 1
 
-        if not deletion_error:
-            logging.info(
-                f"{deleted_entries_count} of {len(entries)} file(s) were found to have duplicate content, and were deleted from the Dropbox directory.\n"
-                f"The {len(entries) - deleted_entries_count} remaining file(s) are unique."
-            )
+        # Make calls to delete each chunk
+        for chunk in chunks:
+            delete_job_id = dbx.files_delete_batch(chunk).get_async_job_id()
+            thread = threading.Thread(target=poll_delete_job, args=(delete_job_id))
+            thread.start()
+
+        logging.info(
+            f"{len(files_to_delete)} of {len(entries)} file(s) were found to have duplicate content, and will be deleted from the Dropbox directory.\n"
+            f"The {len(entries) - len(files_to_delete)} remaining file(s) will be unique."
+        )
     else:
         logging.info("No duplicate files to delete found.")
 

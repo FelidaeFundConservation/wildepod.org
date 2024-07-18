@@ -216,28 +216,21 @@ def process_image(image: Image):
     """Function to process an image and create relevant metadata"""
     # First, add a thumbnail to the image object if it doesn't already exist
     if not image.thumbnail_gcloud_path:
-        logging.info("Thumbnail for image doesn't exist. Adding..")
         add_thumbnail(image)
-    else:
-        logging.info("Thumbnail for image already exists. Skipping..")
 
     if image.thumbnail_gcloud_path:
         try:
-            logging.info("Adding bounding boxes to image..")
             # Next, add bounding boxes to the image object
             run_model_inference(image)
-            logging.info("Finished adding bounding boxes to image..")
 
             # Then, detect species present in the image
             if not image.species_ai_detections:
                 image.species_ai_detections = run_model_inference(image, species=True)
-                logging.info(f"Species detected: {image.species_ai_detections}")
 
             image.processed = True
             image.use_precomputed_flags = True
             image.has_cats = "Puma" in image.species_ai_detections or "Bobcat" in image.species_ai_detections
             image.save()
-            logging.info("Successfully saved image to database.")
         except Exception as e:
             logging.error(f"Error adding bounding boxes to image: {e}")
     else:

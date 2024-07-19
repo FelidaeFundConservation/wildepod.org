@@ -43,6 +43,9 @@ def check_image_valid(image):
         except UnidentifiedImageError:
             logging.info(f"Couldn't open image {image_file_path}. Staged for deletion.")
             return False
+    else:
+        logging.info(f"Couldn't retrieve image {image_file_path} - {response.status_code} {response.reason}.")
+        return None
 
 
 def precompute_context_images(upload):
@@ -80,14 +83,10 @@ def get_dropbox_file_listing(dropbox_folder_path: str) -> list:
     response = dbx.files_list_folder(dropbox_folder_path, recursive=True)
     # Recursively gather all the entries
     entries = response.entries
-    logging.info(f"Retrieved {len(response.entries)} entries..")
     # TODO: The part where pagination happens is untested
     while response.has_more:
-        logging.info("There are more entries remaining! Retrieving next set..")
         response = dbx.files_list_folder_continue(response.cursor)
         entries += response.entries
-        logging.info(f"Retrieved {len(response.entries)} entries..")
-        logging.info(f"Total entries now at {len(entries)}.")
 
     logging.info(f"Directory listing successful. A total of {len(entries)} entries were retrieved.")
 
@@ -142,6 +141,7 @@ def process_dropbox_file(
     if isinstance(entry, dropbox.files.FileMetadata):
         # Retrieve their metadata along with media info
         response = get_metadata_with_retry(preretrieved_metadata, entry)
+
         # Check if the file's content matches another checked file
         # Don't create an object and stage the file for deletion if so
         with content_hashes_lock:
@@ -170,12 +170,6 @@ def process_dropbox_file(
                 is_video=isinstance(media_info, dropbox.files.VideoMetadata),
             )
 
-            # Remove corrupted images
-            if not check_image_valid(img_obj):
-                with files_to_delete_lock:
-                    files_to_delete.append(dropbox.files.DeleteArg(path=entry.path_lower))
-                    return processed
-
             if created:
                 # Update other fields along with custom data extracted if they exist
                 if media_info.time_taken:
@@ -198,6 +192,15 @@ def process_dropbox_file(
                 # NOTE: Without waiting for a return value, the thread will continue to run and skip the coroutine object
                 # Also, processed state is updated only after the image has been processed
                 processed = process_image(img_obj)
+
+                # Remove corrupted images
+                img_valid = check_image_valid(img_obj)
+                if img_valid == False:
+                    with files_to_delete_lock:
+                        files_to_delete.append(dropbox.files.DeleteArg(path=entry.path_lower))
+                        img_obj.delete()
+
+                        return processed
 
     # Processed is set to False if the file is a valid image & the processing failed
     return processed

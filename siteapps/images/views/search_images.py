@@ -11,7 +11,7 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
 from django.views.generic import FormView
-from images.models import Activity, Annotator, BoundingBox, Category, Image, Species
+from images.models import Activity, Annotator, BoundingBox, Category, Image, Species, SpeciesName
 from locations.models import CameraStation, MacroSite
 
 MAX_IMAGE_SEARCH_RESULTS = 200
@@ -27,12 +27,17 @@ class SearchImagesForm(forms.Form):
 
     camera_stations = forms.ModelMultipleChoiceField(queryset=CameraStation.objects.all(), required=False)
 
+    species = forms.ModelMultipleChoiceField(queryset=SpeciesName.objects.all(), required=False)
+
     staff_review_needed = forms.BooleanField(label="Flagged for Staff?", required=False)
 
-    SELECTION_CHOICES = [("SP", "Species"), ("ACT", "Activity")]
-    annotation_type = forms.ChoiceField(choices=SELECTION_CHOICES, label="Annotation Type")
+    TIME_SELECTION_CHOICES = [("LA", "Last Annotated"), ("TT", "Trigger Timestamp")]
+    time_filter_type = forms.ChoiceField(choices=TIME_SELECTION_CHOICES, label="Time Filter Type")
 
-    date = forms.DateField(label="Date", widget=forms.DateInput(attrs={"type": "date"}))
+    ANNO_SELECTION_CHOICES = [("SP", "Species"), ("ACT", "Activity")]
+    annotation_type = forms.ChoiceField(choices=ANNO_SELECTION_CHOICES, label="Annotation Type")
+
+    date = forms.DateField(label="Date", widget=forms.DateInput(attrs={"type": "month"}))
     hour = forms.IntegerField(min_value=0, max_value=23)
 
     def __init__(self, *args, **kwargs):
@@ -45,7 +50,8 @@ class SearchImagesForm(forms.Form):
                 HTML("<h1>Search Images On Wildepod</h1><hr>"),
             ),
             Row(
-                Column("volunteers", css_class="form-group col-12"),
+                Column("volunteers", css_class="form-group col-6"),
+                Column("species", css_class="form-group col-6"),
             ),
             Row(
                 Column("macrosites", css_class="form-group col-6"),
@@ -55,6 +61,9 @@ class SearchImagesForm(forms.Form):
                 Column("staff_review_needed", css_class="form-group col-12"),
             ),
             Row(HTML("<hr>")),
+            Row(
+                Column("time_filter_type", css_class="form-group col-12"),
+            ),
             Row(
                 Column("annotation_type", css_class="form-group col-12"),
             ),
@@ -66,10 +75,6 @@ class SearchImagesForm(forms.Form):
                     "<div id='date-picker' class='form-group col-12 mb-4'>(Pick a date to show quick select buttons.)<br></div>"
                 )
             ),
-            Row(
-                Column("hour", css_class="form-group col-4"),
-            ),
-            Row(HTML("<div id='time-picker' class='form-group col-12 mb-2'></div>")),
             Row(HTML("<hr>")),
             Row(
                 Column(
@@ -94,6 +99,9 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
         SPECIES_ANNO_TYPE = "SP"
         ACTIVITY_ANNO_TYPE = "ACT"
 
+        TRIGGER_TIMESTAMP_TYPE = "TT"
+        LAST_ANNOTATED_TYPE = "LA"
+
         # Use the form data to retrieve the filter conditions
         macrosites = request.POST.get("macrosites")
         if macrosites and type(macrosites) != list:
@@ -107,10 +115,16 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
         if volunteers and type(volunteers) != list:
             volunteers = json.loads(volunteers)
 
+        species = request.POST.get("species")
+        if species and type(species) != list:
+            species = json.loads(species)
+
         date = request.POST.get("date")
         hour = request.POST.get("hour")
 
         staff_review_needed = request.POST.get("staff_review_needed")
+
+        time_filter_type = request.POST.get("time_filter_type")
 
         annotation_type = request.POST.get("annotation_type")
 
@@ -118,9 +132,16 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
         filterset = Q()
 
         if date:
-            filterset &= Q(created__date=date) | Q(modified__date=date)
+            if time_filter_type == TRIGGER_TIMESTAMP_TYPE:
+                filterset &= Q(bounding_box__image__trigger_timestamp__date=date)
+            elif time_filter_type == LAST_ANNOTATED_TYPE:
+                filterset &= Q(created__date=date) | Q(modified__date=date)
         if hour:
-            filterset &= Q(created__hour=hour) | Q(modified__hour=hour)
+            if time_filter_type == TRIGGER_TIMESTAMP_TYPE:
+                filterset &= Q(bounding_box__image__trigger_timestamp__hour=hour)
+            elif time_filter_type == LAST_ANNOTATED_TYPE:
+                filterset &= Q(created__hour=hour) | Q(modified__hour=hour)
+
         if staff_review_needed:
             staff_review_needed = json.loads(staff_review_needed)
             filterset &= Q(bounding_box__image__staff_review_needed=staff_review_needed)
@@ -128,6 +149,8 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             filterset &= (
                 Q(created_by__id__in=volunteers) | Q(accepted_by__id__in=volunteers) | Q(rejected_by__id__in=volunteers)
             )
+        if len(species) > 0:
+            filterset &= Q(name__in=species)
         if len(macrosites) > 0:
             filterset &= Q(bounding_box__image__upload__camera_station__micro_site__macro_site__in=macrosites)
         if len(camera_stations) > 0:

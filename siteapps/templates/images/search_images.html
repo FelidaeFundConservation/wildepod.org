@@ -33,6 +33,8 @@
                     <div class="alert alert-info" role="alert">
                         <span id="result-count">0</span> result(s) were found for this query.
                     </div>
+                    <div id='time-picker' class='form-group col-12 mb-2'></div>
+                    <br>
                     <table id="results-table" class="table mt-2 mt-md-4 align-middle">
                         <thead>
                             <tr>
@@ -70,6 +72,12 @@
     $('#id_camera_stations').select2({
         placeholder: '(optional) Only these camera stations will be included',
     });
+    $('#id_species').select2({
+        placeholder: '(optional) Only images with these species will be included',
+    });
+
+
+    let lastDate;
 
     function addHourButtons(){
         const hours = 24;
@@ -84,17 +92,13 @@
             });
 
             button.on('click', function() {
-                var date = new Date(`${$(`input[name="date"]`).val()}T00:00:00`);
-
                 var buttonValue = $(this).val();
-                $('input[name="hour"]').val(buttonValue);
 
                 $('#results-modal').modal('show');
                 const options = { year: 'numeric', month: 'short', day: 'numeric' };
-                const formattedDate = date.toLocaleDateString('en-US', options);
-                $('.modal-title').text(`Results For ${formattedDate} ${paddedHour}:00-${paddedHour}:59`);
+                $('.modal-title').text(`Results For ${lastDate} ${paddedHour}:00-${paddedHour}:59`);
 
-                queryImages();
+                queryImages(lastDate, buttonValue);
             });
 
             $('#time-picker').append(button);
@@ -109,14 +113,12 @@
     });
 
 
-     function addDateButtons(month) {
-        const year = new Date().getFullYear();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-
+    function addDateButtons(month, year) {
+        const daysInMonth = new Date(year, month, 0).getDate();
         $('#date-picker').empty();
 
         for (let day = 1; day <= daysInMonth; day++) {
-            const date = new Date(year, month, day);
+            const date = new Date(year, month - 1, day);
             const formattedDate = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
             const button = $('<button></button>', {
@@ -128,13 +130,13 @@
             button.on('click', function() {
                 var buttonValue = $(this).val();
 
-                var year = date.getFullYear();
-                var month = date.getMonth();
-                var newDate = new Date(year, month, buttonValue);
+                $('#results-modal').modal('show');
+                const options = { year: 'numeric', month: 'short', day: 'numeric' };
+                let formattedDate = date.toISOString().split('T')[0];
+                $('.modal-title').text(`Results For ${formattedDate}`);
 
-                $('input[name="date"]').val(
-                    newDate.toISOString().split('T')[0]
-                );
+                lastDate = formattedDate;
+                queryImages(formattedDate, null);
             });
 
             $('#date-picker').append(button);
@@ -143,8 +145,9 @@
 
     $('input[name="date"]').on('change', function() {
         var dateString = $(this).val();
-        var dateObject = new Date(dateString);
-        var month = dateObject.getMonth();
+
+        var month = dateString.split('-')[1];
+        var year = dateString.split('-')[0];
 
         var timePicker = $("#time-picker");
 
@@ -154,14 +157,14 @@
             timePicker.show();
         }
 
-        addDateButtons(month);
+        addDateButtons(month, year);
     });
 
     $('#search-form').submit(function () {
-     return false;
+        return false;
     });
 
-    function queryImages(){
+    function queryImages(date, hour){
         var resultsBody = $("#results-body");
         $("#result-count").text("0");
         $("#results-table").DataTable().clear().draw();
@@ -179,11 +182,13 @@
 
         let data = {
             'csrfmiddlewaretoken': csrftoken,
-            'date': $('input[name="date"]').val(),
-            'hour': $('input[name="hour"]').val(),
+            'date': date,
+            'hour': hour,
             'annotation_type': $('select[name="annotation_type"]').val(),
+            'time_filter_type': $('select[name="time_filter_type"]').val(),
             'volunteers': JSON.stringify($('select[name="volunteers"]').val()),
             'macrosites': JSON.stringify($('select[name="macrosites"]').val()),
+            'species': JSON.stringify($('select[name="species"]').val()),
             'camera_stations': JSON.stringify($('select[name="camera_stations"]').val()),
             'staff_review_needed': $('input[name="staff_review_needed"]').is(':checked'),
         }
@@ -238,7 +243,7 @@
                     annotation,
                     `
                     <a href="/images/image/${imageId}" target="_blank">
-                        <img class="w-100" src="{% get_media_prefix %}${thumbnail}" alt="Thumbnail">
+                        <img class="w-100" src="{% get_media_prefix %}${thumbnail}" alt="Thumbnail" loading="lazy">
                     </a>
                     `
                 ];

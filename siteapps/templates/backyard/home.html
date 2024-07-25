@@ -14,13 +14,13 @@
                 <p>
                     We are building a community backyard program that partners with residential communities to collect wildlife images on private properties. If you think you have wildlife moving through your property or have seen it, we want to work with you!
                 </p>
-                <a href="{% url 'images:annotate_species' %}">
-                    <button class="btn btn-primary m-3 col-12 col-lg-4">
+                <a href="">
+                    <button class="btn btn-primary m-3 col-12 col-lg-4" disabled>
                         <i class="bi bi-google-play"></i>&nbsp;&nbsp;&nbsp;Get On Google Play
                     </button>
                 </a>
-                <a href="{% url 'images:annotate_species' %}">
-                    <button class="btn btn-primary m-3 col-12 col-lg-4">
+                <a href="">
+                    <button class="btn btn-primary m-3 col-12 col-lg-4" disabled>
                         <i class="bi bi-apple"></i>&nbsp;&nbsp;&nbsp;Get On Apple Store
                     </button>
                 </a>
@@ -37,5 +37,11 @@
             </div>
         </div>
     </div>
+    <div class="justify-content-center">
+        <a href="{% url 'home:index' %}">
+            <button class="btn btn-dark w-100 opacity-50 p-3">
+                <i class="bi bi-arrow-left"></i>&nbsp;&nbsp;&nbsp;Return to WildePod
+            </button>
+        </a>
+    </div>
 {% endblock content %}
-<style></style>

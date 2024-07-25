@@ -7,3 +7,11 @@ from django.views.generic.base import TemplateView
 
 class HomeView(TemplateView):
     template_name = "backyard/home.html"
+
+
+class TermsOfServiceView(TemplateView):
+    template_name = "backyard/terms.html"
+
+
+class PrivacyPolicyView(TemplateView):
+    template_name = "backyard/privacy.html"

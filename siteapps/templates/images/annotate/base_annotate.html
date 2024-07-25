@@ -88,7 +88,7 @@
                                    aria-controls="nav-annotate"
                                    aria-selected="true">
                                     <text class="small">
-                                    <span class="d-none d-xl-inline">Annotations</span><span class="d-inline d-xl-none">Tags</span>
+                                    <span class="d-none d-xl-inline">Annotate</span><span class="d-inline d-xl-none">Tags</span>
                                     </text>
                                 </a>
                                 <a class="nav-link"
@@ -135,6 +135,17 @@
                                    aria-controls="nav-bboxes"
                                    aria-selected="false">
                                     <text class="small">Batch</text>
+                                </a>
+                                <a class="nav-link d-none d-sm-inline"
+                                   id="nav-img-grid-tab"
+                                   data-bs-toggle="tab"
+                                   href="#nav-img-grid"
+                                   role="tab"
+                                   aria-controls="nav-info"
+                                   aria-selected="false">
+                                    <text class="small">
+                                    <i class="bi bi-grid-3x3"></i>
+                                    </text>
                                 </a>
                             </div>
                         </nav>
@@ -316,7 +327,8 @@
                                                                  style="margin-top: 5px;
                                                                         margin-bottom: 5px"
                                                                  onmouseover="displayContextImage(this);"
-                                                                 onmouseout="revertContextImage()">
+                                                                 onmouseout="revertContextImage()"
+                                                                 loading="lazy">
                                                         </div>
                                                     {% endfor %}
                                                 </div>
@@ -419,17 +431,18 @@
                                                                 </div>
                                                                 <div class="card card-body">
                                                                     <div style="position: relative; display: inline-block">
-                                                                        <img id="{{ burst_image.id }}"
+                                                                        <img id="burst-{{ burst_image.id }}"
                                                                              class="img-fluid"
                                                                              src="{% get_media_prefix %}{{ burst_image.thumbnail_gcloud_path }}">
                                                                         {% for bbox in bounding_boxes %}
-                                                                            <svg id="{{ bbox.id }}"
+                                                                            <svg id="burst-{{ bbox.id }}"
                                                                                  style="position:absolute;
                                                                                         top:0px;
                                                                                         left: 0px"
                                                                                  width="100%"
                                                                                  height="100%">
-                                                                                <rect width="100%" height="100%" fill="transparent" stroke="white" stroke-width="3px" style="position: relative;" />
+                                                                                <rect width="100%" height="100%" fill="transparent" stroke="black" stroke-width="5px" style="position: relative;" />
+                                                                                <rect width="100%" height="100%" fill="transparent" stroke="red" stroke-width="3px" style="position: relative;" />
                                                                             </svg>
                                                                         {% endfor %}
                                                                     </div>
@@ -439,6 +452,47 @@
                                                     {% endfor %}
                                                 {% else %}
                                                     <text>(No adjacent images found.)</text>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade"
+                                     id="nav-img-grid"
+                                     role="tabpanel"
+                                     aria-labelledby="nav-img-grid-tab">
+                                    <div class="card">
+                                        <div class="card card-header">Upcoming Images</div>
+                                        <div class="card-body">
+                                            <div class="row p-1">
+                                                {% if grid_images_w_boxes|length > 0 %}
+                                                    {% for queue_image, bounding_boxes in grid_images_w_boxes %}
+                                                        <div class="p-2 col-3">
+                                                            <div class="card p-0">
+                                                                <div class="card card-header">&nbsp;&nbsp;&nbsp;&nbsp;{{ bounding_boxes|length }} boxes</div>
+                                                                <div class="card card-body">
+                                                                    <div style="position: relative; display: inline-block">
+                                                                        <img id="queue-{{ queue_image.id }}"
+                                                                             class="img-fluid"
+                                                                             src="{% get_media_prefix %}{{ queue_image.thumbnail_gcloud_path }}">
+                                                                        {% for bbox in bounding_boxes %}
+                                                                            <svg id="queue-{{ bbox.id }}"
+                                                                                 style="position:absolute;
+                                                                                        top:0px;
+                                                                                        left: 0px"
+                                                                                 width="100%"
+                                                                                 height="100%">
+                                                                                <rect width="100%" height="100%" fill="transparent" stroke="black" stroke-width="6px" style="position: relative;" />
+                                                                                <rect width="100%" height="100%" fill="transparent" stroke="red" stroke-width="3px" style="position: relative;" />
+                                                                            </svg>
+                                                                        {% endfor %}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <text>(No additional queue images found.)</text>
                                                 {% endif %}
                                             </div>
                                         </div>
@@ -816,7 +870,7 @@
                     imageContainer.removeClass(colBigger);
                     imageContainer.addClass(colSmaller);
                 }
-                else if (e.target.id === "nav-admin-tab" || e.target.id === "nav-debug-tab") {
+                else if (e.target.id === "nav-admin-tab" || e.target.id === "nav-debug-tab" || e.target.id === "nav-img-grid-tab") {
                     sideMenu.removeClass(colSmaller);
                     sideMenu.addClass(colMax);
                     imageContainer.removeClass(colBigger)
@@ -826,12 +880,28 @@
 
             let ClassSelectorWidget = createCategoryWidget(categories, speciesVotes, speciesDetections, "{{ pipeline }}");
 
-            // Render bbox previews for burst images.
+            // Render bbox previews for burst and grid images.
             // Can't use Annotorious to render these, as it mixes up the bbox ids of those images with the current.
             {% for burst_image, bounding_boxes in images_w_boxes %}
                     {% for bbox in bounding_boxes %}
-                        currentImage = $(`#{{ burst_image.id }}`);
-                        currentBox = $(`#{{ bbox.id }}`);
+                        currentImage = $(`#burst-{{ burst_image.id }}`);
+                        currentBox = $(`#burst-{{ bbox.id }}`);
+                        currentBoxWidth = "{{ bbox.w }}";
+                        currentBoxHeight = "{{ bbox.h }}";
+                        currentBoxX = "{{ bbox.x }}";
+                        currentBoxY = "{{ bbox.y }}";
+                        currentBox.attr("width", `${currentBoxWidth * 100}%`);
+                        currentBox.attr("height", `${currentBoxHeight * 100}%`);
+                        currentBox.css("top", `${currentBoxY * 100}%`);
+                        currentBox.css("left", `${currentBoxX * 100}%`);
+                    {% endfor %}
+            {% endfor %}
+
+
+            {% for queue_image, bounding_boxes in grid_images_w_boxes %}
+                    {% for bbox in bounding_boxes %}
+                        currentImage = $(`#queue-{{ queue_image.id }}`);
+                        currentBox = $(`#queue-{{ bbox.id }}`);
                         currentBoxWidth = "{{ bbox.w }}";
                         currentBoxHeight = "{{ bbox.h }}";
                         currentBoxX = "{{ bbox.x }}";

@@ -199,31 +199,6 @@ def get_or_set_annotation_count(request, queue_name, annotator, annotation_num=0
     return count
 
 
-def staff_review_query_filter(images, annotator):
-    """
-    Filters and reorders a set of images based on staff status.
-        - For staff, "flagged for staff" images are reordered to appear first.
-        - For non-staff, "flagged for staff" images are excluded from appearing.
-
-    Arguments
-    ---
-        - images (QuerySet<images.models.Image>): The queryset of images to filter down/order on.
-        - annotator (images.models.Annotator): The annotator object, used to filter out images they've already been skipped/voted on.
-
-    Returns
-    ---
-        - images (QuerySet<images.models.Image>): The filtered or ordered queryset of images.
-    """
-    if annotator and annotator.human.is_staff:
-        # Show images needing review first
-        images = images.order_by("-staff_review_needed")
-    else:
-        # Image hasn't been marked for staff review
-        images = images.filter(staff_review_needed=False)
-
-    return images
-
-
 # Filter criteria for an image to appear in the Species pipeline
 def species_pipeline_query(images, annotator):
     """
@@ -257,9 +232,8 @@ def species_pipeline_query(images, annotator):
         ),
         # Image has been preprocessed and we can use precomputed flags
         use_precomputed_flags=True,
+        staff_review_needed=False,
     ).order_by("-upload__priority", "-has_cats", "upload__camera_station", "trigger_timestamp")
-
-    images = staff_review_query_filter(images, annotator)
 
     return images
 
@@ -289,6 +263,7 @@ def activity_pipeline_query(images, annotator, activity_category):
         activity_pipeline_complete=False,
         # Image has been preprocessed and we can use precomputed flags
         use_precomputed_flags=True,
+        staff_review_needed=False,
     )
 
     # Filter for animals or humans based on the category passed into the view
@@ -298,8 +273,6 @@ def activity_pipeline_query(images, annotator, activity_category):
         images = images.filter(has_wild_animals=True)
 
     images = images.order_by("-upload__priority", "upload__camera_station", "trigger_timestamp")
-
-    images = staff_review_query_filter(images, annotator)
 
     return images
 
@@ -806,15 +779,18 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
     # Get eligible images from precomputed queue if it exists
     if precomputed_queue:
         return_to_image_id = get_reannotation_image(self, context)
-        image_id = (
-            return_to_image_id
-            if return_to_image_id
-            else precomputed_queue.images.filter(
-                annotator_check, has_bbox_above_confidence_threshold=True, **pipeline_kwarg
-            )
-            .first()
-            .id
+
+        queue_images = precomputed_queue.images.filter(
+            annotator_check, has_bbox_above_confidence_threshold=True, **pipeline_kwarg
         )
+        image_id = return_to_image_id if return_to_image_id else queue_images.first().id
+
+        # View all images in the queue
+        context["grid_images_w_boxes"] = [
+            [image_obj, BoundingBox.objects.filter(image=image_obj, validity__in=["Valid", "Uncertain"])]
+            for image_obj in queue_images.exclude(id=image_id)
+        ]
+
     # Use old queue system as a fallback method if the precomputed queues run out
     elif queue_available:
         image_id, return_to_image_id = get_next_queue_image(self=self, context=context, queue=queue)

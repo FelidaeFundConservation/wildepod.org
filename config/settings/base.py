@@ -93,6 +93,7 @@ INSTALLED_APPS = [
     "crispy_bootstrap5",
     "allauth",
     "allauth.account",
+    "siteapps.backyard",
     "siteapps.home",
     "siteapps.explore",
     "siteapps.users",

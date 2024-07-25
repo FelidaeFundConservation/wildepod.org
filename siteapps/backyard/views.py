@@ -15,3 +15,7 @@ class TermsOfServiceView(TemplateView):
 
 class PrivacyPolicyView(TemplateView):
     template_name = "backyard/privacy.html"
+
+
+class DeleteAccountInfoView(TemplateView):
+    template_name = "backyard/delete_account.html"

@@ -1,0 +1,25 @@
+{% extends '_base_backyard.html' %}
+{% load static %}
+{% block title %}Home |{% endblock %}
+<!-- Set corresponding nav pill to active -->
+{% block nav_home %}
+    active
+{% endblock nav_home %}
+{% block content %}
+    <div class="container-fluid justify-content-center w-100 text-white">
+        <div class="row justify-content-left p-md-4 text-left cta w-100 mx-3">
+            <div class="col-10 col-md-10 mb-3">
+                <h1 class="text-white display-3">Deleting Your Wilde Backyard Account</h1>
+                <small class="text-white"><i>Last updated 7/25/2024</i></small>
+                <br>
+                <br>
+                If you no longer wish to use Wilde Backyard, you can delete your account by navigate to the Profile Page.
+                Then, press the Delete Account button, and follow the instructions.
+                <br>
+                <br>
+                Account deletion is irreversible and effective immediately, so please be certain you want to remove your account.
+                Also note that your posts and comments will remain in our database as per the Terms of Service.
+            </div>
+        </div>
+    </div>
+{% endblock content %}

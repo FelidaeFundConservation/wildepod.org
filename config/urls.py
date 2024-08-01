@@ -27,6 +27,7 @@ urlpatterns = [
     path("users/", include(("users.urls", "users"), namespace="users")),
     path("explore/", include(("explore.urls", "explore"), namespace="explore")),
     path("images/", include(("images.urls", "images"), namespace="images")),
+    path("backyard/", include(("backyard.urls", "backyard"), namespace="backyard")),
     path("", include(("home.urls", "home"), namespace="home")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

@@ -79,6 +79,35 @@
 
     let lastDate;
 
+     function addDateRangeButton(){
+        const options = { year: 'numeric', month: 'short', day: 'numeric' };
+
+        const addOneDay = (dateString) => {
+            const date = new Date(dateString);
+            date.setDate(date.getDate() + 1);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        };
+
+        const formattedStartDate = addOneDay($('input[name="start_date"]').val());
+        const formattedEndDate = addOneDay($('input[name="end_date"]').val());
+
+        const button = $('<button></button>', {
+            text: `${formattedStartDate} to ${formattedEndDate}`,
+            class: 'date-range-button btn btn-primary btn-sm m-1',
+        });
+
+        button.on('click', function() {
+            $('#results-modal').modal('show');
+            const options = { year: 'numeric', month: 'short', day: 'numeric' };
+            $('.modal-title').text(`Results For ${formattedStartDate} to ${formattedEndDate}`);
+
+            queryImages();
+        });
+
+        $('#date-picker').empty();
+        $('#date-picker').append(button);
+    }
+
     function addHourButtons(){
         const hours = 24;
 
@@ -151,6 +180,9 @@
 
         var timePicker = $("#time-picker");
 
+        $('input[name="start_date"]').val("")
+        $('input[name="end_date"]').val("")
+
         if (dateString == ""){
             timePicker.hide();
         } else {
@@ -159,6 +191,19 @@
 
         addDateButtons(month, year);
     });
+
+    function dateRangeOnChanged() {
+        $('input[name="date"]').val("")
+
+        if ($('input[name="start_date"]').val() && $('input[name="end_date"]').val()){
+            addDateRangeButton()
+        } else {
+            $('#time-picker').hide();
+        }
+    }
+
+     $('input[name="start_date"]').on('change', dateRangeOnChanged);
+     $('input[name="end_date"]').on('change', dateRangeOnChanged);
 
     $('#search-form').submit(function () {
         return false;
@@ -183,6 +228,8 @@
         let data = {
             'csrfmiddlewaretoken': csrftoken,
             'date': date,
+            'start_date': $('input[name="start_date"]').val(),
+            'end_date': $('input[name="end_date"]').val(),
             'hour': hour,
             'annotation_type': $('select[name="annotation_type"]').val(),
             'time_filter_type': $('select[name="time_filter_type"]').val(),

@@ -37,7 +37,14 @@ class SearchImagesForm(forms.Form):
     ANNO_SELECTION_CHOICES = [("SP", "Species"), ("ACT", "Activity")]
     annotation_type = forms.ChoiceField(choices=ANNO_SELECTION_CHOICES, label="Annotation Type")
 
-    date = forms.DateField(label="Date", widget=forms.DateInput(attrs={"type": "month"}))
+    start_date = forms.DateField(
+        label="Start Of Date Range", widget=forms.DateInput(attrs={"type": "date"}), required=False
+    )
+    end_date = forms.DateField(
+        label="End Of Date Range", widget=forms.DateInput(attrs={"type": "date"}), required=False
+    )
+
+    date = forms.DateField(label="Exact Date", widget=forms.DateInput(attrs={"type": "month"}), required=False)
     hour = forms.IntegerField(min_value=0, max_value=23)
 
     def __init__(self, *args, **kwargs):
@@ -69,6 +76,10 @@ class SearchImagesForm(forms.Form):
             ),
             Row(
                 Column("date", css_class="form-group col-4"),
+            ),
+            Row(
+                Column("start_date", css_class="form-group col-4"),
+                Column("end_date", css_class="form-group col-4"),
             ),
             Row(
                 HTML(
@@ -120,6 +131,10 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             species = json.loads(species)
 
         date = request.POST.get("date")
+
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+
         hour = request.POST.get("hour")
 
         staff_review_needed = request.POST.get("staff_review_needed")
@@ -136,6 +151,17 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                 filterset &= Q(bounding_box__image__trigger_timestamp__date=date)
             elif time_filter_type == LAST_ANNOTATED_TYPE:
                 filterset &= Q(created__date=date) | Q(modified__date=date)
+        if start_date and end_date:
+            if time_filter_type == TRIGGER_TIMESTAMP_TYPE:
+                filterset &= Q(
+                    bounding_box__image__trigger_timestamp__date__gte=start_date,
+                    bounding_box__image__trigger_timestamp__date__lt=end_date,
+                )
+            elif time_filter_type == LAST_ANNOTATED_TYPE:
+                filterset &= Q(created__date__gte=start_date, created__date__lt=end_date) | Q(
+                    modified__date__gte=start_date, modified__date__lt=end_date
+                )
+
         if hour:
             if time_filter_type == TRIGGER_TIMESTAMP_TYPE:
                 filterset &= Q(bounding_box__image__trigger_timestamp__hour=hour)

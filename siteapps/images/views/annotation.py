@@ -702,6 +702,7 @@ def get_precomputed_queue(queue_name, annotator):
         Image.objects.filter(
             annotator_check,
             has_bbox_above_confidence_threshold=True,
+            staff_review_needed=False,
             queue=OuterRef("pk"),
             **pipeline_kwarg,
         )
@@ -781,7 +782,7 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
         return_to_image_id = get_reannotation_image(self, context)
 
         queue_images = precomputed_queue.images.filter(
-            annotator_check, has_bbox_above_confidence_threshold=True, **pipeline_kwarg
+            annotator_check, has_bbox_above_confidence_threshold=True, staff_review_needed=False, **pipeline_kwarg
         )
         image_id = return_to_image_id if return_to_image_id else queue_images.first().id
 

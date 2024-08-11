@@ -1,3 +1,4 @@
+import os
 import uuid
 from urllib.parse import quote
 
@@ -47,10 +48,21 @@ class TimeCorrection(TimeStampedModel):
     applied_at = models.DateTimeField(null=True, blank=True)
 
 
+# Rename to the upload id
+def rename_data_sheet(instance, filename):
+    ext = filename.split(".")[-1]
+    filename = f"{instance.id}.{ext}"
+
+    return os.path.join("data_sheets/", filename)
+
+
 # Model to log upload events.
 class Upload(TimeStampedModel):
     # UUID for the upload
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    # Volunteer-uploaded file containing filled data sheet
+    data_sheet = models.FileField(upload_to=rename_data_sheet, null=True, blank=True)
 
     # Camera station the uploads are linked to
     camera_station = models.ForeignKey(CameraStation, on_delete=models.PROTECT)

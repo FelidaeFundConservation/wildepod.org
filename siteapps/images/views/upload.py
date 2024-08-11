@@ -67,7 +67,7 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
             upload_obj.time_correction = time_correction
             upload_obj.save()
 
-            logging.info(f"Saved time correction information  for upload {upload_obj.id}.")
+            logging.info(f"Saved time correction information for upload {upload_obj.id}.")
         else:
             logging.info(f"No time correction information entered for upload {upload_obj.id}.")
 

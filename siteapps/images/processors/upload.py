@@ -31,6 +31,28 @@ MAX_THREADS_FOR_IMAGE_PROCESSING = 10
 MAX_THREADS_FOR_DROPBOX_API = 15
 
 
+def clone_data_sheet(file, upload):
+    """
+    Uploads a copy of the data sheet to the upload folder in dropbox
+
+    Arguments
+    ---
+        - file (InMemoryUploadedFile): The temporary file object created from submitting the upload form.
+        - upload (images.models.Upload): The upload obj that was created to pull info from.
+    """
+    file_bytes = file.read()
+
+    # This field doesn't exist until obj is saved, so need to calculate manually
+    dropbox_folder_name = (
+        f"{upload.date_retrieved.date()} - {upload.camera_station.micro_site.macro_site.name} -"
+        f" {upload.camera_station.station_id}".lower()
+    )
+
+    path = f"/{dropbox_folder_name}/data_sheet/{upload.data_sheet.name}"
+
+    response = dbx.files_upload(file_bytes, path)
+
+
 def check_image_valid(image):
     image_file_path = f"{settings.MEDIA_URL}{image.thumbnail_gcloud_path}"
     response = requests.get(image_file_path)
@@ -205,6 +227,8 @@ def process_dropbox_file(
 # This is triggered inside a separate thread to asynchronously process the upload
 # The processing includes getting a directory listing using dropbox API and creating
 # & processing image objects retrieved.
+
+
 def process_upload(upload_id: uuid.UUID):
     """Function to process a dropbox upload.
     This function creates image objects corresponding to the files in the dropbox directory

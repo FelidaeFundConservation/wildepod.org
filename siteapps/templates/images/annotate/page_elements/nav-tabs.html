@@ -1,0 +1,102 @@
+<nav>
+    <div class="nav nav-tabs" id="nav-tab" role="tablist">
+        <a class="nav-link d-none d-sm-inline"
+           id="nav-info-tab"
+           data-bs-toggle="tab"
+           href="#nav-info"
+           role="tab"
+           aria-controls="nav-info"
+           aria-selected="false">
+            <text class="small">
+            <i class="bi bi-info-circle"></i>
+            </text>
+        </a>
+        {% if user.is_staff %}
+            <a class="nav-link d-none d-lg-inline"
+               id="nav-debug-tab"
+               data-bs-toggle="tab"
+               href="#nav-debug"
+               role="tab"
+               aria-controls="nav-debug"
+               aria-selected="false">
+                <text class="small text-danger">Debug</text>
+            </a>
+            <a class="nav-link d-none d-lg-inline"
+               id="nav-admin-tab"
+               data-bs-toggle="tab"
+               href="#nav-admin"
+               role="tab"
+               aria-controls="nav-admin"
+               aria-selected="false">
+                <text class="small text-warning">Admin</text>
+            </a>
+        {% endif %}
+        <a class="nav-link active"
+           id="nav-annotate-tab"
+           data-bs-toggle="tab"
+           href="#nav-annotate"
+           role="tab"
+           aria-controls="nav-annotate"
+           aria-selected="true">
+            <text class="small">
+            <span class="d-none d-xl-inline">Annotate</span><span class="d-inline d-xl-none">Tags</span>
+            </text>
+        </a>
+        <a class="nav-link"
+           id="nav-image-tab"
+           data-bs-toggle="tab"
+           href="#nav-image"
+           role="tab"
+           aria-controls="nav-image"
+           aria-selected="false">
+            <text class="small"><span class="d-none d-md-inline">Image</span><span class="d-inline d-md-none">Img</span></text>
+        </a>
+        <a class="nav-link"
+           id="nav-bboxes-tab"
+           data-bs-toggle="tab"
+           href="#nav-bboxes"
+           role="tab"
+           aria-controls="nav-bboxes"
+           aria-selected="false">
+            <text class="small">Boxes</text>
+        </a>
+        <a class="nav-link"
+           id="nav-context-images-tab"
+           data-bs-toggle="tab"
+           href="#nav-context-images"
+           role="tab"
+           aria-controls="nav-context-images"
+           aria-selected="false">
+            <text class="small"><span class="d-none d-lg-inline">Context</span><span class="d-inline d-lg-none">Cxt.</span></text>
+        </a>
+        <a class="nav-link"
+           id="nav-deduplicate-helper-tab"
+           data-bs-toggle="tab"
+           href="#nav-deduplicate-helper"
+           role="tab"
+           aria-controls="nav-deduplicate-helper"
+           aria-selected="false">
+            <text class="small"><span class="d-none d-xl-inline">Deduplicate</span><span class="d-inline d-xl-none">Dedup.</span></text>
+        </a>
+        <a class="nav-link {% if images_w_boxes|length < 1 %}disabled opacity-25{% endif %}"
+           id="nav-batch-tag-tab"
+           data-bs-toggle="tab"
+           href="#nav-batch-tag"
+           role="tab"
+           aria-controls="nav-bboxes"
+           aria-selected="false">
+            <text class="small">Batch</text>
+        </a>
+        <a class="nav-link d-none d-sm-inline"
+           id="nav-img-grid-tab"
+           data-bs-toggle="tab"
+           href="#nav-img-grid"
+           role="tab"
+           aria-controls="nav-info"
+           aria-selected="false">
+            <text class="small">
+            <i class="bi bi-grid-3x3"></i>
+            </text>
+        </a>
+    </div>
+</nav>

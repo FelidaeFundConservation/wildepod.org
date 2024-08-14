@@ -8,14 +8,11 @@
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
           rel="stylesheet" />
 {% endblock header_includes %}
-{% block instruction_text %}
-    <p class="label-toggle lead">What species does the image have?</p>
-    <p class="label-toggle small"><i>(Select all objects in the image if it isn't already!)</i></p>
-    <p class="d-none label-toggle lead">
-        <b>Click on each box and select the species. Then, click Save when
-        complete!</b>
-    </p>
-{% endblock instruction_text %}
+
+ {% block include_nav_menu %}
+    {% include './page_elements/nav-menu/species.html' %}
+ {% endblock include_nav_menu %}
+
 {% block missing_annotations_element %}
     <div class="row py-3 justify-content-center d-none"
          id="status-missing-species">
@@ -27,18 +24,8 @@
         </div>
     </div>
 {% endblock missing_annotations_element %}
-{% block category_list %}
-    <div class="pb-1 label-toggle">
-        <select id="species-list" class="w-100">
-            <option value="" disabled selected></option>
-            {% for species in species_list %}<option value="{{ species }}">{{ species }}</option>{% endfor %}
-        </select>
-    </div>
-{% endblock category_list %}
-{% block category_button %}
-    <span class="btn btn-secondary label-toggle" id="multiple-species"><i class="bi bi-journal-plus"></i>&nbsp;&nbsp;&nbsp;Multiple species?</span>
-    <span class="btn btn-secondary label-toggle d-none" id="single-species"><i class="bi bi-journal-minus"></i>&nbsp;&nbsp;&nbsp;Single species?</span>
-{% endblock category_button %}
+
+
 {% block annotation_count_type %}
     Species
 {% endblock annotation_count_type %}
@@ -232,7 +219,7 @@ observer.observe(document, { attributes: false, childList: true, characterData: 
             }
 
             anno.setAnnotations(annotations);
-            renderBoundingBoxPreviews("{{ image.id }}", anno);
+            renderBoundingBoxPreviews("main-{{ image.id }}", anno);
         }
     });
 

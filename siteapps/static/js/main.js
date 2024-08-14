@@ -372,6 +372,7 @@ function updateAnnotationCount() {
 }
 
 function renderBoundingBoxPreviews(imageElementID, anno) {
+    console.log(imageElementID)
     let imageElement = document.getElementById(imageElementID);
 
     let annotationPreviewContainer = $(`#annotations-preview`);

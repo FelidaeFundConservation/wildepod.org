@@ -1,0 +1,29 @@
+{% extends './base.html' %}
+{% load static %}
+{% load humanize %}
+{% block instruction_text %}
+    <p class="label-toggle lead">What species does the image have?</p>
+    <p class="label-toggle small">
+        <i>(Select all objects in the image if it isn't already!)</i>
+    </p>
+    <p class="d-none label-toggle lead">
+        <b>Click on each box and select the species. Then, click Save when
+        complete!</b>
+    </p>
+{% endblock instruction_text %}
+{% block category_list %}
+    <div class="pb-1 label-toggle">
+        <select id="species-list" class="w-100">
+            <option value="" disabled selected></option>
+            {% for species in species_list %}<option value="{{ species }}">{{ species }}</option>{% endfor %}
+        </select>
+    </div>
+{% endblock category_list %}
+{% block menu_buttons %}
+    {% block category_button %}
+        <span class="btn btn-secondary label-toggle" id="multiple-species"><i class="bi bi-journal-plus"></i>&nbsp;&nbsp;&nbsp;Multiple species?</span>
+        <span class="btn btn-secondary label-toggle d-none" id="single-species"><i class="bi bi-journal-minus"></i>&nbsp;&nbsp;&nbsp;Single species?</span>
+    {% endblock category_button %}
+    {% block delete_all_boxes_button %}
+    {% endblock delete_all_boxes_button %}
+{% endblock menu_buttons %}

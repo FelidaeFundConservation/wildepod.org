@@ -29,7 +29,7 @@
             <small><a href="{% url 'images:list_uploads' %}" class="text-decoration-none">⬅ back</a></small>
         </div>
         <div class="row mt-4 mb-5">
-            <form method="post">
+            <form method="post" enctype="multipart/form-data">
                 {% crispy form %}
             </form>
         </div>

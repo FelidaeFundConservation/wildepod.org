@@ -18,7 +18,7 @@ from django.views.generic import CreateView, DetailView, FormView, ListView, Upd
 from django.views.generic.base import TemplateView, View
 from images.forms import TimeCorrectionForm, UploadCompleteForm, UploadForm, get_daylight_savings_date
 from images.models import Annotator, BoundingBox, Image, TimeCorrection, Upload
-from images.processors import process_upload
+from images.processors import clone_data_sheet, process_upload
 from images.processors.upload import get_dropbox_item_count
 from locations.models import CameraStation, MacroSite, MicroSite
 from users.models import User
@@ -46,8 +46,15 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
         start_date = form.cleaned_data.get("start_date") or None
         end_date = form.cleaned_data.get("end_date") or None
 
+        data_sheet = form.cleaned_data.get("data_sheet") or None
+
         upload_obj = form.save(commit=False)
 
+        # Save a copy of the datasheet in dropbox
+        if data_sheet:
+            clone_data_sheet(data_sheet, upload_obj)
+
+        # Construct the time correction object to assign to the upload
         if not (years == months == days == hours == minutes == 0 and daylight_savings is None):
             time_correction, created = TimeCorrection.objects.get_or_create(upload__id=upload_obj.id)
 
@@ -67,7 +74,7 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
             upload_obj.time_correction = time_correction
             upload_obj.save()
 
-            logging.info(f"Saved time correction information  for upload {upload_obj.id}.")
+            logging.info(f"Saved time correction information for upload {upload_obj.id}.")
         else:
             logging.info(f"No time correction information entered for upload {upload_obj.id}.")
 

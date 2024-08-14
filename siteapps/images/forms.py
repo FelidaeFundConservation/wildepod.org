@@ -12,6 +12,8 @@ from .models import TimeCorrection, Upload
 
 # User facing form to create an upload
 class UploadForm(forms.ModelForm):
+    data_sheet = forms.FileField(widget=forms.ClearableFileInput(attrs={"accept": ".png,.jpg,.jpeg,.pdf, .docx"}))
+
     date_retrieved = forms.SplitDateTimeField(
         widget=forms.widgets.SplitDateTimeWidget(date_attrs={"type": "date"}, time_attrs={"type": "time"}),
     )
@@ -75,6 +77,10 @@ class UploadForm(forms.ModelForm):
                 css_class="form-row mb-3 px-3",
             ),
             Row(
+                Column("data_sheet", css_class="form-group"),
+                css_class="form-row mb-3 px-3",
+            ),
+            Row(
                 Column("upload_method", css_class="form-group"),
                 css_class="form-row mb-3 px-3",
             ),
@@ -124,6 +130,7 @@ class UploadForm(forms.ModelForm):
         date_retrieved = forms.SplitDateTimeField()
 
         fields = [
+            "data_sheet",
             "camera_station",
             "date_retrieved",
             "volunteer",

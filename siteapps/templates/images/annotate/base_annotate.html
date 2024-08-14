@@ -163,132 +163,29 @@
         });
     });
     </script>
-    <meta name="django-vars" image-id="{{ image.id }}">
-</div>
-<script src="{% static 'js/annotate/keybindings.js' %}"
-        type="text/javascript"
-        charset="utf-8"></script>
-<script>
-    async function copyImageID() {
-        if (navigator.clipboard) {
-            navigator.clipboard.writeText(`https://wildepod.org/images/image/{{ image.id }}`).then(function () {
-                alert("Link copied to clipboard. Please provide this information to staff if there's an issue.");
-            }).catch(function (error) {
-                console.error("Clipboard access denied or error: ", error)
-                alert("Copy failed. Please check that clipboard permissions are enabled.");
-            })
-        }
-        else {
-            alert("Clipboard API is not supported in this browser.");
-        }
-    }
-
-    function showStatusFailure() {
-        $(".spinner-border").hide();
-        $("#status-failure").removeClass("d-none");
-        setTimeout(function(){
-            $("#status-failure").addClass("d-none");
-        }, 10000);
-    }
-
-    function showStatusSuccess() {
-        $(".spinner-border").hide();
-        $("#status-success").removeClass("d-none");
-        setTimeout(function(){
-            $("#status-success").addClass("d-none");
-        }, 10000);
-    }
-
-
-    function stageSocialMediaWorthyVote(voteType) {
-        let upvoteButton = $("#social-media-worthy-up")
-        let downvoteButton = $("#social-media-worthy-down")
-
-        if (voteType == "upvote") {
-            if (upvoteButton.css("background-color") == "rgb(144, 238, 144)") {
-                upvoteButton.css("background-color", "transparent")
-            } else {
-                upvoteButton.css("background-color", "lightgreen")
-                downvoteButton.css("background-color", "transparent")
-            }
-        }
-        else if (voteType == "downvote") {
-            if (downvoteButton.css("background-color") == "rgb(255, 204, 203)") {
-                downvoteButton.css("background-color", "transparent")
-            }
-            else {
-                downvoteButton.css("background-color", "#FFCCCB")
-                upvoteButton.css("background-color", "transparent")
-            }
-        }
-    }
-
-    contextImageTimeout = null;
-
-    // Show the context image in place of the original
-    function displayContextImage(contextImage) {
-        var mainImage = document.getElementById("main-{{ image.id }}");
-        mainImage.src = contextImage.src;
-        $(".a9s-annotationlayer").hide();
-
-        if (contextImageTimeout) {
-            clearTimeout(contextImageTimeout);
-        }
-    }
-
-
-    // Change the displayed image back to the original image being annotated
-    function revertContextImage() {
-        var mainImage = document.getElementById("main-{{ image.id }}");
-
-        // Delay switching images to avoid flickering
-        contextImageTimeout = setTimeout(function () {
-            let anyImgHovered = false;
-
-            $('#context-image-container').find('img').each(function() {
-                if ($(this).is(':hover')) {
-                    anyImgHovered = true;
-                    return false;
-                }
-            });
-
-            // Don't switch image if still hovering context
-            if (!anyImgHovered) {
-                mainImage.src = "{% get_media_prefix %}{{image.thumbnail_gcloud_path}}";
-                $(".a9s-annotationlayer").show();
-            }
-        }, 1000)
-    }
-
-    // If an annotator made a mistake, they can return to a previous image
-    function promptReturnToPreviousImage(imageId) {
-        if (confirm("Are you sure you want to return to re-annotate this previous image?") == true) {
-            savePreviousImageToReturnTo(imageId)
-        }
-    }
-
-    // Save image to return to
-    function savePreviousImageToReturnTo(imageId) {
-        return new Promise(function(resolve, reject) {
-            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-            let data = {
-                'csrfmiddlewaretoken': csrftoken,
-                'returnToImageId': imageId,
-            }
-
-            $.ajax({
-                url: '{% url 'images:save_previous_image_to_return_to'%}',
-                method: 'POST',
-                data: data,
-                dataType: 'json',
-                success: function(data) {
-                    window.location.reload();
-                }
-            });
-        });
-    }
-</script>
-<script>
+    <meta name="django-vars"
+          image-id="{{ image.id }}"
+          main-img-src="{% get_media_prefix %}{{ image.thumbnail_gcloud_path }}"
+          reannotate-url="{% url 'images:save_previous_image_to_return_to' %}">
+    <script src="{% static 'js/annotate/keybindings.js' %}"
+            type="text/javascript"
+            charset="utf-8"></script>
+    <script src="{% static 'js/annotate/clipboard.js' %}"
+            type="text/javascript"
+            charset="utf-8"></script>
+    <script src="{% static 'js/annotate/display_context.js' %}"
+            type="text/javascript"
+            charset="utf-8"></script>
+    <script src="{% static 'js/annotate/show_status.js' %}"
+            type="text/javascript"
+            charset="utf-8"></script>
+    <script src="{% static 'js/annotate/reannotate.js' %}"
+            type="text/javascript"
+            charset="utf-8"></script>
+    <script src="{% static 'js/annotate/social_media_worthy.js' %}"
+            type="text/javascript"
+            charset="utf-8"></script>
+    <script>
         // TODO: Move all this code to separate functions housed in separate files
         {% comment %} Create a javascript variable holding all the annotations and render annotations{% endcomment %}
         let bboxes = [
@@ -369,7 +266,7 @@
             $(`#side-menu`).css("max-height", maxHeight)
 
 
-            // Setup size changes for bboxes tab
+            // Setup size changes for certain tabs
             $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
                 const sideMenu = $(`#side-menu`);
                 const imageContainer = $(`#image-container`)
@@ -648,5 +545,5 @@
             {% block additional_event_handlers %}
             {% endblock additional_event_handlers %}
         });
-</script>
+    </script>
 {% endblock footer_includes %}

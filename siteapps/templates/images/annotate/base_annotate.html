@@ -271,6 +271,7 @@
                 const sideMenu = $(`#side-menu`);
                 const imageContainer = $(`#image-container`)
 
+
                 const colSmaller = "col-xl-4";
                 const colBigger = "col-xl-8";
                 const colMax = "col-xl-12";
@@ -281,6 +282,7 @@
                     sideMenu.addClass(colSmaller);
                     imageContainer.removeClass(colSmaller)
                     imageContainer.addClass(colBigger);
+                    imageContainer.show()
                 }
                 resetClasses();
                 if (e.target.id === "nav-bboxes-tab" || e.target.id === "nav-deduplicate-helper-tab" || e.target.id === "nav-batch-tag-tab") {
@@ -292,8 +294,7 @@
                 else if (e.target.id === "nav-admin-tab" || e.target.id === "nav-debug-tab" || e.target.id === "nav-img-grid-tab") {
                     sideMenu.removeClass(colSmaller);
                     sideMenu.addClass(colMax);
-                    imageContainer.removeClass(colBigger)
-                    imageContainer.addClass(colSmaller);
+                    imageContainer.hide()
                 }
             })
 

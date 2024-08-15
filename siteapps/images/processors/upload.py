@@ -31,7 +31,54 @@ MAX_THREADS_FOR_IMAGE_PROCESSING = 10
 MAX_THREADS_FOR_DROPBOX_API = 15
 
 
-def clone_data_sheet(file, upload):
+def setup_dropbox_paths(upload_obj, data_sheet):
+    from urllib.parse import quote
+
+    import dropbox
+
+    # Create a dropbox client
+    dbx = dropbox.Dropbox(
+        app_key=settings.DROPBOX_APP_KEY,
+        app_secret=settings.DROPBOX_APP_SECRET,
+        oauth2_refresh_token=settings.DROPBOX_REFRESH_TOKEN,
+    )
+
+    is_prod = "prod" in settings.WSGI_APPLICATION
+    is_staging = "staging" in settings.WSGI_APPLICATION
+    # If the object is being created for the first time, create a Dropbox request url and populate relevant fields
+
+    # Set the folder name
+    # First auto-generate a foldername. Always lowercase since dropbox is case insensitive anyway
+    upload_obj.dropbox_folder_name = (
+        f"{upload_obj.date_retrieved.date()} - {upload_obj.camera_station.micro_site.macro_site.name} -"
+        f" {upload_obj.camera_station.station_id}".lower()
+    )
+    # Generate the full path
+    upload_obj.dropbox_folder_path = f"/{upload_obj.dropbox_folder_name}"
+    if upload_obj.upload_method == "E" and upload_obj._state.adding and (is_prod or is_staging):
+        # Now create a folder request. The path will always be relative to the app root.
+        # The entire directory structure, for now, will be flat under the App directory
+        response = dbx.file_requests_create(
+            title=upload_obj.dropbox_folder_name, destination=upload_obj.dropbox_folder_path
+        )
+        # The response is a FileRequest object. Error handling/exceptions will be handled by the python package
+        upload_obj.dropbox_request_id = response.id
+        upload_obj.dropbox_request_url = response.url
+        upload_obj.dropbox_request_open = response.is_open
+    else:
+        # Don't need to create the folder anymore, as cloning the datasheet to the subfolder already created it
+
+        # Construct and encode the absolute dropbox url
+        upload_obj.dropbox_direct_url = settings.DROPBOX_URL_PREFIX + quote(upload_obj.dropbox_folder_path, safe=":/")
+
+    # Save a copy of the datasheet in dropbox
+    if data_sheet:
+        clone_data_sheet(data_sheet, upload_obj.data_sheet.name, upload_obj.dropbox_folder_name)
+    else:
+        response = dbx.files_create_folder(upload_obj.dropbox_folder_path)
+
+
+def clone_data_sheet(file, sheet_name, dropbox_folder_name):
     """
     Uploads a copy of the data sheet to the upload folder in dropbox
 
@@ -42,13 +89,7 @@ def clone_data_sheet(file, upload):
     """
     file_bytes = file.read()
 
-    # This field doesn't exist until obj is saved, so need to calculate manually
-    dropbox_folder_name = (
-        f"{upload.date_retrieved.date()} - {upload.camera_station.micro_site.macro_site.name} -"
-        f" {upload.camera_station.station_id}".lower()
-    )
-
-    path = f"/{dropbox_folder_name}/data_sheet/{upload.data_sheet.name}"
+    path = f"/{dropbox_folder_name}/data_sheet/{sheet_name}"
 
     response = dbx.files_upload(file_bytes, path)
 

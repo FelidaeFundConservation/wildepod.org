@@ -527,6 +527,7 @@ def process_activity_annotations(
     initial_bboxes: list,
     user: settings.AUTH_USER_MODEL,
     social_media_worthy_vote: int,
+    batch_tag_images: list,
     staff_review_needed: bool = False,
     skip: bool = False,
 ) -> bool:
@@ -543,4 +544,5 @@ def process_activity_annotations(
         social_media_worthy_vote=social_media_worthy_vote,
         staff_review_needed=staff_review_needed,
         skip=skip,
+        batch_tag_images=batch_tag_images,
     )

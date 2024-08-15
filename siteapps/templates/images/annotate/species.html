@@ -9,6 +9,10 @@
           rel="stylesheet" />
 {% endblock header_includes %}
 
+{% block annotation_count_type %}
+    Species
+{% endblock annotation_count_type %}
+
  {% block include_nav_menu %}
     {% include './page_elements/nav-menu/species.html' %}
  {% endblock include_nav_menu %}
@@ -25,10 +29,6 @@
     </div>
 {% endblock missing_annotations_element %}
 
-
-{% block annotation_count_type %}
-    Species
-{% endblock annotation_count_type %}
 {% comment %}<script>{% endcomment %}
 {% block set_categories %}
     let categories = [

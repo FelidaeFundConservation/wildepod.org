@@ -1,7 +1,7 @@
 
-imageId = `${$('meta[name="django-vars"]').attr('image-id')}`;
-
 async function copyImageID() {
+    const imageId = `${$('meta[name="django-vars"]').attr('image-id')}`;
+
     if (navigator.clipboard) {
         navigator.clipboard.writeText(`https://wildepod.org/images/image/${imageId}`).then(function () {
             alert("Link copied to clipboard. Please provide this information to staff if there's an issue.");

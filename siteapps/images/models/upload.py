@@ -166,7 +166,7 @@ class Upload(TimeStampedModel):
                 self.dropbox_request_url = response.url
                 self.dropbox_request_open = response.is_open
             else:
-                response = dbx.files_create_folder(self.dropbox_folder_path)
+                # Don't need to create the folder anymore, as cloning the datasheet to the subfolder already created it
 
                 # Construct and encode the absolute dropbox url
                 self.dropbox_direct_url = settings.DROPBOX_URL_PREFIX + quote(self.dropbox_folder_path, safe=":/")

@@ -144,33 +144,6 @@ class Upload(TimeStampedModel):
     history = HistoricalRecords()
 
     def save(self, *args, **kwargs):
-        is_prod = "prod" in settings.WSGI_APPLICATION
-        is_staging = "staging" in settings.WSGI_APPLICATION
-        # If the object is being created for the first time, create a Dropbox request url and populate relevant fields
-        if self._state.adding and (is_prod or is_staging):
-            # First auto-generate a foldername. Always lowercase since dropbox is case insensitive anyway
-            self.dropbox_folder_name = (
-                f"{self.date_retrieved.date()} - {self.camera_station.micro_site.macro_site.name} -"
-                f" {self.camera_station.station_id}".lower()
-            )
-            # Generate the full path
-            self.dropbox_folder_path = f"/{self.dropbox_folder_name}"
-            if self.upload_method == "E":
-                # Now create a folder request. The path will always be relative to the app root.
-                # The entire directory structure, for now, will be flat under the App directory
-                response = dbx.file_requests_create(
-                    title=self.dropbox_folder_name, destination=self.dropbox_folder_path
-                )
-                # The response is a FileRequest object. Error handling/exceptions will be handled by the python package
-                self.dropbox_request_id = response.id
-                self.dropbox_request_url = response.url
-                self.dropbox_request_open = response.is_open
-            else:
-                response = dbx.files_create_folder(self.dropbox_folder_path)
-
-                # Construct and encode the absolute dropbox url
-                self.dropbox_direct_url = settings.DROPBOX_URL_PREFIX + quote(self.dropbox_folder_path, safe=":/")
-
         super().save(*args, **kwargs)
 
     def __str__(self):

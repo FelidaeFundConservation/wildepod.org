@@ -18,7 +18,7 @@ from django.views.generic import CreateView, DetailView, FormView, ListView, Upd
 from django.views.generic.base import TemplateView, View
 from images.forms import TimeCorrectionForm, UploadCompleteForm, UploadForm, get_daylight_savings_date
 from images.models import Annotator, BoundingBox, Image, TimeCorrection, Upload
-from images.processors import clone_data_sheet, process_upload
+from images.processors import clone_data_sheet, process_upload, setup_dropbox_paths
 from images.processors.upload import get_dropbox_item_count
 from locations.models import CameraStation, MacroSite, MicroSite
 from users.models import User
@@ -50,9 +50,8 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
 
         upload_obj = form.save(commit=False)
 
-        # Save a copy of the datasheet in dropbox
-        if data_sheet:
-            clone_data_sheet(data_sheet, upload_obj)
+        # Handles creating folder, cloning data sheet, setting folder paths
+        setup_dropbox_paths(upload_obj, data_sheet)
 
         # Construct the time correction object to assign to the upload
         if not (years == months == days == hours == minutes == 0 and daylight_savings is None):

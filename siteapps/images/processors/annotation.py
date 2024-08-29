@@ -269,35 +269,44 @@ def handle_bbox_updates(
     # Check the species tagged, and ensure there's only 1 for batch tagging
     if len(batch_tag_images) > 0:
         logging.info("Batch tag images selected. Attempting to annotate all bboxes...")
-        species_annotation = list(set(item["category"] for item in formatted_annotations.values()))
+        annotation = list(set(item["category"] for item in formatted_annotations.values()))
 
-        if len(species_annotation) == 0:
+        if len(annotation) == 0:
             logging.error("No annotations to apply to batch tag burst images. Skipping.")
-        elif len(species_annotation) > 1:
+        elif len(annotation) > 1:
             logging.error(
                 "Cannot batch tag burst images when more than 1 species was annotated for current image. Skipping."
             )
         else:
-            tag_batch(batch_tag_images=batch_tag_images, category=species_annotation[0], annotator=annotator)
+            tag_batch(
+                annotation_type=annotation_type,
+                batch_tag_images=batch_tag_images,
+                category=annotation[0],
+                annotator=annotator,
+            )
 
 
 # Tag multiple images at once, by applying the current image's selection to all bboxes in the other images
-def tag_batch(batch_tag_images, category, annotator):
+def tag_batch(annotation_type, batch_tag_images, category, annotator):
     for image_id in batch_tag_images:
         image = Image.objects.get(id=image_id)
         bboxes = BoundingBox.objects.filter(image=image, validity__in=["Uncertain", "Valid"])
 
         for bbox in bboxes:
             # Store the category with formatted annotations structure
-            formatted_species = {}
-            formatted_species[bbox.id] = {}
-            formatted_species[bbox.id]["category"] = category
-            formatted_species[bbox.id]["confidence"] = 1.0
+            formatted_annotations = {}
+            formatted_annotations[bbox.id] = {}
+            formatted_annotations[bbox.id]["category"] = category
+            formatted_annotations[bbox.id]["confidence"] = 1.0
 
-            process_species(
-                formatted_annotations=formatted_species, bbox_id=bbox.id, bbox_obj=bbox, annotator=annotator
-            )
-
+            if annotation_type == SPECIES_ANNOTATION_TYPE:
+                process_species(
+                    formatted_annotations=formatted_annotations, bbox_id=bbox.id, bbox_obj=bbox, annotator=annotator
+                )
+            elif annotation_type == ACTIVITY_ANNOTATION_TYPE:
+                process_activity(
+                    formatted_annotations=formatted_annotations, bbox_id=bbox.id, bbox_obj=bbox, annotator=annotator
+                )
         image.species_checked_by.add(annotator)
         image.save()
 
@@ -527,6 +536,7 @@ def process_activity_annotations(
     initial_bboxes: list,
     user: settings.AUTH_USER_MODEL,
     social_media_worthy_vote: int,
+    batch_tag_images: list,
     staff_review_needed: bool = False,
     skip: bool = False,
 ) -> bool:
@@ -543,4 +553,5 @@ def process_activity_annotations(
         social_media_worthy_vote=social_media_worthy_vote,
         staff_review_needed=staff_review_needed,
         skip=skip,
+        batch_tag_images=batch_tag_images,
     )

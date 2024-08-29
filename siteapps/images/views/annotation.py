@@ -569,7 +569,7 @@ def get_annotation_history(context, queue, queue_name, annotator, precomputed_qu
         elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
             previous_annotations = Activity.objects.filter(
                 Q(created_by=annotator) | Q(accepted_by__in=[annotator]), bounding_box__image=image
-            ).values("name")
+            ).values("name__name")
         else:
             pass
 
@@ -1137,24 +1137,26 @@ def annotation_processor(queue_name, annotation_type, request):
     elif queue_name == ACTIVITY_ANIMAL_QUEUE_NAME:
         annotation_description = "Animal activity"
         success = process_activity_annotations(
-            image_id,
-            annotations,
-            initial_bboxes,
-            request.user,
-            social_media_worthy_vote,
-            staff_review_needed,
+            image_id=image_id,
+            annotations=annotations,
+            initial_bboxes=initial_bboxes,
+            user=request.user,
+            social_media_worthy_vote=social_media_worthy_vote,
+            staff_review_needed=staff_review_needed,
+            batch_tag_images=batch_tag_images,
             skip=skip,
         )
 
     elif queue_name == ACTIVITY_HUMAN_QUEUE_NAME:
         annotation_description = "Human activity"
         success = process_activity_annotations(
-            image_id,
-            annotations,
-            initial_bboxes,
-            request.user,
-            social_media_worthy_vote,
-            staff_review_needed,
+            image_id=image_id,
+            annotations=annotations,
+            initial_bboxes=initial_bboxes,
+            user=request.user,
+            social_media_worthy_vote=social_media_worthy_vote,
+            staff_review_needed=staff_review_needed,
+            batch_tag_images=batch_tag_images,
             skip=skip,
         )
 

@@ -1,0 +1,310 @@
+{% load static %}
+{% load humanize %}
+<nav id="nav-menu">
+    <div class="tab-content">
+        {% if user.is_authenticated and user.is_staff %}
+            <div class="tab-pane fade p-0 text-center"
+                 id="nav-debug"
+                 role="tabpanel"
+                 aria-labelledby="nav-debug-tab">
+                <div class="row mt-2 mt-md-4 justify-content-center text-center">
+                    <div class="col-12" id="annotations-details"></div>
+                    <div>
+                        <p>
+                            This session is for staff only, to debug.
+                            <br>
+                            For visibility, we can include details for the pipeline of the image annotation here,
+                            like Bounding Boxes uncertainty, etc.
+                        </p>
+                    </div>
+                </div>
+                {% include '../pipeline-debug-info.html' %}
+            </div>
+        {% endif %}
+        <div class="tab-pane fade p-0 text-center"
+             id="nav-admin"
+             role="tabpanel"
+             aria-labelledby="nav-admin-tab">{% include '../staff-edit-annotations.html' %}</div>
+        <div class="tab-pane fade show active p-0"
+             id="nav-annotate"
+             role="tabpanel"
+             aria-labelledby="nav-annotate-tab">
+            <div class="card">
+                <div class="card-header">Instructions</div>
+                <div class="text-center p-3">
+                    {% block instruction_text %}
+                    {% endblock instruction_text %}
+                    {% block category_list %}
+                    {% endblock category_list %}
+                </div>
+                <div class="card-footer text-center p-2">
+                    <form method="POST">
+                        {% csrf_token %}
+                        {% block menu_buttons %}
+                            {% block category_button %}
+                            {% endblock category_button %}
+                            {% block delete_all_boxes_button %}
+                            {% endblock delete_all_boxes_button %}
+                        {% endblock menu_buttons %}
+                    </form>
+                </div>
+            </div>
+            <div class="card mt-3">
+                <div class="card-header">
+                    <text id="annotations-card-header">Annotations</text>
+                </div>
+                <div id="annotations-preview" class="card-body"></div>
+            </div>
+        </div>
+        <div class="tab-pane fade p-0"
+             id="nav-bboxes"
+             role="tabpanel"
+             aria-labelledby="nav-bboxes-tab">
+            <div class="card">
+                <div class="card-header">
+                    <text id="bbox-card-header">Bounding Boxes</text>
+                </div>
+                <div class="card-body p-0">
+                    <div id="bboxes-preview"
+                         class="row mt-2 mt-md-4 p-2 justify-content-center text-center"></div>
+                </div>
+            </div>
+        </div>
+        <div class="tab-pane fade"
+             id="nav-image"
+             role="tabpanel"
+             aria-labelledby="nav-image-tab">
+            {% include '../options.html' %}
+            {% include '../image-manipulators.html' %}
+        </div>
+        <div class="tab-pane fade"
+             id="nav-info"
+             role="tabpanel"
+             aria-labelledby="nav-info-tab">
+            <div class="card">
+                <div class="card-header">Your Stats</div>
+                <div class="card-body text-center">
+                    <h1 class="display-1">{{ user_annotation_count|intcomma }}</h1>
+                    <p class="lead">
+                        {% block annotation_count_type %}
+                        {% endblock annotation_count_type %}
+                        Annotations so far.
+                    </p>
+                </div>
+                <div class="card-footer text-center">
+                    <text>Keep up the good work!&nbsp;&nbsp;<i class="bi bi-emoji-smile"></i></text>
+                </div>
+            </div>
+            <div class="card mt-3">
+                <div class="card-header">Keybindings</div>
+                <div class="card-body">
+                    <ul class="list-group">
+                        <li class="list-group-item">
+                            <small><kbd><i class="bi bi-mouse"> RIGHTCLICK</i></kbd>&nbsp;&nbsp;<i class="bi bi-arrow-right"></i><i>&nbsp;&nbsp;Hide bounding box</i></small>
+                        </li>
+                        <li class="list-group-item">
+                            <small><kbd>SPACE</kbd>&nbsp;&nbsp;<i class="bi bi-arrow-right"></i><i>&nbsp;&nbsp;Hide all bboxes</i></small>
+                        </li>
+                        <li class="list-group-item">
+                            <small><kbd>BACKSPACE</kbd>&nbsp;&nbsp;<i class="bi bi-arrow-right"></i><i>&nbsp;&nbsp;Delete bounding box</i></small>
+                        </li>
+                        <li class="list-group-item">
+                            <small><kbd>SHIFT</kbd> + <kbd>ENTER</kbd>&nbsp;&nbsp;<i class="bi bi-arrow-right"></i><i>&nbsp;&nbsp;Submit annotations</i></small>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="tab-pane fade"
+             id="nav-context-images"
+             role="tabpanel"
+             aria-labelledby="nav-context-images-tab">
+            <div class="card d-flex w-100">
+                <div class="card-header">Context Images</div>
+                <div class="card-body">
+                    <p class="lead">Click or use arrow keys to move through time. Hover image to enlarge.</p>
+                    <div id="context-image-carousel"
+                         class="carousel"
+                         data-ride="carousel"
+                         data-interval="false">
+                        <div class="carousel-inner">
+                            {% for context_image_gcloud_path in context_images %}
+                                <div class="carousel-item {% if context_image_gcloud_path == image.thumbnail_gcloud_path %}active{% endif %}">
+                                    <img class="img-fluid rounded context-image"
+                                         src="{% get_media_prefix %}{{ context_image_gcloud_path }}"
+                                         style="margin-top: 5px;
+                                                margin-bottom: 5px"
+                                         onmouseover="displayContextImage(this);"
+                                         onmouseout="revertContextImage()"
+                                         loading="lazy">
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <a id="context-images-prev"
+                           class="carousel-control-prev"
+                           href="#context-image-carousel"
+                           role="button"
+                           data-slide="prev"
+                           onmouseover="displayContextImage($('.carousel-item.active img').get(0))"
+                           onmouseout="revertContextImage()">
+                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                            <span class="sr-only"></span>
+                        </a>
+                        <a id="context-images-next"
+                           class="carousel-control-next"
+                           href="#context-image-carousel"
+                           role="button"
+                           data-slide="next"
+                           onmouseover="displayContextImage($('.carousel-item.active img').get(0))"
+                           onmouseout="revertContextImage()">
+                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                            <span class="sr-only"></span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="card d-flex w-100 mt-3">
+                <div class="card-header">Annotation History</div>
+                <div class="card-body">
+                    <p class="lead">If you've made a mistake, click on a previous image to reannotate.</p>
+                    {% if previous_queue_images|length == 0 %}
+                        <p class="text-muted">
+                            <i>(No annotation history yet.)</i>
+                        </p>
+                    {% endif %}
+                    <div>
+                        {% for queue_image, annotations in previous_annotation_info %}
+                            <div class="card m-3">
+                                <div class="card-header">{{ queue_image.modified|date:'M. d Y, g:i:s a' }}</div>
+                                <div class="card-body">
+                                    <img class="img-fluid m-0 p-0"
+                                         src="{% get_media_prefix %}{{ queue_image.thumbnail_gcloud_path }}"
+                                         onclick="promptReturnToPreviousImage(`{{ queue_image.id }}`);">
+                                    <small>Your Annotation(s): {{ annotations }}</small>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="tab-pane fade"
+             id="nav-deduplicate-helper"
+             role="tabpanel"
+             aria-labelledby="nav-deduplicate-helper-tab">
+            <div class="card">
+                <div class="card-header">
+                    <text id="deduplicate-card-header">Deduplicate Helper</text>
+                </div>
+                <div class="card-body p-4">
+                    <div>
+                        <p>Too crowded? Compare overlapping boxes on a pair-by-pair basis, to see if the object is the same.</p>
+                    </div>
+                    <hr>
+                    <div id="deduplicate-bboxes"
+                         class="row mt-2 mt-md-4 p-2 justify-content-center text-center"></div>
+                </div>
+            </div>
+        </div>
+        <div class="tab-pane fade"
+             id="nav-batch-tag"
+             role="tabpanel"
+             aria-labelledby="nav-batch-tag-tab">
+            <div class="card">
+                <div class="card card-header">Tag Batch</div>
+                <div class="card-body">
+                    <text>You can select upcoming images to tag them all at once if... </text>
+                    <ul>
+                        <li>They have a single species only (ex. all Mule Deers).</li>
+                        <li>The species matches the current image's species.</li>
+                        <li>The image's boxes are all already correct (no additions/deletions needed)</li>
+                    </ul>
+                    <text><i class="bi bi-exclamation-triangle">&nbsp;&nbsp;Please use with caution. Only select if you're certain all criteria are satisfied.</i></text>
+                    <hr>
+                    <div class="row p-1">
+                        {% if images_w_boxes|length > 0 %}
+                            {% for burst_image, bounding_boxes in images_w_boxes %}
+                                <div class="p-2 col-6">
+                                    <div class="card p-0">
+                                        <div class="card card-header">
+                                            <div class="form-check m-0">
+                                                <input class="form-check-input burst-checkbox"
+                                                       type="checkbox"
+                                                       value="{{ burst_image.id }}"
+                                                       id="batch-tag-{{ burst_image.id }}"
+                                                       style="width: 20px;
+                                                              height: 20px">
+                                                &nbsp;&nbsp;&nbsp;&nbsp;{{ bounding_boxes|length }} boxes
+                                            </div>
+                                        </div>
+                                        <div class="card card-body">
+                                            <div style="position: relative; display: inline-block">
+                                                <img id="burst-{{ burst_image.id }}"
+                                                     class="img-fluid"
+                                                     src="{% get_media_prefix %}{{ burst_image.thumbnail_gcloud_path }}">
+                                                {% for bbox in bounding_boxes %}
+                                                    <svg id="burst-{{ bbox.id }}"
+                                                         style="position:absolute;
+                                                                top:0px;
+                                                                left: 0px"
+                                                         width="100%"
+                                                         height="100%">
+                                                        <rect width="100%" height="100%" fill="transparent" stroke="black" stroke-width="5px" style="position: relative;" />
+                                                        <rect width="100%" height="100%" fill="transparent" stroke="red" stroke-width="3px" style="position: relative;" />
+                                                    </svg>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <text>(No adjacent images found.)</text>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="tab-pane fade"
+             id="nav-img-grid"
+             role="tabpanel"
+             aria-labelledby="nav-img-grid-tab">
+            <div class="card">
+                <div class="card card-header">Upcoming Images</div>
+                <div class="card-body">
+                    <div class="row p-1">
+                        {% if grid_images_w_boxes|length > 0 %}
+                            {% for queue_image, bounding_boxes in grid_images_w_boxes %}
+                                <div class="p-2 col-3">
+                                    <div class="card p-0">
+                                        <div class="card card-header">&nbsp;&nbsp;&nbsp;&nbsp;{{ bounding_boxes|length }} boxes</div>
+                                        <div class="card card-body">
+                                            <div style="position: relative; display: inline-block">
+                                                <img id="queue-{{ queue_image.id }}"
+                                                     class="img-fluid"
+                                                     src="{% get_media_prefix %}{{ queue_image.thumbnail_gcloud_path }}">
+                                                {% for bbox in bounding_boxes %}
+                                                    <svg id="queue-{{ bbox.id }}"
+                                                         style="position:absolute;
+                                                                top:0px;
+                                                                left: 0px"
+                                                         width="100%"
+                                                         height="100%">
+                                                        <rect width="100%" height="100%" fill="transparent" stroke="black" stroke-width="6px" style="position: relative;" />
+                                                        <rect width="100%" height="100%" fill="transparent" stroke="red" stroke-width="3px" style="position: relative;" />
+                                                    </svg>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <text>(No additional queue images found.)</text>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>

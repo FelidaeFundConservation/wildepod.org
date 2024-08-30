@@ -768,7 +768,7 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
 
     # Try to get precomputed queue for the pipeline
     annotator_check, pipeline_kwarg = get_pipeline_filters(queue_name, annotator)
-    precomputed_queue = None if staff_review else get_precomputed_queue(queue_name=queue_name, annotator=annotator)
+    precomputed_queue = None if (staff_review or custom_annotations) else get_precomputed_queue(queue_name=queue_name, annotator=annotator)
 
     # Image to reannotate to in annotation history, if it exists
     return_to_image_id = None

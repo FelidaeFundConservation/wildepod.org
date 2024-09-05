@@ -2,7 +2,7 @@
 
 -r requirements-base.txt
 
-black==22.1.0  # https://github.com/psf/black
+black==24.3.0  # https://github.com/psf/black
 coverage==6.3.1  # https://github.com/nedbat/coveragepy
 django-coverage-plugin==2.0.2  # https://github.com/nedbat/django_coverage_plugin
 
@@ -39,3 +39,20 @@ pytest-django==4.5.2  # https://github.com/pytest-dev/pytest-django
 pytest-sugar==0.9.4  # https://github.com/Frozenball/pytest-sugar
 types-requests==2.27.15 # https://github.com/python/typeshed/stargazers
 yolov9pip
+anyio>=4.4.0 # not directly required, pinned by Snyk to avoid a vulnerability
+django>=4.2.16 # not directly required, pinned by Snyk to avoid a vulnerability
+fonttools>=4.43.0 # not directly required, pinned by Snyk to avoid a vulnerability
+ipython>=8.10.0 # not directly required, pinned by Snyk to avoid a vulnerability
+jupyter-server>=2.14.1 # not directly required, pinned by Snyk to avoid a vulnerability
+numpy>=1.22.2 # not directly required, pinned by Snyk to avoid a vulnerability
+pillow>=10.3.0 # not directly required, pinned by Snyk to avoid a vulnerability
+requests>=2.32.2 # not directly required, pinned by Snyk to avoid a vulnerability
+scikit-learn>=1.5.0 # not directly required, pinned by Snyk to avoid a vulnerability
+setuptools>=70.0.0 # not directly required, pinned by Snyk to avoid a vulnerability
+sqlparse>=0.5.0 # not directly required, pinned by Snyk to avoid a vulnerability
+torch>=2.2.0 # not directly required, pinned by Snyk to avoid a vulnerability
+tornado>=6.4.1 # not directly required, pinned by Snyk to avoid a vulnerability
+urllib3>=2.2.2 # not directly required, pinned by Snyk to avoid a vulnerability
+werkzeug>=3.0.3 # not directly required, pinned by Snyk to avoid a vulnerability
+wheel>=0.38.0 # not directly required, pinned by Snyk to avoid a vulnerability
+zipp>=3.19.1 # not directly required, pinned by Snyk to avoid a vulnerability

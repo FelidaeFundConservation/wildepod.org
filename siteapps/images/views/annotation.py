@@ -311,7 +311,14 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
 
     # Filter out images with possibly no species AI detections or unidentifiable
     # i.e. potentially erroneous boxes from MegaDetector, or "harder" images to annotate are excluded, so the "easy" ones remain
+
     images_with_detections = images.exclude(species_ai_detections__in=["[]", "['Unknown']"])
+
+    # Exclude non-animals if annotator's option is active
+    if annotator.prioritize_tagging_animals and annotator.prioritize_tagging_animals > timezone.now():
+        images_with_detections = images_with_detections.exclude(
+            Q(species_ai_detections__icontains="Human") | Q(species_ai_detections__icontains="Vehicle")
+        )
 
     if images_with_detections.exists():
         images = images_with_detections

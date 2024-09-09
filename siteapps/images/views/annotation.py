@@ -670,6 +670,7 @@ def get_pipeline_filters(queue_name, annotator):
     if SPECIES_QUEUE_NAME in queue_name:
         annotator_check = ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator])
         pipeline_kwarg["species_pipeline_complete"] = False
+
     elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
         annotator_check = ~Q(activity_checked_by__in=[annotator]) & ~Q(activity_skipped_by__in=[annotator])
         pipeline_kwarg["activity_pipeline_complete"] = False
@@ -694,6 +695,15 @@ def get_precomputed_queue(queue_name, annotator):
         - precomputed_queue (images.models.ImageQueue): The assigned precomputed queue associated with an annotator. None if doesn't exist or couldn't assign.
     """
     annotator_check, pipeline_kwarg = get_pipeline_filters(queue_name, annotator)
+
+    # Exclude human/vehicles if annotator prioritized animals
+    if annotator.prioritize_tagging_animals and annotator.prioritize_tagging_animals > timezone.now():
+        exclusion_condition = Q()
+        for term in ["Human", "Vehicle"]:
+            exclusion_condition |= Q(species_ai_detections__icontains=term)
+    else:
+        exclusion_condition = Q()
+
     queue_condition = Exists(
         Image.objects.filter(
             annotator_check,
@@ -701,7 +711,7 @@ def get_precomputed_queue(queue_name, annotator):
             staff_review_needed=False,
             queue=OuterRef("pk"),
             **pipeline_kwarg,
-        )
+        ).exclude(exclusion_condition)
     )
 
     precomputed_queue = ImageQueue.objects.annotate(has_eligible_image=queue_condition).filter(
@@ -768,7 +778,11 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
 
     # Try to get precomputed queue for the pipeline
     annotator_check, pipeline_kwarg = get_pipeline_filters(queue_name, annotator)
-    precomputed_queue = None if (staff_review or custom_annotations) else get_precomputed_queue(queue_name=queue_name, annotator=annotator)
+    precomputed_queue = (
+        None
+        if (staff_review or custom_annotations)
+        else get_precomputed_queue(queue_name=queue_name, annotator=annotator)
+    )
 
     # Image to reannotate to in annotation history, if it exists
     return_to_image_id = None

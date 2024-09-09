@@ -60,6 +60,9 @@ class Annotator(TimeStampedModel):
     total_species_annotations = models.IntegerField(null=True)
     total_activity_annotations = models.IntegerField(null=True)
 
+    # Preferences
+    prioritize_tagging_animals = models.DateTimeField(null=True, blank=True)
+
     def __str__(self):
         if self.type == "human":
             return self.human.name

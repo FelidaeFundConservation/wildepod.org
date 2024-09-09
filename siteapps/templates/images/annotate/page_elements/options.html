@@ -55,7 +55,9 @@
         <div>
             <text>Press if you'd prefer to see more wildlife photos temporarily.</text>
             <br>
-            <button class="btn btn-primary mt-2" onclick="prioritizeAnimals()">Prioritize Animals</button>
+            <button class="btn btn-primary mt-2" onclick="prioritizeAnimals()">
+                <i class="fa-solid fa-paw"></i>&nbsp;&nbsp;Prioritize Animals
+            </button>
         </div>
     </div>
 </div>
@@ -71,6 +73,7 @@ function prioritizeAnimals(){
                 alert("You will see more animal photos temporarily.")
             }
             else {
+                alert("There was a problem prioritizing animal photos.")
             }
         },
         error: function (jqXHR, textStatus, errorThrown) {

@@ -94,7 +94,7 @@ class PrioritizeTaggingAnimalsView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         new_time = datetime.now() + timedelta(hours=1)
 
-        annotator = Annotator.objects.get_or_create(type="human", human=request.user)
+        annotator, created = Annotator.objects.get_or_create(type="human", human=request.user)
 
         annotator.prioritize_tagging_animals = new_time
         annotator.save()

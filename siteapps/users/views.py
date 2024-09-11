@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timedelta
 
 from braces.views import StaffuserRequiredMixin
 from django.conf import settings
@@ -6,8 +7,9 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.db.models import Q
+from django.http import JsonResponse
 from django.urls import reverse
-from django.views.generic import FormView, ListView, TemplateView, UpdateView
+from django.views.generic import FormView, ListView, TemplateView, UpdateView, View
 from images.models import Activity, Annotator, Category, Species
 
 from .forms import RegisterVolunteerForm
@@ -86,3 +88,16 @@ class VolunteerRegisterView(LoginRequiredMixin, StaffuserRequiredMixin, FormView
 class VolunteerRegisterSuccessView(LoginRequiredMixin, StaffuserRequiredMixin, TemplateView):
     login_url = settings.LOGIN_URL
     template_name = "users/volunteers/added.html"
+
+
+class PrioritizeTaggingAnimalsView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        new_time = datetime.now() + timedelta(hours=1)
+
+        annotator, created = Annotator.objects.get_or_create(type="human", human=request.user)
+
+        annotator.prioritize_tagging_animals = new_time
+        annotator.save()
+
+        # Optionally, return a response
+        return JsonResponse({"success": True})

@@ -311,7 +311,14 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
 
     # Filter out images with possibly no species AI detections or unidentifiable
     # i.e. potentially erroneous boxes from MegaDetector, or "harder" images to annotate are excluded, so the "easy" ones remain
+
     images_with_detections = images.exclude(species_ai_detections__in=["[]", "['Unknown']"])
+
+    # Exclude non-animals if annotator's option is active
+    if annotator.prioritize_tagging_animals and annotator.prioritize_tagging_animals > timezone.now():
+        images_with_detections = images_with_detections.exclude(
+            Q(species_ai_detections__icontains="Human") | Q(species_ai_detections__icontains="Vehicle")
+        )
 
     if images_with_detections.exists():
         images = images_with_detections
@@ -670,11 +677,20 @@ def get_pipeline_filters(queue_name, annotator):
     if SPECIES_QUEUE_NAME in queue_name:
         annotator_check = ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator])
         pipeline_kwarg["species_pipeline_complete"] = False
+
     elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
         annotator_check = ~Q(activity_checked_by__in=[annotator]) & ~Q(activity_skipped_by__in=[annotator])
         pipeline_kwarg["activity_pipeline_complete"] = False
 
-    return annotator_check, pipeline_kwarg
+    # Exclude human/vehicles if annotator prioritized animals
+    if annotator.prioritize_tagging_animals and annotator.prioritize_tagging_animals > timezone.now():
+        exclusion_condition = Q()
+        for category in ["Human", "Vehicle"]:
+            exclusion_condition |= Q(species_ai_detections__icontains=category)
+    else:
+        exclusion_condition = Q()
+
+    return annotator_check, pipeline_kwarg, exclusion_condition
 
 
 # Try to get a valid precomputed queue
@@ -693,7 +709,8 @@ def get_precomputed_queue(queue_name, annotator):
     ---
         - precomputed_queue (images.models.ImageQueue): The assigned precomputed queue associated with an annotator. None if doesn't exist or couldn't assign.
     """
-    annotator_check, pipeline_kwarg = get_pipeline_filters(queue_name, annotator)
+    annotator_check, pipeline_kwarg, exclusion_condition = get_pipeline_filters(queue_name, annotator)
+
     queue_condition = Exists(
         Image.objects.filter(
             annotator_check,
@@ -701,7 +718,7 @@ def get_precomputed_queue(queue_name, annotator):
             staff_review_needed=False,
             queue=OuterRef("pk"),
             **pipeline_kwarg,
-        )
+        ).exclude(exclusion_condition)
     )
 
     precomputed_queue = ImageQueue.objects.annotate(has_eligible_image=queue_condition).filter(
@@ -767,8 +784,12 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
     )
 
     # Try to get precomputed queue for the pipeline
-    annotator_check, pipeline_kwarg = get_pipeline_filters(queue_name, annotator)
-    precomputed_queue = None if (staff_review or custom_annotations) else get_precomputed_queue(queue_name=queue_name, annotator=annotator)
+    annotator_check, pipeline_kwarg, exclusion_condition = get_pipeline_filters(queue_name, annotator)
+    precomputed_queue = (
+        None
+        if (staff_review or custom_annotations)
+        else get_precomputed_queue(queue_name=queue_name, annotator=annotator)
+    )
 
     # Image to reannotate to in annotation history, if it exists
     return_to_image_id = None
@@ -779,13 +800,13 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
 
         queue_images = precomputed_queue.images.filter(
             annotator_check, has_bbox_above_confidence_threshold=True, staff_review_needed=False, **pipeline_kwarg
-        )
+        ).exclude(exclusion_condition)
         image_id = return_to_image_id if return_to_image_id else queue_images.first().id
 
         # View all images in the queue
         context["grid_images_w_boxes"] = [
             [image_obj, BoundingBox.objects.filter(image=image_obj, validity__in=["Valid", "Uncertain"])]
-            for image_obj in queue_images.exclude(id=image_id)
+            for image_obj in queue_images.exclude(exclusion_condition, id=image_id)
         ]
 
     # Use old queue system as a fallback method if the precomputed queues run out

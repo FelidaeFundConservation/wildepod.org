@@ -5,10 +5,7 @@
     <div class="card-body">
         <button class="social-media-worthy-upvote"
                 data-vote="1"
-                onclick="stageSocialMediaWorthyVote"
-                "
-                upvote
-                "
+                onclick="stageSocialMediaWorthyVote('upvote')"
                 id="social-media-worthy-up"
                 style="font-size: 10px;
                        border: 1px solid lightgray;
@@ -18,10 +15,7 @@
         </button>
         <button class="social-media-worthy-downvote"
                 data-vote="-1"
-                onclick="stageSocialMediaWorthyVote"
-                "
-                downvote
-                "
+                onclick="stageSocialMediaWorthyVote('downvote')"
                 id="social-media-worthy-down"
                 style="font-size: 10px;
                        border: 1px solid lightgray;
@@ -80,5 +74,5 @@ function prioritizeAnimals(){
             console.error('HTTP Error:', jqXHR.status, textStatus, errorThrown);
         }
     })
-}
+};
 </script>

@@ -693,6 +693,12 @@ def get_pipeline_filters(queue_name, annotator):
     return annotator_check, pipeline_kwarg, exclusion_condition
 
 
+def check_queue_partition(queryset):
+    related_images = Image.objects.filter(queue=OuterRef("pk"), trigger_timestamp__gte=OuterRef("partition"))
+
+    return queryset.annotate(has_in_partition_image=Exists(related_images)).filter(has_in_partition_image=True)
+
+
 # Try to get a valid precomputed queue
 def get_precomputed_queue(queue_name, annotator):
     """
@@ -711,6 +717,7 @@ def get_precomputed_queue(queue_name, annotator):
     """
     annotator_check, pipeline_kwarg, exclusion_condition = get_pipeline_filters(queue_name, annotator)
 
+    # Use the pipeline_kwarg in the query
     queue_condition = Exists(
         Image.objects.filter(
             annotator_check,
@@ -722,8 +729,11 @@ def get_precomputed_queue(queue_name, annotator):
     )
 
     precomputed_queue = ImageQueue.objects.annotate(has_eligible_image=queue_condition).filter(
-        assigned_to=annotator, has_eligible_image=True
+        assigned_to=annotator,
+        has_eligible_image=True,
     )
+    precomputed_queue = check_queue_partition(precomputed_queue)
+
     if precomputed_queue.exists():
         precomputed_queue = precomputed_queue.first()
         logging.info("Got image from assigned precomputed queue.")
@@ -733,14 +743,14 @@ def get_precomputed_queue(queue_name, annotator):
             precomputed_queue = (
                 ImageQueue.objects.annotate(has_eligible_image=queue_condition)
                 .filter(
-                    Q(modified__lte=timezone.now() - datetime.timedelta(hours=1)) | Q(assigned_to=None),
+                    Q(modified__lte=timezone.now() - datetime.timedelta(hours=0)) | Q(assigned_to=None),
                     has_eligible_image=True,
                 )
                 .first()
             )
-            precomputed_queue.assigned_to = annotator
             # Reset the partition for new assignment
             precomputed_queue.partition = None
+            precomputed_queue.assigned_to = annotator
             precomputed_queue.save()
             logging.info("Successfully assigned a precomputed queue.")
         except Exception as e:
@@ -800,14 +810,15 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
     if precomputed_queue:
         return_to_image_id = get_reannotation_image(self, context)
 
-        # Use the parition to filter images after selected grid image
-        if precomputed_queue.partition:
-            pipeline_kwarg["trigger_timestamp__gte"] = precomputed_queue.partition
-
         queue_images = precomputed_queue.images.filter(
             annotator_check, has_bbox_above_confidence_threshold=True, staff_review_needed=False, **pipeline_kwarg
         ).exclude(exclusion_condition)
-        image_id = return_to_image_id if return_to_image_id else queue_images.first().id
+
+        partitioned_queue_images = queue_images
+        if precomputed_queue.partition:
+            partitioned_queue_images = queue_images.filter(trigger_timestamp__gte=precomputed_queue.partition)
+
+        image_id = return_to_image_id if return_to_image_id else partitioned_queue_images.first().id
 
         # View all images in the queue
         context["grid_images_w_boxes"] = [

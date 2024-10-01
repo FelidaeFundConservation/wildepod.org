@@ -750,7 +750,7 @@ def get_precomputed_queue(queue_name, annotator):
             precomputed_queue = (
                 ImageQueue.objects.annotate(has_eligible_image=queue_condition)
                 .filter(
-                    Q(modified__lte=timezone.now() - datetime.timedelta(hours=0)) | Q(assigned_to=None),
+                    Q(modified__lte=timezone.now() - datetime.timedelta(hours=1)) | Q(assigned_to=None),
                     Q(has_eligible_image=True),
                     ~Q(checked_by__in=[annotator]),
                 )

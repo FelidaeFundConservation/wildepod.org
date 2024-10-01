@@ -5,7 +5,18 @@ from django.db.models import Q
 from django.http.response import JsonResponse
 from django.views.generic import DetailView
 from django.views.generic.base import TemplateView, View
-from images.models import Activity, ActivityType, BoundingBox, Category, Image, ImageQueue, Species, SpeciesName, Upload
+from images.models import (
+    Activity,
+    ActivityType,
+    Annotator,
+    BoundingBox,
+    Category,
+    Image,
+    ImageQueue,
+    Species,
+    SpeciesName,
+    Upload,
+)
 from images.views.annotation import calculate_image_luma
 
 UNANNOTATED_CATEGORY = "unannotated"
@@ -83,8 +94,10 @@ class SetImageQueuePartitionView(LoginRequiredMixin, View):
         success = True
 
         try:
-            queue = ImageQueue.objects.get(assigned_to=request.user)
-            queue.update(partition=partition)
+            annotator, created = Annotator.objects.get_or_create(human=request.user)
+            queue = ImageQueue.objects.get(assigned_to=annotator)
+            queue.partition = partition
+            queue.save()
         except ObjectDoesNotExist:
             success = False
 

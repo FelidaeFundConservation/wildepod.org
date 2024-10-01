@@ -684,7 +684,7 @@ def get_pipeline_filters(queue_name, annotator):
 
     # Exclude human/vehicles if annotator prioritized animals
     if annotator.prioritize_tagging_animals and annotator.prioritize_tagging_animals > timezone.now():
-        exclusion_condition = Q()
+        exclusion_condition = Q(species_ai_detections=None)
         for category in ["Human", "Vehicle"]:
             exclusion_condition |= Q(species_ai_detections__icontains=category)
     else:
@@ -712,15 +712,11 @@ def get_precomputed_queue(queue_name, annotator):
     annotator_check, pipeline_kwarg, exclusion_condition = get_pipeline_filters(queue_name, annotator)
 
     # Use the pipeline_kwarg in the query
-    q_condition = (
-        Q(annotator_check)
-        & Q(has_bbox_above_confidence_threshold=True)
-        & Q(staff_review_needed=False)
-        & Q(queue=OuterRef("pk"))
-    )
+    q_condition = Q(annotator_check) & Q(has_bbox_above_confidence_threshold=True) & Q(staff_review_needed=False)
     queue_condition = Exists(
         Image.objects.filter(
             q_condition,
+            Q(queue=OuterRef("pk")),
             **pipeline_kwarg,
         ).exclude(exclusion_condition)
     )
@@ -730,13 +726,17 @@ def get_precomputed_queue(queue_name, annotator):
         has_eligible_image=True,
     )
 
-    try:
-        precomputed_queue = precomputed_queue.first()
-        precomputed_queue.images.filter(
+    precomputed_queue = precomputed_queue.first()
+    if (
+        precomputed_queue
+        and precomputed_queue.images.filter(
             q_condition, trigger_timestamp__gte=precomputed_queue.partition, **pipeline_kwarg
-        ).exclude(exclusion_condition).first()
+        )
+        .exclude(exclusion_condition)
+        .exists()
+    ):
         logging.info("Got image from assigned precomputed queue.")
-    except Exception as e:
+    else:
         logging.info("No assigned precomputed queue. Attempting to assign...")
         try:
             # Mark as checked by annotator so they don't get the same one

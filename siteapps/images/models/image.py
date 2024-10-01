@@ -259,3 +259,5 @@ class ImageQueue(TimeStampedModel):
     )
     # The images to be annotated
     images = models.ManyToManyField(Image, related_name="queue", blank=True)
+    # Serves as a pseudo-index to exclude images before another
+    partition = models.DateTimeField(blank=True, null=True)

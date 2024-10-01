@@ -17,6 +17,7 @@ from .views import (
     SavePreviousImageToReturnToView,
     SaveRecentTagsView,
     SearchImagesView,
+    SetImageQueuePartitionView,
     SpeciesAnnotationProcessorView,
     TimeCorrectionCreateView,
     TimeCorrectionStatusView,
@@ -85,6 +86,11 @@ urlpatterns = [
         "activity-annotation-processor/",
         ActivityAnnotationProcessorView.as_view(),
         name="activity_annotation_processor",
+    ),
+    path(
+        "set-queue-partition/",
+        SetImageQueuePartitionView.as_view(),
+        name="set_queue_partition",
     ),
     path(
         "get-recent-tags/",

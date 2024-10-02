@@ -192,7 +192,7 @@
                                         </div>
                                     </div>
                                     <div class="card-footer">
-                                        <a href="{{ object.dropbox_request_url }}"
+                                        <a href="{{ dropbox_prefix }}{{ object.dropbox_folder_path }}"
                                            target="_blank"
                                            class="btn btn-light"><i class="bi bi-dropbox"></i></a>
                                         <a href="{% url 'images:complete_upload' object.id %}">
@@ -277,7 +277,7 @@
                                             </div>
                                         </div>
                                         <div class="card-footer">
-                                            <a href="{{ object.dropbox_request_url }}"
+                                            <a href="{{ dropbox_prefix }}{{ object.dropbox_folder_path }}"
                                                target="_blank"
                                                class="btn btn-light"><i class="bi bi-dropbox"></i></a>
                                             <a href="{% url 'images:view_upload' object.id %}"
@@ -379,7 +379,7 @@
                                             </div>
                                         </div>
                                         <div class="card-footer">
-                                            <a href="{{ object.dropbox_request_url }}"
+                                            <a href="{{ dropbox_prefix }}{{ object.dropbox_folder_path }}"
                                                target="_blank"
                                                class="btn btn-light"><i class="bi bi-dropbox"></i></a>
                                             <a href="{% url 'images:view_upload' object.id %}">
@@ -423,7 +423,7 @@
                                                     </a>
                                                 </td>
                                                 <td>
-                                                    <a href="{{ object.dropbox_request_url }}"
+                                                    <a href="{{ dropbox_prefix }}{{ object.dropbox_folder_path }}"
                                                        target="_blank"
                                                        class="btn btn-light"><i class="bi bi-dropbox"></i></a>
                                                 </td>

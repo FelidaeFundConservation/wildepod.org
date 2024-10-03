@@ -192,7 +192,7 @@
                                         </div>
                                     </div>
                                     <div class="card-footer">
-                                        <a href="{{ dropbox_prefix }}{{ object.dropbox_folder_path }}"
+                                        <a href="{{ object.dropbox_request_url }}"
                                            target="_blank"
                                            class="btn btn-light"><i class="bi bi-dropbox"></i></a>
                                         <a href="{% url 'images:complete_upload' object.id %}">

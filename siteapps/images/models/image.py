@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from django.conf import settings
 from django.db import models
@@ -257,5 +258,11 @@ class ImageQueue(TimeStampedModel):
     assigned_to = models.ForeignKey(
         Annotator, on_delete=models.PROTECT, related_name="assigned_to_annotator", default=None, null=True
     )
+
+    # Don't assign this queue to these annotators anymore
+    checked_by = models.ManyToManyField(Annotator, related_name="checked_queue", blank=True)
+
     # The images to be annotated
     images = models.ManyToManyField(Image, related_name="queue", blank=True)
+    # Serves as a pseudo-index to exclude images before another
+    partition = models.DateTimeField(default=datetime.min)

@@ -265,7 +265,10 @@
                 </div>
             </div>
         </div>
-        <!--<div class="tab-pane fade" id="nav-img-grid" role="tabpanel" aria-labelledby="nav-img-grid-tab">
+        <div class="tab-pane fade"
+             id="nav-img-grid"
+             role="tabpanel"
+             aria-labelledby="nav-img-grid-tab">
             <div class="card">
                 <div class="card card-header">Upcoming Images</div>
                 <div class="card-body">
@@ -273,13 +276,21 @@
                         {% if grid_images_w_boxes|length > 0 %}
                             {% for queue_image, bounding_boxes in grid_images_w_boxes %}
                                 <div class="p-2 col-3">
-                                    <div class="card p-0">
+                                    <div class="card p-0"
+                                         onclick="setPartition('{{ queue_image.trigger_timestamp|date:"c" }}')">
                                         <div class="card card-header">&nbsp;&nbsp;&nbsp;&nbsp;{{ bounding_boxes|length }} boxes</div>
                                         <div class="card card-body">
                                             <div style="position: relative; display: inline-block">
-                                                <img id="queue-{{ queue_image.id }}" class="img-fluid" src="{% get_media_prefix %}{{ queue_image.thumbnail_gcloud_path }}">
+                                                <img id="queue-{{ queue_image.id }}"
+                                                     class="img-fluid"
+                                                     src="{% get_media_prefix %}{{ queue_image.thumbnail_gcloud_path }}">
                                                 {% for bbox in bounding_boxes %}
-                                                    <svg id="queue-{{ bbox.id }}" style="position:absolute; top:0px; left: 0px" width="100%" height="100%">
+                                                    <svg id="queue-{{ bbox.id }}"
+                                                         style="position:absolute;
+                                                                top:0px;
+                                                                left: 0px"
+                                                         width="100%"
+                                                         height="100%">
                                                         <rect width="100%" height="100%" fill="transparent" stroke="black" stroke-width="6px" style="position: relative;" />
                                                         <rect width="100%" height="100%" fill="transparent" stroke="red" stroke-width="3px" style="position: relative;" />
                                                     </svg>
@@ -295,6 +306,37 @@
                     </div>
                 </div>
             </div>
-        </div>-->
+        </div>
     </div>
 </nav>
+<script>
+    // Used to navigate to specific images in a precomputed queue without annotating them
+    function setPartition(timestamp){
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        let data = {
+            'csrfmiddlewaretoken': csrftoken,
+            'partition': timestamp,
+        }
+
+        $.ajax({
+            url: "{% url 'images:set_queue_partition' %}",
+            method: 'POST',
+            data: data,
+            dataType: 'json',
+            success: function (data){
+                if (data.success) {
+                    window.location.reload();
+                }
+                else {
+                    showStatusFailure();
+                }
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+                showStatusFailure();
+                console.error('HTTP Error:', jqXHR.status, textStatus, errorThrown);
+            }
+        })
+    }
+
+</script>

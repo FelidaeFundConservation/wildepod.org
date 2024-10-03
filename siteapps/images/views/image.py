@@ -2,8 +2,21 @@ from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
+from django.http.response import JsonResponse
 from django.views.generic import DetailView
-from images.models import Activity, ActivityType, BoundingBox, Category, Image, Species, SpeciesName, Upload
+from django.views.generic.base import TemplateView, View
+from images.models import (
+    Activity,
+    ActivityType,
+    Annotator,
+    BoundingBox,
+    Category,
+    Image,
+    ImageQueue,
+    Species,
+    SpeciesName,
+    Upload,
+)
 from images.views.annotation import calculate_image_luma
 
 UNANNOTATED_CATEGORY = "unannotated"
@@ -72,3 +85,20 @@ class ImageDetailView(LoginRequiredMixin, DetailView):
         context["luma_adjustment"] = calculate_image_luma(img_obj, context["bounding_boxes"])
 
         return context
+
+
+class SetImageQueuePartitionView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        partition = request.POST.get("partition")
+
+        success = True
+
+        try:
+            annotator, created = Annotator.objects.get_or_create(human=request.user)
+            queue = ImageQueue.objects.get(assigned_to=annotator)
+            queue.partition = partition
+            queue.save()
+        except ObjectDoesNotExist:
+            success = False
+
+        return JsonResponse({"success": success, "newPartition": queue.partition})

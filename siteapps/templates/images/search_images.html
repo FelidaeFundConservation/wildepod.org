@@ -41,8 +41,6 @@
                                 <th scope="col">File Name</th>
                                 <th scope="col">Macrosite</th>
                                 <th scope="col">Camera Station</th>
-                                <th scope="col">Last Tagged</th>
-                                <th scope="col">Annotation</th>
                                 <th scope="col">Image</th>
                             </tr>
                         </thead>
@@ -74,6 +72,9 @@
     });
     $('#id_species').select2({
         placeholder: '(optional) Only images with these species will be included',
+    });
+    $('#id_species_ai').select2({
+        placeholder: '(optional) Only images with AI detections of these species will be included',
     });
 
 
@@ -236,6 +237,7 @@
             'volunteers': JSON.stringify($('select[name="volunteers"]').val()),
             'macrosites': JSON.stringify($('select[name="macrosites"]').val()),
             'species': JSON.stringify($('select[name="species"]').val()),
+            'species_ai': JSON.stringify($('select[name="species_ai"]').val()),
             'camera_stations': JSON.stringify($('select[name="camera_stations"]').val()),
             'staff_review_needed': $('input[name="staff_review_needed"]').is(':checked'),
         }
@@ -262,32 +264,18 @@
             $('#results-body').append(`<h3 class="display-3">No results.</h3>`);
         } else {
             for (result of results){
-                var fileName = result["bounding_box__image__dropbox_file_name"]
-                var imageId = result["bounding_box__image__id"]
+                var fileName = result["dropbox_file_name"]
+                var imageId = result["id"]
 
-                var macrosite = result["bounding_box__image__upload__camera_station__micro_site__macro_site__name"];
-                var cameraStation = result["bounding_box__image__upload__camera_station__station_id"];
+                var macrosite = result["upload__camera_station__micro_site__macro_site__name"];
+                var cameraStation = result["upload__camera_station__station_id"];
 
-                var tagTime = Date.parse(result["modified"]);
-                tagTime = new Date(tagTime);
-
-                var monthName = tagTime.toLocaleString('default', { month: 'short' });
-                var day = tagTime.getDate();
-                var year = tagTime.getFullYear();
-                var hours = tagTime.getHours().toString().padStart(2, '0');
-                var minutes = tagTime.getMinutes().toString().padStart(2, '0');
-
-                var timeString = `${monthName} ${day} ${year} ${hours}:${minutes}`
-
-                var annotation = result["name__name"];
-                var thumbnail = result["bounding_box__image__thumbnail_gcloud_path"];
+                var thumbnail = result["thumbnail_gcloud_path"];
 
                 var newRow = [
                     fileName,
                     macrosite,
                     cameraStation,
-                    timeString,
-                    annotation,
                     `
                     <a href="/images/image/${imageId}" target="_blank">
                         <img class="w-100" src="{% get_media_prefix %}${thumbnail}" alt="Thumbnail" loading="lazy">

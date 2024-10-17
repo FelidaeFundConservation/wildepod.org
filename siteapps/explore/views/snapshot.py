@@ -143,6 +143,7 @@ class PreviewSnapshotImagesView(LoginRequiredMixin, View):
                     "cameraStation": upload["camera_station__station_id"],
                     "volunteer": upload["volunteer__name"],
                     "imageCount": images.count(),
+                    "hasTimeCorrection": has_time_correction,
                     "timeCorrectionApplied": not images.filter(time_correction_applied=False).exists()
                     if has_time_correction
                     else True,

@@ -90,6 +90,16 @@ class VolunteerRegisterSuccessView(LoginRequiredMixin, StaffuserRequiredMixin, T
     template_name = "users/volunteers/added.html"
 
 
+class VolunteerProfileView(LoginRequiredMixin, TemplateView):
+    login_url = settings.LOGIN_URL
+    template_name = "users/volunteers/profile.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context[""]
+
+
 class PrioritizeTaggingAnimalsView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         new_time = datetime.now() + timedelta(hours=1)

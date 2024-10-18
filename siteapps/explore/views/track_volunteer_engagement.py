@@ -16,6 +16,8 @@ User = get_user_model()
 
 
 class VolunteerEngagementInfo:
+    id = None
+
     name = None
     name_no_spaces = None
     last_login = None
@@ -38,6 +40,7 @@ class VolunteerEngagementInfo:
 
     def __init__(
         self,
+        id,
         name,
         name_no_spaces,
         annotations_past_week,
@@ -53,6 +56,8 @@ class VolunteerEngagementInfo:
         annotations_all_time_species,
         annotations_all_time_activity,
     ):
+        self.id = id
+
         self.name = name
         self.name_no_spaces = name_no_spaces
 
@@ -73,12 +78,11 @@ class VolunteerEngagementInfo:
         self.annotations_all_time_activity = annotations_all_time_activity
 
 
-def calculate_volunteer_engagement(context, volunteers):
+def calculate_total_engagement(context):
     # Calculuate cutoff date for past week and month.
     pacific_timezone = pytz.timezone("America/Los_Angeles")
     now_pacific = timezone.now().astimezone(pacific_timezone)
     past_month_start_time = now_pacific - relativedelta(months=1)
-    past_week_start_time = now_pacific - relativedelta(weeks=1)
 
     # Clear counters older than 1 month
     counters = AnnotationCounter.objects.filter(created__lt=past_month_start_time)
@@ -161,6 +165,14 @@ def calculate_volunteer_engagement(context, volunteers):
         round(context["activity_pipeline_images"] / (context["daily_activity_img_avg"] + 1)), 365
     )
 
+
+def calculate_volunteer_engagement(context, volunteers):
+    # Calculuate cutoff date for past week and month.
+    pacific_timezone = pytz.timezone("America/Los_Angeles")
+    now_pacific = timezone.now().astimezone(pacific_timezone)
+    past_month_start_time = now_pacific - relativedelta(months=1)
+    past_week_start_time = now_pacific - relativedelta(weeks=1)
+
     volunteer_info = []
 
     for volunteer in volunteers:
@@ -223,6 +235,7 @@ def calculate_volunteer_engagement(context, volunteers):
 
         volunteer_info.append(
             VolunteerEngagementInfo(
+                id=volunteer.id,
                 name=str(volunteer),
                 name_no_spaces=str(volunteer).replace(" ", ""),
                 annotations_past_week=annotations_past_week,
@@ -260,6 +273,7 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
             Annotator.objects.filter(recent_annotations__created__gte=past_month_start_time, type="human").distinct()
         )
 
+        calculate_total_engagement(context)
         calculate_volunteer_engagement(context, volunteers)
 
         return context

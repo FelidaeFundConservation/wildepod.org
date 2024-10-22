@@ -235,7 +235,7 @@ def calculate_volunteer_engagement(context, volunteers):
 
         volunteer_info.append(
             VolunteerEngagementInfo(
-                id=volunteer.id,
+                id=volunteer.human.id,
                 name=str(volunteer),
                 name_no_spaces=str(volunteer).replace(" ", ""),
                 annotations_past_week=annotations_past_week,

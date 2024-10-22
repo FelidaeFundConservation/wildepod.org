@@ -28,7 +28,7 @@
                     {% for volunteer in object_list %}
                         <tr>
                             <td>
-                                <a href="{% url 'users:volunteer_stats' volunteer.id %}">{{ volunteer.name }}</a>
+                                <a href="{% url 'users:volunteer_stats' volunteer.human.id %}">{{ volunteer.name }}</a>
                             </td>
                             <td>
                                 <a href="mailto:{{ volunteer.email }}">{{ volunteer.email }}</a>

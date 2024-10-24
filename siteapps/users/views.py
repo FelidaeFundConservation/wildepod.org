@@ -12,6 +12,8 @@ from django.urls import reverse
 from django.views.generic import FormView, ListView, TemplateView, UpdateView, View
 from images.models import Activity, Annotator, Category, Species
 
+from siteapps.explore.views import calculate_volunteer_engagement
+
 from .forms import RegisterVolunteerForm
 
 User = get_user_model()
@@ -88,6 +90,21 @@ class VolunteerRegisterView(LoginRequiredMixin, StaffuserRequiredMixin, FormView
 class VolunteerRegisterSuccessView(LoginRequiredMixin, StaffuserRequiredMixin, TemplateView):
     login_url = settings.LOGIN_URL
     template_name = "users/volunteers/added.html"
+
+
+class VolunteerStatsView(LoginRequiredMixin, TemplateView):
+    login_url = settings.LOGIN_URL
+    template_name = "users/volunteers/stats.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        volunteer = Annotator.objects.get(human__id=self.kwargs["pk"])
+        context["volunteer"] = volunteer
+
+        calculate_volunteer_engagement(context, [volunteer])
+
+        return context
 
 
 class PrioritizeTaggingAnimalsView(LoginRequiredMixin, View):

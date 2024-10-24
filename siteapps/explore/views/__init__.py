@@ -6,5 +6,5 @@ from .query_data import SearchDataView
 from .set_priority import ConfirmUpdateView, PriorityView
 from .snapshot import PreviewSnapshotImagesView, SnapshotCreateView, SnapshotListView
 from .species import SpeciesSightingImagesView, SpeciesSightingTimeseriesView
-from .track_volunteer_engagement import TrackVolunteerEngagementView
+from .track_volunteer_engagement import TrackVolunteerEngagementView, calculate_volunteer_engagement
 from .workflow import WorkflowStateView

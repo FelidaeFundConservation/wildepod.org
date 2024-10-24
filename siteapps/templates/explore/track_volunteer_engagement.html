@@ -35,7 +35,9 @@
                         <tr id="row-{{ volunteer.name_no_spaces }}"
                             onclick="toggleRowDetailedBreakdown('{{ volunteer.name_no_spaces }}')">
                             <td>&nbsp;</td>
-                            <td>{{ volunteer.name }}</td>
+                            <td>
+                                <a href="{% url 'users:volunteer_stats' volunteer.id %}">{{ volunteer.name }}</a>
+                            </td>
                             <td>{{ volunteer.annotations_past_week }}</td>
                             <td>{{ volunteer.annotations_past_month }}</td>
                             <td>{{ volunteer.annotations_all_time }}</td>

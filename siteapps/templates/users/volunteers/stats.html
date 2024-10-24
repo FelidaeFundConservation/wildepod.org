@@ -1,0 +1,74 @@
+{% extends "_base.html" %}
+{% load static %}
+{% load crispy_forms_tags %}
+{% block title %}Volunteers |{% endblock %}
+{% block content %}
+    <div class="container mt-3 pt-3 mt-md-4 pt-md-4">
+        <div class="row text-center">
+            <h2 class="display-4">{{ volunteer.human.name }}'s Annotations</h2>
+        </div>
+        <hr>
+        {% for volunteer in volunteer_info %}
+            <!-- Past Week Card -->
+            <div class="card mb-3" id="row-{{ volunteer.name_no_spaces }}-week">
+                <div class="card-header">Past Week</div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-4">
+                            <strong>Category:</strong>
+                            <p>{{ volunteer.annotations_past_week_category }}</p>
+                        </div>
+                        <div class="col-4">
+                            <strong>Species:</strong>
+                            <p>{{ volunteer.annotations_past_week_species }}</p>
+                        </div>
+                        <div class="col-4">
+                            <strong>Activity:</strong>
+                            <p>{{ volunteer.annotations_past_week_activity }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Past Month Card -->
+            <div class="card mb-3" id="row-{{ volunteer.name_no_spaces }}-month">
+                <div class="card-header">Past Month</div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-4">
+                            <strong>Category:</strong>
+                            <p>{{ volunteer.annotations_past_month_category }}</p>
+                        </div>
+                        <div class="col-4">
+                            <strong>Species:</strong>
+                            <p>{{ volunteer.annotations_past_month_species }}</p>
+                        </div>
+                        <div class="col-4">
+                            <strong>Activity:</strong>
+                            <p>{{ volunteer.annotations_past_month_activity }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- All Time Card -->
+            <div class="card mb-3" id="row-{{ volunteer.name_no_spaces }}-all-time">
+                <div class="card-header">All Time</div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-4">
+                            <strong>Category:</strong>
+                            <p>{{ volunteer.annotations_all_time_category }}</p>
+                        </div>
+                        <div class="col-4">
+                            <strong>Species:</strong>
+                            <p>{{ volunteer.annotations_all_time_species }}</p>
+                        </div>
+                        <div class="col-4">
+                            <strong>Activity:</strong>
+                            <p>{{ volunteer.annotations_all_time_activity }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% endblock content %}

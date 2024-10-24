@@ -54,7 +54,7 @@ class SetPriorityForm(forms.Form):
                 )
             ),
             Row(
-                Column(Submit("submit", "Submit", css_class="form-group btn-primary")),
+                Column(Submit("submit", "Submit", css_class="form-group btn-primary w-50 p-2")),
                 css_class="text-center",
             ),
         )
@@ -65,6 +65,27 @@ class PriorityView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
     login_url = settings.LOGIN_URL
     template_name = "explore/set_priority.html"
     form_class = SetPriorityForm
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context["priorities"] = {}
+
+        priority_names = {
+            1: "Low",
+            2: "Medium",
+            3: "High",
+            4: "Highest",
+        }
+
+        for num in range(1, 5):
+            context["priorities"][priority_names[num]] = set(
+                Upload.objects.filter(priority=num).values_list(
+                    "camera_station__micro_site__macro_site__name", flat=True
+                )
+            )
+
+        return context
 
     def post(self, request, *args, **kwargs):
         form = SetPriorityForm(request.POST)

@@ -29,12 +29,14 @@ class SearchImagesForm(forms.Form):
 
     species = forms.ModelMultipleChoiceField(queryset=SpeciesName.objects.all(), required=False)
 
+    species_ai = forms.ModelMultipleChoiceField(queryset=SpeciesName.objects.all(),  label="Species AI", required=False)
+
     staff_review_needed = forms.BooleanField(label="Flagged for Staff?", required=False)
 
     TIME_SELECTION_CHOICES = [("LA", "Last Annotated"), ("TT", "Trigger Timestamp")]
     time_filter_type = forms.ChoiceField(choices=TIME_SELECTION_CHOICES, label="Time Filter Type")
 
-    ANNO_SELECTION_CHOICES = [("SP", "Species"), ("ACT", "Activity")]
+    ANNO_SELECTION_CHOICES = [("SP", "Species")]
     annotation_type = forms.ChoiceField(choices=ANNO_SELECTION_CHOICES, label="Annotation Type")
 
     start_date = forms.DateField(
@@ -58,7 +60,10 @@ class SearchImagesForm(forms.Form):
             ),
             Row(
                 Column("volunteers", css_class="form-group col-6"),
+            ),
+            Row(
                 Column("species", css_class="form-group col-6"),
+                Column("species_ai", css_class="form-group col-6"),
             ),
             Row(
                 Column("macrosites", css_class="form-group col-6"),
@@ -130,6 +135,10 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
         if species and type(species) != list:
             species = json.loads(species)
 
+        species_ai = request.POST.get("species_ai")
+        if species_ai and type(species_ai) != list:
+            species_ai = json.loads(species_ai)
+
         date = request.POST.get("date")
 
         start_date = request.POST.get("start_date")
@@ -148,57 +157,59 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
 
         if date:
             if time_filter_type == TRIGGER_TIMESTAMP_TYPE:
-                filterset &= Q(bounding_box__image__trigger_timestamp__date=date)
+                filterset &= Q(trigger_timestamp__date=date)
             elif time_filter_type == LAST_ANNOTATED_TYPE:
-                filterset &= Q(created__date=date) | Q(modified__date=date)
+                filterset &= Q(boundingbox__species__created__date=date) | Q(boundingbox__species__modified__date=date)
         if start_date and end_date:
             if time_filter_type == TRIGGER_TIMESTAMP_TYPE:
                 filterset &= Q(
-                    bounding_box__image__trigger_timestamp__date__gte=start_date,
-                    bounding_box__image__trigger_timestamp__date__lt=end_date,
+                    trigger_timestamp__date__gte=start_date,
+                    trigger_timestamp__date__lt=end_date,
                 )
             elif time_filter_type == LAST_ANNOTATED_TYPE:
-                filterset &= Q(created__date__gte=start_date, created__date__lt=end_date) | Q(
-                    modified__date__gte=start_date, modified__date__lt=end_date
+                filterset &= Q(boundingbox__species__created__date__gte=start_date, boundingbox__species__created__date__lt=end_date) | Q(
+                    boundingbox__species__modified__date__gte=start_date, boundingbox__species__modified__date__lt=end_date
                 )
 
         if hour:
             if time_filter_type == TRIGGER_TIMESTAMP_TYPE:
-                filterset &= Q(bounding_box__image__trigger_timestamp__hour=hour)
+                filterset &= Q(trigger_timestamp__hour=hour)
             elif time_filter_type == LAST_ANNOTATED_TYPE:
-                filterset &= Q(created__hour=hour) | Q(modified__hour=hour)
+                filterset &= Q(boundingbox__species__created__hour=hour) | Q(boundingbox__species__modified__hour=hour)
 
         if staff_review_needed:
             staff_review_needed = json.loads(staff_review_needed)
-            filterset &= Q(bounding_box__image__staff_review_needed=staff_review_needed)
+            filterset &= Q(staff_review_needed=staff_review_needed)
         if len(volunteers) > 0:
             filterset &= (
-                Q(created_by__id__in=volunteers) | Q(accepted_by__id__in=volunteers) | Q(rejected_by__id__in=volunteers)
+                Q(boundingbox__species__created_by__id__in=volunteers) | Q(boundingbox__species__accepted_by__id__in=volunteers) | Q(boundingbox__species__rejected_by__id__in=volunteers)
             )
         if len(species) > 0:
-            filterset &= Q(name__in=species)
+            filterset &= Q(boundingbox__species__name__in=species)
+        if len(species_ai) > 0:
+            # The Search form returns a list of Species ids while the ai_detections field contains the
+            # species names as a list in string format.
+            # Q expressions can't compare both sets directly, so we generate a Q expression for each species and combine them.
+            species_ai_filter = Q()
+            for id in species_ai:
+                name = SpeciesName.objects.get(id=id).name
+                species_ai_filter |= Q(species_ai_detections__icontains=name)
+            filterset &= (species_ai_filter)
         if len(macrosites) > 0:
-            filterset &= Q(bounding_box__image__upload__camera_station__micro_site__macro_site__in=macrosites)
+            filterset &= Q(upload__camera_station__micro_site__macro_site__in=macrosites)
         if len(camera_stations) > 0:
-            filterset &= Q(bounding_box__image__upload__camera_station__in=camera_stations)
+            filterset &= Q(upload__camera_station__in=camera_stations)
 
-        # Query annotation results
-        results = []
-
-        if annotation_type == SPECIES_ANNO_TYPE:
-            results = Species.objects.filter(filterset)
-        elif annotation_type == ACTIVITY_ANNO_TYPE:
-            results = Activity.objects.filter(filterset)
+        # Query Images based on the filter criteria
+        results = Image.objects.filter(filterset)
 
         if len(results) > 0:
             results = results.order_by("-modified").values(
-                "bounding_box__image__id",
-                "bounding_box__image__dropbox_file_name",
-                "bounding_box__image__upload__camera_station__micro_site__macro_site__name",
-                "bounding_box__image__upload__camera_station__station_id",
-                "modified",
-                "name__name",
-                "bounding_box__image__thumbnail_gcloud_path",
+                "id",
+                "dropbox_file_name",
+                "upload__camera_station__micro_site__macro_site__name",
+                "upload__camera_station__station_id",
+                "thumbnail_gcloud_path",
             )
 
         return JsonResponse({"results": list(results)})

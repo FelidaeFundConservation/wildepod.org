@@ -14,7 +14,7 @@ django-jazzmin==2.4.9  # https://github.com/farridav/django-jazzmin
 django-model-utils==4.2.0  # https://github.com/jazzband/django-model-utils
 django-simple-history==3.0.0  # https://github.com/jazzband/django-simple-history
 django-storages[google]==1.12.3  # https://github.com/jschneier/django-storages
-dropbox==11.30.0 # https://github.com/dropbox/dropbox-sdk-python
+dropbox>=11.30.0 # https://github.com/dropbox/dropbox-sdk-python
 google-api-python-client==2.58.0 # https://github.com/googleapis/google-api-python-client
 google-auth==2.11.0 # https://github.com/googleapis/google-auth-library-python
 google-auth-httplib2==0.1.0 # https://github.com/googleapis/google-auth-library-python-httplib2

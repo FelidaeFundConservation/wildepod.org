@@ -387,7 +387,10 @@ function renderBoundingBoxPreviews(imageElementID, anno) {
 
     displayOverlappingPairs(anno, imageElement);
 
-    for (const annotation of anno.getAnnotations()) {
+    const sortAnnotations = anno.getAnnotations()
+    sortAnnotations.sort((a, b) => b.body[0].confidence - a.body[0].confidence);
+
+    for (const annotation of sortAnnotations) {
         if (annotation.type !== "Annotation") continue;
 
         let annotationText = annotation.body[0].value && annotation.body[0].value != 'unannotated' ? annotation.body[0].value : "(No Annotation)";

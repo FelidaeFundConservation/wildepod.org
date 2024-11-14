@@ -69,6 +69,55 @@
                     </div>
                 </div>
             </div>
+
+            <form method="POST">
+                {% csrf_token %}
+                <input type="submit"
+                        class="btn btn-primary"
+                        id="resend_invite"
+                        name="resend_invite"
+                        value="Resend invitation email"
+                        data-volunteer-id="{{volunteer.id}}"/>
+            </form>
+
         {% endfor %}
     </div>
 {% endblock content %}
+{% block footer_includes %}
+<script>
+    $("#resend_invite").click(function(e){
+        // First, prevent the default action of the form
+        e.preventDefault();
+
+        // Get the CSRF token from the DOM
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        const volunteer_id = $(this).data("volunteer-id");
+
+        // Change the text and disable the button
+        var button = this;
+        $(button).prop("value", "Sending...");
+        $(button).prop("disabled", true);
+
+        // Make an AJAX request
+        $.ajax({
+            url: '{% url 'users:volunteer_resend_invite'%}',
+            method: 'POST',
+            data: {
+                'csrfmiddlewaretoken': csrftoken,
+                'volunteer_id': volunteer_id,
+            },
+            dataType: 'json',
+            success: function (data){
+                if (data.success){
+                    $(button).prop("value", "Successfully sent email");
+                } else {
+                    $(button).prop("value", "Sending email failed!");
+                    console.log(data.error);
+                }
+            },
+        });
+    })
+</script>
+{% endblock footer_includes %}
+

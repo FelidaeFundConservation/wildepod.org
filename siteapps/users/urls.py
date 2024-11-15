@@ -6,6 +6,7 @@ from .views import (
     VolunteerListView,
     VolunteerRegisterSuccessView,
     VolunteerRegisterView,
+    VolunteerResendInviteView,
     VolunteerStatsView,
 )
 
@@ -16,4 +17,5 @@ urlpatterns = [
     path("volunteers/add/", view=VolunteerRegisterView.as_view(), name="volunteer_add"),
     path("volunteers/add/success", view=VolunteerRegisterSuccessView.as_view(), name="volunteer_added"),
     path("prioritize_animals/", view=PrioritizeTaggingAnimalsView.as_view(), name="prioritize_animals"),
+    path("volunteers/resend_invite/", view=VolunteerResendInviteView.as_view(), name="volunteer_resend_invite"),
 ]

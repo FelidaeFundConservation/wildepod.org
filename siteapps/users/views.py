@@ -11,8 +11,10 @@ from django.http import JsonResponse
 from django.urls import reverse
 from django.views.generic import FormView, ListView, TemplateView, UpdateView, View
 from images.models import Activity, Annotator, Category, Species
+from users.models import User
 
 from siteapps.explore.views import calculate_volunteer_engagement
+from siteapps.users.managers import send_welcome_email
 
 from .forms import RegisterVolunteerForm
 
@@ -117,4 +119,23 @@ class PrioritizeTaggingAnimalsView(LoginRequiredMixin, View):
         annotator.save()
 
         # Optionally, return a response
+        return JsonResponse({"success": True})
+
+
+class VolunteerResendInviteView(LoginRequiredMixin, StaffuserRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        try:
+            user = User.objects.get(id=request.POST.get("volunteer_id"))
+            if not user or not user.email:
+                raise ValueError(_("Error fetching email of user!"))
+
+            password_generated = User.objects.make_random_password(length=12)
+            send_welcome_email(user, password_generated)
+            user.set_password(password_generated)
+            user.save()
+            logging.info("Updated User with generated password and sent Welcome email!")
+        except Exception as e:
+            logging.error(f"Error sending welcome email. Error msg - {e}")
+            return JsonResponse({"success": False})
+
         return JsonResponse({"success": True})

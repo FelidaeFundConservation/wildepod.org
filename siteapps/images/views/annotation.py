@@ -769,7 +769,7 @@ def get_precomputed_queue(queue_name, annotator):
 
 
 # Retrieves data to pass to the views through context (namely queue images and annotations info).
-def populate_view_context(queue_name, context, self, activity_category=None, staff_review=False):
+def populate_view_context(queue_name, context, self, activity_category=None, staff_review=False, searched=False):
 
     """
     Sets data in view context to access from the annotation view templates,
@@ -818,9 +818,12 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
     if precomputed_queue:
         return_to_image_id = get_reannotation_image(self, context)
 
-        queue_images = precomputed_queue.images.filter(
-            annotator_check, has_bbox_above_confidence_threshold=True, staff_review_needed=False, **pipeline_kwarg
-        ).exclude(exclusion_condition)
+        queue_images = precomputed_queue.images.all()
+
+        if not searched:
+            queue_images = queue_images.filter(
+                annotator_check, has_bbox_above_confidence_threshold=True, staff_review_needed=False, **pipeline_kwarg
+            ).exclude(exclusion_condition)
 
         partitioned_queue_images = queue_images.filter(trigger_timestamp__gte=precomputed_queue.partition)
 
@@ -1085,7 +1088,13 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        populate_view_context(SPECIES_QUEUE_NAME, context, self, staff_review=kwargs.get("staff_review", False))
+        populate_view_context(
+            SPECIES_QUEUE_NAME,
+            context,
+            self,
+            staff_review=kwargs.get("staff_review", False),
+            searched=kwargs.get("searched", False),
+        )
 
         return context
 

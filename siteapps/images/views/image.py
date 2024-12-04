@@ -20,6 +20,7 @@ from images.models import (
 from images.views.annotation import calculate_image_luma
 
 UNANNOTATED_CATEGORY = "unannotated"
+SPECIES_PIPELINE_NAME = "Species"
 
 
 class ImageDetailView(LoginRequiredMixin, DetailView):
@@ -102,3 +103,22 @@ class SetImageQueuePartitionView(LoginRequiredMixin, View):
             success = False
 
         return JsonResponse({"success": success, "newPartition": queue.partition})
+
+
+class CreatePrecomputedQueueView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        image_ids = request.POST.get("image_ids")
+
+        success = True
+
+        try:
+            annotator, created = Annotator.objects.get_or_create(human=request.user)
+
+            ImageQueue.objects.filter(assigned_to=annotator).update(assigned_to=None)
+
+            queue = ImageQueue.objects.create(pipeline_name=SPECIES_PIPELINE_NAME, assigned_to=annotator)
+            queue.images.add(*Image.objects.filter(id__in=image_ids))
+        except ObjectDoesNotExist:
+            success = False
+
+        return JsonResponse({"success": success})

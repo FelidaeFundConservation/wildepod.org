@@ -297,39 +297,41 @@
                                                     </svg>
                                                 {% endfor %}
                                             </div>
-                                            <hr>
-                                            <div class="h-100">
-                                                <table class="h-100 w-100" style="border-collapse: collapse;">
-                                                    <tr class="p-2">
-                                                        <td class="px-2">
-                                                            <b>Annotator(s)</b>
-                                                        </td>
-                                                        <td class="px-2">
-                                                            <p class="small">{{ queue_image.species_checked_by.all|join:", " }}</p>
-                                                        </td>
-                                                    </tr>
-                                                    <tr class="p-2">
-                                                        <td class="px-2">
-                                                            <b>Updated</b>
-                                                        </td>
-                                                        <td class="px-2">
-                                                            <p class="small">{{ queue_image.created }}</p>
-                                                        </td>
-                                                    </tr>
-                                                    <tr class="p-2">
-                                                        <td class="px-2">
-                                                            <b>Tags</b>
-                                                        </td>
-                                                        <td class="px-2">
-                                                            <p class="small">
-                                                                {% for bounding_box in queue_image.boundingbox_set.all %}
-                                                                    {% for species in bounding_box.species_set.all %}{{ species.name.name }},{% endfor %}
-                                                                {% endfor %}
-                                                            </p>
-                                                        </td>
-                                                    </tr>
-                                                </table>
-                                            </div>
+                                            {% if searched and user.is_staff %}
+                                                <hr>
+                                                <div class="h-100">
+                                                    <table class="h-100 w-100" style="border-collapse: collapse;">
+                                                        <tr class="p-2">
+                                                            <td class="px-2">
+                                                                <b>Annotator(s)</b>
+                                                            </td>
+                                                            <td class="px-2">
+                                                                <p class="small">{{ queue_image.species_checked_by.all|join:", " }}</p>
+                                                            </td>
+                                                        </tr>
+                                                        <tr class="p-2">
+                                                            <td class="px-2">
+                                                                <b>Updated</b>
+                                                            </td>
+                                                            <td class="px-2">
+                                                                <p class="small">{{ queue_image.created }}</p>
+                                                            </td>
+                                                        </tr>
+                                                        <tr class="p-2">
+                                                            <td class="px-2">
+                                                                <b>Tags</b>
+                                                            </td>
+                                                            <td class="px-2">
+                                                                <p class="small">
+                                                                    {% for bounding_box in queue_image.boundingbox_set.all %}
+                                                                        {% for species in bounding_box.species_set.all %}{{ species.name.name }},{% endfor %}
+                                                                    {% endfor %}
+                                                                </p>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </div>
+                                            {% endif %}
                                         </div>
                                     </div>
                                 </div>

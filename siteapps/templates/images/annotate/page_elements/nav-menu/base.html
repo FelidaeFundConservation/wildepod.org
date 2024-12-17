@@ -309,12 +309,20 @@
                                                                 <p class="small">{{ queue_image.species_checked_by.all|join:", " }}</p>
                                                             </td>
                                                         </tr>
-                                                        <tr class="p-2">
+                                                         <tr class="p-2">
                                                             <td class="px-2">
-                                                                <b>Updated</b>
+                                                                <b>Timestamp</b>
                                                             </td>
                                                             <td class="px-2">
-                                                                <p class="small">{{ queue_image.created }}</p>
+                                                                <p class="small">{{ queue_image.trigger_timestamp }}</p>
+                                                            </td>
+                                                        </tr>
+                                                        <tr class="p-2">
+                                                            <td class="px-2">
+                                                                <b>Modified</b>
+                                                            </td>
+                                                            <td class="px-2">
+                                                                <p class="small">{{ queue_image.modified }}</p>
                                                             </td>
                                                         </tr>
                                                         <tr class="p-2">

@@ -365,8 +365,10 @@
 
             // Submit buttons disabled until all elements have loaded
             {% block enable_save_buttons %}
-            document.getElementById("save_annotations").disabled = false;
-            document.getElementById("skip_annotations").disabled = false;
+                document.getElementById("save_annotations").disabled = false;
+                {% if not searched %}
+                    document.getElementById("skip_annotations").disabled = false;
+                {% endif %}
             {% endblock enable_save_buttons %}
 
             // Function to save annotations

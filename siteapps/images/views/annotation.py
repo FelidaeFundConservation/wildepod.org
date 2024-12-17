@@ -721,6 +721,7 @@ def get_precomputed_queue(queue_name, annotator, searched):
         ).exclude(exclusion_condition)
     )
 
+    # If queue is from searching images, include all imgs regardless of eligibility
     precomputed_queue = ImageQueue.objects.filter(assigned_to=annotator)
 
     if searched:
@@ -870,6 +871,7 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
         context["bounding_boxes"] = get_valid_or_uncertain_bboxes(image=image)
         context["queue_index"] = queue["index"] if queue else None
         context["queue_length"] = len(queue["images"]) if queue else None
+        context["searched"] = searched
 
         # Calculate image luma
         context["luma_adjustment"] = calculate_image_luma(image, context["bounding_boxes"])

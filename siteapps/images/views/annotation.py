@@ -694,7 +694,7 @@ def get_pipeline_filters(queue_name, annotator):
 
 
 # Try to get a valid precomputed queue
-def get_precomputed_queue(queue_name, annotator):
+def get_precomputed_queue(queue_name, annotator, searched):
     """
     Attempts to find a precomputed queue with valid unannotated images assigned to the provided annotator.
     If none are assigned, find a valid precomputed queue and assign it to the annotator.
@@ -721,12 +721,18 @@ def get_precomputed_queue(queue_name, annotator):
         ).exclude(exclusion_condition)
     )
 
-    precomputed_queue = ImageQueue.objects.annotate(has_eligible_image=queue_condition).filter(
-        assigned_to=annotator,
-        has_eligible_image=True,
-    )
+    precomputed_queue = ImageQueue.objects.filter(assigned_to=annotator)
+
+    if searched:
+        return precomputed_queue.first()
+    else:
+        precomputed_queue = ImageQueue.objects.annotate(has_eligible_image=queue_condition).filter(
+            assigned_to=annotator,
+            has_eligible_image=True,
+        )
 
     precomputed_queue = precomputed_queue.first()
+
     if (
         precomputed_queue
         and precomputed_queue.images.filter(
@@ -808,7 +814,7 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
     precomputed_queue = (
         None
         if (staff_review or custom_annotations)
-        else get_precomputed_queue(queue_name=queue_name, annotator=annotator)
+        else get_precomputed_queue(queue_name=queue_name, annotator=annotator, searched=searched)
     )
 
     # Image to reannotate to in annotation history, if it exists

@@ -30,8 +30,12 @@
                     <h5 class="modal-title"></h5>
                 </div>
                 <div class="modal-body">
-                    <div class="alert alert-info" role="alert">
-                        <span id="result-count">0</span> result(s) were found for this query.
+                    <div class="alert alert-info d-flex justify-content-between align-items-center"
+                         role="alert">
+                        <p class="my-0">
+                            <span id="result-count">0</span> result(s) were found for this query.
+                        </p>
+                        <button id="annotate-btn" class="btn btn-primary p-2 small" disabled>Annotate</button>
                     </div>
                     <div id='time-picker' class='form-group col-12 mb-2'></div>
                     <br>
@@ -223,6 +227,7 @@
           </div>
         `);
 
+        $("#annotate-btn").prop("disabled", true);
 
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
@@ -263,7 +268,7 @@
         if (results.length == 0){
             $('#results-body').append(`<h3 class="display-3">No results.</h3>`);
         } else {
-            for (result of results){
+            for (let result of results){
                 var fileName = result["dropbox_file_name"]
                 var imageId = result["id"]
 
@@ -288,6 +293,35 @@
             }
 
             resultsTable.draw();
+
+            // Enable annotation button
+            $("#annotate-btn").prop("disabled", false);
+
+            $("#annotate-btn").off("click").on("click", function() {
+                const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+                // Use map to extract the list of IDs
+                const imageIds = results.map((res) => res["id"]);
+
+                let data = {
+                    'csrfmiddlewaretoken': csrftoken,
+                    'image_ids': imageIds,
+                };
+
+                $.ajax({
+                    url: '{% url 'images:create_precomputed_queue' %}',
+                    method: 'POST',
+                    data: data,
+                    dataType: 'json',
+                    success: function(data) {
+                        const url = "{% url 'images:searched_annotate_species' %}";
+                        window.location.href = url;
+                    },
+                    error: function(xhr, status, error) {
+                        console.error("AJAX Error:", status, error);
+                    }
+                });
+            });
         }
     }
     </script>

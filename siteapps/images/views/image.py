@@ -107,7 +107,8 @@ class SetImageQueuePartitionView(LoginRequiredMixin, View):
 
 class CreatePrecomputedQueueView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
-        image_ids = request.POST.get("image_ids")
+
+        image_ids = request.POST.getlist("image_ids[]")
 
         success = True
 

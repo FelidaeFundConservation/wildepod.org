@@ -1101,7 +1101,7 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
             context,
             self,
             staff_review=kwargs.get("staff_review", False),
-            searched=kwargs.get("searched", False),
+            searched=kwargs.get("searched", False) and self.request.user.is_staff,
         )
 
         return context

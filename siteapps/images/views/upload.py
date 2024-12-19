@@ -1,7 +1,8 @@
 import json
 import logging
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
+from uuid import uuid4
 
 import pytz
 from braces.views import StaffuserRequiredMixin
@@ -317,31 +318,16 @@ def get_preview_images(upload_id):
     MAX_RESULTS = 20
     image_list = []
 
-    # If no images in upload, sample test images from other uploads
+    # If no images in upload, sample test images
     if upload_id == "TEST":
-        mar_images = Image.objects.filter(trigger_timestamp__month=3, trigger_timestamp__year=datetime.now().year)
-        nov_images = Image.objects.filter(trigger_timestamp__month=11, trigger_timestamp__year=datetime.now().year)
+        march_dates = [datetime(datetime.now().year, 3, day) for day in [1, 4, 7, 10, 13, 16, 19, 22, 25, 28]]
+        november_dates = [datetime(datetime.now().year, 11, day) for day in [1, 4, 7, 10, 13, 16, 19, 22, 25, 28]]
 
-        # Use last year's images if there are none for this year
-        if not mar_images.exists():
-            mar_images = Image.objects.filter(
-                trigger_timestamp__month=3, trigger_timestamp__year=datetime.now().year - 1
-            )
-        if not nov_images.exists():
-            nov_images = Image.objects.filter(
-                trigger_timestamp__month=11, trigger_timestamp__year=datetime.now().year - 1
-            )
+        all_dates = march_dates + november_dates
 
-        mar_step_value = max(1, mar_images.count() // MAX_RESULTS)
-        nov_step_value = max(1, nov_images.count() // MAX_RESULTS)
-
-        mar_images = mar_images[:: mar_step_value * 2]
-        nov_images = nov_images[:: nov_step_value * 2]
-
-        images = mar_images + nov_images
-
-        for image in images:
-            image_list.append({"id": image.id, "trigger_time": image.trigger_timestamp, "new_time": None})
+        for i, date in enumerate(all_dates):
+            incremented_time = date + timedelta(hours=i, minutes=7 * i)
+            image_list.append({"id": uuid4(), "trigger_time": incremented_time, "new_time": None})
 
         return image_list
 

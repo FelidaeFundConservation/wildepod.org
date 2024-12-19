@@ -10,7 +10,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
 from django.db.models import Case, Exists, F, OuterRef, Prefetch, Q, When
-from images.models import Annotator, Bot, BoundingBox, Category, Image
+from images.models import Annotator, Bot, BoundingBox, Category, Image, Upload
 from images.views import activity_pipeline_query, species_pipeline_query
 from images.views.annotation import (
     calculateActivityAnnotationFlags,
@@ -64,6 +64,10 @@ class Command(BaseCommand):
         else:
             print(Fore.YELLOW + "NOTE: Changes are not enabled. Calculations will not be applied.")
 
+        ########################
+        # Species Detection
+        ########################
+
         if species_model:
             print(f"NOTE: {Fore.GREEN}Species AI detection enabled{Style.RESET_ALL} - using model '{species_model}.pt'")
             import yolov9
@@ -75,10 +79,11 @@ class Command(BaseCommand):
             sp_model.multi_label = False  # NMS multiple labels per box
             sp_model.max_det = 100  # maximum number of detections per image
 
-            def detect_species(image_url):
-                if image_url:
+            def detect_species(image):
+                image_url = image.thumbnail_gcloud_path
 
-                    results = model(get_pil_image(image_url))
+                if image_url:
+                    results = sp_model(get_pil_image(image_url))
 
                     predictions = results.pred[0]
                     boxes = predictions[:, :4]  # x1, y1, x2, y2
@@ -86,6 +91,9 @@ class Command(BaseCommand):
                     categories = predictions[:, 5]
 
                     classes = results.pandas().xyxy[0]["name"].tolist()
+
+                    image.species_ai_detections = classes
+                    image.save()
 
                     return classes
 
@@ -134,7 +142,6 @@ class Command(BaseCommand):
                         bounding_box_data = [
                             {
                                 "image": image,
-                                "category": category,
                                 "confidence": confidence,
                                 "x": xmin,
                                 "y": ymin,
@@ -150,6 +157,9 @@ class Command(BaseCommand):
 
                         for kwargs in bounding_box_data:
                             bounding_box, created = BoundingBox.objects.get_or_create(**kwargs)
+                            category, created = Category.objects.get_or_create(
+                                bounding_box=bounding_box, category=category
+                            )
 
                         image.processed = True
                         image.save()
@@ -190,7 +200,8 @@ class Command(BaseCommand):
 
             if species_model:
                 try:
-                    image.species_ai_detections = detect_species(image.thumbnail_gcloud_path)
+                    image.species_ai_detections = detect_species(image)
+
                     # Set if the image has AI detected cats
                     if image.species_ai_detections:
                         image.has_cats = (
@@ -200,7 +211,7 @@ class Command(BaseCommand):
                     pass
             if category_model:
                 try:
-                    inf_data = detect_bboxes(image)
+                    detect_bboxes(image)
                 except:
                     pass
 
@@ -215,6 +226,8 @@ class Command(BaseCommand):
                     f"{Fore.YELLOW}\n==================================={Style.RESET_ALL}"
                     f"\nTime elapsed: {time.time() - start_time:.2f} seconds"
                     f"\nImages checked: {image_count} of {total_image_count}"
+                    f"\nLast image: {image.id}"
+                    f"\nDetections: {image.boundingbox_set.all().values_list('category__name')} {image.species_ai_detections}"
                     f"\n",
                     end="\r",
                     flush=True,
@@ -231,7 +244,14 @@ class Command(BaseCommand):
         print(f"\nQuerying images... please wait a moment...\n")
 
         # NOTE: Change this query as needed if provided args aren't enough
-        images_tally = Image.objects.filter(processed=False).exclude(thumbnail_gcloud_path=None)
+        if category_model:
+            images_tally = Image.objects.filter(upload__processed=False).exclude(
+                Q(thumbnail_gcloud_path=None) | Q(trigger_timestamp=None)
+            )
+        elif species_model:
+            images_tally = Image.objects.filter(species_ai_detections=None).exclude(
+                Q(thumbnail_gcloud_path=None) | Q(trigger_timestamp=None)
+            )
 
         images = images_tally.iterator(chunk_size=chunk_size)
 
@@ -252,3 +272,12 @@ class Command(BaseCommand):
             # Process any remaining images in the last chunk
             if image_chunk:
                 list(executor.map(process_image, image_chunk))
+
+        upload_objs = Upload.objects.filter(processed=False)
+
+        for upload in upload_objs:
+            if not upload.images.filter(processed=False).exists():
+                upload.processed = True
+                upload.save()
+
+                print(f"Upload {upload.id} marked as processed.")

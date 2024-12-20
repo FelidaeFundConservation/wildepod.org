@@ -91,7 +91,7 @@ def clone_data_sheet(file, sheet_name, dropbox_folder_name):
 
     path = f"/{dropbox_folder_name}/data_sheet/{sheet_name}"
 
-    response = dbx.files_upload(file_bytes, path)
+    response = dbx.files_upload(file_bytes, path, mode=dropbox.files.WriteMode.overwrite)
 
 
 def check_image_valid(image):

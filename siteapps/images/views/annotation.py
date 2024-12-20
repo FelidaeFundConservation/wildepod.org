@@ -228,7 +228,7 @@ def species_pipeline_query(images, annotator):
         | (
             ~Q(has_humans=True, has_animals=False)
             & ~Q(has_vehicles=True, has_animals=False)
-            & Q(category_pipeline_complete=True, species_pipeline_complete=False)
+            & Q(category_pipeline_complete=False, species_pipeline_complete=False)
         ),
         # Image has been preprocessed and we can use precomputed flags
         use_precomputed_flags=True,

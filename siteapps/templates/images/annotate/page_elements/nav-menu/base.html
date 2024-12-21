@@ -276,13 +276,14 @@
                         {% if grid_images_w_boxes|length > 0 %}
                             {% for queue_image, bounding_boxes in grid_images_w_boxes %}
                                 <div class="p-2 col-3">
-                                    <div class="card p-0"
+                                    <div class="card p-0 h-100"
                                          onclick="setPartition('{{ queue_image.trigger_timestamp|date:"c" }}')">
-                                        <div class="card card-header">&nbsp;&nbsp;&nbsp;&nbsp;{{ bounding_boxes|length }} boxes</div>
+                                        <div class="card card-header opacity-75">&nbsp;&nbsp;&nbsp;&nbsp;{{ bounding_boxes|length }} boxes</div>
                                         <div class="card card-body">
                                             <div style="position: relative; display: inline-block">
                                                 <img id="queue-{{ queue_image.id }}"
                                                      class="img-fluid"
+                                                     title="Click to edit this image's tags."
                                                      src="{% get_media_prefix %}{{ queue_image.thumbnail_gcloud_path }}">
                                                 {% for bbox in bounding_boxes %}
                                                     <svg id="queue-{{ bbox.id }}"
@@ -296,6 +297,49 @@
                                                     </svg>
                                                 {% endfor %}
                                             </div>
+                                            {% if searched and user.is_staff %}
+                                                <hr>
+                                                <div class="h-100">
+                                                    <table class="h-100 w-100" style="border-collapse: collapse;">
+                                                        <tr class="p-2">
+                                                            <td class="px-2">
+                                                                <b>Annotator(s)</b>
+                                                            </td>
+                                                            <td class="px-2">
+                                                                <p class="small">{{ queue_image.species_checked_by.all|join:", " }}</p>
+                                                            </td>
+                                                        </tr>
+                                                        <tr class="p-2">
+                                                            <td class="px-2">
+                                                                <b>Timestamp</b>
+                                                            </td>
+                                                            <td class="px-2">
+                                                                <p class="small">{{ queue_image.trigger_timestamp }}</p>
+                                                            </td>
+                                                        </tr>
+                                                        <tr class="p-2">
+                                                            <td class="px-2">
+                                                                <b>Modified</b>
+                                                            </td>
+                                                            <td class="px-2">
+                                                                <p class="small">{{ queue_image.modified }}</p>
+                                                            </td>
+                                                        </tr>
+                                                        <tr class="p-2">
+                                                            <td class="px-2">
+                                                                <b>Tags</b>
+                                                            </td>
+                                                            <td class="px-2">
+                                                                <p class="small">
+                                                                    {% for bounding_box in queue_image.boundingbox_set.all %}
+                                                                        {% for species in bounding_box.species_set.all %}{{ species.name.name }},{% endfor %}
+                                                                    {% endfor %}
+                                                                </p>
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </div>
+                                            {% endif %}
                                         </div>
                                     </div>
                                 </div>

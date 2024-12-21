@@ -239,6 +239,7 @@ SECURE_BROWSER_XSS_FILTER = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#x-frame-options
 X_FRAME_OPTIONS = "DENY"
 
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 1350
 
 # JAZZMIN
 # ------------------------------------------------------------------------------

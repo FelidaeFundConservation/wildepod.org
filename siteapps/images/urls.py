@@ -7,6 +7,7 @@ from .views import (
     ApplyTimeCorrectionView,
     ChangeAnnotationView,
     CheckDropbox2FAEmailView,
+    CreatePrecomputedQueueView,
     CustomAnnotationView,
     DeleteAnnotationView,
     FixUploadSetsView,
@@ -68,6 +69,12 @@ urlpatterns = [
         kwargs={"staff_review": True},
     ),
     path(
+        "annotate/species/searched",
+        AnnotateSpeciesView.as_view(),
+        name="searched_annotate_species",
+        kwargs={"searched": True},
+    ),
+    path(
         "annotate/custom_annotation",
         CustomAnnotationView.as_view(),
         name="custom_annotation",
@@ -76,6 +83,11 @@ urlpatterns = [
         "annotate/activity/<str:category>",
         AnnotateActivityView.as_view(),
         name="annotate_activity",
+    ),
+    path(
+        "create-queue/",
+        CreatePrecomputedQueueView.as_view(),
+        name="create_precomputed_queue",
     ),
     path(
         "species-annotation-processor/",

@@ -694,7 +694,7 @@ def get_pipeline_filters(queue_name, annotator):
 
 
 # Try to get a valid precomputed queue
-def get_precomputed_queue(queue_name, annotator):
+def get_precomputed_queue(queue_name, annotator, searched):
     """
     Attempts to find a precomputed queue with valid unannotated images assigned to the provided annotator.
     If none are assigned, find a valid precomputed queue and assign it to the annotator.
@@ -721,12 +721,19 @@ def get_precomputed_queue(queue_name, annotator):
         ).exclude(exclusion_condition)
     )
 
-    precomputed_queue = ImageQueue.objects.annotate(has_eligible_image=queue_condition).filter(
-        assigned_to=annotator,
-        has_eligible_image=True,
-    )
+    # If queue is from searching images, include all imgs regardless of eligibility
+    precomputed_queue = ImageQueue.objects.filter(assigned_to=annotator)
+
+    if searched:
+        return precomputed_queue.first()
+    else:
+        precomputed_queue = ImageQueue.objects.annotate(has_eligible_image=queue_condition).filter(
+            assigned_to=annotator,
+            has_eligible_image=True,
+        )
 
     precomputed_queue = precomputed_queue.first()
+
     if (
         precomputed_queue
         and precomputed_queue.images.filter(
@@ -769,7 +776,7 @@ def get_precomputed_queue(queue_name, annotator):
 
 
 # Retrieves data to pass to the views through context (namely queue images and annotations info).
-def populate_view_context(queue_name, context, self, activity_category=None, staff_review=False):
+def populate_view_context(queue_name, context, self, activity_category=None, staff_review=False, searched=False):
 
     """
     Sets data in view context to access from the annotation view templates,
@@ -808,7 +815,7 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
     precomputed_queue = (
         None
         if (staff_review or custom_annotations)
-        else get_precomputed_queue(queue_name=queue_name, annotator=annotator)
+        else get_precomputed_queue(queue_name=queue_name, annotator=annotator, searched=searched)
     )
 
     # Image to reannotate to in annotation history, if it exists
@@ -818,9 +825,12 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
     if precomputed_queue:
         return_to_image_id = get_reannotation_image(self, context)
 
-        queue_images = precomputed_queue.images.filter(
-            annotator_check, has_bbox_above_confidence_threshold=True, staff_review_needed=False, **pipeline_kwarg
-        ).exclude(exclusion_condition)
+        queue_images = precomputed_queue.images.all()
+
+        if not searched:
+            queue_images = queue_images.filter(
+                annotator_check, has_bbox_above_confidence_threshold=True, staff_review_needed=False, **pipeline_kwarg
+            ).exclude(exclusion_condition)
 
         partitioned_queue_images = queue_images.filter(trigger_timestamp__gte=precomputed_queue.partition)
 
@@ -861,6 +871,7 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
         context["bounding_boxes"] = get_valid_or_uncertain_bboxes(image=image)
         context["queue_index"] = queue["index"] if queue else None
         context["queue_length"] = len(queue["images"]) if queue else None
+        context["searched"] = searched
 
         # Calculate image luma
         context["luma_adjustment"] = calculate_image_luma(image, context["bounding_boxes"])
@@ -1085,7 +1096,13 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        populate_view_context(SPECIES_QUEUE_NAME, context, self, staff_review=kwargs.get("staff_review", False))
+        populate_view_context(
+            SPECIES_QUEUE_NAME,
+            context,
+            self,
+            staff_review=kwargs.get("staff_review", False),
+            searched=kwargs.get("searched", False) and self.request.user.is_staff,
+        )
 
         return context
 

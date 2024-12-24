@@ -124,7 +124,7 @@ class Command(BaseCommand):
             image.has_bbox_above_confidence_threshold = bboxes.filter(
                 ~Q(validity__in=["Invalid", None]), image=image, confidence__gte=F("confidence_threshold")
             ).exists()
-            image.has_uncertain_bbox = bboxes.filter(validity="Uncertain").exists()
+            image.has_uncertain_bbox = bboxes.filter(validity="UNCERTAIN").exists()
             # Set the confidence threshold for bboxes
             for bbox in bboxes:
                 if bbox.created_by.bot is not None:

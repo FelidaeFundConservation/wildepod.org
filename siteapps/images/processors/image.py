@@ -205,7 +205,7 @@ def add_bounding_boxes(image: Image, image_url: str, bot: Bot, id_token: str, an
 
     # Set bbox-related pre-computed flags
     image.has_bbox_above_confidence_threshold = has_bbox_above_confidence_threshold(image)
-    image.has_uncertain_bbox = image.boundingbox_set.filter(validity="Uncertain").exists()
+    image.has_uncertain_bbox = image.boundingbox_set.filter(validity="UNCERTAIN").exists()
     image.save()
 
     logging.info("All bounding boxes created successfully.")

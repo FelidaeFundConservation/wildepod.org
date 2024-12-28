@@ -101,7 +101,7 @@ class VolunteerStatsView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        volunteer = Annotator.objects.get(human__id=self.kwargs["pk"])
+        volunteer, created = Annotator.objects.get_or_create(type="human", human=User.objects.get(id=self.kwargs["pk"]))
         context["volunteer"] = volunteer
 
         calculate_volunteer_engagement(context, [volunteer])

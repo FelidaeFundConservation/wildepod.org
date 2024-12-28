@@ -822,7 +822,7 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
     return_to_image_id = None
 
     # Get eligible images from precomputed queue if it exists
-    if precomputed_queue:
+    if precomputed_queue and not custom_annotations:
         return_to_image_id = get_reannotation_image(self, context)
 
         queue_images = precomputed_queue.images.all()
@@ -1608,7 +1608,7 @@ def calculateSpeciesAnnotationFlags(image):
 
     # bbox-related precomputed flags
     image.has_bbox_above_confidence_threshold = has_bbox_above_confidence_threshold(image)
-    image.has_uncertain_bbox = image.boundingbox_set.filter(validity="Uncertain").exists()
+    image.has_uncertain_bbox = image.boundingbox_set.filter(validity="UNCERTAIN").exists()
 
     species_annotations_info = []
     for species in list(species_annotations):

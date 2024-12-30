@@ -529,7 +529,7 @@ class ObjectValidityTestCase(LoggedInTestCase):
         zipped_species_querysets = list(zip(species_obj, species_values))
         annotate(zipped_species_querysets)
 
-        self.assertEqual(zipped_species_querysets[0][1].get("status"), "Invalid")
+        self.assertEqual(zipped_species_querysets[0][1].get("status"), "INVALID")
 
     """
     One-to-one staff acception to rejection ratio shouldn't affect it
@@ -565,7 +565,7 @@ class ObjectValidityTestCase(LoggedInTestCase):
         zipped_species_querysets = list(zip(species_obj, species_values))
         annotate(zipped_species_querysets)
 
-        self.assertEqual(zipped_species_querysets[0][1].get("status"), "Valid")
+        self.assertEqual(zipped_species_querysets[0][1].get("status"), "VALID")
 
     """
     Double staff/expert rejections over acceptions should override them
@@ -606,7 +606,7 @@ class ObjectValidityTestCase(LoggedInTestCase):
         zipped_species_querysets = list(zip(species_obj, species_values))
         annotate(zipped_species_querysets)
 
-        self.assertEqual(zipped_species_querysets[0][1].get("status"), "Invalid")
+        self.assertEqual(zipped_species_querysets[0][1].get("status"), "INVALID")
 
     """
     Correlated objects (i.e. Category, Species, or Activity) should also be invalid
@@ -639,7 +639,7 @@ class ObjectValidityTestCase(LoggedInTestCase):
         zipped_bbox_querysets = list(zip(bbox_obj, bbox_values))
         annotate(zipped_bbox_querysets)
 
-        self.assertEqual(zipped_bbox_querysets[0][1].get("status"), "Invalid")
+        self.assertEqual(zipped_bbox_querysets[0][1].get("status"), "INVALID")
 
         # Get the correlated object validity
         species_obj = Species.objects.filter(id=species1.id)
@@ -648,7 +648,7 @@ class ObjectValidityTestCase(LoggedInTestCase):
         zipped_species_querysets = list(zip(species_obj, species_values))
         annotate(zipped_species_querysets)
 
-        self.assertEqual(zipped_species_querysets[0][1].get("status"), "Invalid")
+        self.assertEqual(zipped_species_querysets[0][1].get("status"), "INVALID")
 
 
 class SkipIneligibleImagesTestCase(AnnotationFlagsTestCase):

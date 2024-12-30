@@ -44,7 +44,7 @@ MEGADETECTOR_LABEL_MAP = {"1": "animal", "2": "person", "3": "vehicle"}
 
 def has_bbox_above_confidence_threshold(image):
     return image.boundingbox_set.filter(
-        ~Q(validity__in=["Invalid", None]), image=image, confidence__gte=F("confidence_threshold")
+        ~Q(validity__in=["INVALID", None]), image=image, confidence__gte=F("confidence_threshold")
     ).exists()
 
 

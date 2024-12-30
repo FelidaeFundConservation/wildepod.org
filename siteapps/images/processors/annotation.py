@@ -186,7 +186,7 @@ def handle_bbox_deletions(initial_bboxes, formatted_annotations, user, annotator
                     logging.info(f"Deleting bounding box with id {bbox_id}.")
                 else:
                     vote(bbox_obj, annotator, accept=False)
-                    bbox_obj.validity = "Invalid"
+                    bbox_obj.validity = "INVALID"
                     bbox_obj.save()
                     logging.info(f"Rejected bounding box with id {bbox_id}. Object still exists in rejected state.")
             except ObjectDoesNotExist:
@@ -290,7 +290,7 @@ def handle_bbox_updates(
 def tag_batch(annotation_type, batch_tag_images, category, annotator):
     for image_id in batch_tag_images:
         image = Image.objects.get(id=image_id)
-        bboxes = BoundingBox.objects.filter(image=image, validity__in=["Uncertain", "Valid"])
+        bboxes = BoundingBox.objects.filter(image=image, validity__in=["UNCERTAIN", "VALID"])
 
         for bbox in bboxes:
             # Store the category with formatted annotations structure

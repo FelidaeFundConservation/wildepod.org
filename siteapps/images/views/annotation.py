@@ -651,7 +651,7 @@ def get_burst_images(context, queue, queue_name, annotator, precomputed_queue=No
             break
 
     context["images_w_boxes"] = [
-        [image_obj, BoundingBox.objects.filter(image=image_obj, validity__in=["Valid", "Uncertain"])]
+        [image_obj, BoundingBox.objects.filter(image=image_obj, validity__in=["VALID", "UNCERTAIN"])]
         for image_obj in images
     ]
 
@@ -838,7 +838,7 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
 
         # View all images in the queue
         context["grid_images_w_boxes"] = [
-            [image_obj, BoundingBox.objects.filter(image=image_obj, validity__in=["Valid", "Uncertain"])]
+            [image_obj, BoundingBox.objects.filter(image=image_obj, validity__in=["VALID", "UNCERTAIN"])]
             for image_obj in queue_images.exclude(exclusion_condition, id=image_id)
         ]
 
@@ -1001,7 +1001,7 @@ def get_valid_or_uncertain_bboxes(image):
     zipped_querysets = list(zip(bounding_boxes, bounding_box_values))
     annotate(zipped_querysets)
 
-    return [bbox_obj for bbox_obj, bbox_values in zipped_querysets if bbox_values.get("status") != "Invalid"]
+    return [bbox_obj for bbox_obj, bbox_values in zipped_querysets if bbox_values.get("status") != "INVALID"]
 
 
 def get_all_annotations(image, context):
@@ -1174,7 +1174,7 @@ def annotation_processor(queue_name, annotation_type, request):
 
     # This count is done before making changes to the bboxes, otherwise validity will change
     batch_bbox_count = (
-        BoundingBox.objects.filter(image__id__in=batch_tag_images, validity__in=["Valid", "Uncertain"])
+        BoundingBox.objects.filter(image__id__in=batch_tag_images, validity__in=["Valid", "UNCERTAIN"])
         .distinct()
         .count()
     )
@@ -1434,7 +1434,7 @@ def annotate(zipped_querysets):
             zipped_bbox_querysets = list(zip(bbox_obj, bbox_values))
             annotate(zipped_bbox_querysets)
 
-            correlated_obj_rejected = zipped_bbox_querysets[0][1].get("status") == "Invalid"
+            correlated_obj_rejected = zipped_bbox_querysets[0][1].get("status") == "INVALID"
 
         if (
             annotation.get("vote_difference") > VOTE_THRESHOLD
@@ -1446,7 +1446,7 @@ def annotate(zipped_querysets):
             annotation["staff_or_expert_votes"] > 0
             and staff_or_expert_rejection_count <= annotation["staff_or_expert_votes"]
         ):
-            annotation["status"] = "Valid"
+            annotation["status"] = "VALID"
         elif (
             annotation.get("vote_difference") < -VOTE_THRESHOLD
             or (0 != staff_or_expert_rejection_count >= (annotation["staff_or_expert_votes"] * 2))
@@ -1456,9 +1456,9 @@ def annotate(zipped_querysets):
                 logging.info(
                     f"Staff/expert accept votes for {type(obj)} {obj.id} was overriden because 2 or more staff/experts rejected it."
                 )
-            annotation["status"] = "Invalid"
+            annotation["status"] = "INVALID"
         else:
-            annotation["status"] = "Uncertain"
+            annotation["status"] = "UNCERTAIN"
 
 
 # Category Flag Checks
@@ -1484,13 +1484,13 @@ def calculateCategoryAnnotationFlags(image):
     annotate(zipped_querysets)
 
     category_has_uncertain_annotation = any(
-        category[1].get("status") == "Uncertain" for category in zipped_querysets
-    ) or any(bbox[1].get("status") == "Uncertain" for bbox in zipped_bbox_querysets)
+        category[1].get("status") == "UNCERTAIN" for category in zipped_querysets
+    ) or any(bbox[1].get("status") == "UNCERTAIN" for bbox in zipped_bbox_querysets)
 
     has_staff_or_expert_vote = any(category[1].get("has_staff_or_expert_vote") is True for category in zipped_querysets)
 
     not_invalid_bbox_count_gt = len(zipped_bbox_querysets) > 0 and any(
-        bbox[1].get("status") != "Invalid" for bbox in zipped_bbox_querysets
+        bbox[1].get("status") != "INVALID" for bbox in zipped_bbox_querysets
     )
 
     # Save bbox validity status
@@ -1577,12 +1577,12 @@ def calculateSpeciesAnnotationFlags(image):
     zipped_querysets = list(zip(species_objs, species_annotations))
     annotate(zipped_querysets)
 
-    species_has_uncertain_annotation = any(species[1].get("status") == "Uncertain" for species in zipped_querysets)
+    species_has_uncertain_annotation = any(species[1].get("status") == "UNCERTAIN" for species in zipped_querysets)
 
     species_valid_annotations = [
         species_obj
         for species_obj, species_annotation in zipped_querysets
-        if species_annotation.get("status") == "Valid"
+        if species_annotation.get("status") == "VALID"
     ]
 
     species_has_valid_annotation = len(species_valid_annotations) > 0
@@ -1661,9 +1661,9 @@ def calculateActivityAnnotationFlags(image):
     zipped_querysets = list(zip(activity_objs, activity_annotations))
     annotate(zipped_querysets)
 
-    activity_has_uncertain_annotation = any(activity[1].get("status") == "Uncertain" for activity in zipped_querysets)
+    activity_has_uncertain_annotation = any(activity[1].get("status") == "UNCERTAIN" for activity in zipped_querysets)
 
-    activity_has_valid_annotation = any(activity[1].get("status") == "Valid" for activity in zipped_querysets)
+    activity_has_valid_annotation = any(activity[1].get("status") == "VALID" for activity in zipped_querysets)
 
     has_staff_or_expert_vote = any(activity[1].get("has_staff_or_expert_vote") is True for activity in zipped_querysets)
 

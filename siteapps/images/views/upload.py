@@ -374,7 +374,7 @@ class PreviewTimeCorrectionsView(LoginRequiredMixin, View):
         image_ids = json.loads(request.POST.get("images"))
 
         # Use test image objects instead of querying
-        test = request.POST.get("test", False)
+        test = request.POST.get("test")
 
         # Get form entries
         years = int(request.POST.get("years"))

@@ -2,7 +2,6 @@ import json
 import logging
 import threading
 from datetime import datetime, timedelta
-from uuid import uuid4
 
 import pytz
 from braces.views import StaffuserRequiredMixin
@@ -327,7 +326,7 @@ def get_preview_images(upload_id):
 
         for i, date in enumerate(all_dates):
             incremented_time = date + timedelta(hours=i, minutes=7 * i)
-            image_list.append({"id": uuid4(), "trigger_time": incremented_time, "new_time": None})
+            image_list.append({"id": f"{i}00", "trigger_time": incremented_time, "new_time": None})
 
         return image_list
 
@@ -373,6 +372,9 @@ class PreviewTimeCorrectionsView(LoginRequiredMixin, View):
         success = True
 
         image_ids = json.loads(request.POST.get("images"))
+
+        # Use test image objects instead of querying
+        test = request.POST.get("test", False)
 
         # Get form entries
         years = int(request.POST.get("years"))
@@ -428,17 +430,28 @@ class PreviewTimeCorrectionsView(LoginRequiredMixin, View):
 
         new_timestamps = []
 
-        for image_id in image_ids:
+        test_stamps = [datetime(datetime.now().year, 3, day) for day in [1, 4, 7, 10, 13, 16, 19, 22, 25, 28]] + [
+            datetime(datetime.now().year, 11, day) for day in [1, 4, 7, 10, 13, 16, 19, 22, 25, 28]
+        ]
+
+        for i, image_id in enumerate(image_ids):
             preview_info = {
-                "id": image_id,
+                "id": f"{i}00" if test else image_id,
                 "color": "",
             }
 
-            timestamp = Image.objects.get(id=image_id).trigger_timestamp
+            timestamp = test_stamps[i] if test else Image.objects.get(id=image_id).trigger_timestamp
             new_timestamp = timestamp
 
             # Only shift time if it's in the timerange specified
-            if Image.objects.filter(id=image_id, **kwargs).exists():
+            if test:
+                time_range_valid = (
+                    kwargs.get("trigger_timestamp__gte") is None or kwargs["trigger_timestamp__gte"] <= timestamp
+                ) and (kwargs.get("trigger_timestamp__gte") is None or kwargs["trigger_timestamp__lt"] > timestamp)
+            else:
+                time_range_valid = Image.objects.filter(id=image_id, **kwargs).exists()
+
+            if time_range_valid:
                 if correction_applied:
                     new_timestamp = timestamp + relativedelta(
                         years=-years, months=-months, days=-days, hours=-hours, minutes=-minutes

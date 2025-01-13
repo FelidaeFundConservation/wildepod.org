@@ -34,6 +34,7 @@
             'startDate': $(`[name*="start_date"]`).val(),
             'endDate': $(`[name*="end_date"]`).val(),
             'daylightSavings': $(`[name*="daylight_savings"]`).val(),
+            {% if test %}'test': true,{% endif %}
         }
 
         $(`.spinner-border`).show();

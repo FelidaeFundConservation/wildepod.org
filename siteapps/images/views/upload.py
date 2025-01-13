@@ -1,7 +1,7 @@
 import json
 import logging
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytz
 from braces.views import StaffuserRequiredMixin
@@ -317,31 +317,16 @@ def get_preview_images(upload_id):
     MAX_RESULTS = 20
     image_list = []
 
-    # If no images in upload, sample test images from other uploads
+    # If no images in upload, sample test images
     if upload_id == "TEST":
-        mar_images = Image.objects.filter(trigger_timestamp__month=3, trigger_timestamp__year=datetime.now().year)
-        nov_images = Image.objects.filter(trigger_timestamp__month=11, trigger_timestamp__year=datetime.now().year)
+        march_dates = [datetime(datetime.now().year, 3, day) for day in [1, 4, 7, 10, 13, 16, 19, 22, 25, 28]]
+        november_dates = [datetime(datetime.now().year, 11, day) for day in [1, 4, 7, 10, 13, 16, 19, 22, 25, 28]]
 
-        # Use last year's images if there are none for this year
-        if not mar_images.exists():
-            mar_images = Image.objects.filter(
-                trigger_timestamp__month=3, trigger_timestamp__year=datetime.now().year - 1
-            )
-        if not nov_images.exists():
-            nov_images = Image.objects.filter(
-                trigger_timestamp__month=11, trigger_timestamp__year=datetime.now().year - 1
-            )
+        all_dates = march_dates + november_dates
 
-        mar_step_value = max(1, mar_images.count() // MAX_RESULTS)
-        nov_step_value = max(1, nov_images.count() // MAX_RESULTS)
-
-        mar_images = mar_images[:: mar_step_value * 2]
-        nov_images = nov_images[:: nov_step_value * 2]
-
-        images = mar_images + nov_images
-
-        for image in images:
-            image_list.append({"id": image.id, "trigger_time": image.trigger_timestamp, "new_time": None})
+        for i, date in enumerate(all_dates):
+            incremented_time = date + timedelta(hours=i, minutes=7 * i)
+            image_list.append({"id": f"{i}00", "trigger_time": incremented_time, "new_time": None})
 
         return image_list
 
@@ -387,6 +372,9 @@ class PreviewTimeCorrectionsView(LoginRequiredMixin, View):
         success = True
 
         image_ids = json.loads(request.POST.get("images"))
+
+        # Use test image objects instead of querying
+        test = request.POST.get("test")
 
         # Get form entries
         years = int(request.POST.get("years"))
@@ -442,17 +430,28 @@ class PreviewTimeCorrectionsView(LoginRequiredMixin, View):
 
         new_timestamps = []
 
-        for image_id in image_ids:
+        test_stamps = [datetime(datetime.now().year, 3, day) for day in [1, 4, 7, 10, 13, 16, 19, 22, 25, 28]] + [
+            datetime(datetime.now().year, 11, day) for day in [1, 4, 7, 10, 13, 16, 19, 22, 25, 28]
+        ]
+
+        for i, image_id in enumerate(image_ids):
             preview_info = {
-                "id": image_id,
+                "id": f"{i}00" if test else image_id,
                 "color": "",
             }
 
-            timestamp = Image.objects.get(id=image_id).trigger_timestamp
+            timestamp = test_stamps[i] if test else Image.objects.get(id=image_id).trigger_timestamp
             new_timestamp = timestamp
 
             # Only shift time if it's in the timerange specified
-            if Image.objects.filter(id=image_id, **kwargs).exists():
+            if test:
+                time_range_valid = (
+                    kwargs.get("trigger_timestamp__gte") is None or kwargs["trigger_timestamp__gte"] <= timestamp
+                ) and (kwargs.get("trigger_timestamp__gte") is None or kwargs["trigger_timestamp__lt"] > timestamp)
+            else:
+                time_range_valid = Image.objects.filter(id=image_id, **kwargs).exists()
+
+            if time_range_valid:
                 if correction_applied:
                     new_timestamp = timestamp + relativedelta(
                         years=-years, months=-months, days=-days, hours=-hours, minutes=-minutes

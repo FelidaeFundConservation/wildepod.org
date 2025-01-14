@@ -29,7 +29,10 @@ class SearchImagesForm(forms.Form):
 
     species = forms.ModelMultipleChoiceField(queryset=SpeciesName.objects.all(), required=False)
 
-    species_ai = forms.ModelMultipleChoiceField(queryset=SpeciesName.objects.all(),  label="Species AI", required=False)
+    species_ai = forms.ModelMultipleChoiceField(queryset=SpeciesName.objects.all(), label="Species AI", required=False)
+
+    SEARCH_TYPE_CHOICES = [("OR", "OR"), ("AND", "AND")]
+    search_type = forms.ChoiceField(choices=SEARCH_TYPE_CHOICES, label="Boolean Search Type")
 
     staff_review_needed = forms.BooleanField(label="Flagged for Staff?", required=False)
 
@@ -68,6 +71,9 @@ class SearchImagesForm(forms.Form):
             Row(
                 Column("macrosites", css_class="form-group col-6"),
                 Column("camera_stations", css_class="form-group col-6"),
+            ),
+            Row(
+                Column("search_type", css_class="form-group col-6"),
             ),
             Row(
                 Column("staff_review_needed", css_class="form-group col-12"),
@@ -139,6 +145,10 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
         if species_ai and type(species_ai) != list:
             species_ai = json.loads(species_ai)
 
+        search_type = request.POST.get("search_type")
+        if search_type and type(search_type) != list:
+            search_type = json.loads(search_type)
+
         date = request.POST.get("date")
 
         start_date = request.POST.get("start_date")
@@ -167,8 +177,12 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                     trigger_timestamp__date__lt=end_date,
                 )
             elif time_filter_type == LAST_ANNOTATED_TYPE:
-                filterset &= Q(boundingbox__species__created__date__gte=start_date, boundingbox__species__created__date__lt=end_date) | Q(
-                    boundingbox__species__modified__date__gte=start_date, boundingbox__species__modified__date__lt=end_date
+                filterset &= Q(
+                    boundingbox__species__created__date__gte=start_date,
+                    boundingbox__species__created__date__lt=end_date,
+                ) | Q(
+                    boundingbox__species__modified__date__gte=start_date,
+                    boundingbox__species__modified__date__lt=end_date,
                 )
 
         if hour:
@@ -182,9 +196,11 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             filterset &= Q(staff_review_needed=staff_review_needed)
         if len(volunteers) > 0:
             filterset &= (
-                Q(boundingbox__species__created_by__id__in=volunteers) | Q(boundingbox__species__accepted_by__id__in=volunteers) | Q(boundingbox__species__rejected_by__id__in=volunteers)
+                Q(boundingbox__species__created_by__id__in=volunteers)
+                | Q(boundingbox__species__accepted_by__id__in=volunteers)
+                | Q(boundingbox__species__rejected_by__id__in=volunteers)
             )
-        if len(species) > 0:
+        if len(species) > 0 and search_type == "OR":
             filterset &= Q(boundingbox__species__name__in=species)
         if len(species_ai) > 0:
             # The Search form returns a list of Species ids while the ai_detections field contains the
@@ -194,7 +210,7 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             for id in species_ai:
                 name = SpeciesName.objects.get(id=id).name
                 species_ai_filter |= Q(species_ai_detections__icontains=name)
-            filterset &= (species_ai_filter)
+            filterset &= species_ai_filter
         if len(macrosites) > 0:
             filterset &= Q(upload__camera_station__micro_site__macro_site__in=macrosites)
         if len(camera_stations) > 0:
@@ -202,6 +218,13 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
 
         # Query Images based on the filter criteria
         results = Image.objects.filter(filterset)
+
+        # Apply AND filter method
+        if search_type == "AND":
+            for sp_name in species:
+                results = results.filter(
+                    Exists(BoundingBox.objects.filter(species__name=sp_name, image=OuterRef("pk")))
+                )
 
         if len(results) > 0:
             results = results.order_by("-modified").values(

@@ -66,8 +66,10 @@ class Annotator(TimeStampedModel):
     def __str__(self):
         if self.type == "human":
             return self.human.name
-        else:
+        elif self.type == "bot":
             return self.bot.name
+        else:
+            return ""
 
     class Meta:
         ordering = ("created",)

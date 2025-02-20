@@ -95,7 +95,7 @@ class SetImageQueuePartitionView(LoginRequiredMixin, View):
         success = True
 
         try:
-            annotator, created = Annotator.objects.get_or_create(human=request.user)
+            annotator, created = Annotator.objects.get_or_create(type="human", human=request.user)
             queue = ImageQueue.objects.get(assigned_to=annotator)
             queue.partition = partition
             queue.save()
@@ -113,7 +113,7 @@ class CreatePrecomputedQueueView(LoginRequiredMixin, View):
         success = True
 
         try:
-            annotator, created = Annotator.objects.get_or_create(human=request.user)
+            annotator, created = Annotator.objects.get_or_create(type="human", human=request.user)
 
             ImageQueue.objects.filter(assigned_to=annotator).update(assigned_to=None)
 

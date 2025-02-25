@@ -134,7 +134,7 @@ class PrecomputeImageQueuesView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         num_queues = 100
 
-        logging.info(f"Running daily task to precompute {num_queues} image queues...")
+        logging.info(f"Running bidaily task to precompute {num_queues} image queues...")
         old_queues = ImageQueue.objects.filter(created__lt=timezone.now() - timedelta(hours=12))
 
         if ImageQueue.objects.all().count() == 0 or old_queues.exists():
@@ -177,7 +177,7 @@ class PrecomputeImageQueuesView(LoginRequiredMixin, View):
             message = f"Successfully precomputed queues."
             return JsonResponse({"success": True, "message": message})
         else:
-            message = f"Precompute process for the day already completed or in progress. There are {ImageQueue.objects.all().count()} queues available."
+            message = f"Precompute process for the period already completed or in progress. There are {ImageQueue.objects.all().count()} queue(s) available."
 
             logging.info(message)
             return JsonResponse({"success": True, "message": message})

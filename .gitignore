@@ -9,6 +9,8 @@ siteapps/images/management/commands/export/runs
 siteapps/images/management/commands/export/yolov8n.pt
 db.sqlite3
 db.sqlite3-journal
+*.pt
+cloud-sql-proxy.exe
 
 ### Python template
 # Byte-compiled / optimized / DLL files

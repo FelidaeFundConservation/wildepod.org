@@ -3,7 +3,7 @@ crispy-bootstrap5==0.6  # https://github.com/django-crispy-forms/crispy-bootstra
 
 # Django
 # ------------------------------------------------------------------------------
-django==4.0.6  # pyup: < 4.0  # https://www.djangoproject.com/
+django==4.2.20  # pyup: < 4.0  # https://www.djangoproject.com/
 django-allauth==0.51.0  # https://github.com/pennersr/django-allauth
 django-braces==1.15.0 # https://github.com/brack3t/django-braces
 django-crispy-forms==1.14.0  # https://github.com/django-crispy-forms/django-crispy-forms

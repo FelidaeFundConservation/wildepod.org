@@ -233,6 +233,7 @@ def species_pipeline_query(images, annotator):
         # Image has been preprocessed and we can use precomputed flags
         use_precomputed_flags=True,
         staff_review_needed=False,
+        upload__deleted=False,
     ).order_by("-upload__priority", "-has_cats", "upload__camera_station", "trigger_timestamp")
 
     return images
@@ -264,6 +265,7 @@ def activity_pipeline_query(images, annotator, activity_category):
         # Image has been preprocessed and we can use precomputed flags
         use_precomputed_flags=True,
         staff_review_needed=False,
+        upload__deleted=False,
     )
 
     # Filter for animals or humans based on the category passed into the view
@@ -673,7 +675,7 @@ def get_pipeline_filters(queue_name, annotator):
                                  If annotator is not staff, also filters out flagged-for-staff images.
     """
     # Try to get an eligible precomputed queue
-    pipeline_kwarg = {}
+    pipeline_kwarg = {"upload__deleted": False}
     if SPECIES_QUEUE_NAME in queue_name:
         annotator_check = ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator])
         pipeline_kwarg["species_pipeline_complete"] = False

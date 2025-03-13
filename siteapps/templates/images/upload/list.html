@@ -353,7 +353,7 @@
                              class="row pt-0 upload-list overflow-auto p-2">
                             {% for object in object_list %}
                                 {% if object.upload_complete and object.processed %}
-                                    <div class="card w-32 text-center m-1 p-0 mb-3 {% if forloop.counter|divisibleby:2 %}bg-light{% endif %}">
+                                    <div class="card w-32 text-center m-1 p-0 mb-3 {% if forloop.counter|divisibleby:2 %}bg-light{% endif %} {% if object.deleted %}opacity-50{% endif %}">
                                         <div class="card-header h-100 p-2 pb-0">
                                             <h1 class="small">
                                                 {{ object.camera_station.station_id }} | {{ object.camera_station.micro_site }} | {{ object.camera_station.micro_site.macro_site }}
@@ -409,14 +409,20 @@
                                 <tbody>
                                     {% for object in object_list %}
                                         {% if object.upload_complete and object.processed %}
-                                            <tr>
+                                            <tr class="{% if object.deleted %}opacity-50{% endif %}">
                                                 <td>{{ object.priority }}</td>
                                                 <td>{{ object.date_retrieved }}</td>
                                                 <td>{{ object.camera_station.station_id }}</td>
                                                 <td>{{ object.camera_station.micro_site }}</td>
                                                 <td>{{ object.camera_station.micro_site.macro_site }}</td>
                                                 <td>{{ object.volunteer.name }}</td>
-                                                <td>{{ object.last_action }}</td>
+                                                <td>
+                                                    {% if object.deleted %}
+                                                        Upload deleted
+                                                    {% else %}
+                                                        {{ object.last_action }}
+                                                    {% endif %}
+                                                </td>
                                                 <td>
                                                     <a href="{% url 'images:view_upload' object.id %}">
                                                         <text type="button" class="btn btn-light">{{ object.images.all.count }}</text>

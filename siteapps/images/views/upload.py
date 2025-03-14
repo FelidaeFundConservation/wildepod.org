@@ -90,6 +90,27 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
         return context
 
 
+class UploadDeleteView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        success = False
+        reason = None
+
+        upload_id = request.POST.get("upload_id")
+        upload_obj = Upload.objects.get(id=upload_id)
+
+        if self.request.user != upload_obj.volunteer and not (
+            self.request.user.is_staff or self.request.user.is_superuser
+        ):
+            reason = "User does not have permission to delete or recover this upload."
+        else:
+            upload_obj.deleted = not upload_obj.deleted
+            upload_obj.save()
+
+            success = True
+
+        return JsonResponse({"success": success, "reason": reason})
+
+
 def filter_uploads(context, self):
     context["macrosites"] = MacroSite.objects.all()
     context["microsites"] = MicroSite.objects.all()

@@ -53,6 +53,12 @@ def setup_dropbox_paths(upload_obj, data_sheet):
         f"{upload_obj.date_retrieved.date()} - {upload_obj.camera_station.micro_site.macro_site.name} -"
         f" {upload_obj.camera_station.station_id}".lower()
     )
+
+    # Handle duplicates from soft deletions
+    duplicates = Upload.objects.filter(dropbox_folder_name=upload_obj.dropbox_folder_name).count()
+    if duplicates > 0:
+        upload_obj.dropbox_folder_name = upload_obj.dropbox_folder_name + f" ({duplicates})"
+
     # Generate the full path
     upload_obj.dropbox_folder_path = f"/{upload_obj.dropbox_folder_name}"
     if upload_obj.upload_method == "E" and upload_obj._state.adding and (is_prod or is_staging):

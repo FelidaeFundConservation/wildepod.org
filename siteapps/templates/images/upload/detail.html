@@ -1,188 +1,197 @@
 {% extends '_base.html' %}
 {% load static %}
-
 <!-- Set corresponding nav pill to active -->
-{% block nav_upload %}active{% endblock nav_upload%}
-
+{% block nav_upload %}
+    active
+{% endblock nav_upload %}
 {% block content %}
-<div class="container py-3 my-3">
-    {% if object.volunteer == user or user.is_staff %}
-    {% if not object.processed %}
-    <div
-        class="row pt-2 mt-2 text-center alert alert-warning"
-        role="alert"
-    >
-        Warning: This upload is still being processed and might not have all the images
-        yet
-    </div>
-    {% endif %}
-    <div class="row">
-        <div class="col-12">
-            <p class="text-center"><button
-                    class="btn btn-light"
-                    id="view-upload-details"
-                >View Upload Details</button></p>
-        </div>
-    </div>
-    <div
-        id="upload-details"
-        class="row d-none"
-    >
-        <div class="col-12 col-md-6 pt-2 mt-2">
-            <h2 class="text-center">{{object.camera_station.micro_site.macro_site}}</h2>
-            <hr>
+    <div class="container py-3 my-3">
+        {% csrf_token %}
+        {% if object.volunteer == user or user.is_staff %}
+            {% if object.deleted %}
+                <div class="row pt-2 mt-2 text-center alert alert-danger" role="alert">
+                    This upload was deleted and is not visible to volunteers, but can be recovered as needed.
+                </div>
+            {% elif not object.processed %}
+                <div class="row pt-2 mt-2 text-center alert alert-warning" role="alert">
+                    Warning: This upload is still being processed and might not have all the images
+                    yet
+                </div>
+            {% endif %}
             <div class="row">
-                <div class="col-4 text-end">
-                    <p><b>Site:</b></p>
-                </div>
-                <div class="col-8">
-                    <p>{{object.camera_station.micro_site}}</p>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-4 text-end">
-                    <p><b>Station ID:</b></p>
-                </div>
-                <div class="col-8">
-                    <p>{{object.camera_station.station_id}}</p>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-4 text-end">
-                    <p><b>Date Retrived:</b></p>
-                </div>
-                <div class="col-8">
-                    <p><b>{{object.date_retrieved}}</b></p>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-4 text-end">
-                    <p><b>Latitude:</b></p>
-                </div>
-                <div class="col-8">
-                    <p>{{object.camera_station.latitude}}</p>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-4 text-end">
-                    <p><b>Longitude:</b></p>
-                </div>
-                <div class="col-8">
-                    <p>{{object.camera_station.longitude}}</p>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-4 text-end">
-                    <p><b># Images:</b></p>
-                </div>
-                <div class="col-8">
-                    <p>{{object.images.all.count}}</p>
-                </div>
-            </div>
-            {% if user.is_staff and user.is_active %}
-            <div class="row">
-                <div class="col-4 text-end">
-                    <p><b>Dropbox:</b></p>
-                </div>
-                <div class="col-8">
-                    <p>
-                        <a
-                            href="{{dropbox_prefix}}{{object.dropbox_folder_path}}"
-                            target="_blank"
-                            class="text-decoration-none"
-                        >
-                            open
-                        </a>
+                <div class="col-12">
+                    <p class="text-center">
+                        <button class="btn btn-light" id="view-upload-details">View Upload Details</button>
                     </p>
                 </div>
             </div>
-            {% endif %}
-        </div>
-        <div class="col-12 col-md-6 pt-2 mt-2">
-            <div id="map-widget"></div>
-        </div>
-    </div>
-    <hr />
-    <div class="row pt-2 mt-2 text-center">
-        <p>
-            {% if paged_images.has_previous %}
-            <a href="?page=1">&laquo; first</a>&nbsp;&nbsp;
-            <a href="?page={{ paged_images.previous_page_number }}">&laquo;previous</a>
-            {% endif %}
-            <span class="current">
-                &nbsp;&nbsp;Page {{ paged_images.number }} of {{ paged_images.paginator.num_pages }}&nbsp;&nbsp;
-            </span>
-
-            {% if paged_images.has_next %}
-            <a href="?page={{ paged_images.next_page_number }}">next&raquo;</a>&nbsp;&nbsp;
-            <a href="?page={{ paged_images.paginator.num_pages }}">last &raquo;</a>
-            {% endif %}
-        </p>
-    </div>
-    <div class="row pt-2 mt-2 justify-content-center">
-        {% for image in paged_images %}
-        <div class="col-12 col-md-6 col-xl-4 text-center py-3">
-            <div>Timestamp:
-                {% if image.trigger_timestamp %}{{image.trigger_timestamp}}{% else %}N/A{% endif %}
+            <div id="upload-details" class="row d-none">
+                <div class="col-12 col-md-6 pt-2 mt-2">
+                    <h2 class="text-center">{{ object.camera_station.micro_site.macro_site }}</h2>
+                    <hr>
+                    <div class="row">
+                        <div class="col-4 text-end">
+                            <p>
+                                <b>Site:</b>
+                            </p>
+                        </div>
+                        <div class="col-8">
+                            <p>{{ object.camera_station.micro_site }}</p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-4 text-end">
+                            <p>
+                                <b>Station ID:</b>
+                            </p>
+                        </div>
+                        <div class="col-8">
+                            <p>{{ object.camera_station.station_id }}</p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-4 text-end">
+                            <p>
+                                <b>Date Retrived:</b>
+                            </p>
+                        </div>
+                        <div class="col-8">
+                            <p>
+                                <b>{{ object.date_retrieved }}</b>
+                            </p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-4 text-end">
+                            <p>
+                                <b>Latitude:</b>
+                            </p>
+                        </div>
+                        <div class="col-8">
+                            <p>{{ object.camera_station.latitude }}</p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-4 text-end">
+                            <p>
+                                <b>Longitude:</b>
+                            </p>
+                        </div>
+                        <div class="col-8">
+                            <p>{{ object.camera_station.longitude }}</p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-4 text-end">
+                            <p>
+                                <b># Images:</b>
+                            </p>
+                        </div>
+                        <div class="col-8">
+                            <p>{{ object.images.all.count }}</p>
+                        </div>
+                    </div>
+                    {% if user.is_staff and user.is_active %}
+                        <div class="row">
+                            <div class="col-4 text-end">
+                                <p>
+                                    <b>Dropbox:</b>
+                                </p>
+                            </div>
+                            <div class="col-8">
+                                <p>
+                                    <a href="{{ dropbox_prefix }}{{ object.dropbox_folder_path }}"
+                                       target="_blank"
+                                       class="text-decoration-none">open</a>
+                                </p>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="col-12 col-md-6 pt-2 mt-2">
+                    <div id="map-widget"></div>
+                </div>
             </div>
-            <a
-                href="{% url 'images:image' image.id %}"
-                class="text-decoration-none"
-            >
-                <img
-                    id="{{image.id}}"
-                    class="img-fluid"
-                    src="{% get_media_prefix %}{{image.thumbnail_gcloud_path}}"
-                >
-            </a>
-            <a href="{% url 'images:image' image.id %}"><button
-                    type="button"
-                    class="btn btn-light"
-                >View/Edit</button></a>
-            <a
-                href="{{dropbox_prefix}}{{object.dropbox_file_path}}"
-                target="_blank"
-            ><button
-                    type="button"
-                    class="btn btn-light"
-                >View Original</button></a>
-        </div>
-        {% endfor %}
+            <hr />
+            <div class="row pt-2 mt-2 text-center">
+                <p>
+                    {% if paged_images.has_previous %}
+                        <a href="?page=1">&laquo; first</a>&nbsp;&nbsp;
+                        <a href="?page={{ paged_images.previous_page_number }}">&laquo;previous</a>
+                    {% endif %}
+                    <span class="current">
+                        &nbsp;&nbsp;Page {{ paged_images.number }} of {{ paged_images.paginator.num_pages }}&nbsp;&nbsp;
+                    </span>
+                    {% if paged_images.has_next %}
+                        <a href="?page={{ paged_images.next_page_number }}">next&raquo;</a>&nbsp;&nbsp;
+                        <a href="?page={{ paged_images.paginator.num_pages }}">last &raquo;</a>
+                    {% endif %}
+                </p>
+            </div>
+            <div class="row pt-2 mt-2 justify-content-center">
+                {% for image in paged_images %}
+                    <div class="col-12 col-md-6 col-xl-4 text-center py-3">
+                        <div>
+                            Timestamp:
+                            {% if image.trigger_timestamp %}
+                                {{ image.trigger_timestamp }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </div>
+                        <a href="{% url 'images:image' image.id %}" class="text-decoration-none">
+                            <img id="{{ image.id }}"
+                                 class="img-fluid {% if object.deleted %}opacity-25{% endif %}"
+                                 src="{% get_media_prefix %}{{ image.thumbnail_gcloud_path }}">
+                        </a>
+                        <a href="{% url 'images:image' image.id %}">
+                            <button type="button" class="btn btn-light">View/Edit</button>
+                        </a>
+                        <a href="{{ dropbox_prefix }}{{ object.dropbox_file_path }}"
+                           target="_blank">
+                            <button type="button" class="btn btn-light">View Original</button>
+                        </a>
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="row pt-2 mt-2 text-center">
+                <p>
+                    {% if paged_images.has_previous %}
+                        <a href="?page=1">&laquo; first</a>&nbsp;&nbsp;
+                        <a href="?page={{ paged_images.previous_page_number }}">&laquo;previous</a>
+                    {% endif %}
+                    <span class="current">
+                        &nbsp;&nbsp;Page {{ paged_images.number }} of {{ paged_images.paginator.num_pages }}&nbsp;&nbsp;
+                    </span>
+                    {% if paged_images.has_next %}
+                        <a href="?page={{ paged_images.next_page_number }}">next&raquo;</a>&nbsp;&nbsp;
+                        <a href="?page={{ paged_images.paginator.num_pages }}">last &raquo;</a>
+                    {% endif %}
+                </p>
+            </div>
+            <hr />
+            <div class="row pt-2 mt-2 justify-content-center">
+                {% if object.deleted %}
+                    <button class="btn btn-warning pt-2 w-50" onclick="toggleDelete()">Recover Upload</button>
+                {% else %}
+                    <button class="btn btn-danger pt-2 w-50" onclick="toggleDelete()">Delete Upload</button>
+                {% endif %}
+            </div>
+        {% else %}
+            <div class="row text-center">
+                <h3>You are not authorized to view this upload. Please login as admin/staff.</h3>
+            </div>
+        {% endif %}
     </div>
-    <div class="row pt-2 mt-2 text-center">
-        <p>
-            {% if paged_images.has_previous %}
-            <a href="?page=1">&laquo; first</a>&nbsp;&nbsp;
-            <a href="?page={{ paged_images.previous_page_number }}">&laquo;previous</a>
-            {% endif %}
-            <span class="current">
-                &nbsp;&nbsp;Page {{ paged_images.number }} of {{ paged_images.paginator.num_pages }}&nbsp;&nbsp;
-            </span>
-
-            {% if paged_images.has_next %}
-            <a href="?page={{ paged_images.next_page_number }}">next&raquo;</a>&nbsp;&nbsp;
-            <a href="?page={{ paged_images.paginator.num_pages }}">last &raquo;</a>
-            {% endif %}
-        </p>
-    </div>
-    {% else %}
-    <div class="row text-center">
-        <h3>You are not authorized to view this upload. Please login as admin/staff.</h3>
-    </div>
-    {% endif %}
-</div>
 {% endblock content %}
-
 {% comment %} TODO: Move map rendering js to the main.js file {% endcomment %}
 {% comment %} TODO: Separate the key out and move it to secrets. Also, restrict the new key's usage to the new site's
 URL {% endcomment %}
 {% block footer_includes %}
-<!-- Async script executes immediately and must be after any DOM elements used in callback. -->
-<script
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyChQHmyVErROW2lP_WQY3DtdrudOXs2pa8&callback=initMap&libraries=&v=weekly"
-        async
-        ></script>
-<script>
+    <!-- Async script executes immediately and must be after any DOM elements used in callback. -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyChQHmyVErROW2lP_WQY3DtdrudOXs2pa8&callback=initMap&libraries=&v=weekly"
+            async></script>
+    <script>
         // TODO: Move all this code to separate functions housed in separate files
         const camera_station = {
                 lat: {{ object.camera_station.latitude }},
@@ -203,18 +212,16 @@ URL {% endcomment %}
             });
         }
     </script>
-
-<!-- Annotorious generic & custom stylesheets -->
-<link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/@recogito/annotorious@2.6.1/dist/annotorious.min.css"
->
-<!-- Jquery & Annotorious -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@recogito/annotorious-shape-labels@latest/dist/annotorious-shape-labels.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@recogito/annotorious@2.6.1/dist/annotorious.min.js"></script>
-
-<script>
+    <!-- Annotorious generic & custom stylesheets -->
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/@recogito/annotorious@2.6.1/dist/annotorious.min.css">
+    <!-- Jquery & Annotorious -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"
+            integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4="
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@recogito/annotorious-shape-labels@latest/dist/annotorious-shape-labels.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@recogito/annotorious@2.6.1/dist/annotorious.min.js"></script>
+    <script>
     {% comment %} Create a javascript variable holding all the annotations and render annotations{% endcomment %}
     let bbox_srcs = {}
     let bbox_objs = {}
@@ -248,8 +255,8 @@ URL {% endcomment %}
             bbox_objs['{{image.id}}'] = renderBoundingBoxes("{{image.id}}", bbox_srcs['{{image.id}}'],widgets=[MDClassSelectorWidget], config=annotorious_config);
         {% endfor %}
     });
-</script>
-<script>
+    </script>
+    <script>
     $("#view-upload-details").click(function(e){
         $("#upload-details").toggleClass("d-none");
         let cta_text = $("#view-upload-details").text();
@@ -257,5 +264,31 @@ URL {% endcomment %}
             cta_text == "View Upload Details" ? "Close" : "View Upload Details"
         );
     });
-</script>
+    </script>
+    <script>
+        const data = {
+            'csrfmiddlewaretoken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            'upload_id': '{{ object.id }}'
+        }
+
+        function toggleDelete() {
+            $.ajax({
+                url: '{% url 'images:delete_upload' %}',
+                method: 'POST',
+                data: data,
+                dataType: 'json',
+                success: function (data){
+                    if (data.success) {
+                        window.location.reload()
+                    }
+                    else {
+                        console.log(data)
+                    }
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error('HTTP Error:', jqXHR.status, textStatus, errorThrown);
+                }
+            })
+        }
+    </script>
 {% endblock footer_includes %}

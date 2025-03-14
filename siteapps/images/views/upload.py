@@ -90,6 +90,27 @@ class UploadCreateView(LoginRequiredMixin, CreateView):
         return context
 
 
+class UploadDeleteView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        success = False
+        reason = None
+
+        upload_id = request.POST.get("upload_id")
+        upload_obj = Upload.objects.get(id=upload_id)
+
+        if self.request.user != upload_obj.volunteer and not (
+            self.request.user.is_staff or self.request.user.is_superuser
+        ):
+            reason = "User does not have permission to delete or recover this upload."
+        else:
+            upload_obj.deleted = not upload_obj.deleted
+            upload_obj.save()
+
+            success = True
+
+        return JsonResponse({"success": success, "reason": reason})
+
+
 def filter_uploads(context, self):
     context["macrosites"] = MacroSite.objects.all()
     context["microsites"] = MicroSite.objects.all()
@@ -430,9 +451,13 @@ class PreviewTimeCorrectionsView(LoginRequiredMixin, View):
 
         new_timestamps = []
 
+        # Add year/day to test stamps
         test_stamps = [datetime(datetime.now().year, 3, day) for day in [1, 4, 7, 10, 13, 16, 19, 22, 25, 28]] + [
             datetime(datetime.now().year, 11, day) for day in [1, 4, 7, 10, 13, 16, 19, 22, 25, 28]
         ]
+
+        # Add hour and minute to test stamps
+        test_stamps = [ts + timedelta(hours=index, minutes=index * 7) for index, ts in enumerate(test_stamps)]
 
         for i, image_id in enumerate(image_ids):
             preview_info = {

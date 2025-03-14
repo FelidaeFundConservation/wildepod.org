@@ -430,9 +430,13 @@ class PreviewTimeCorrectionsView(LoginRequiredMixin, View):
 
         new_timestamps = []
 
+        # Add year/day to test stamps
         test_stamps = [datetime(datetime.now().year, 3, day) for day in [1, 4, 7, 10, 13, 16, 19, 22, 25, 28]] + [
             datetime(datetime.now().year, 11, day) for day in [1, 4, 7, 10, 13, 16, 19, 22, 25, 28]
         ]
+
+        # Add hour and minute to test stamps
+        test_stamps = [ts + timedelta(hours=index, minutes=index * 7) for index, ts in enumerate(test_stamps)]
 
         for i, image_id in enumerate(image_ids):
             preview_info = {

@@ -89,6 +89,9 @@ class Upload(TimeStampedModel):
     # Any uploader comments associated with the SD card
     comments = models.TextField(blank=True, null=True)
 
+    # This upload was soft deleted and won't be shown to users
+    deleted = models.BooleanField(default=False)
+
     # Auto generated dropbox links
     # Folder name used for this upload in dropbox. This must be unique
     # Currently this is also auto generated which makes it impossible to create two uploads for a given station & a date

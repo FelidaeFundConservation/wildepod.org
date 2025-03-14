@@ -14,6 +14,7 @@ from .views import (
     GetRecentTagsView,
     ImageDetailView,
     ModifyUploadSetImagesView,
+    PrecomputeImageQueuesView,
     PreviewTimeCorrectionsView,
     SavePreviousImageToReturnToView,
     SaveRecentTagsView,
@@ -91,9 +92,14 @@ urlpatterns = [
         name="annotate_activity",
     ),
     path(
-        "create-queue/",
+        "queue/create/",
         CreatePrecomputedQueueView.as_view(),
         name="create_precomputed_queue",
+    ),
+    path(
+        "queue/precompute/",
+        PrecomputeImageQueuesView.as_view(),
+        name="precompute_queues",
     ),
     path(
         "species-annotation-processor/",

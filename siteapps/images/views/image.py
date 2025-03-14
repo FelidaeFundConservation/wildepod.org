@@ -1,8 +1,12 @@
+import logging
+from datetime import timedelta
+
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
 from django.http.response import JsonResponse
+from django.utils import timezone
 from django.views.generic import DetailView
 from django.views.generic.base import TemplateView, View
 from images.models import (
@@ -17,6 +21,7 @@ from images.models import (
     SpeciesName,
     Upload,
 )
+from images.views import species_pipeline_query
 from images.views.annotation import calculate_image_luma
 
 UNANNOTATED_CATEGORY = "unannotated"
@@ -123,3 +128,56 @@ class CreatePrecomputedQueueView(LoginRequiredMixin, View):
             success = False
 
         return JsonResponse({"success": success})
+
+
+class PrecomputeImageQueuesView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        num_queues = 100
+
+        logging.info(f"Running bidaily task to precompute {num_queues} image queues...")
+        old_queues = ImageQueue.objects.filter(created__lt=timezone.now() - timedelta(hours=12))
+
+        if ImageQueue.objects.all().count() == 0 or old_queues.exists():
+            old_queues.delete()
+            # Create a proxy queue so the datetime check doesn't pass again while this operation is running
+            ImageQueue.objects.create(pipeline_name=SPECIES_PIPELINE_NAME)
+
+            images = Image.objects.all().exclude(species_ai_detections__in=["[]", "['Unknown']"])
+            images = species_pipeline_query(images=images, annotator=None)[
+                : settings.ANNOTATION_QUEUE_SIZE * num_queues
+            ]
+
+            # Remove previously cached queues
+            ImageQueue.objects.filter(pipeline_name=SPECIES_PIPELINE_NAME).delete()
+
+            # Create number of queues specified
+            for num in range(0, num_queues):
+                start_index = num * settings.ANNOTATION_QUEUE_SIZE
+                end_index = start_index + settings.ANNOTATION_QUEUE_SIZE
+
+                queue_images = images[start_index:end_index]
+
+                last_image = queue_images[len(queue_images) - 1]
+
+                # Include burst images of last image in queue
+                queue_images |= species_pipeline_query(
+                    Image.objects.filter(
+                        upload=last_image.upload,
+                        trigger_timestamp__gte=last_image.trigger_timestamp,
+                        trigger_timestamp__lt=last_image.trigger_timestamp + timedelta(seconds=120),
+                    ),
+                    annotator=None,
+                )
+
+                queue = ImageQueue.objects.create(pipeline_name=SPECIES_PIPELINE_NAME)
+                queue.images.add(*queue_images)
+
+                logging.info(f"Precomputed queue {num + 1} with {len(queue_images)} images.")
+
+            message = f"Successfully precomputed queues."
+            return JsonResponse({"success": True, "message": message})
+        else:
+            message = f"Precompute process for the period already completed or in progress. There are {ImageQueue.objects.all().count()} queue(s) available."
+
+            logging.info(message)
+            return JsonResponse({"success": True, "message": message})

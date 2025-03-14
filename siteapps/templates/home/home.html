@@ -8,6 +8,7 @@
 {% block content %}
     <div class="background"></div>
     <div class="container-fluid p-0 home-banner d-flex justify-content-center align-items-center position-absolute">
+        {% csrf_token %}
         <div class="row justify-content-left m-3 p-3 p-md-4 text-left cta w-75">
             <div class="col-12 col-md-10">
                 <h1>Welcome To WildePod</h1>
@@ -109,4 +110,26 @@
         </div>
     </div>
     <div class="background short"></div>
+    <script>
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        window.onload = function () {
+            let data = {
+                'csrfmiddlewaretoken': csrftoken,
+            };
+
+            $.ajax({
+                url: '{% url 'images:precompute_queues' %}',
+                method: 'POST',
+                data: data,
+                dataType: 'json',
+                success: function (data) {
+                    console.log(data.message)
+                },
+                error: function (xhr, status, error) {
+                    console.error("AJAX Error:", status, error);
+                }
+            });
+        }
+    </script>
 {% endblock content %}

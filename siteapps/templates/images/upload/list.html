@@ -191,12 +191,14 @@
                                             <b>Retrieved {{ object.date_retrieved }}</b>
                                         </div>
                                     </div>
-                                    <div class="card-footer">
+                                    <div class="card-footer p-3">
                                         <a href="{{ object.dropbox_request_url }}"
                                            target="_blank"
-                                           class="btn btn-light"><i class="bi bi-dropbox"></i></a>
+                                           class="btn btn-secondary w-100 btn-sm"><i class="bi bi-dropbox"></i>&nbsp;&nbsp;Dropbox</a>
                                         <a href="{% url 'images:complete_upload' object.id %}">
-                                            <button type="button" class="btn btn-light">Complete</button>
+                                            <button type="button" class="btn btn-primary w-100 mt-2 btn-sm">
+                                                <i class="bi bi-play"></i>&nbsp;&nbsp;Continue Submission
+                                            </button>
                                         </a>
                                     </div>
                                 </div>
@@ -264,6 +266,10 @@
                                                 <br>
                                             {% endif %}
                                             <text class="d-inline-block small text-truncate" style="max-width: 100%"><i>Last Action: {{ object.last_action }}</i></text>
+                                            <br>
+                                            <text class="w-100 small">
+                                            <span id="status-{{ object.id }}" class="text-center">?/? (..checking)</span>
+                                            </text>
                                             {% if user.is_staff %}
                                                 <br>
                                                 <br>
@@ -279,15 +285,12 @@
                                         <div class="card-footer">
                                             <a href="{{ dropbox_prefix }}{{ object.dropbox_folder_path }}"
                                                target="_blank"
-                                               class="btn btn-light"><i class="bi bi-dropbox"></i></a>
+                                               class="btn btn-light w-100 btn-sm"><i class="bi bi-dropbox"></i>&nbsp;&nbsp;Dropbox</a>
                                             <a href="{% url 'images:view_upload' object.id %}"
                                                id="view-{{ object.id }}"
                                                class="d-none">
-                                                <button type="button" class="btn btn-light">View</button>
+                                                <button type="button" class="btn btn-light w-100 btn-sm my-2">View Images</button>
                                             </a>
-                                            <button class="btn btn-light">
-                                                <span id="status-{{ object.id }}" class="text-center">?/? (..checking)</span>
-                                            </button>
                                             <div id="bar-{{ object.id }}"
                                                  class="progress mt-2"
                                                  role="progressbar"

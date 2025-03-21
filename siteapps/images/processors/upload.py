@@ -413,7 +413,7 @@ def process_upload(upload_id: uuid.UUID):
         # Make calls to delete each chunk
         for chunk in chunks:
             delete_job_id = dbx.files_delete_batch(chunk).get_async_job_id()
-            thread = threading.Thread(target=poll_delete_job, args=(delete_job_id))
+            thread = threading.Thread(target=poll_delete_job, args=(delete_job_id,))
             thread.start()
 
         logging.info(

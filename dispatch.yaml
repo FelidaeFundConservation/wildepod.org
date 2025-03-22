@@ -1,0 +1,6 @@
+dispatch:
+- url: "wildepod.org/*"
+  service: default
+
+- url: "wildepod.org/bhutan/*"
+  service: bhutan

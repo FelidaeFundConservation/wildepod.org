@@ -196,9 +196,7 @@ def get_metadata_with_retry(preretrieved_metadata, entry, max_retries=10, delay=
 def process_dropbox_file(
     upload: Upload,
     entry: dropbox.files.FileMetadata,
-    preretrieved_metadata: dict,
-    files_to_delete: list,
-    files_to_delete_lock: threading.Lock,
+    preretrieved_metadata: dict
 ):
     """Process each file in the dropbox directory."""
     # By default, processed return True. This is to ensure that non-image files don't affect upload status
@@ -208,15 +206,6 @@ def process_dropbox_file(
     if isinstance(entry, dropbox.files.FileMetadata):
         # Retrieve their metadata along with media info
         response = get_metadata_with_retry(preretrieved_metadata, entry)
-
-        # Check if the file's content matches another checked file
-        # Don't create an object and stage the file for deletion if so
-        if Image.objects.filter(dropbox_content_hash=response.content_hash).exists():
-            with files_to_delete_lock:
-                files_to_delete.append(dropbox.files.DeleteArg(path=entry.path_lower))
-                logging.info(f"Duplicate file content found in file {response.name}. Staged for deletion.")
-
-                return processed
 
         # Get media info
         media_info = response.media_info.get_metadata()
@@ -260,11 +249,9 @@ def process_dropbox_file(
                 # Remove corrupted images
                 img_valid = check_image_valid(img_obj)
                 if img_valid is False:
-                    with files_to_delete_lock:
-                        files_to_delete.append(dropbox.files.DeleteArg(path=entry.path_lower))
-                        img_obj.delete()
-
-                        return processed
+                    logging.info(f"Corrupted image found in file {response.name}. Removing from database.")
+                    img_obj.delete()
+                    return True
 
     # Processed is set to False if the file is a valid image & the processing failed
     return processed
@@ -331,10 +318,6 @@ def process_upload(upload_id: uuid.UUID):
     # This multithreaded operation is run inside a thread pool instead of manual thread creation
     processed_status = []
 
-    # Store content hashes shared between threads to check duplicates.
-    files_to_delete = []
-    files_to_delete_lock = threading.Lock()
-
     # Skip checking already-processed entries
     processed_list = upload.images.filter(processed=True).values_list("dropbox_file_path", flat=True)
     logging.info(f"{len(entries)} entries found. Skipping processed entries...")
@@ -356,8 +339,6 @@ def process_upload(upload_id: uuid.UUID):
                 upload=upload,
                 entry=entry,
                 preretrieved_metadata=preretrieved_metadata,
-                files_to_delete=files_to_delete,
-                files_to_delete_lock=files_to_delete_lock,
             )
             for entry in entries
         ]
@@ -373,61 +354,10 @@ def process_upload(upload_id: uuid.UUID):
                 logging.error(f"Error processing entry {i+1}/{len(entries)} - {e}")
                 continue
 
-    # Delete files with duplicate content from dropbox directory
-    if len(files_to_delete) > 0:
-        # Split list into <1000 object chunks
-        def chunk_list(lst, chunk_size):
-            for i in range(0, len(lst), chunk_size):
-                yield lst[i : i + chunk_size]
-
-        chunks = list(chunk_list(files_to_delete, 1000))
-
-        # Make Dropbox API calls
-        logging.info("Attempting to delete duplicate files...")
-
-        def poll_delete_job(delete_job_id):
-            is_complete = False
-            is_failed = False
-            attempts = 0
-
-            # Keep checking status until deletion job finishes or fails.
-            while not is_complete and not is_failed and attempts < 20:
-                delete_job_status = dbx.files_delete_batch_check(delete_job_id)
-                is_complete = delete_job_status.is_complete()
-                is_failed = delete_job_status.is_failed()
-
-                if is_complete:
-                    logging.info("Duplicate image batch successfully deleted from Dropbox.")
-                    break
-                elif is_failed:
-                    logging.error(
-                        f"Error deleting files with duplicate content from dropbox directory: {delete_job_status.get_failed()}"
-                    )
-                    break
-                else:
-                    pass
-
-                time.sleep(3)
-                attempts += 1
-
-        # Make calls to delete each chunk
-        for chunk in chunks:
-            delete_job_id = dbx.files_delete_batch(chunk).get_async_job_id()
-            thread = threading.Thread(target=poll_delete_job, args=(delete_job_id,))
-            thread.start()
-
-        logging.info(
-            f"{len(files_to_delete)} of {len(entries)} file(s) were found to have duplicate content, and will be deleted from the Dropbox directory.\n"
-            f"The {len(entries) - len(files_to_delete)} remaining file(s) will be unique."
-        )
-    else:
-        logging.info("No duplicate files to delete found.")
-
     # Only if all files are successfully processed, mark the upload as processed
     if all(processed_status):
         precompute_context_images(upload)
         # NOTE: Processed is set to True for non-image files by default since they don't require any processing
-        # Deleted duplicate files also return True
         logging.info("All images processed. Marking upload as processed..")
         # Mark the upload as processed.
         upload.processed = True

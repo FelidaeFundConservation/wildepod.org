@@ -1,7 +1,8 @@
 @use '../core';
+
 .background {
     height: 95vh;
-    background-image: url('https://felidaefund.org/media/cache/autosized/images/igallery/original/801-900/jlm-9184-20--20denoise-832-1920.webp');
+    background-image: url('/static/images/puma.webp');
     background-size: cover;
     background-position: center;
     filter: blur(3px);
@@ -9,6 +10,10 @@
     background-position: center;
     background-repeat: no-repeat;
     background-size: cover;
+
+    &--bhutan {
+        background-image: url('/static/images/clouded_leopard.jpg');
+    }
 }
 
 .short {
@@ -64,6 +69,6 @@
     backdrop-filter: blur(3px);
 }
 
-.w-32{
+.w-32 {
     width: 32%;
 }

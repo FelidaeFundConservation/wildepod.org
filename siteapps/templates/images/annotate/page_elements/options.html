@@ -46,13 +46,15 @@
             </div>
         {% endif %}
         <hr>
-        <div>
-            <text>Press if you'd prefer to see more wildlife photos temporarily.</text>
-            <br>
-            <button class="btn btn-primary mt-2" onclick="prioritizeAnimals()">
-                <i class="fa-solid fa-paw"></i>&nbsp;&nbsp;Prioritize Animals
-            </button>
-        </div>
+        {% if not is_bhutan %}
+            <div>
+                <text>Press if you'd prefer to see more wildlife photos temporarily.</text>
+                <br>
+                <button class="btn btn-primary mt-2" onclick="prioritizeAnimals()">
+                    <i class="fa-solid fa-paw"></i>&nbsp;&nbsp;Prioritize Animals
+                </button>
+            </div>
+        {% endif %}
     </div>
 </div>
 <script>

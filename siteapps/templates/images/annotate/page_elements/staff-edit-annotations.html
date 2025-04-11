@@ -212,9 +212,11 @@
                  style="border: 2px solid black;
                         margin-bottom: 30px;
                         width: 100%;
-                        border-radius: 5px">
+                        border-radius: 5px;
+                        {% if bbox.validity == 'INVALID' %}opacity: 50%;
+                        {% endif %}">
                 <h2 style="text-align: left; border-bottom: 2px solid black; width: 100%">
-                    &nbsp;&nbsp;Bounding Box {{ forloop.counter }}
+                    &nbsp;&nbsp;Bounding Box {{ forloop.counter }} - {{ bbox.validity }}
                 </h2>
                 <text style="font-size: 20px;"><strong>Annotations Info</strong></text>
                 <div style="width: 100%;">

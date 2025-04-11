@@ -143,9 +143,11 @@ class PrecomputeImageQueuesView(LoginRequiredMixin, View):
             ImageQueue.objects.create(pipeline_name=SPECIES_PIPELINE_NAME)
 
             images = Image.objects.all().exclude(species_ai_detections__in=["[]", "['Unknown']"])
-            images = species_pipeline_query(images=images, annotator=None)[
-                : settings.ANNOTATION_QUEUE_SIZE * num_queues
-            ]
+            images = list(
+                species_pipeline_query(images=images, annotator=None)[: settings.ANNOTATION_QUEUE_SIZE * num_queues][
+                    : num_queues * settings.ANNOTATION_QUEUE_SIZE
+                ]
+            )
 
             # Remove previously cached queues
             ImageQueue.objects.filter(pipeline_name=SPECIES_PIPELINE_NAME).delete()
@@ -157,22 +159,25 @@ class PrecomputeImageQueuesView(LoginRequiredMixin, View):
 
                 queue_images = images[start_index:end_index]
 
-                last_image = queue_images[len(queue_images) - 1]
+                if len(queue_images) > 0:
+                    last_image = queue_images[len(queue_images) - 1]
 
-                # Include burst images of last image in queue
-                queue_images |= species_pipeline_query(
-                    Image.objects.filter(
-                        upload=last_image.upload,
-                        trigger_timestamp__gte=last_image.trigger_timestamp,
-                        trigger_timestamp__lt=last_image.trigger_timestamp + timedelta(seconds=120),
-                    ),
-                    annotator=None,
-                )
+                    # Include burst images of last image in queue
+                    queue_images += list(
+                        species_pipeline_query(
+                            Image.objects.filter(
+                                upload=last_image.upload,
+                                trigger_timestamp__gte=last_image.trigger_timestamp,
+                                trigger_timestamp__lt=last_image.trigger_timestamp + timedelta(seconds=120),
+                            ),
+                            annotator=None,
+                        )
+                    )
 
-                queue = ImageQueue.objects.create(pipeline_name=SPECIES_PIPELINE_NAME)
-                queue.images.add(*queue_images)
+                    queue = ImageQueue.objects.create(pipeline_name=SPECIES_PIPELINE_NAME)
+                    queue.images.set(queue_images)
 
-                logging.info(f"Precomputed queue {num + 1} with {len(queue_images)} images.")
+                    logging.info(f"Precomputed queue {num + 1} with {len(queue_images)} images.")
 
             message = f"Successfully precomputed queues."
             return JsonResponse({"success": True, "message": message})

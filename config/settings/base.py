@@ -194,6 +194,7 @@ TEMPLATES = [
                 "django.template.context_processors.tz",
                 "django.contrib.messages.context_processors.messages",
                 "siteapps.users.context_processors.allauth_settings",
+                "siteapps.home.context_processors.global_settings",
             ],
         },
     }

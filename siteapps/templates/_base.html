@@ -104,17 +104,21 @@
                                             <a class="dropdown-item"
                                                href="{% url 'explore:species_sighting_timeserie_list' species='Puma' %}">Species Sightings</a>
                                         </li>
-                                        <li>
-                                            <a class="dropdown-item" href="{% url 'explore:workflow_state' %}">Workflow State</a>
-                                        </li>
+                                        {% if not is_bhutan %}
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'explore:workflow_state' %}">Workflow State</a>
+                                            </li>
+                                        {% endif %}
                                         {% if user.is_staff %}
                                             <li>
                                                 <a class="dropdown-item" href="{% url 'explore:set_priority' %}">Set Priority</a>
                                             </li>
-                                            <li>
-                                                <a class="dropdown-item"
-                                                   href="{% url 'explore:track_volunteer_engagement' %}">Track Volunteer Engagement</a>
-                                            </li>
+                                            {% if not is_bhutan %}
+                                                <li>
+                                                    <a class="dropdown-item"
+                                                    href="{% url 'explore:track_volunteer_engagement' %}">Track Volunteer Engagement</a>
+                                                </li>
+                                            {% endif %}
                                         {% endif %}
                                     </ul>
                                 </li>
@@ -137,14 +141,16 @@
                                             <a class="dropdown-item" href="{% url 'images:annotate_species' %}">Category & Species</a>
                                         </li>
                                         {% if user.is_staff %}
-                                            <li>
-                                                <a class="dropdown-item"
-                                                   href="{% url 'images:annotate_activity' category='animal' %}">Animal Activity</a>
-                                            </li>
-                                            <li>
-                                                <a class="dropdown-item"
-                                                   href="{% url 'images:annotate_activity' category='human' %}">Human Behavior</a>
-                                            </li>
+                                            {% if not is_bhutan %}                                        
+                                                <li>
+                                                    <a class="dropdown-item"
+                                                    href="{% url 'images:annotate_activity' category='animal' %}">Animal Activity</a>
+                                                </li>
+                                                <li>
+                                                    <a class="dropdown-item"
+                                                    href="{% url 'images:annotate_activity' category='human' %}">Human Behavior</a>
+                                                </li>
+                                            {% endif %}
                                         {% endif %}
                                         <li>
                                             <a class="dropdown-item" href="{% url 'images:custom_annotation' %}">Custom Annotations</a>
@@ -173,11 +179,13 @@
                                        href="https://docs.google.com/document/d/1IIzjK1bq3Z4NDz7gYWGa0r4fW2SKjV-kLj2aA_m56Zc/edit?usp=sharing"
                                        target="_blank">Instructions</a>
                                 </li>
-                                <li class="nav-item mx-1">
-                                    <a class="nav-link"
-                                       href="https://docs.google.com/document/d/11QqbthtvRm6DnAGILqiUxhMhRr-fNp2y8R1nT1IMcpo/edit?usp=sharing"
-                                       target="_blank">Feedback</a>
-                                </li>
+                                {% if not is_bhutan %}
+                                    <li class="nav-item mx-1">
+                                        <a class="nav-link"
+                                        href="https://docs.google.com/document/d/11QqbthtvRm6DnAGILqiUxhMhRr-fNp2y8R1nT1IMcpo/edit?usp=sharing"
+                                        target="_blank">Feedback</a>
+                                    </li>
+                                {% endif %}
                                 <li class="nav-item dropdown mx-1">
                                     <a class="nav-link"
                                        href="#"

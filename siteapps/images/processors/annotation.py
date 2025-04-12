@@ -69,6 +69,7 @@ def vote(obj, annotator: Annotator, accept: bool):
                 obj.save()
         else:
             obj.save()
+
     return
 
 
@@ -111,6 +112,7 @@ def create_species(annotation_dict: Dict[str, Any], bbox_obj: BoundingBox, annot
         created_by=annotator,
         confidence=annotation_dict["confidence"],
     )
+
     return
 
 
@@ -123,6 +125,7 @@ def create_activity(annotation_dict: Dict[str, Any], bbox_obj: BoundingBox, anno
         created_by=annotator,
         confidence=annotation_dict["confidence"],
     )
+
     return
 
 
@@ -400,6 +403,8 @@ def infer_category(species_name, bbox_obj, annotator):
 def process_species(formatted_annotations, bbox_id, bbox_obj, annotator):
     if formatted_annotations[bbox_id]["category"]:
         species_name_obj = SpeciesName.objects.get(name=formatted_annotations[bbox_id]["category"])
+        logging.info(f"Vote for {species_name_obj.name} by {annotator} detected on box {bbox_id}.")
+
         try:
             species_obj = Species.objects.get(bounding_box=bbox_obj, name=species_name_obj)
 

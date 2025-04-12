@@ -144,9 +144,7 @@ class PrecomputeImageQueuesView(LoginRequiredMixin, View):
 
             images = Image.objects.all().exclude(species_ai_detections__in=["[]", "['Unknown']"])
             images = list(
-                species_pipeline_query(images=images, annotator=None)[: settings.ANNOTATION_QUEUE_SIZE * num_queues][
-                    : num_queues * settings.ANNOTATION_QUEUE_SIZE
-                ]
+                species_pipeline_query(images=images, annotator=None)[: settings.ANNOTATION_QUEUE_SIZE * num_queues]
             )
 
             # Remove previously cached queues

@@ -370,7 +370,7 @@
                                             <text class="d-inline-block small text-truncate" style="max-width: 100%"><i>Last Action: {{ object.last_action }}</i></text>
                                             {% if user.is_staff %}
                                                 <br>
-                                                <text><i class="bi bi-images"></i>&nbsp;&nbsp;{{ object.images.all.count }}</text>
+                                                <text><i class="bi bi-images"></i>&nbsp;&nbsp;{{ object.img_count }}</text>
                                                 <br>
                                                 <br>
                                                 <a href="{% url 'admin:images_upload_change' object.id %}"
@@ -428,7 +428,7 @@
                                                 </td>
                                                 <td>
                                                     <a href="{% url 'images:view_upload' object.id %}">
-                                                        <text type="button" class="btn btn-light">{{ object.images.all.count }}</text>
+                                                        <text type="button" class="btn btn-light">{{ object.img_count }}</text>
                                                     </a>
                                                 </td>
                                                 <td>

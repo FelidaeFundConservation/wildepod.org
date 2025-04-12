@@ -187,6 +187,11 @@ class UploadListView(LoginRequiredMixin, ListView):
         context = super().get_context_data(**kwargs)
         context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
 
+        # Initialize upload image counts
+        for upload in Upload.objects.filter(img_count=0):
+            upload.img_count = upload.images.count()
+            upload.save()
+
         # Get macrosite, microsite, and station info,
         # and filter based on previous submission's arguments
         filter_uploads(context, self)

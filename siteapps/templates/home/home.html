@@ -6,12 +6,12 @@
     active
 {% endblock nav_home %}
 {% block content %}
-    <div class="background"></div>
+    <div class="background {% if is_bhutan %}background--bhutan{% endif %}"></div>
     <div class="container-fluid p-0 home-banner d-flex justify-content-center align-items-center position-absolute">
         {% csrf_token %}
         <div class="row justify-content-left m-3 p-3 p-md-4 text-left cta w-75">
             <div class="col-12 col-md-10">
-                <h1>Welcome To WildePod</h1>
+                <h1>Welcome To WildePod{% if is_bhutan %} Bhutan {% endif %}{% if is_staging %} Staging {% endif %}</h1>
                 <p>Let's make our community a better place! Help us record trail camera data.</p>
                 {% if user.is_authenticated and user.is_active %}
                     <a href="{% url 'images:annotate_species' %}">
@@ -36,9 +36,15 @@
     <div class="container py-2 my-2 py-md-3 my-md-3 py-lg-4 my-lg-4 flex-row flex-wrap">
         <div class="row justify-content-left m-3 p-3 p-md-4 text-left w-100 border outer-shadow">
             <div class="col-md-4">
-                <img src="{% static 'images/bobcat.jpg' %}"
-                     alt="Bobcat"
-                     class="card-img p-2 rounded-circle inner-shadow">
+                {% if is_bhutan %}
+                    <img src="{% static 'images/pallas_cat.jpg' %}"
+                        alt="Pallas Cat"
+                        class="card-img p-2 rounded-circle inner-shadow">
+                {% else %}
+                    <img src="{% static 'images/bobcat.jpg' %}"
+                        alt="Bobcat"
+                        class="card-img p-2 rounded-circle inner-shadow">
+                {% endif %}
             </div>
             <div class="col-md-8">
                 <div class="card-body">
@@ -62,7 +68,7 @@
             </div>
         </div>
     </div>
-    <div class="background short"></div>
+    <div class="background {% if is_bhutan %}background--bhutan{% endif %} short"></div>
     <div class="container py-2 my-2 py-md-3 my-md-3 py-lg-4 my-lg-4 flex-row flex-wrap">
         <div class="row justify-content-left m-3 p-3 p-md-4 text-left w-100 border outer-shadow">
             <div class="col-md-4">
@@ -86,7 +92,7 @@
             </div>
         </div>
     </div>
-    <div class="background short"></div>
+    <div class="background {% if is_bhutan %}background--bhutan{% endif %} short"></div>
     <div class="container py-2 my-2 py-md-3 my-md-3 py-lg-4 my-lg-4 flex-row flex-wrap">
         <div class="row justify-content-left m-3 p-3 p-md-4 text-left w-100 border outer-shadow">
             <div class="col-md-4">
@@ -109,7 +115,7 @@
             </div>
         </div>
     </div>
-    <div class="background short"></div>
+    <div class="background {% if is_bhutan %}background--bhutan{% endif %} short"></div>
     <script>
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 

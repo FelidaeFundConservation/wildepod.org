@@ -34,8 +34,6 @@ MAX_THREADS_FOR_DROPBOX_API = 15
 def setup_dropbox_paths(upload_obj, data_sheet):
     from urllib.parse import quote
 
-    import dropbox
-
     # Create a dropbox client
     dbx = dropbox.Dropbox(
         app_key=settings.DROPBOX_APP_KEY,
@@ -43,8 +41,6 @@ def setup_dropbox_paths(upload_obj, data_sheet):
         oauth2_refresh_token=settings.DROPBOX_REFRESH_TOKEN,
     )
 
-    is_prod = "prod" in settings.WSGI_APPLICATION
-    is_staging = "staging" in settings.WSGI_APPLICATION
     # If the object is being created for the first time, create a Dropbox request url and populate relevant fields
 
     # Set the folder name
@@ -61,7 +57,7 @@ def setup_dropbox_paths(upload_obj, data_sheet):
 
     # Generate the full path
     upload_obj.dropbox_folder_path = f"/{upload_obj.dropbox_folder_name}"
-    if upload_obj.upload_method == "E" and upload_obj._state.adding and (is_prod or is_staging):
+    if upload_obj.upload_method == "E" and upload_obj._state.adding:
         # Now create a folder request. The path will always be relative to the app root.
         # The entire directory structure, for now, will be flat under the App directory
         response = dbx.file_requests_create(

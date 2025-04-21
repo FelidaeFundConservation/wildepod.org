@@ -161,16 +161,17 @@ class PrecomputeImageQueuesView(LoginRequiredMixin, View):
                     last_image = queue_images[len(queue_images) - 1]
 
                     # Include burst images of last image in queue
-                    queue_images += list(
-                        species_pipeline_query(
-                            Image.objects.filter(
-                                upload=last_image.upload,
-                                trigger_timestamp__gte=last_image.trigger_timestamp,
-                                trigger_timestamp__lt=last_image.trigger_timestamp + timedelta(seconds=120),
-                            ),
-                            annotator=None,
+                    if last_image.trigger_timestamp is not None:
+                        queue_images += list(
+                            species_pipeline_query(
+                                Image.objects.filter(
+                                    upload=last_image.upload,
+                                    trigger_timestamp__gte=last_image.trigger_timestamp,
+                                    trigger_timestamp__lt=last_image.trigger_timestamp + timedelta(seconds=120),
+                                ),
+                                annotator=None,
+                            )
                         )
-                    )
 
                     queue = ImageQueue.objects.create(pipeline_name=SPECIES_PIPELINE_NAME)
                     queue.images.set(queue_images)

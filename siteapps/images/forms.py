@@ -5,6 +5,7 @@ from crispy_forms.bootstrap import StrictButton
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import HTML, Button, Column, Layout, Row, Submit
 from django import forms
+from django.conf import settings
 from locations.models import CameraStation, MacroSite
 
 from .models import TimeCorrection, Upload
@@ -50,11 +51,17 @@ class UploadForm(forms.ModelForm):
     )
 
     upload_method_choices = Upload._meta.get_field("upload_method").choices
+    default_upload_method = 'E'
+    # If is_bhutan, only allow direct upload method
+    if 'bhutan' in settings.WSGI_APPLICATION:
+        upload_method_choices = [c for c in upload_method_choices if c[0] == 'D']
+        default_upload_method = 'D'
+
     upload_method = forms.ChoiceField(
         label="Upload Method",
         choices=upload_method_choices,
         widget=forms.Select,
-        initial="E",
+        initial=default_upload_method,
     )
 
     def __init__(self, *args, **kwargs):

@@ -343,26 +343,27 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
         add_id_if_unique(image_id)
 
         # Append the burst images as well
-        burst_images = Image.objects.filter(
-            ~Q(id=image.id),
-            upload=image.upload,
-            trigger_timestamp__gt=image.trigger_timestamp - datetime.timedelta(seconds=3),
-            trigger_timestamp__lt=image.trigger_timestamp + datetime.timedelta(seconds=3),
-        )
-
-        # Make sure the burst image is pipeline eligible
-        if SPECIES_QUEUE_NAME in queue_name:
-            eligible_burst_image_ids = species_pipeline_query(burst_images, annotator=annotator).values_list(
-                "id", flat=True
+        if image.trigger_timestamp is not None:
+            burst_images = Image.objects.filter(
+                ~Q(id=image.id),
+                upload=image.upload,
+                trigger_timestamp__gt=image.trigger_timestamp - datetime.timedelta(seconds=3),
+                trigger_timestamp__lt=image.trigger_timestamp + datetime.timedelta(seconds=3),
             )
-        elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
-            eligible_burst_image_ids = activity_pipeline_query(
-                burst_images, annotator=annotator, activity_category=activity_category
-            ).values_list("id", flat=True)
 
-        # Add burst images to queue, after the main image
-        for burst_image_id in eligible_burst_image_ids:
-            add_id_if_unique(str(burst_image_id))
+            # Make sure the burst image is pipeline eligible
+            if SPECIES_QUEUE_NAME in queue_name:
+                eligible_burst_image_ids = species_pipeline_query(burst_images, annotator=annotator).values_list(
+                    "id", flat=True
+                )
+            elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
+                eligible_burst_image_ids = activity_pipeline_query(
+                    burst_images, annotator=annotator, activity_category=activity_category
+                ).values_list("id", flat=True)
+
+            # Add burst images to queue, after the main image
+            for burst_image_id in eligible_burst_image_ids:
+                add_id_if_unique(str(burst_image_id))
 
     # Create a queue entity with image ids, user id, timestamp and index
     payload = {

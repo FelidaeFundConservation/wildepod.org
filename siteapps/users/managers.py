@@ -14,21 +14,29 @@ def send_welcome_email(user, password_generated):
     """Send welcome email to user"""
     logging.info("Sending welcome email..")
     is_staging = "staging" in settings.WSGI_APPLICATION
-    subject = "Welcome to WildePod staging!" if is_staging else "Welcome to WildePod!"
-    context = {"user": user, "password_generated": password_generated, "is_staging": is_staging}
+    is_bhutan = "bhutan" in settings.WSGI_APPLICATION
+    if is_staging:
+        subject = "Welcome to WildePod Staging!"
+    elif is_bhutan:
+        subject = "Welcome to WildePod Bhutan!"
+    else:
+        subject = "Welcome to WildePod!"
+    context = {"user": user, "password_generated": password_generated, "is_staging": is_staging, "is_bhutan": is_bhutan}
     html_message = render_to_string("account/email/welcome.html", context)
     plain_message = strip_tags(html_message)
+    from_email = "WildePod Admin <noreply@wildepod.org>"
     try:
-        send_mail(
+        result = send_mail(
             subject,
             plain_message,
-            "WildePod Admin <noreply@wildepod.org>",
+            from_email,
             [user.email],
             html_message=html_message,
             fail_silently=False,
         )
+        logging.info(f"Welcome email sent successfully! Result - {result}")
     except SMTPException as e:
-        logging.error(f"Error sending welcome email. Error msg - {e}")
+        logging.error(f"Error sending welcome email. Result - {result}. Error msg - {e}")
 
 
 # Code copied from https://testdriven.io/blog/django-custom-user-model/
@@ -59,7 +67,9 @@ class UserManager(BaseUserManager):
         # This only happens when users are created programmatically since sign up is disabled
         EmailAddress.objects.create(user=user, email=email, primary=True, verified=True)
         logging.info("Email address created successfully!")
-        if "prod" in settings.WSGI_APPLICATION:
+        # We only send emails from prod and bhutan, the two production environments, to prevent accidental emailing
+        if ("prod" in settings.WSGI_APPLICATION
+            or "bhutan" in settings.WSGI_APPLICATION):
             send_welcome_email(user, password_generated)
 
         return user

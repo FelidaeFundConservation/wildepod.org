@@ -76,6 +76,8 @@ class Upload(TimeStampedModel):
     # Uploader
     volunteer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
+    img_count = models.IntegerField(default=0)
+
     time_correction = models.ForeignKey(
         TimeCorrection, on_delete=models.PROTECT, null=True, blank=True, related_name="upload"
     )

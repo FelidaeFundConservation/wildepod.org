@@ -1,10 +1,12 @@
 {% block content %}
 <p>
-    Hi {{user.name}}! Welcome to WildePod{% if is_staging %} staging{% endif %}!
+    Hi {{user.name}}! Welcome to WildePod{% if is_bhutan %} Bhutan{% endif %}{% if is_staging %} staging{% endif %}!
     Your account has just been created and you can navigate to
     <a
         {% if is_staging %}
         href="https://staging-dot-wildepod-339517.wl.r.appspot.com"
+        {% elif is_bhutan %}
+        href="https://bhutan.wildepod.org"
         {% else %}
         href="https://wildepod.org"
         {% endif %}
@@ -23,6 +25,8 @@
     <a
         {% if is_staging %}
         href="https://staging-dot-wildepod-339517.wl.r.appspot.com/accounts/password/change/"
+        {% elif is_bhutan %}
+        href="https://bhutan.wildepod.org/accounts/password/change/"
         {% else %}
         href="https://wildepod.org/accounts/password/change/"
         {% endif %}

@@ -185,11 +185,9 @@
     </div>
 {% endblock content %}
 {% comment %} TODO: Move map rendering js to the main.js file {% endcomment %}
-{% comment %} TODO: Separate the key out and move it to secrets. Also, restrict the new key's usage to the new site's
-URL {% endcomment %}
 {% block footer_includes %}
     <!-- Async script executes immediately and must be after any DOM elements used in callback. -->
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyChQHmyVErROW2lP_WQY3DtdrudOXs2pa8&callback=initMap&libraries=&v=weekly"
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap&libraries=&v=weekly"
             async></script>
     <script>
         // TODO: Move all this code to separate functions housed in separate files

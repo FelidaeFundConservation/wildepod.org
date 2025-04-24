@@ -200,7 +200,7 @@ def get_or_set_annotation_count(request, queue_name, annotator, annotation_num=0
 
 
 # Filter criteria for an image to appear in the Species pipeline
-def species_pipeline_query(images, annotator):
+def species_pipeline_query(images, annotator, staff_review=False):
     """
     Filters and reorders a set of images based on Species pipeline eligibility.
     - Image must not be checked or skipped by the current annotator.
@@ -232,9 +232,11 @@ def species_pipeline_query(images, annotator):
         ),
         # Image has been preprocessed and we can use precomputed flags
         use_precomputed_flags=True,
-        staff_review_needed=False,
         upload__deleted=False,
     ).order_by("-upload__priority", "-has_cats", "upload__camera_station", "trigger_timestamp")
+
+    if not staff_review:
+        images = images.filter(staff_review_needed=False)
 
     return images
 
@@ -279,7 +281,7 @@ def activity_pipeline_query(images, annotator, activity_category):
     return images
 
 
-def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_category):
+def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_category, staff_review):
     """
     Gets a new queue of images based on criteria, and caches the results in Datastore.
     This is the legacy queue system and is only called when the precomputed queues run out.
@@ -294,18 +296,20 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
         - activity_category (string): One of the predefined constant values used to distinguish
             between either the human or animal activity pipeline (ex. CATEGORY_HUMAN).
             None if not annotating Activity.
+        - staff_review (boolean): Whether annotator is looking at staff review images only or not.
 
     Returns
     ---
         - queue (google.cloud.datastore.entity.Entity): The newly assigned list of images assigned to the queue.
         - image_id (String): The id of the first image in the queue, or None if it doesn't exist.
     """
+
     # Get images based on the following set of filters
     images = Image.objects.filter(**self.filterset)
 
     # Filter using specified pipeline criteria
     if SPECIES_QUEUE_NAME in queue_name:
-        images = species_pipeline_query(images=images, annotator=annotator)
+        images = species_pipeline_query(images=images, annotator=annotator, staff_review=staff_review)
     elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
         images = activity_pipeline_query(images=images, annotator=annotator, activity_category=activity_category)
     else:
@@ -858,6 +862,7 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
             queue_key=queue_key,
             annotator=annotator,
             activity_category=activity_category,
+            staff_review=staff_review,
         )
 
     # If there is a valid image, add bounding box information

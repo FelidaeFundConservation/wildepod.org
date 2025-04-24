@@ -114,7 +114,7 @@ google_logging_client.setup_logging()
 DROPBOX_APP_KEY = env("DROPBOX_APP_KEY_BHUTAN")
 DROPBOX_APP_SECRET = env("DROPBOX_APP_SECRET_BHUTAN")
 DROPBOX_REFRESH_TOKEN = env("DROPBOX_REFRESH_TOKEN_BHUTAN")
-DROPBOX_URL_PREFIX = "https://www.dropbox.com/work/WildePod%20Cloud%20DB/Apps/wildepod_bhutan"
+DROPBOX_URL_PREFIX = "https://www.dropbox.com/work/Bhutan%20Wildepod/Apps/wildepod_bhutan"
 
 # CUSTOM VARIABLES
 # ------------------------------------------------------------------------------

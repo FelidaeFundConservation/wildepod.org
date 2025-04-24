@@ -44,16 +44,20 @@ class UploadForm(forms.ModelForm):
         help_text="For modifying only a part of the upload. Images with timestamps after this date will not be changed.",
     )
 
-    daylight_savings_correction = forms.CharField(
-        widget=forms.TextInput(),
-        required=False,
-        help_text="If there was a daylight savings shift, specify the month the shift occurred (March or November)",
-    )
+    is_bhutan = 'bhutan' in settings.WSGI_APPLICATION
+
+    # Only show daylight savings if not Bhutan
+    if not is_bhutan:
+        daylight_savings_correction = forms.CharField(
+            widget=forms.TextInput(),
+            required=False,
+            help_text="If there was a daylight savings shift, specify the month the shift occurred (March or November)",
+        )
 
     upload_method_choices = Upload._meta.get_field("upload_method").choices
     default_upload_method = 'E'
     # If is_bhutan, only allow direct upload method
-    if 'bhutan' in settings.WSGI_APPLICATION:
+    if is_bhutan:
         upload_method_choices = [c for c in upload_method_choices if c[0] == 'D']
         default_upload_method = 'D'
 
@@ -116,13 +120,21 @@ class UploadForm(forms.ModelForm):
                 Column("end_date", css_class="form-group"),
                 css_class="form-row mb-3 px-3",
             ),
-            Row(
-                Column("daylight_savings_correction", css_class="form-group"),
-                HTML(
-                    "<text class='small'><i>(Please check the fix preview to confirm all timestamp transformations are correct before submitting.)</i></text>"
+        )
+
+        # Only add daylight savings row if not Bhutan
+        if not self.is_bhutan:
+            self.helper.layout.append(        
+                Row(
+                    Column("daylight_savings_correction", css_class="form-group"),
+                    HTML(
+                        "<text class='small'><i>(Please check the fix preview to confirm all timestamp transformations are correct before submitting.)</i></text>"
+                    ),
+                    css_class="form-row mb-3 px-3",
                 ),
-                css_class="form-row mb-3 px-3",
-            ),
+            )
+
+        self.helper.layout.append(
             Row(
                 Column(
                     Submit("submit", "Create Upload", css_class="btn-primary"),

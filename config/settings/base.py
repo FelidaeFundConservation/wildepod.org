@@ -308,10 +308,5 @@ EXPORT_QUEUE_NAME = "wildepod-jobs-queue"
 EXPORT_DATE_FORMAT = "%Y-%m-%d"
 EXPORT_URL_SUFFIX = "8jk6fh9m7w2xz5r3t1n0b8v6c"  # TODO: Move this to secret manager
 
-# Settings for Dropbox 2FA email retrieval
-EMAIL_2FA_IMAP_URL = env("EMAIL_2FA_IMAP_URL")
-EMAIL_2FA_USER = env("EMAIL_2FA_USER")
-EMAIL_2FA_PASSWORD = env("EMAIL_2FA_PASSWORD")
-
 # Google Maps API
 GOOGLE_MAPS_API_KEY = env('GOOGLE_MAPS_API_KEY')

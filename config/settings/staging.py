@@ -134,3 +134,8 @@ DROPBOX_URL_PREFIX = "https://www.dropbox.com/work/WildePod%20Cloud%20DB/Apps/wi
 # ------------------------------------------------------------------------------
 # Annotation configuration
 NUM_ACCEPTS_OVER_REJECTS = 2
+
+# Settings for Dropbox 2FA email retrieval
+EMAIL_2FA_IMAP_URL = env("EMAIL_2FA_IMAP_URL_PROD")
+EMAIL_2FA_USER = env("EMAIL_2FA_USER_PROD")
+EMAIL_2FA_PASSWORD = env("EMAIL_2FA_PASSWORD_PROD")

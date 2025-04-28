@@ -120,3 +120,8 @@ DROPBOX_URL_PREFIX = "https://www.dropbox.com/work/Bhutan%20Wildepod/Apps/wildep
 # ------------------------------------------------------------------------------
 # Annotation configuration
 NUM_ACCEPTS_OVER_REJECTS = 2
+
+# Settings for Dropbox 2FA email retrieval
+EMAIL_2FA_IMAP_URL = env("EMAIL_2FA_IMAP_URL_BHUTAN")
+EMAIL_2FA_USER = env("EMAIL_2FA_USER_BHUTAN")
+EMAIL_2FA_PASSWORD = env("EMAIL_2FA_PASSWORD_BHUTAN")

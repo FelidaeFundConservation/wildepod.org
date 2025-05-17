@@ -1,4 +1,13 @@
-from .annotation import Activity, ActivityType, AnnotationCounter, BoundingBox, Category, Species, SpeciesName
+from .annotation import (
+    Activity,
+    ActivityType,
+    AnnotationCounter,
+    BoundingBox,
+    Category,
+    Species,
+    SpeciesName,
+    SpeciesSubgroup,
+)
 from .annotator import Annotator, Bot
 from .image import Image, ImageQueue
 from .raw_sql import *

@@ -11,6 +11,7 @@ from .models import (
     Image,
     Species,
     SpeciesName,
+    SpeciesSubgroup,
     TimeCorrection,
     Upload,
 )
@@ -96,6 +97,13 @@ class SpeciesNameAdmin(SimpleHistoryAdmin):
     list_display = ["name", "scientific_name"]
     list_display_links = ["name", "scientific_name"]
     search_fields = ["name", "scientific_name"]
+
+
+@admin.register(SpeciesSubgroup)
+class SpeciesSubgroupAdmin(SimpleHistoryAdmin):
+    list_display = ["name"]
+    list_display_links = ["name"]
+    search_fields = ["name"]
 
 
 @admin.register(Species)

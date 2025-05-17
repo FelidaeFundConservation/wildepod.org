@@ -29,6 +29,7 @@ from images.models import (
     ImageQueue,
     Species,
     SpeciesName,
+    SpeciesSubgroup,
 )
 from images.models.custom_fields import get_filter_params
 from images.processors import (
@@ -930,6 +931,25 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
         species_inference_current(image, context)
 
     context["species_list"] = SpeciesName.objects.filter(~Q(name=UNKNOWN_CATEGORY), active=True)
+
+    # Separate species into groups for the widget to render
+    species_subgroups = [None] + list(SpeciesSubgroup.objects.all())
+
+    context["widget_data"] = {}
+
+    species_tags = []
+    for bbox in context["bounding_boxes"]:
+        species_tags += Species.objects.filter(bounding_box=bbox).values_list("name__name", flat=True)
+
+    for subgroup in species_subgroups:
+        group_species = [
+            {"object": species, "has_vote": species.name in species_tags}
+            for species in list(SpeciesName.objects.filter(subgroup=subgroup))
+        ]
+
+        if len(group_species) > 0:
+            context["widget_data"][subgroup] = group_species
+
     context["birds_list"] = context["species_list"].filter(is_bird=True)
 
     context["activity_list"] = ActivityType.objects.filter(category=activity_category)

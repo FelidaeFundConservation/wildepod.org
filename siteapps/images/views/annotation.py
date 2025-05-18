@@ -945,12 +945,15 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
             "name": species.name,
             "has_vote": species.name in species_tags,
             "ai_detection": species.name in image.species_ai_detections,
+            "selected": False,
         }
 
     context["widget_data"] = {
-        "person": [get_species_button_data(species) for species in species_list.filter(species_group="HUMAN")],
-        "vehicle": [get_species_button_data(species) for species in species_list.filter(species_group="VEHICLE")],
+        "person": {None: [get_species_button_data(species) for species in species_list.filter(species_group="HUMAN")]},
         "animal": {},
+        "vehicle": {
+            None: [get_species_button_data(species) for species in species_list.filter(species_group="VEHICLE")]
+        },
     }
 
     species_subgroups = [None] + list(SpeciesSubgroup.objects.all())
@@ -962,7 +965,9 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
         group_species = [get_species_button_data(species) for species in sub_species]
 
         if len(group_species) > 0:
-            context["widget_data"]["animal"][subgroup] = group_species
+            context["widget_data"]["animal"][subgroup.name if subgroup else None] = group_species
+
+    context["widget_data"] = json.dumps(context["widget_data"])
 
     context["birds_list"] = context["species_list"].filter(is_bird=True)
 

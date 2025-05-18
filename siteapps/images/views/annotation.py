@@ -1,3 +1,4 @@
+import ast
 import datetime
 import json
 import logging
@@ -931,8 +932,16 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
         species_inference_current(image, context)
 
     # Separate species into groups for the widget to render
-    context["species_list"] = SpeciesName.objects.filter(~Q(name=UNKNOWN_CATEGORY), active=True)
     species_list = SpeciesName.objects.filter(~Q(name=UNKNOWN_CATEGORY), active=True)
+
+    ai_detections = ast.literal_eval(image.species_ai_detections)
+
+    # Move the ai detections species to the top of the list
+    detection_query = Q()
+    for det in ai_detections:
+        detection_query |= Q(name__icontains=det)
+
+    context["species_list"] = list(species_list.filter(detection_query)) + list(species_list.exclude(detection_query))
 
     species_tags = []
 
@@ -968,8 +977,6 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
             context["widget_data"]["animal"][subgroup.name if subgroup else None] = group_species
 
     context["widget_data"] = json.dumps(context["widget_data"])
-
-    context["birds_list"] = context["species_list"].filter(is_bird=True)
 
     context["activity_list"] = ActivityType.objects.filter(category=activity_category)
     context["custom_annotations"] = custom_annotations

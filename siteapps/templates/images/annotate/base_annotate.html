@@ -116,13 +116,12 @@
             <div class="row text-center mt-2 mt-md-3 pt-2 pt-md-3">
                 <h3>There are no more images to annotate! Come back later!</h3>
                 <div class="col-12 col-md-10 offset-md-1 col-lg-8 offset-lg-2 mt-2 mt-md-4 pt-3">
-                {% if is_bhutan %}
-                    <img class="img-fluid rounded w-75"
-                         src="{% static 'images/tiger.jpg' %}">
-                {% else %}
-                    <img class="img-fluid rounded w-75"
-                         src="{% static 'images/puma_sleeping.jpg' %}">
-                {% endif %}
+                    {% if is_bhutan %}
+                        <img class="img-fluid rounded w-75" src="{% static 'images/tiger.jpg' %}">
+                    {% else %}
+                        <img class="img-fluid rounded w-75"
+                             src="{% static 'images/puma_sleeping.jpg' %}">
+                    {% endif %}
                 </div>
             </div>
         {% endif %}
@@ -206,33 +205,6 @@
             {% endfor %}
         ];
 
-        window.birdsList = [
-            {% for bird in birds_list %}
-            "{{ bird.name }}",
-            {% endfor %}
-        ]
-
-        window.animalList = [
-            {% for species in species_list %}
-                {% if species.species_group == "WILD" or species.species_group == "DOMESTIC" or species.species_group == "OTHER" %}
-                    "{{ species.name }}",
-                {% endif %}
-            {% endfor %}
-        ];
-
-        window.personList = [
-            {% for species in species_list %}
-                {% if species.species_group == "HUMAN" %}
-                    "{{ species.name }}",
-                {% endif %}
-            {% endfor %}
-        ];
-        window.vehicleList = [
-            {% for species in species_list %}
-                {% if species.species_group == "VEHICLE" %}"{{ species.name }}",{% endif %}
-            {% endfor %}
-        ];
-
         // Save state of hidden boxes
         window.hiddenBoxes = [];
 
@@ -246,22 +218,6 @@
             // Currently in Species only
             {% block recent_tags_handling %}
             {% endblock recent_tags_handling %}
-
-            // Add a badge in the annotation widget showing which Species have been voted on
-            let speciesVotes = [
-                {% for info in bbox_all_annotations %}
-                    {% for species in info.species.all %}
-                        "{{ species.name.name }}",
-                    {% endfor %}
-                {% endfor %}
-            ];
-
-            // Get the species detected by the model
-            let speciesDetections = [
-                {% for species in species_detections %}
-                        "{{ species }}",
-                {% endfor %}
-            ];
 
             // Set height of menu depending on image size
             let maxHeight = Math.max($(`#${'main-{{image.id}}'}`).height(), $(window).height() * 0.77);
@@ -300,7 +256,7 @@
                 }
             })
 
-            let ClassSelectorWidget = createCategoryWidget(categories, speciesVotes, speciesDetections, "{{ pipeline }}");
+            let ClassSelectorWidget = createCategoryWidget("{{ widget_data|escapejs }}", "{{ pipeline }}");
 
             // Render bbox previews for burst and grid images.
             // Can't use Annotorious to render these, as it mixes up the bbox ids of those images with the current.

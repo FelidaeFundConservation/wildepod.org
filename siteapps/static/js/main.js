@@ -70,7 +70,7 @@ function createCategoryWidget(widgetData, pipeline) {
             }
 
             let buttonHtml = `
-                <div class="${colClass} p-0 m-0 d-flex">
+                <div class="${colClass} p-0 m-0 d-flex position-relative">
                     <button class="btn ${selected} align-items-center m-1 btn-tag" data-tag="${data.name}" ${color}>
                         ${data.name}
                     </button>
@@ -103,8 +103,17 @@ function createCategoryWidget(widgetData, pipeline) {
         categoryTabsHtml = pipeline == "species" ? `
             <nav>
                 <div class="nav nav-tabs p-3" id="nav-tab" role="tablist">
-                    ${Object.keys(widgetData).map(key => {
-                        const tabSelected = (Object.keys(widgetData[key]).some(subgroup => widgetData[key][subgroup].some(item => item.name === currentClassValue))) ? "show active" : "";
+                    ${Object.entries(widgetData).map((keyValueTuple) => {
+                        const key = keyValueTuple[0]
+                        const value = keyValueTuple[1]
+
+                        const tabSelected = (
+                            !currentClassValue && value["open"])
+                            || Object.values(value["data"]).some(
+                                subgroup => subgroup["items"].some(
+                                    item => item.name === currentClassValue
+                                )
+                        ) ? "show active" : "";
                         return `
                         <a class="nav-link d-none d-sm-inline ${tabSelected}"
                             id="nav-${key}-tab"
@@ -122,15 +131,24 @@ function createCategoryWidget(widgetData, pipeline) {
             </nav>
             <nav id="nav-menu">
                 <div class="tab-content p-3">
-                  ${Object.keys(widgetData).map(key => {
-                    const tabSelected = Object.keys(widgetData[key]).some(subgroup => widgetData[key][subgroup].some(item => item.name === currentClassValue)) ? "show active" : "";
+                  ${Object.entries(widgetData).map(keyValueTuple => {
+                    const key = keyValueTuple[0]
+                    const value = keyValueTuple[1]
+                    const tabSelected = (
+                            !currentClassValue && value["open"])
+                            || Object.values(value["data"]).some(
+                                subgroup => subgroup["items"].some(
+                                    item => item.name === currentClassValue
+                                )
+                        ) ? "show active" : "";
                     return `
                     <div class="tab-pane fade p-0 text-center ${tabSelected}"
                         id="nav-${key}"
                         role="tabpanel"
-                        aria-labelledby="nav-${key}-tab">
+                        aria-labelledby="nav-${key}-tab"
+                        style="max-height: 75vh; overflow-y: auto;">
                         ${
-                            Object.entries(widgetData[key]).map(([key, values]) => {
+                            Object.entries(widgetData[key]["data"]).map(([key, values]) => {
                                 return key != "null" ? `
                                 <div class="accordion" id="${key}-accordion">
                                     <div class="accordion-item">
@@ -146,13 +164,13 @@ function createCategoryWidget(widgetData, pipeline) {
                                         </button>
                                         </h2>
                                         <div id="${key}-collapse"
-                                            class="accordion-collapse collapse"
+                                            class="accordion-collapse collapse ${values["open"] && "show"}"
                                             aria-labelledby="${key}-collapse"
                                             data-bs-parent="#${key}-accordion"
                                         >
                                         <div id="${key}-list" class="accordion-body m-2 p-2 row">
-                                            ${values.map((value) => {
-                                                return createButton(value, values.length > 3)
+                                            ${values["items"].map((value) => {
+                                                return createButton(value, values["items"].length > 3)
                                             }).join('')}
                                         </div>
                                         </div>
@@ -160,8 +178,8 @@ function createCategoryWidget(widgetData, pipeline) {
                                 </div>
                                 ` : `
                                 <div id="${key}-list" class="m-2 p-2 row">
-                                ${values.map((value) => {
-                                        return createButton(value, values.length > 3)
+                                ${values["items"].map((value) => {
+                                        return createButton(value, values["items"].length > 3)
                                     }).join('')}
                                 </div>
                                 `

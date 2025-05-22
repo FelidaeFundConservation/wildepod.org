@@ -164,7 +164,7 @@ function createCategoryWidget(widgetData, pipeline) {
                                         </button>
                                         </h2>
                                         <div id="${key}-collapse"
-                                            class="accordion-collapse collapse ${values["open"] && "show"}"
+                                            class="accordion-collapse collapse ${(values["open"] || values["items"].some(value => value['name'] === currentClassValue)) && "show"}"
                                             aria-labelledby="${key}-collapse"
                                             data-bs-parent="#${key}-accordion"
                                         >

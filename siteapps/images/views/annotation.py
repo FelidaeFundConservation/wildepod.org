@@ -1,3 +1,4 @@
+import ast
 import datetime
 import json
 import logging
@@ -29,6 +30,7 @@ from images.models import (
     ImageQueue,
     Species,
     SpeciesName,
+    SpeciesSubgroup,
 )
 from images.models.custom_fields import get_filter_params
 from images.processors import (
@@ -929,8 +931,76 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
         # Current image
         species_inference_current(image, context)
 
-    context["species_list"] = SpeciesName.objects.filter(~Q(name=UNKNOWN_CATEGORY), active=True)
-    context["birds_list"] = context["species_list"].filter(is_bird=True)
+    # Separate species into groups for the widget to render
+    species_list = SpeciesName.objects.filter(~Q(name=UNKNOWN_CATEGORY), active=True)
+
+    # Move the ai detections species to the top of the list
+    ai_detections = ast.literal_eval(image.species_ai_detections)
+    detection_query = Q()
+
+    for det in ai_detections:
+        detection_query |= Q(name__icontains=det)
+
+    context["species_list"] = list(species_list.filter(detection_query)) + list(species_list.exclude(detection_query))
+
+    species_tags = []
+
+    for bbox in context["bounding_boxes"]:
+        species_tags += Species.objects.filter(bounding_box=bbox).values_list("name__name", flat=True)
+
+    # Get the data from the name
+    def get_species_button_data(species):
+        return {
+            "name": species.name,
+            "has_vote": species.name in species_tags,
+            "ai_detection": species.name in image.species_ai_detections,
+            "selected": False,
+        }
+
+    context["widget_data"] = {
+        "person": {
+            "open": False,
+            "data": {
+                None: {
+                    "items": [
+                        get_species_button_data(species) for species in species_list.filter(species_group="HUMAN")
+                    ]
+                }
+            },
+        },
+        "animal": {"open": False, "data": {}},
+        "vehicle": {
+            "open": False,
+            "data": {
+                None: {
+                    "items": [
+                        get_species_button_data(species) for species in species_list.filter(species_group="VEHICLE")
+                    ]
+                }
+            },
+        },
+    }
+
+    species_subgroups = [None] + list(SpeciesSubgroup.objects.all())
+
+    animal_list = species_list.filter(Q(species_group="WILD") | Q(species_group="DOMESTIC"))
+
+    for subgroup in species_subgroups:
+        animal_widget = context["widget_data"]["animal"]
+
+        sub_species = list(animal_list.filter(subgroup=subgroup))
+        group_species = [get_species_button_data(species) for species in sub_species]
+
+        # Has an ai detection or recent tag, tab/accordion open by default
+        is_open = any(species["ai_detection"] for species in group_species)
+
+        if len(group_species) > 0:
+            animal_widget["data"][subgroup.name if subgroup else None] = {"open": is_open, "items": group_species}
+        if is_open:
+            # The tab should be selected too
+            animal_widget["open"] = True
+
+    context["widget_data"] = json.dumps(context["widget_data"])
 
     context["activity_list"] = ActivityType.objects.filter(category=activity_category)
     context["custom_annotations"] = custom_annotations

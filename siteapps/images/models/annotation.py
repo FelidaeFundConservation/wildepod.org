@@ -205,6 +205,20 @@ class BoundingBox(TimeStampedModel):
         verbose_name_plural = "Bounding Boxes"
 
 
+class SpeciesSubgroup(TimeStampedModel):
+    name = models.CharField("Subgroup Name", max_length=250, unique=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = (
+            "name",
+            "-created",
+        )
+        verbose_name_plural = "Species Subgroups"
+
+
 # Model to maintain different species types
 class SpeciesName(TimeStampedModel):
     name = models.CharField("Common Name", max_length=250, unique=True)
@@ -228,6 +242,8 @@ class SpeciesName(TimeStampedModel):
         null=True,
         default=None,
     )
+
+    subgroup = models.ForeignKey(SpeciesSubgroup, null=True, blank=True, on_delete=models.SET_NULL)
 
     is_bird = models.BooleanField(default=False)
 

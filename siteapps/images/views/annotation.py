@@ -984,10 +984,9 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
     species_subgroups = [None] + list(SpeciesSubgroup.objects.all())
 
     animal_list = species_list.filter(Q(species_group="WILD") | Q(species_group="DOMESTIC"))
+    animal_widget = context["widget_data"]["animal"]
 
     for subgroup in species_subgroups:
-        animal_widget = context["widget_data"]["animal"]
-
         sub_species = list(animal_list.filter(subgroup=subgroup))
         group_species = [get_species_button_data(species) for species in sub_species]
 
@@ -999,6 +998,18 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
         if is_open:
             # The tab should be selected too
             animal_widget["open"] = True
+
+    # Default open other tabs too
+    if not animal_widget["open"]:
+        human_list = list(species_list.filter(Q(species_group="HUMAN")))
+        context["widget_data"]["person"]["open"] = any(category.name in ai_detections for category in human_list)
+
+        if not context["widget_data"]["person"]["open"]:
+            vehicle_list = list(species_list.filter(Q(species_group="VEHICLE")))
+            context["widget_data"]["vehicle"]["open"] = any(category.name in ai_detections for category in vehicle_list)
+
+            if not context["widget_data"]["vehicle"]["open"]:
+                animal_widget["open"] = True
 
     context["widget_data"] = json.dumps(context["widget_data"])
 

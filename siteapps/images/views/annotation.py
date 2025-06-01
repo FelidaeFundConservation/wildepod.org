@@ -785,6 +785,15 @@ def get_precomputed_queue(queue_name, annotator, searched):
 
 
 def set_widget_data(context, image, species_list):
+    # Move the ai detections species to the top of the list
+    ai_detections = ast.literal_eval(image.species_ai_detections) if image else None
+    detection_query = Q()
+
+    for det in ai_detections:
+        detection_query |= Q(name__icontains=det)
+
+    context["species_list"] = list(species_list.filter(detection_query)) + list(species_list.exclude(detection_query))
+
     # Get the data from the name
     def get_species_button_data(species):
         return {
@@ -1005,15 +1014,6 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
 
     # Separate species into groups for the widget to render
     species_list = SpeciesName.objects.filter(~Q(name=UNKNOWN_CATEGORY), active=True)
-
-    # Move the ai detections species to the top of the list
-    ai_detections = ast.literal_eval(image.species_ai_detections) if image else None
-    detection_query = Q()
-
-    for det in ai_detections:
-        detection_query |= Q(name__icontains=det)
-
-    context["species_list"] = list(species_list.filter(detection_query)) + list(species_list.exclude(detection_query))
 
     set_widget_data(context, image, species_list)
 

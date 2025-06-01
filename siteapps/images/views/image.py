@@ -22,9 +22,10 @@ from images.models import (
     Upload,
 )
 from images.views import species_pipeline_query
-from images.views.annotation import calculate_image_luma
+from images.views.annotation import calculate_image_luma, set_widget_data
 
 UNANNOTATED_CATEGORY = "unannotated"
+UNKNOWN_CATEGORY = "unknown"
 SPECIES_PIPELINE_NAME = "Species"
 
 
@@ -59,10 +60,12 @@ class ImageDetailView(LoginRequiredMixin, DetailView):
             pass
 
         context["pipeline"] = "species"
-        context["species_list"] = SpeciesName.objects.filter(~Q(name=UNANNOTATED_CATEGORY))
+        context["species_list"] = SpeciesName.objects.filter(~Q(name=UNKNOWN_CATEGORY), active=True)
         context["birds_list"] = SpeciesName.objects.filter(is_bird=True)
         context["activity_list"] = ActivityType.objects.all()
         context["bounding_boxes"] = BoundingBox.objects.filter(image=img_obj)
+
+        set_widget_data(context, img_obj, context["species_list"])
 
         class BboxAnnotationInfo:
             def __init__(self, id, categories, species, activities):

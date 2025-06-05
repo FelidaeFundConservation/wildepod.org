@@ -786,13 +786,22 @@ def get_precomputed_queue(queue_name, annotator, searched):
 
 def set_widget_data(context, image, species_list):
     # Move the ai detections species to the top of the list
-    ai_detections = ast.literal_eval(image.species_ai_detections) if image else None
+    ai_detections = None
+    if image and image.species_ai_detections:
+        try:
+            # Try to safely evaluate the string as a Python literal
+            ai_detections = ast.literal_eval(image.species_ai_detections)
+        except Exception as e:
+            logging.error(f"Failed to parse species_ai_detections for image {image.id}: {e}")
+            ai_detections = None
+
     detection_query = Q()
-
-    for det in ai_detections:
-        detection_query |= Q(name__icontains=det)
-
-    context["species_list"] = list(species_list.filter(detection_query)) + list(species_list.exclude(detection_query))
+    if ai_detections:
+        for det in ai_detections:
+            detection_query |= Q(name__icontains=det)
+        context["species_list"] = list(species_list.filter(detection_query)) + list(species_list.exclude(detection_query))
+    else:
+        context["species_list"] = list(species_list)
 
     # Get the data from the name
     def get_species_button_data(species):

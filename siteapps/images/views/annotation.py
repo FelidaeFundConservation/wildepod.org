@@ -11,7 +11,8 @@ from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import connections
-from django.db.models import BooleanField, Case, CharField, Count, Exists, F, OuterRef, Q, Subquery, Value, When
+from django.db.models import (BooleanField, Case, CharField, Count, Exists, F,
+                              OuterRef, Q, Subquery, Value, When)
 from django.http.response import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -19,26 +20,14 @@ from django.utils import timezone
 from django.views.generic import FormView
 from django.views.generic.base import TemplateView, View
 from images.forms import AnnotationForm
-from images.models import (
-    Activity,
-    ActivityType,
-    AnnotationCounter,
-    Annotator,
-    BoundingBox,
-    Category,
-    Image,
-    ImageQueue,
-    Species,
-    SpeciesName,
-    SpeciesSubgroup,
-)
+from images.models import (Activity, ActivityType, AnnotationCounter,
+                           Annotator, BoundingBox, Category, Image, ImageQueue,
+                           Species, SpeciesName, SpeciesSubgroup)
 from images.models.custom_fields import get_filter_params
-from images.processors import (
-    has_bbox_above_confidence_threshold,
-    process_activity_annotations,
-    process_species_annotations,
-    run_model_inference,
-)
+from images.processors import (has_bbox_above_confidence_threshold,
+                               process_activity_annotations,
+                               process_species_annotations,
+                               run_model_inference)
 from PIL import Image as PILImage
 
 # TODO: There might be some duplicate constants between here and the settings. Should probably move these to the base settings file.
@@ -786,21 +775,28 @@ def get_precomputed_queue(queue_name, annotator, searched):
 
 def set_widget_data(context, image, species_list):
     # Move the ai detections species to the top of the list
-    ai_detections = ast.literal_eval(image.species_ai_detections) if image else []
+    if image and image.species_ai_detections:
+        try:
+            # Try to safely evaluate the string as a Python literal
+            ai_detections = ast.literal_eval(image.species_ai_detections)
+        except Exception as e:
+            logging.error(f"Failed to parse species_ai_detections for image {image.id}: {e}")
+            ai_detections = []
 
     detection_query = Q()
-
-    for det in ai_detections:
-        detection_query |= Q(name__icontains=det)
-
-    context["species_list"] = list(species_list.filter(detection_query)) + list(species_list.exclude(detection_query))
+    if ai_detections:
+        for det in ai_detections:
+            detection_query |= Q(name__icontains=det)
+        context["species_list"] = list(species_list.filter(detection_query)) + list(species_list.exclude(detection_query))
+    else:
+        context["species_list"] = list(species_list)
 
     # Get the data from the name
     def get_species_button_data(species):
         return {
             "name": species.name,
             "has_vote": species.name in species_tags,
-            "ai_detection": species.name in image.species_ai_detections,
+            "ai_detection": image.species_ai_detections is not None and species.name in image.species_ai_detections,
             "selected": False,
         }
 
@@ -854,11 +850,11 @@ def set_widget_data(context, image, species_list):
     # Default open other tabs too
     if not animal_widget["open"]:
         human_list = list(species_list.filter(Q(species_group="HUMAN")))
-        context["widget_data"]["person"]["open"] = any(category.name in ai_detections for category in human_list)
+        context["widget_data"]["person"]["open"] = ai_detections is not None and any(category.name in ai_detections for category in human_list)
 
         if not context["widget_data"]["person"]["open"]:
             vehicle_list = list(species_list.filter(Q(species_group="VEHICLE")))
-            context["widget_data"]["vehicle"]["open"] = any(category.name in ai_detections for category in vehicle_list)
+            context["widget_data"]["vehicle"]["open"] = ai_detections is not None and any(category.name in ai_detections for category in vehicle_list)
 
             if not context["widget_data"]["vehicle"]["open"]:
                 animal_widget["open"] = True

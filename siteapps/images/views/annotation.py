@@ -786,7 +786,8 @@ def get_precomputed_queue(queue_name, annotator, searched):
 
 def set_widget_data(context, image, species_list):
     # Move the ai detections species to the top of the list
-    ai_detections = ast.literal_eval(image.species_ai_detections) if image else None
+    ai_detections = ast.literal_eval(image.species_ai_detections) if image else []
+
     detection_query = Q()
 
     for det in ai_detections:

@@ -149,26 +149,29 @@ function createCategoryWidget(widgetData, pipeline) {
                         style="max-height: 75vh; overflow-y: auto;">
                         ${
                             Object.entries(widgetData[key]["data"]).map(([key, values]) => {
+                                const hexKey = "C" + [...key]
+                                    .map(char => char.charCodeAt(0).toString(16).padStart(2, '0'))
+                                    .join('');
                                 return key != "null" ? `
-                                <div class="accordion" id="${key}-accordion">
+                                <div class="accordion" id="${hexKey}-accordion">
                                     <div class="accordion-item">
-                                        <h2 class="accordion-header" id="${key}-header">
+                                        <h2 class="accordion-header" id="${hexKey}-header">
                                         <button class="accordion-button collapsed"
                                                 type="button"
                                                 data-bs-toggle="collapse"
-                                                data-bs-target="#${key}-collapse"
+                                                data-bs-target="#${hexKey}-collapse"
                                                 aria-expanded="false"
-                                                aria-controls="${key}-collapse"
+                                                aria-controls="${hexKey}-collapse"
                                         >
                                             ${key}
                                         </button>
                                         </h2>
-                                        <div id="${key}-collapse"
+                                        <div id="${hexKey}-collapse"
                                             class="accordion-collapse collapse ${(values["open"] || values["items"].some(value => value['name'] === currentClassValue)) && "show"}"
-                                            aria-labelledby="${key}-collapse"
-                                            data-bs-parent="#${key}-accordion"
+                                            aria-labelledby="${hexKey}-collapse"
+                                            data-bs-parent="#${hexKey}-accordion"
                                         >
-                                        <div id="${key}-list" class="accordion-body m-2 p-2 row">
+                                        <div id="${hexKey}-list" class="accordion-body m-2 p-2 row">
                                             ${values["items"].map((value) => {
                                                 return createButton(value, values["items"].length > 3)
                                             }).join('')}
@@ -177,7 +180,7 @@ function createCategoryWidget(widgetData, pipeline) {
                                     </div>
                                 </div>
                                 ` : `
-                                <div id="${key}-list" class="m-2 p-2 row">
+                                <div id="${hexKey}-list" class="m-2 p-2 row">
                                 ${values["items"].map((value) => {
                                         return createButton(value, values["items"].length > 3)
                                     }).join('')}

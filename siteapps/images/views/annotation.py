@@ -777,6 +777,7 @@ def get_precomputed_queue(queue_name, annotator, searched):
 def set_widget_data(context, image, species_list):
     # Move the ai detections species to the top of the list
     ai_detections = []
+
     if image and image.species_ai_detections:
         try:
             # Try to safely evaluate the string as a Python literal

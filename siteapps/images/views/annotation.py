@@ -309,16 +309,17 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
     # Filter out images with possibly no species AI detections or unidentifiable
     # i.e. potentially erroneous boxes from MegaDetector, or "harder" images to annotate are excluded, so the "easy" ones remain
 
-    images_with_detections = images.exclude(species_ai_detections__in=["[]", "['Unknown']"])
+    if images.exists():
+        images_with_detections = images.exclude(species_ai_detections__in=["[]", "['Unknown']"])
 
-    # Exclude non-animals if annotator's option is active
-    if annotator.prioritize_tagging_animals and annotator.prioritize_tagging_animals > timezone.now():
-        images_with_detections = images_with_detections.exclude(
-            Q(species_ai_detections__icontains="Human") | Q(species_ai_detections__icontains="Vehicle")
-        )
+        # Exclude non-animals if annotator's option is active
+        if annotator.prioritize_tagging_animals and annotator.prioritize_tagging_animals > timezone.now():
+            images_with_detections = images_with_detections.exclude(
+                Q(species_ai_detections__icontains="Human") | Q(species_ai_detections__icontains="Vehicle")
+            )
 
-    if images_with_detections.exists():
-        images = images_with_detections
+        if images_with_detections.exists():
+            images = images_with_detections
 
     # If still no images, just use the original queryset (i.e. only "hard" images remain to be annotated)
 
@@ -775,10 +776,14 @@ def get_precomputed_queue(queue_name, annotator, searched):
 
 def set_widget_data(context, image, species_list):
     # Move the ai detections species to the top of the list
+    ai_detections = []
+
     if image and image.species_ai_detections:
         try:
             # Try to safely evaluate the string as a Python literal
             ai_detections = ast.literal_eval(image.species_ai_detections)
+            if not isinstance(ai_detections, list):
+                ai_detections = []
         except Exception as e:
             logging.error(f"Failed to parse species_ai_detections for image {image.id}: {e}")
             ai_detections = []
@@ -796,7 +801,7 @@ def set_widget_data(context, image, species_list):
         return {
             "name": species.name,
             "has_vote": species.name in species_tags,
-            "ai_detection": image.species_ai_detections is not None and species.name in image.species_ai_detections,
+            "ai_detection": image is not None and image.species_ai_detections is not None and species.name in image.species_ai_detections,
             "selected": False,
         }
 
@@ -1042,6 +1047,10 @@ def species_inference_current(image, context):
     """
     from ast import literal_eval
 
+    if image is None:
+        context["species_detections"] = []
+        return
+
     # Check if current image is already inferred for species
     if image.species_ai_detections is not None:
         logging.info("Cached species detections found.")
@@ -1055,6 +1064,7 @@ def species_inference_current(image, context):
         context["species_detections"] = literal_eval(str(image.species_ai_detections))
     except Exception as e:
         logging.error(f"Error reading species detections: {e}")
+        context["species_detections"] = []
 
 
 def auto_flag_for_staff(image):

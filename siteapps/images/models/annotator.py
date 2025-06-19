@@ -49,7 +49,7 @@ class Annotator(TimeStampedModel):
     # Type of the annotator. Either a human or a bot
     type = models.CharField(max_length=10, choices=[("human", "Human"), ("bot", "Bot")])
     # Fields to save an ML model or a user
-    bot = models.ForeignKey(Bot, on_delete=models.PROTECT, blank=True, null=True)
+    bot = models.ForeignKey(Bot, on_delete=models.PROTECT, blank=True, null=True, unique=True)
     human = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, blank=True, null=True)
 
     # The annotator's annotation count on volunteer engagement page current up to this date

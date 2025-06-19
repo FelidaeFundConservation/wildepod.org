@@ -39,7 +39,7 @@ http = requests.Session()
 http.mount("https://", adapter)
 http.mount("http://", adapter)
 
-MEGADETECTOR_LABEL_MAP = {"1": "animal", "2": "person", "3": "vehicle"}
+# MEGADETECTOR_LABEL_MAP = {"1": "animal", "2": "person", "3": "vehicle"}
 
 
 def has_bbox_above_confidence_threshold(image):
@@ -89,17 +89,19 @@ def run_model_inference(image: Image, species: bool = False):
     # TODO: Handle error or Rollback on failure
     # Run MegaDetector on each image and create the relevant annotation objects
     # TODO: Probably a better way to handle this. Hardcoded for now. Might not even need a model/record for this
+    bot_version = "v6-yolov9c"
+
     try:
-        bot = Bot.objects.get(name="MegaDetector", version="v5a.0.0")
-        logging.info("Megadetector v5a.0.0 object detection bot already exists. Successfully retrieved.")
+        bot = Bot.objects.get(name="MegaDetector", version=bot_version)
+        logging.info("Megadetector object detection bot already exists. Successfully retrieved.")
     except Bot.DoesNotExist:
         bot, created = Bot.objects.create(
             name="MegaDetector",
-            version="v5a.0.0",
+            version=bot_version,
             task_type="Object Detection",
-            model_api_url=f"{settings.MEGADETECTOR_URL}/annotate/",
+            model_api_url=f"{settings.MEGADETECTOR_URL}",
         )
-        logging.info("Megadetector v5a.0.0 object detection bot successfully created")
+        logging.info("Megadetector object detection bot successfully created")
 
     annotator, created = Annotator.objects.get_or_create(type="bot", bot=bot)
     if created:
@@ -169,7 +171,7 @@ def add_bounding_boxes(image: Image, image_url: str, bot: Bot, id_token: str, an
     # There is a really high timeout here since the cloud function takes a while to start on first request
     # response = http.post(bot.model_api_url, json={"image": image_url, "megadetector_version": bot.version}, timeout=300)
     if response.status_code == 200:
-        result = response.json()["annotation"]
+        result = response.json()
         logging.info(f"""MegaDetector cloud run call successful. {len(result["detections"])} objects detected""")
     else:
         raise Exception(f"MegaDetector cloud run failed with status code: {response.status_code}")
@@ -181,26 +183,26 @@ def add_bounding_boxes(image: Image, image_url: str, bot: Bot, id_token: str, an
         # Create a new annotation object
         bounding_box, created = BoundingBox.objects.get_or_create(
             image=image,
-            confidence=detection["conf"],
-            x=detection["bbox"][0],
-            y=detection["bbox"][1],
-            w=detection["bbox"][2],
-            h=detection["bbox"][3],
+            confidence=detection["confidence"],
+            x=detection["x"],
+            y=detection["y"],
+            w=detection["w"],
+            h=detection["h"],
             created_by=annotator,
             confidence_threshold=bot.threshold,
         )
         if created:
             logging.info(
-                f"""Successfully created bounding box for object #{i+1} - {detection["category"]} (confidence - {detection["conf"]})"""
+                f"""Successfully created bounding box for object #{i+1} - {detection["category"]} (confidence - {detection["confidence"]})"""
             )
         else:
             logging.info("Bounding box already exists. Successfully retrieved.")
         # Next, create a category annotation for it
         category, _ = Category.objects.get_or_create(
             bounding_box=bounding_box,
-            name=MEGADETECTOR_LABEL_MAP[detection["category"]],
+            name=detection["category"],
             created_by=annotator,
-            confidence=detection["conf"],
+            confidence=detection["confidence"],
         )
 
     # Set bbox-related pre-computed flags
@@ -225,11 +227,15 @@ def process_image(image: Image):
 
             # Then, detect species present in the image
             if not image.species_ai_detections:
-                image.species_ai_detections = run_model_inference(image, species=True)
+                # image.species_ai_detections = run_model_inference(image, species=True)
+                pass
 
             image.processed = True
             image.use_precomputed_flags = True
-            image.has_cats = "Puma" in image.species_ai_detections or "Bobcat" in image.species_ai_detections
+            image.has_cats = bool(
+                image.species_ai_detections
+                and ("Puma" in image.species_ai_detections or "Bobcat" in image.species_ai_detections)
+            )
             image.save()
         except Exception as e:
             logging.error(f"Error adding bounding boxes to image: {e}")

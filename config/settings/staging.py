@@ -99,13 +99,13 @@ EMAIL_USE_TLS = True
 # Logging into Google Cloud
 
 # Instantiates a client
-#google_logging_client = google.cloud.logging.Client(project=env("GOOGLE_CLOUD_PROJECT"))
+# google_logging_client = google.cloud.logging.Client(project=env("GOOGLE_CLOUD_PROJECT"))
 
 # Retrieves a Cloud Logging handler based on the environment
 # you're running in and integrates the handler with the
 # Python logging module. By default this captures all logs
 # at INFO level and higher
-#google_logging_client.setup_logging()
+# google_logging_client.setup_logging()
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -124,10 +124,10 @@ LOGGING = {
 # EXTERNAL APPS CONFIG
 # ------------------------------------------------------------------------------
 # Dropbox token for local mode
-DROPBOX_APP_KEY = env("DROPBOX_APP_KEY_STAGING")
-DROPBOX_APP_SECRET = env("DROPBOX_APP_SECRET_STAGING")
-DROPBOX_REFRESH_TOKEN = env("DROPBOX_REFRESH_TOKEN_STAGING")
-DROPBOX_URL_PREFIX = "https://www.dropbox.com/work/WildePod%20Cloud%20DB/Apps/wildepod_staging"
+DROPBOX_APP_KEY = env("DROPBOX_APP_KEY_PROD")
+DROPBOX_APP_SECRET = env("DROPBOX_APP_SECRET_PROD")
+DROPBOX_REFRESH_TOKEN = env("DROPBOX_REFRESH_TOKEN_PROD")
+DROPBOX_URL_PREFIX = "https://www.dropbox.com/work/WildePod%20Cloud%20DB/Apps/wildepod_prod"
 
 
 # CUSTOM VARIABLES

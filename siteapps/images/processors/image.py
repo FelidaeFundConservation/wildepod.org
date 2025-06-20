@@ -227,8 +227,7 @@ def process_image(image: Image):
 
             # Then, detect species present in the image
             if not image.species_ai_detections:
-                # image.species_ai_detections = run_model_inference(image, species=True)
-                pass
+                image.species_ai_detections = run_model_inference(image, species=True)
 
             image.processed = True
             image.use_precomputed_flags = True

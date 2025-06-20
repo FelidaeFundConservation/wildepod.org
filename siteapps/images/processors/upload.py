@@ -27,7 +27,7 @@ logging.getLogger("dropbox").setLevel(logging.WARNING)
 # A workaround might be to get all file metadata separately with fewer threads
 # and then hit cloud run with more threads.
 # For now, this isn't critical since the processing is largely async
-MAX_THREADS_FOR_IMAGE_PROCESSING = 10
+MAX_THREADS_FOR_IMAGE_PROCESSING = 70
 MAX_THREADS_FOR_DROPBOX_API = 15
 
 

@@ -24,6 +24,7 @@ from .views import (
     SpeciesAnnotationProcessorView,
     TimeCorrectionCreateView,
     TimeCorrectionStatusView,
+    UploadClientProcessingView,
     UploadCompleteView,
     UploadCreateView,
     UploadDeleteView,
@@ -68,8 +69,8 @@ urlpatterns = [
         name="delete_upload",
     ),
     path(
-        "uploads/process/",
-        ProcessingQueueStreamView.as_view(),
+        "upload/<uuid:pk>/process",
+        UploadClientProcessingView.as_view(),
         name="client_process_upload",
     ),
     # path("upload/<uuid:pk>/export/", UploadExportView.as_view(), name="export_upload"),

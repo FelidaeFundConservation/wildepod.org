@@ -286,6 +286,9 @@
                                             <a href="{{ dropbox_prefix }}{{ object.dropbox_folder_path }}"
                                                target="_blank"
                                                class="btn btn-light w-100 btn-sm"><i class="bi bi-dropbox"></i>&nbsp;&nbsp;Dropbox</a>
+                                            <a href="{% url 'images:client_process_upload' object.id %}"
+                                               target="_blank"
+                                               class="btn btn-light w-100 btn-sm my-2"><i class="bi bi-hammer"></i>&nbsp;&nbsp;Process With Your Computer</a>
                                             <a href="{% url 'images:view_upload' object.id %}"
                                                id="view-{{ object.id }}"
                                                class="d-none">

@@ -4,6 +4,7 @@ import threading
 from datetime import datetime, timedelta
 
 import pytz
+import requests
 from braces.views import StaffuserRequiredMixin
 from dateutil.relativedelta import relativedelta
 from django import forms
@@ -12,10 +13,12 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.paginator import Paginator
 from django.db.models import Q
+from django.http import HttpResponse, StreamingHttpResponse
 from django.http.response import JsonResponse
 from django.urls import reverse
 from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
 from django.views.generic.base import TemplateView, View
+from google.cloud import storage
 from images.forms import TimeCorrectionForm, UploadCompleteForm, UploadForm, get_daylight_savings_date
 from images.models import Annotator, BoundingBox, Image, TimeCorrection, Upload
 from images.processors import clone_data_sheet, process_upload, setup_dropbox_paths
@@ -124,6 +127,24 @@ class UploadClientProcessingView(LoginRequiredMixin, TemplateView):
         context["unprocessed_images"] = Image.objects.filter(upload__id=upload_id, processed=False)
 
         return context
+
+
+class GetMegadetectorModelView(LoginRequiredMixin, View):
+    login_url = settings.LOGIN_URL
+
+    def get(self, request, *args, **kwargs):
+
+        try:
+            storage_client = storage.Client()
+            bucket = storage_client.bucket("wildepod_models")
+            blob = bucket.blob("MDV6-yolov9-c.onnx")
+
+            # Download the whole blob content as bytes
+            model_bytes = blob.download_as_bytes()
+
+            return HttpResponse(model_bytes, content_type="application/octet-stream")
+        except Exception as e:
+            return HttpResponse(f"Error fetching model: {e}", status=500)
 
 
 def filter_uploads(context, self):

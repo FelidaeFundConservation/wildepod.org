@@ -214,10 +214,6 @@ def add_bounding_boxes(image: Image, image_url: str, bot: Bot, id_token: str, an
 # Function to process an image
 def process_image(image: Image):
     """Function to process an image and create relevant metadata"""
-    # First, add a thumbnail to the image object if it doesn't already exist
-    if not image.thumbnail_gcloud_path:
-        add_thumbnail(image)
-
     if image.thumbnail_gcloud_path:
         try:
             # Next, add bounding boxes to the image object

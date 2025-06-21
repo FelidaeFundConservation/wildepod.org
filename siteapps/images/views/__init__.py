@@ -25,6 +25,7 @@ from .search_images import SearchImagesView
 from .upload import (  # UploadExportView,
     ApplyTimeCorrectionView,
     FixUploadSetsView,
+    GetMegadetectorModelView,
     ModifyUploadSetImagesView,
     PreviewTimeCorrectionsView,
     TimeCorrectionCreateView,

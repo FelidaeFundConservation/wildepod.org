@@ -17,7 +17,8 @@
                     <br />
                     <text>There are <b>{{ unprocessed_images.count }} </b> images to be processed.</text>
                     <div>
-                        <button class="btn btn-primary p-1 mt-4 w-100">Begin Processing</button>
+                        <button class="btn btn-primary p-1 mt-4 w-100"
+                                onclick="getMegadetectorModel()">Begin Processing</button>
                     </div>
                 </div>
             </div>
@@ -29,17 +30,103 @@
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
           rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/onnxruntime-web/1.10.0/ort.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/onnxruntime-web/1.22.0/ort.min.js"
+            integrity="sha512-at7pWj/BAyQT89+V/9BiuAa/WeHjsf87fLwrcgD+uzlgsvM8/kgKOgHV/xxzcWiB98XvSTezWc0bgKjCqZwjGw=="
+            crossorigin="anonymous"
+            referrerpolicy="no-referrer"></script>
     <script>
-        async function runONNX() {
-            const modelUrl = 'https://storage.googleapis.com/wildepod_models/MDV6-yolov9-c.onnx';
+        let db;
 
-            const session = await ort.InferenceSession.create(modelUrl, {
-                executionProviders: ['webgl'],
-            });
+        function openDB() {
+            const request = window.indexedDB.open("models", 1);
+
+             request.onerror = (event) => {
+               console.error("IndexedDB permissions denied.");
+            };
+
+             request.onsuccess = (event) => {
+               db = event.target.result;
+             };
+
+             request.onupgradeneeded = (event) => {
+               db = event.target.result;
+               if (!db.objectStoreNames.contains('models')) {
+                 db.createObjectStore('models');
+               }
+             };
+        } (openDB())
+
+       async function loadModel(key) {
+          return new Promise((resolve, reject) => {
+            const tx = db.transaction('models', 'readonly');
+            const store = tx.objectStore('models');
+            const request = store.get(key);
+
+            request.onsuccess = async () => {
+                const result = request.result;
+
+                if (!result) {
+                    reject('Model not found in IndexedDB');
+                    return;
+                }
+
+                console.log("Model loaded from IndexedDB.")
+
+                if (result instanceof Blob) {
+                    const buffer = await result.arrayBuffer();
+                    resolve(buffer);
+                } else {
+                    resolve(result);
+                }
+            };
+
+            request.onerror = () => reject(request.error);
+          });
+       }
+
+        async function storeModel(key, buffer) {
+              return new Promise((resolve, reject) => {
+                const tx = db.transaction('models', 'readwrite');
+                const store = tx.objectStore('models');
+
+                const blob = new Blob([buffer], { type: 'application/octet-stream' });
+                const request = store.put(blob, key);
+
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+              });
         }
 
-        runONNX()
+        async function getMegadetectorModel() {
+            let megadetector
 
+            try {
+                megadetector = await loadModel("megadetector")
+            } catch {  }
+
+            if (!megadetector) {
+                megadetector = await new Promise((resolve, reject) => {
+                    $.ajax({
+                        url: "{% url 'images:get_megadetector_model' %}",
+                        method: "GET",
+                        xhrFields: {
+                            responseType: "arraybuffer"
+                        },
+                        success: function (data) {
+                            storeModel("megadetector", data)
+                            resolve(data);
+                        },
+                        error: function (xhr, status, error) {
+                            reject(`Failed to fetch model: ${status}, ${error}`);
+                        }
+                    });
+                })
+            }
+
+            const session = await ort.InferenceSession.create(megadetector, {
+                executionProviders: ['webgpu', 'webgl', 'cuda', 'wasm'],
+                graphOptimizationLevel: 'all'
+            });
+        }
     </script>
 {% endblock footer_includes %}

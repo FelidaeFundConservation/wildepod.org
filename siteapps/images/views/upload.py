@@ -111,6 +111,21 @@ class UploadDeleteView(LoginRequiredMixin, View):
         return JsonResponse({"success": success, "reason": reason})
 
 
+class UploadClientProcessingView(LoginRequiredMixin, TemplateView):
+    login_url = settings.LOGIN_URL
+    template_name = "images/upload/client_processing.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        upload_id = self.kwargs["pk"]
+        context["upload"] = Upload.objects.get(id=upload_id)
+
+        context["unprocessed_images"] = Image.objects.filter(upload__id=upload_id, processed=False)
+
+        return context
+
+
 def filter_uploads(context, self):
     context["macrosites"] = MacroSite.objects.all()
     context["microsites"] = MicroSite.objects.all()

@@ -14,7 +14,13 @@ from .annotation import (
     species_pipeline_query,
 )
 from .check_email import CheckDropbox2FAEmailView
-from .image import CreatePrecomputedQueueView, ImageDetailView, PrecomputeImageQueuesView, SetImageQueuePartitionView
+from .image import (
+    CreatePrecomputedQueueView,
+    ImageDetailView,
+    PrecomputeImageQueuesView,
+    ProcessingQueueStreamView,
+    SetImageQueuePartitionView,
+)
 from .search_images import SearchImagesView
 from .upload import (  # UploadExportView,
     ApplyTimeCorrectionView,

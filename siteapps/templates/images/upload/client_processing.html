@@ -15,7 +15,7 @@
                     <text>Using your computer's resources for processing saves time and cost for Felidae.</text>
                     <br />
                     <br />
-                    <text>There are <b>{{ unprocessed_images.count }} </b> images to be processed.</text>
+                    <text>There are <b><span>{{ unprocessed_images|length }}</span></b> images to be processed.</text>
                     <div>
                         <button class="btn btn-primary p-1 mt-4 w-100"
                                 onclick="runMegadetectorModel()">Begin Processing</button>
@@ -38,7 +38,7 @@
         let db;
 
         let images = [
-            {% for image in unprocessed_images %}`{{ image.thumbnail_gcloud_path }}`,{% endfor %}
+            {% for url in unprocessed_images %}`{{ url }}`,{% endfor %}
         ]
 
         function openDB() {
@@ -101,35 +101,24 @@
               });
         }
 
-        function loadImageToTensor(url, modelInputShape) {
+        function fetchImageTensor(imageUrl) {
           return new Promise((resolve, reject) => {
-            const img = new Image();
-            img.crossOrigin = "anonymous";
-
-            img.onload = () => {
-              const [batch, channels, width, height] = modelInputShape; // e.g., [1, 3, 640, 640]
-              const canvas = document.createElement('canvas');
-              canvas.width = width;
-              canvas.height = height;
-
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(img, 0, 0, width, height);
-
-              const imageData = ctx.getImageData(0, 0, width, height).data;
-              const float32Data = new Float32Array(channels * width * height);
-
-              for (let i = 0; i < width * height; i++) {
-                float32Data[i] = imageData[i * 4] / 255.0;
-                float32Data[i + width * height] = imageData[i * 4 + 1] / 255.0;
-                float32Data[i + 2 * width * height] = imageData[i * 4 + 2] / 255.0;
+            $.ajax({
+              url: "{% url 'images:get_img_tensor' %}",
+              method: "GET",
+              data: { url: imageUrl }, // Add query parameter ?url=...
+              xhrFields: {
+                responseType: "arraybuffer"
+              },
+              success: function (data) {
+                // Convert the raw bytes to a Float32Array and resolve
+                const tensor = new ort.Tensor("float32", new Float32Array(data), [1, 3, 640, 640]);
+                resolve(tensor);
+              },
+              error: function (xhr, status, error) {
+                reject(`Failed to fetch image tensor: ${status}, ${error}`);
               }
-
-              const inputTensor = new ort.Tensor("float32", float32Data, [1, 3, width, height]);
-              resolve(inputTensor);
-            };
-
-            img.onerror = () => reject("Failed to load image.");
-            img.src = url;
+            });
           });
         }
 
@@ -165,7 +154,15 @@
             });
 
             for (let imgUrl of images) {
-                console.log(loadImageToTensor(imgUrl, [1, 3, 640, 640]))
+                const inputTensor = await fetchImageTensor(imgUrl)
+
+                const inputName = session.inputNames[0];
+
+                const feeds = {};
+                feeds[inputName] = inputTensor;
+
+                const results = await session.run(feeds);
+                console.log(console.log(Object.keys(results)))
             }
         }
     </script>

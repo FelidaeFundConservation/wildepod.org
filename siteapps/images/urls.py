@@ -11,6 +11,7 @@ from .views import (
     CustomAnnotationView,
     DeleteAnnotationView,
     FixUploadSetsView,
+    GetImageTensorView,
     GetMegadetectorModelView,
     GetRecentTagsView,
     ImageDetailView,
@@ -73,6 +74,11 @@ urlpatterns = [
         "upload/<uuid:pk>/process",
         UploadClientProcessingView.as_view(),
         name="client_process_upload",
+    ),
+    path(
+        "upload/get_img_tensor",
+        GetImageTensorView.as_view(),
+        name="get_img_tensor",
     ),
     path(
         "models/megadetector",

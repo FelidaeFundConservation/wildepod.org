@@ -189,7 +189,9 @@ def get_metadata_with_retry(preretrieved_metadata, entry, max_retries=10, delay=
     return None
 
 
-def process_dropbox_file(upload: Upload, entry: dropbox.files.FileMetadata, preretrieved_metadata: dict):
+def process_dropbox_file(
+    upload: Upload, entry: dropbox.files.FileMetadata, preretrieved_metadata: dict, clientside: bool = False
+):
     """Process each file in the dropbox directory."""
     # By default, processed return True. This is to ensure that non-image files don't affect upload status
     processed = True
@@ -248,7 +250,7 @@ def process_dropbox_file(upload: Upload, entry: dropbox.files.FileMetadata, prer
                     return True
 
                 # Skip cloud function calls if using client resources
-                if not upload.use_client_resources:
+                if not clientside:
                     processed = process_image(img_obj)
                 else:
                     logging.info(
@@ -266,7 +268,7 @@ def process_dropbox_file(upload: Upload, entry: dropbox.files.FileMetadata, prer
 # & processing image objects retrieved.
 
 
-def process_upload(upload_id: uuid.UUID):
+def process_upload(upload_id: uuid.UUID, clientside: bool = False):
     """Function to process a dropbox upload.
     This function creates image objects corresponding to the files in the dropbox directory
     """
@@ -342,6 +344,7 @@ def process_upload(upload_id: uuid.UUID):
                 upload=upload,
                 entry=entry,
                 preretrieved_metadata=preretrieved_metadata,
+                clientside=clientside,
             )
             for entry in entries
         ]

@@ -5,6 +5,7 @@ from urllib.parse import quote
 import dropbox
 from django.conf import settings
 from django.db import models
+from django.db.models import Q
 from locations.models import CameraStation
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
@@ -163,3 +164,9 @@ class Upload(TimeStampedModel):
         #     models.Index(fields=['camera_station',]),
         #     models.Index(fields=['priority',])
         # ]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=["dropbox_content_hash"], condition=Q(deleted=False), name="unique_active_dropbox_hash"
+            )
+        ]

@@ -217,7 +217,7 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             filterset &= Q(upload__camera_station__in=camera_stations)
 
         # Query Images based on the filter criteria
-        results = Image.objects.filter(filterset)
+        results = Image.objects.filter(filterset).distinct()
 
         # Apply AND filter method
         if search_type == "AND":
@@ -233,6 +233,6 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                 "upload__camera_station__micro_site__macro_site__name",
                 "upload__camera_station__station_id",
                 "thumbnail_gcloud_path",
-            )
+            ).distinct()
 
         return JsonResponse({"results": list(results)})

@@ -3,7 +3,7 @@ from datetime import datetime
 
 from django.conf import settings
 from django.db import models
-from django.db.models import Count
+from django.db.models import Count, Q
 from locations.models import CameraStation
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
@@ -63,7 +63,7 @@ class Image(TimeStampedModel):
     dropbox_file_path_display = models.TextField()
     # Dropbox's 64 character content hash. This can be used for deduplication and offsets the need to compute a local content hash
     # https://www.dropbox.com/developers/reference/content-hash
-    dropbox_content_hash = models.CharField(max_length=100, db_index=True, unique=True)
+    dropbox_content_hash = models.CharField(max_length=100, db_index=True)
     # Dropbox file id
     dropbox_file_id = models.CharField(max_length=50)
     # Dropbox share url - This might be temporary if thumbnails are saved on google storage instead
@@ -136,6 +136,9 @@ class Image(TimeStampedModel):
 
     # Additional field to support incremental migration to the new precomputed flags
     use_precomputed_flags = models.BooleanField(default=False)
+
+    # Mirrors the same field in Upload to allow conditional uniqueness constraint. Shouldn't be directly modified.
+    deleted = models.BooleanField(default=False)
 
     # Custom manager
     objects = ImageManager()
@@ -239,6 +242,12 @@ class Image(TimeStampedModel):
         # indexes = [
         #     models.Index(fields=['upload',])
         # ]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=["dropbox_content_hash"], condition=Q(deleted=False), name="unique_active_dropbox_hash"
+            )
+        ]
 
 
 # A precomputed batch of images to annotate

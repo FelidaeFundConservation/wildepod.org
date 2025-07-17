@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from django.db import IntegrityError, transaction
 from django.test import Client, TestCase
 from django.urls import reverse
 from images.models import (
@@ -63,13 +64,13 @@ def create_test_upload_object(self):
     )
 
 
-def create_test_image_object(test_upload_object):
+def create_test_image_object(test_upload_object, content_hash: str):
     return Image.objects.create(
         upload=test_upload_object,
         dropbox_file_name="test_dropbox_file_name",
         dropbox_file_path="test_dropbox_file_path",
         dropbox_file_path_display="test_dropbox_file_path_display",
-        dropbox_content_hash="test_dropbox_content_hash",
+        dropbox_content_hash=content_hash if content_hash else "test_dropbox_content_hash",
         dropbox_file_id="test_dropbox_file_id",
         file_size=0,
     )
@@ -699,3 +700,39 @@ class SkipIneligibleImagesTestCase(AnnotationFlagsTestCase):
         result = skip_ineligible_images(queue_name="AnnotateSpeciesQueue", queue=queue, annotator=self.annotator)
 
         self.assertEqual(self.test_image.id, result.id)
+
+
+class ImageUniquenessTestCase(TestCase):
+    def setUp(self):
+        user, email, password = create_test_user_object("Justin")
+        self.user = user
+        self.upload = create_test_upload_object(self)
+
+    def test_image_not_deleted_enforces_uniqueness(self):
+        create_test_image_object(self.upload, content_hash="duplicate")
+
+        with transaction.atomic(), self.assertRaises(IntegrityError):
+            create_test_image_object(self.upload, content_hash="duplicate")
+
+        create_test_image_object(self.upload, content_hash="okay")
+
+    def test_deleted_image_bypasses_uniqueness(self):
+        image = create_test_image_object(self.upload, content_hash="duplicate")
+
+        # Make sure the signal updates the image field
+        self.assertFalse(image.deleted)
+
+        image.upload.deleted = True
+        image.upload.save()
+
+        image = Image.objects.get(id=image.id)
+
+        self.assertTrue(image.deleted)
+
+        # Create new obj
+        create_test_image_object(self.upload, content_hash="duplicate")
+
+        # Test constraint still applies when undeleting
+        with transaction.atomic(), self.assertRaises(IntegrityError):
+            image.upload.deleted = False
+            image.upload.save()

@@ -164,9 +164,3 @@ class Upload(TimeStampedModel):
         #     models.Index(fields=['camera_station',]),
         #     models.Index(fields=['priority',])
         # ]
-
-        constraints = [
-            models.UniqueConstraint(
-                fields=["dropbox_content_hash"], condition=Q(deleted=False), name="unique_active_dropbox_hash"
-            )
-        ]

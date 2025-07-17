@@ -14,3 +14,10 @@ def increment_img_count(sender, instance, created, **kwargs):
 @receiver(post_delete, sender=Image)
 def decrement_img_count(sender, instance, **kwargs):
     Upload.objects.filter(id=instance.upload.id).update(img_count=F("img_count") - 1)
+
+
+@receiver(post_save, sender=Upload)
+def sync_image_fields_with_upload(sender, instance, **kwargs):
+    images = instance.images.all()
+
+    images.update(deleted=instance.deleted)

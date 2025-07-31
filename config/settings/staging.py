@@ -85,9 +85,10 @@ EMAIL_SUBJECT_PREFIX = env(
 )
 # Sendgrid email settings
 SENDGRID_API_KEY = env("SENDGRID_API_KEY")
-EMAIL_HOST = "smtp.sendgrid.net"
-EMAIL_HOST_USER = "apikey"
-EMAIL_HOST_PASSWORD = SENDGRID_API_KEY
+# Gmail SMTP settings (for testing only)
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_HOST_USER = "your-gmail@gmail.com"  # Replace with your Gmail
+EMAIL_HOST_PASSWORD = "your-app-password"  # Replace with Gmail app password
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 

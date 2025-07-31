@@ -83,12 +83,11 @@ EMAIL_SUBJECT_PREFIX = env(
     "DJANGO_EMAIL_SUBJECT_PREFIX",
     default="[WildePod]",
 )
-# Sendgrid email settings
-SENDGRID_API_KEY = env("SENDGRID_API_KEY")
-# Gmail SMTP settings (for testing only)
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_HOST_USER = "your-gmail@gmail.com"  # Replace with your Gmail
-EMAIL_HOST_PASSWORD = "your-app-password"  # Replace with Gmail app password
+# Mailgun email settings
+MAILGUN_SMTP_PASSWORD = env("MAILGUN_SMTP_PASSWORD")
+EMAIL_HOST = "smtp.mailgun.org"
+EMAIL_HOST_USER = "noreply@wildepod.org"
+EMAIL_HOST_PASSWORD = MAILGUN_SMTP_PASSWORD
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 

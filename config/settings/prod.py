@@ -84,13 +84,14 @@ EMAIL_SUBJECT_PREFIX = env(
     "DJANGO_EMAIL_SUBJECT_PREFIX",
     default="[WildePod]",
 )
-# Sendgrid email settings
-SENDGRID_API_KEY = env("SENDGRID_API_KEY")
-EMAIL_HOST = "smtp.sendgrid.net"
-EMAIL_HOST_USER = "apikey"
-EMAIL_HOST_PASSWORD = SENDGRID_API_KEY
+# Mailgun email settings
+MAILGUN_SMTP_PASSWORD = env("MAILGUN_SMTP_PASSWORD")
+EMAIL_HOST = "smtp.mailgun.org"
+EMAIL_HOST_USER = "noreply@wildepod.org"
+EMAIL_HOST_PASSWORD = MAILGUN_SMTP_PASSWORD
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
+
 
 
 # LOGGING

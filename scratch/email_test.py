@@ -70,7 +70,7 @@ def test_send_email(recipient_email, test_name="Test User"):
         logging.error(f"Unexpected error sending test email. Error msg - {e}")
 
 # Replace with your email address
-test_email = "prabathg@gmail.com"  # UPDATE THIS
+test_email = "your-email@example.com"  # UPDATE THIS
 test_name = "Test User"
 
 if test_email == "your-email@example.com":

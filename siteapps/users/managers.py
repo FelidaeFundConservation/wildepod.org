@@ -36,7 +36,7 @@ def send_welcome_email(user, password_generated):
         )
         logging.info(f"Welcome email sent successfully! Result - {result}")
     except SMTPException as e:
-        logging.error(f"Error sending welcome email. Result - {result}. Error msg - {e}")
+        logging.error(f"Error sending welcome email. Error msg - {e}")
 
 
 # Code copied from https://testdriven.io/blog/django-custom-user-model/

@@ -288,7 +288,7 @@ JAZZMIN_SETTINGS = {
 # CUSTOM VARIABLES
 # ------------------------------------------------------------------------------
 # GCF cloud url where MegaDetector currently serves requests
-MEGADETECTOR_URL = env("MEGADETECTOR_V6_URL")
+MEGADETECTOR_URL = env("MEGADETECTOR_URL")
 SPECIES_DETECTOR_URL = env("SPECIES_DETECTOR_URL")
 # Model storage bucket name & relevant model URLs
 MODEL_STORAGE_BUCKET = env("GS_MODELS_BUCKET_NAME")

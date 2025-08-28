@@ -62,7 +62,7 @@ SECURE_CONTENT_TYPE_NOSNIFF = env.bool("DJANGO_SECURE_CONTENT_TYPE_NOSNIFF", def
 
 # GCP settings
 # ------------------------------------------------------------------------------
-GS_BUCKET_NAME = env("GS_BUCKET_NAME_PROD")
+GS_BUCKET_NAME = env("GS_BUCKET_NAME_STAGING")
 GS_DEFAULT_ACL = "publicRead"
 
 # Media files
@@ -124,10 +124,10 @@ LOGGING = {
 # EXTERNAL APPS CONFIG
 # ------------------------------------------------------------------------------
 # Dropbox token for local mode
-DROPBOX_APP_KEY = env("DROPBOX_APP_KEY_PROD")
-DROPBOX_APP_SECRET = env("DROPBOX_APP_SECRET_PROD")
-DROPBOX_REFRESH_TOKEN = env("DROPBOX_REFRESH_TOKEN_PROD")
-DROPBOX_URL_PREFIX = "https://www.dropbox.com/work/WildePod%20Cloud%20DB/Apps/wildepod_prod"
+DROPBOX_APP_KEY = env("DROPBOX_APP_KEY_STAGING")
+DROPBOX_APP_SECRET = env("DROPBOX_APP_SECRET_STAGING")
+DROPBOX_REFRESH_TOKEN = env("DROPBOX_REFRESH_TOKEN_STAGING")
+DROPBOX_URL_PREFIX = "https://www.dropbox.com/work/WildePod%20Cloud%20DB/Apps/wildepod_STAGING"
 
 
 # CUSTOM VARIABLES
@@ -136,6 +136,6 @@ DROPBOX_URL_PREFIX = "https://www.dropbox.com/work/WildePod%20Cloud%20DB/Apps/wi
 NUM_ACCEPTS_OVER_REJECTS = 2
 
 # Settings for Dropbox 2FA email retrieval
-EMAIL_2FA_IMAP_URL = env("EMAIL_2FA_IMAP_URL_PROD")
-EMAIL_2FA_USER = env("EMAIL_2FA_USER_PROD")
-EMAIL_2FA_PASSWORD = env("EMAIL_2FA_PASSWORD_PROD")
+EMAIL_2FA_IMAP_URL = env("EMAIL_2FA_IMAP_URL_STAGING")
+EMAIL_2FA_USER = env("EMAIL_2FA_USER_STAGING")
+EMAIL_2FA_PASSWORD = env("EMAIL_2FA_PASSWORD_STAGING")

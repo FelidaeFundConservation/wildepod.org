@@ -481,7 +481,7 @@ class PreviewTimeCorrectionsView(LoginRequiredMixin, View):
             else:
                 time_range_valid = Image.objects.filter(id=image_id, **kwargs).exists()
 
-            if time_range_valid:
+            if time_range_valid and timestamp is not None:
                 if correction_applied:
                     new_timestamp = timestamp + relativedelta(
                         years=-years, months=-months, days=-days, hours=-hours, minutes=-minutes
@@ -492,26 +492,35 @@ class PreviewTimeCorrectionsView(LoginRequiredMixin, View):
                     )
 
             # Apply daylight savings shift
-            if daylight_savings_datetime and new_timestamp.replace(
+            if daylight_savings_datetime and new_timestamp is not None and new_timestamp.replace(
                 tzinfo=pytz.UTC
             ) >= daylight_savings_datetime.replace(tzinfo=pytz.UTC):
                 if daylight_savings_month == "03" or daylight_savings_month == "3":
-                    if correction_applied:
+                    if correction_applied and timestamp is not None:
                         new_timestamp = timestamp + relativedelta(hours=-1)
-                    else:
+                    elif not correction_applied and timestamp is not None:
                         new_timestamp = timestamp + relativedelta(hours=1)
                 elif daylight_savings_month == "11":
-                    if correction_applied:
+                    if correction_applied and timestamp is not None:
                         new_timestamp = timestamp + relativedelta(hours=1)
-                    else:
+                    elif not correction_applied and timestamp is not None:
                         new_timestamp = timestamp + relativedelta(hours=-1)
 
             preview_info["newTimestamp"] = new_timestamp
 
-            if new_timestamp > timestamp:
+            # Only compare timestamps if both are not None
+            if new_timestamp is not None and timestamp is not None:
+                if new_timestamp > timestamp:
+                    preview_info["color"] = "green"
+                elif new_timestamp < timestamp:
+                    preview_info["color"] = "red"
+            elif new_timestamp is not None and timestamp is None:
+                # If we have a new timestamp but no original, mark as green (improvement)
                 preview_info["color"] = "green"
-            elif new_timestamp < timestamp:
+            elif new_timestamp is None and timestamp is not None:
+                # If we lost the timestamp, mark as red (worse)
                 preview_info["color"] = "red"
+            # If both are None, leave color as empty string
 
             new_timestamps.append(preview_info)
 

@@ -35,6 +35,7 @@ class SearchImagesForm(forms.Form):
     search_type = forms.ChoiceField(choices=SEARCH_TYPE_CHOICES, label="Boolean Search Type")
 
     staff_review_needed = forms.BooleanField(label="Flagged for Staff?", required=False)
+    social_media_worthy = forms.BooleanField(label="Social media worthy?", required=False)
 
     TIME_SELECTION_CHOICES = [("LA", "Last Annotated"), ("TT", "Trigger Timestamp")]
     time_filter_type = forms.ChoiceField(choices=TIME_SELECTION_CHOICES, label="Time Filter Type")
@@ -77,6 +78,7 @@ class SearchImagesForm(forms.Form):
             ),
             Row(
                 Column("staff_review_needed", css_class="form-group col-12"),
+                Column("social_media_worthy", css_class="form-group col-12"),
             ),
             Row(HTML("<hr>")),
             Row(
@@ -157,6 +159,7 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
         hour = request.POST.get("hour")
 
         staff_review_needed = request.POST.get("staff_review_needed")
+        social_media_worthy = request.POST.get("social_media_worthy")
 
         time_filter_type = request.POST.get("time_filter_type")
 
@@ -194,6 +197,8 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
         if staff_review_needed:
             staff_review_needed = json.loads(staff_review_needed)
             filterset &= Q(staff_review_needed=staff_review_needed)
+        if social_media_worthy:
+            filterset &= Q(social_media_worthy__gt=0)
         if len(volunteers) > 0:
             filterset &= (
                 Q(boundingbox__species__created_by__id__in=volunteers)
@@ -217,7 +222,7 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             filterset &= Q(upload__camera_station__in=camera_stations)
 
         # Query Images based on the filter criteria
-        results = Image.objects.filter(filterset)
+        results = Image.objects.filter(filterset).distinct()
 
         # Apply AND filter method
         if search_type == "AND":
@@ -227,12 +232,16 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                 )
 
         if len(results) > 0:
-            results = results.order_by("-modified").values(
-                "id",
-                "dropbox_file_name",
-                "upload__camera_station__micro_site__macro_site__name",
-                "upload__camera_station__station_id",
-                "thumbnail_gcloud_path",
+            results = (
+                results.order_by("-modified")
+                .values(
+                    "id",
+                    "dropbox_file_name",
+                    "upload__camera_station__micro_site__macro_site__name",
+                    "upload__camera_station__station_id",
+                    "thumbnail_gcloud_path",
+                )
+                .distinct()
             )
 
         return JsonResponse({"results": list(results)})

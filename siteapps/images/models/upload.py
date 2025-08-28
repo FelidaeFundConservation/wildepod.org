@@ -5,6 +5,7 @@ from urllib.parse import quote
 import dropbox
 from django.conf import settings
 from django.db import models
+from django.db.models import Q
 from locations.models import CameraStation
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords

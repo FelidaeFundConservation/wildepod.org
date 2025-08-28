@@ -3,7 +3,7 @@ crispy-bootstrap5==0.6  # https://github.com/django-crispy-forms/crispy-bootstra
 
 # Django
 # ------------------------------------------------------------------------------
-django==4.0.6  # pyup: < 4.0  # https://www.djangoproject.com/
+django==4.2.16  # https://www.djangoproject.com/
 django-allauth==0.51.0  # https://github.com/pennersr/django-allauth
 django-braces==1.15.0 # https://github.com/brack3t/django-braces
 django-crispy-forms==1.14.0  # https://github.com/django-crispy-forms/django-crispy-forms
@@ -22,11 +22,11 @@ google-auth-oauthlib==0.5.2 # https://github.com/googleapis/google-auth-library-
 google-cloud-datastore==2.13.0 # https://github.com/googleapis/python-datastore
 google-cloud-secret-manager==2.11.1 # https://github.com/googleapis/python-secret-manager
 
-numpy==1.24.2
-pandas==2.0.0
+numpy==1.26.4
+pandas==2.2.3
 
-Pillow==9.0.1  # https://github.com/python-pillow/Pillow
-psycopg2-binary==2.9.3  # https://github.com/psycopg/psycopg2
+Pillow==10.4.0  # https://github.com/python-pillow/Pillow
+psycopg2-binary==2.9.9  # https://github.com/psycopg/psycopg2
 python-slugify==6.0.1  # https://github.com/un33k/python-slugify
 pytz==2021.3  # https://github.com/stub42/pytz
 rcssmin==1.1.0  # https://github.com/ndparker/rcssmin

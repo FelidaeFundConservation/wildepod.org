@@ -27,7 +27,7 @@ logging.getLogger("dropbox").setLevel(logging.WARNING)
 # A workaround might be to get all file metadata separately with fewer threads
 # and then hit cloud run with more threads.
 # For now, this isn't critical since the processing is largely async
-MAX_THREADS_FOR_IMAGE_PROCESSING = 10
+MAX_THREADS_FOR_IMAGE_PROCESSING = 70
 MAX_THREADS_FOR_DROPBOX_API = 15
 
 
@@ -145,6 +145,7 @@ def get_dropbox_file_listing(dropbox_folder_path: str) -> list:
     logging.info("Retrieving file listing for the dropbox directory..")
     # NOTE: retry on error is already built into the dropbox client and is not required here
     # Next, get the list of all files in this directory and create relevant image objects
+
     response = dbx.files_list_folder(dropbox_folder_path, recursive=True)
     # Recursively gather all the entries
     entries = response.entries
@@ -189,11 +190,7 @@ def get_metadata_with_retry(preretrieved_metadata, entry, max_retries=10, delay=
     return None
 
 
-def process_dropbox_file(
-    upload: Upload,
-    entry: dropbox.files.FileMetadata,
-    preretrieved_metadata: dict
-):
+def process_dropbox_file(upload: Upload, entry: dropbox.files.FileMetadata, preretrieved_metadata: dict):
     """Process each file in the dropbox directory."""
     # By default, processed return True. This is to ensure that non-image files don't affect upload status
     processed = True

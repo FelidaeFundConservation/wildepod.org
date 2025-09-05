@@ -309,4 +309,4 @@ EXPORT_DATE_FORMAT = "%Y-%m-%d"
 EXPORT_URL_SUFFIX = "8jk6fh9m7w2xz5r3t1n0b8v6c"  # TODO: Move this to secret manager
 
 # Google Maps API
-GOOGLE_MAPS_API_KEY = env('GOOGLE_MAPS_API_KEY')
+GOOGLE_MAPS_API_KEY = env("GOOGLE_MAPS_API_KEY")

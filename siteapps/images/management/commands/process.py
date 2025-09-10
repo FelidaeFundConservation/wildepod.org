@@ -158,8 +158,8 @@ class Command(BaseCommand):
 
         parser.add_argument(
             "--add_thumbnails",
-            default=None,
-            help="The yolov9 model name. Enables species AI detections.",
+            action="store_true",
+            help="Pull from dropbox and create image objs.",
         )
 
         parser.add_argument("--make_changes", action="store_true", help="Flag to enable saving the changes.")
@@ -374,24 +374,26 @@ class Command(BaseCommand):
 
         print(f"\Creating images... please wait a moment...\n")
         if options.get("add_thumbnails"):
-            unprocessed = Upload.objects.filter(processed=False, upload_complete=True).order_by("img_count")
+            unprocessed = Upload.objects.filter(processed=False, upload_complete=True, deleted=False).order_by(
+                "img_count"
+            )
 
             for upload_obj in unprocessed:
                 print(f"Pre-processing upload - {upload_obj.id}")
                 print(f"{Image.objects.filter(upload=upload_obj).count()} images in upload before preprocess")
                 try:
-                    create_entries(upload_obj)
-                except:
-                    continue
+                    results = create_entries(upload_obj)
+                except Exception as e:
+                    print(f"Error processing upload {upload_obj} - {e}")
                 print(f"{Image.objects.filter(upload=upload_obj).count()} images in upload after preprocess")
 
         print(f"\nQuerying images to run inference... please wait a moment...\n")
 
         # NOTE: Change this query as needed if provided args aren't enough
         if category_model:
-            images_tally = Image.objects.filter(processed=False, upload__upload_complete=True, category_pipeline_complete=False).exclude(
-                Q(thumbnail_gcloud_path=None) | Q(trigger_timestamp=None)
-            )
+            images_tally = Image.objects.filter(
+                processed=False, upload__upload_complete=True, category_pipeline_complete=False
+            ).exclude(Q(thumbnail_gcloud_path=None) | Q(trigger_timestamp=None))
         elif species_model:
             images_tally = Image.objects.filter(species_ai_detections=None, upload__upload_complete=True).exclude(
                 Q(thumbnail_gcloud_path=None) | Q(trigger_timestamp=None)
@@ -417,11 +419,31 @@ class Command(BaseCommand):
             if image_chunk:
                 list(executor.map(process_image, image_chunk))
 
-        upload_objs = Upload.objects.filter(processed=False, upload__upload_complete=True)
+        upload_objs = Upload.objects.filter(processed=False, upload_complete=True, deleted=False)
 
         for upload in upload_objs:
-            if not upload.images.filter(processed=False).exists() and upload.img_count > 0:
+            unprocessed_imgs = upload.images.filter(processed=False)
+
+            if not unprocessed_imgs.exists():
                 upload.processed = True
                 upload.save()
 
                 print(f"Upload {upload.id} marked as processed.")
+            else:
+                print(f"Upload {upload.id} has {unprocessed_imgs.count()} unprocessed images.")
+
+                # Try one more time
+                for image in unprocessed_imgs:
+                    try:
+                        add_thumbnail(image)
+                    except Exception as e:
+                        print(f"Cannot create thumbnail - deleting - {e}")
+                        image.delete()
+
+                    unprocessed_imgs = upload.images.filter(processed=False)
+
+                    if not unprocessed_imgs.exists():
+                        upload.processed = True
+                        upload.save()
+
+                        print(f"Upload {upload.id} marked as processed.")

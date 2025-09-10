@@ -389,7 +389,7 @@ class Command(BaseCommand):
 
         # NOTE: Change this query as needed if provided args aren't enough
         if category_model:
-            images_tally = Image.objects.filter(processed=False, upload__upload_complete=True).exclude(
+            images_tally = Image.objects.filter(processed=False, upload__upload_complete=True, category_pipeline_complete=False).exclude(
                 Q(thumbnail_gcloud_path=None) | Q(trigger_timestamp=None)
             )
         elif species_model:

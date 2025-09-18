@@ -204,6 +204,13 @@ class BoundingBox(TimeStampedModel):
         ordering = ("-created",)
         verbose_name_plural = "Bounding Boxes"
 
+        constraints = [
+            models.CheckConstraint(check=Q(x__gte=0.0, x__lte=1.0), name="x_between_0_and_1"),
+            models.CheckConstraint(check=Q(y__gte=0.0, y__lte=1.0), name="y_between_0_and_1"),
+            models.CheckConstraint(check=Q(w__gte=0.0, w__lte=1.0), name="w_between_0_and_1"),
+            models.CheckConstraint(check=Q(h__gte=0.0, h__lte=1.0), name="h_between_0_and_1"),
+        ]
+
 
 class SpeciesSubgroup(TimeStampedModel):
     name = models.CharField("Subgroup Name", max_length=250, unique=True)

@@ -23,13 +23,15 @@ class Command(BaseCommand):
         limit = options.get("limit")
 
         try:
-            PATH = "./siteapps/images/management/commands/export/"
+            PATH = "./siteapps/images/management/commands/export3/"
             os.makedirs(PATH, exist_ok=True)
 
             logging.info(f"Gathering data from images...")
 
-            speciesname_list = SpeciesName.objects.filter(~Q(name="Unknown"))
+            speciesname_list = SpeciesName.objects.filter(Q(name="Bobcat"))
 
+            print(speciesname_list)
+            #return
             training = []
             validation = []
 

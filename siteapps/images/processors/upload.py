@@ -13,7 +13,7 @@ from images.models import Image, Upload
 from PIL import Image as PILImage
 from PIL import UnidentifiedImageError
 
-from .image import process_image
+from .image import add_thumbnail, process_image
 
 # Create a dropbox client
 dbx = dropbox.Dropbox(
@@ -190,9 +190,7 @@ def get_metadata_with_retry(preretrieved_metadata, entry, max_retries=10, delay=
 
 
 def process_dropbox_file(
-    upload: Upload,
-    entry: dropbox.files.FileMetadata,
-    preretrieved_metadata: dict
+    upload: Upload, entry: dropbox.files.FileMetadata, preretrieved_metadata: dict, clientside: bool = False
 ):
     """Process each file in the dropbox directory."""
     # By default, processed return True. This is to ensure that non-image files don't affect upload status
@@ -240,7 +238,9 @@ def process_dropbox_file(
             if not img_obj.processed and not img_obj.is_video:
                 # NOTE: Without waiting for a return value, the thread will continue to run and skip the coroutine object
                 # Also, processed state is updated only after the image has been processed
-                processed = process_image(img_obj)
+                # First, add a thumbnail to the image object if it doesn't already exist
+                if not img_obj.thumbnail_gcloud_path:
+                    add_thumbnail(img_obj)
 
                 # Remove corrupted images
                 img_valid = check_image_valid(img_obj)
@@ -248,6 +248,15 @@ def process_dropbox_file(
                     logging.info(f"Corrupted image found in file {response.name}. Removing from database.")
                     img_obj.delete()
                     return True
+
+                # Skip cloud function calls if using client resources
+                if not clientside:
+                    processed = process_image(img_obj)
+                else:
+                    logging.info(
+                        "Client side processing enabled - skipping cloud run calls. User must remain on processing page to complete."
+                    )
+                    processed = False
 
     # Processed is set to False if the file is a valid image & the processing failed
     return processed
@@ -259,7 +268,7 @@ def process_dropbox_file(
 # & processing image objects retrieved.
 
 
-def process_upload(upload_id: uuid.UUID):
+def process_upload(upload_id: uuid.UUID, clientside: bool = False):
     """Function to process a dropbox upload.
     This function creates image objects corresponding to the files in the dropbox directory
     """
@@ -335,6 +344,7 @@ def process_upload(upload_id: uuid.UUID):
                 upload=upload,
                 entry=entry,
                 preretrieved_metadata=preretrieved_metadata,
+                clientside=clientside,
             )
             for entry in entries
         ]

@@ -1,10 +1,13 @@
+import json
 import logging
 from datetime import timedelta
+from queue import Queue
 
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q
+from django.http import StreamingHttpResponse
 from django.http.response import JsonResponse
 from django.utils import timezone
 from django.views.generic import DetailView
@@ -188,3 +191,21 @@ class PrecomputeImageQueuesView(LoginRequiredMixin, View):
 
             logging.info(message)
             return JsonResponse({"success": True, "message": message})
+
+
+# For client-side processing, stream images to-be-processed
+processing_queue = Queue()
+
+
+def stream_image(img_data):
+    processing_queue.put(img_data)
+
+
+class ProcessingQueueStreamView(View):
+    def stream_generator(self):
+        while True:
+            data = processing_queue.get()  # blocks until data is available
+            yield json.dumps(data) + "\n"
+
+    def get(self, request, *args, **kwargs):
+        return StreamingHttpResponse(self.stream_generator(), content_type="application/json")

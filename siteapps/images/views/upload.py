@@ -1,9 +1,12 @@
+import io
 import json
 import logging
 import threading
 from datetime import datetime, timedelta
 
+import numpy as np
 import pytz
+import requests
 from braces.views import StaffuserRequiredMixin
 from dateutil.relativedelta import relativedelta
 from django import forms
@@ -12,15 +15,18 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.paginator import Paginator
 from django.db.models import Q
+from django.http import HttpResponse, StreamingHttpResponse
 from django.http.response import JsonResponse
 from django.urls import reverse
 from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
 from django.views.generic.base import TemplateView, View
+from google.cloud import storage
 from images.forms import TimeCorrectionForm, UploadCompleteForm, UploadForm, get_daylight_savings_date
 from images.models import Annotator, BoundingBox, Image, TimeCorrection, Upload
 from images.processors import clone_data_sheet, process_upload, setup_dropbox_paths
 from images.processors.upload import get_dropbox_item_count
 from locations.models import CameraStation, MacroSite, MicroSite
+from PIL import Image as PILImage
 from users.models import User
 
 # Pagination size for images displayed for the upload detail page
@@ -109,6 +115,78 @@ class UploadDeleteView(LoginRequiredMixin, View):
             success = True
 
         return JsonResponse({"success": success, "reason": reason})
+
+
+class UploadClientProcessingView(LoginRequiredMixin, TemplateView):
+    login_url = settings.LOGIN_URL
+    template_name = "images/upload/client_processing.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        upload_id = self.kwargs["pk"]
+        context["upload"] = Upload.objects.get(id=upload_id)
+
+        images = Image.objects.filter(upload__id=upload_id, processed=False)
+        context["unprocessed_images"] = [f"{settings.MEDIA_URL}{image.thumbnail_gcloud_path}" for image in images]
+
+        thread = threading.Thread(target=process_upload, args=[upload_id, True])
+        # Set the name of the thread to the upload id and the function
+        # This will be used to deduplicate process-upload thread runs
+        thread.name = f"process_upload--{upload_id}"
+        # Start running the thread
+        thread.start()
+
+        return context
+
+
+class GetImageTensorView(LoginRequiredMixin, View):
+    login_url = settings.LOGIN_URL
+
+    def get(self, request, *args, **kwargs):
+        image_url = request.GET.get("url")
+        if not image_url:
+            return JsonResponse({"error": "Missing image URL"}, status=400)
+
+        try:
+            # Download image
+            response = requests.get(image_url)
+            response.raise_for_status()
+            img = PILImage.open(io.BytesIO(response.content)).convert("RGB")
+
+            # Resize to model input size (assumed 640x640)
+            img = img.resize((640, 640))
+
+            # Convert to NumPy array (HWC) → CHW
+            img_np = np.asarray(img).astype(np.float32) / 255.0  # Normalize [0, 1]
+            img_chw = np.transpose(img_np, (2, 0, 1))  # (3, 640, 640)
+            img_chw = np.expand_dims(img_chw, 0)  # (1, 3, 640, 640)
+
+            # Flatten to bytes
+            tensor_bytes = img_chw.astype(np.float32).tobytes()
+
+            return HttpResponse(tensor_bytes, content_type="application/octet-stream")
+
+        except Exception as e:
+            logging.error(e)
+            return JsonResponse({"error": str(e)}, status=500)
+
+
+class GetMegadetectorModelView(LoginRequiredMixin, View):
+    login_url = settings.LOGIN_URL
+
+    def get(self, request, *args, **kwargs):
+        try:
+            storage_client = storage.Client()
+            bucket = storage_client.bucket("wildepod_models")
+            blob = bucket.blob("MDV6-yolov9-c.onnx")
+
+            # Download the whole blob content as bytes
+            model_bytes = blob.download_as_bytes()
+
+            return HttpResponse(model_bytes, content_type="application/octet-stream")
+        except Exception as e:
+            return HttpResponse(f"Error fetching model: {e}", status=500)
 
 
 def filter_uploads(context, self):

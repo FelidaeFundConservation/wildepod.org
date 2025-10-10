@@ -121,6 +121,9 @@ class Upload(TimeStampedModel):
     # Processed flag. This defaults to false. After all images have been processed, this flag will be set to true.
     processed = models.BooleanField("Processed upload?", default=False)
 
+    # Use GPU/CPU in the browser to run inference
+    use_client_resources = models.BooleanField(default=False)
+
     # Add a priority setting for uploads. This will be used to prioritize uploads in the queue
     priority = models.CharField(
         "Priority",

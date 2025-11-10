@@ -3,7 +3,7 @@ crispy-bootstrap5==0.6  # https://github.com/django-crispy-forms/crispy-bootstra
 
 # Django
 # ------------------------------------------------------------------------------
-django==4.2.16  # https://www.djangoproject.com/
+django==4.2.26  # https://www.djangoproject.com/
 django-allauth==0.51.0  # https://github.com/pennersr/django-allauth
 django-braces==1.15.0 # https://github.com/brack3t/django-braces
 django-crispy-forms==1.14.0  # https://github.com/django-crispy-forms/django-crispy-forms
@@ -35,3 +35,4 @@ rcssmin==1.1.0  # https://github.com/ndparker/rcssmin
 # ------------------------------------------------------------------------------
 requests==2.27.1  # https://github.com/psf/requests
 whitenoise==6.4.0 # https://github.com/evansd/whitenoise
+zipp>=3.19.1 # not directly required, pinned by Snyk to avoid a vulnerability

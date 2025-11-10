@@ -11,6 +11,7 @@ db.sqlite3
 db.sqlite3-journal
 *.pt
 cloud-sql-proxy.exe
+.serena/
 
 ### Python template
 # Byte-compiled / optimized / DLL files

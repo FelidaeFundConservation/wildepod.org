@@ -17,6 +17,12 @@
                 Staff review has been requested for this image.&nbsp;&nbsp;&nbsp;&nbsp;
             </div>
         {% endif %}
+        {% if image.image_reported %}
+            <div class="alert alert-danger" role="alert">
+                <i class="bi bi-exclamation-triangle"></i>&nbsp;&nbsp;
+                This image has been reported by a user.&nbsp;&nbsp;&nbsp;&nbsp;
+            </div>
+        {% endif %}
     {% endblock notice %}
     {% block missing_annotations_element %}
     {% endblock missing_annotations_element %}
@@ -360,6 +366,7 @@
                     'annotations': JSON.stringify(anno.getAnnotations()),
                     'social_media_worthy_vote': socialMediaWorthyVote,
                     'staff_review_needed': document.getElementById('staff-review-needed').checked,
+                    'image_reported': document.getElementById('image-reported').checked,
                     'custom_annotations': '{{custom_annotations}}',
                     'activity_category': '{{activity_category}}',
                     'is_reannotation': '{{ is_reannotation }}',

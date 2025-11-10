@@ -1,7 +1,7 @@
 import datetime
 
 
-def get_filter_params(start_date, end_date, macrosite_name, camera_id, staff_review_needed=None):
+def get_filter_params(start_date, end_date, macrosite_name, camera_id, staff_review_needed=None, image_reported=None):
     filters = {}
 
     if start_date and start_date != "None":
@@ -22,5 +22,8 @@ def get_filter_params(start_date, end_date, macrosite_name, camera_id, staff_rev
 
     if staff_review_needed:
         filters["staff_review_needed"] = True
+
+    if image_reported:
+        filters["image_reported"] = True
 
     return filters

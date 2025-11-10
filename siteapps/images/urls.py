@@ -76,6 +76,12 @@ urlpatterns = [
         kwargs={"staff_review": True},
     ),
     path(
+        "annotate/species/reported_images",
+        AnnotateSpeciesView.as_view(),
+        name="reported_images_annotate_species",
+        kwargs={"reported_images": True},
+    ),
+    path(
         "annotate/species/searched",
         AnnotateSpeciesView.as_view(),
         name="searched_annotate_species",

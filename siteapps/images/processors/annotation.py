@@ -461,6 +461,7 @@ def process_annotations(
     social_media_worthy_vote: int,
     batch_tag_images: list,
     staff_review_needed: bool = False,
+    image_reported: bool = False,
     skip: bool = False,
 ):
     # Get the annotator object for the current user
@@ -476,6 +477,9 @@ def process_annotations(
 
     # Update the staff review flag
     image.staff_review_needed = bool(staff_review_needed)
+
+    # Update the image reported flag
+    image.image_reported = bool(image_reported)
 
     # If the user skipped this, add the user to the image skipped list & move on
     if skip:
@@ -514,6 +518,7 @@ def process_species_annotations(
     social_media_worthy_vote: int,
     batch_tag_images: list,
     staff_review_needed: bool = False,
+    image_reported: bool = False,
     skip: bool = False,
 ) -> bool:
     """Function to process a list of annotations for MegaDetector's Object Detection model
@@ -528,6 +533,7 @@ def process_species_annotations(
         user=user,
         social_media_worthy_vote=social_media_worthy_vote,
         staff_review_needed=staff_review_needed,
+        image_reported=image_reported,
         skip=skip,
         batch_tag_images=batch_tag_images,
     )
@@ -543,6 +549,7 @@ def process_activity_annotations(
     social_media_worthy_vote: int,
     batch_tag_images: list,
     staff_review_needed: bool = False,
+    image_reported: bool = False,
     skip: bool = False,
 ) -> bool:
     """Function to process a list of annotations for MegaDetector's Object Detection model
@@ -557,6 +564,7 @@ def process_activity_annotations(
         user=user,
         social_media_worthy_vote=social_media_worthy_vote,
         staff_review_needed=staff_review_needed,
+        image_reported=image_reported,
         skip=skip,
         batch_tag_images=batch_tag_images,
     )

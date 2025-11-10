@@ -35,6 +35,7 @@ class SearchImagesForm(forms.Form):
     search_type = forms.ChoiceField(choices=SEARCH_TYPE_CHOICES, label="Boolean Search Type")
 
     staff_review_needed = forms.BooleanField(label="Flagged for Staff?", required=False)
+    image_reported = forms.BooleanField(label="Reported by User?", required=False)
     social_media_worthy = forms.BooleanField(label="Social media worthy?", required=False)
 
     TIME_SELECTION_CHOICES = [("LA", "Last Annotated"), ("TT", "Trigger Timestamp")]
@@ -78,6 +79,7 @@ class SearchImagesForm(forms.Form):
             ),
             Row(
                 Column("staff_review_needed", css_class="form-group col-12"),
+                Column("image_reported", css_class="form-group col-12"),
                 Column("social_media_worthy", css_class="form-group col-12"),
             ),
             Row(HTML("<hr>")),
@@ -159,6 +161,7 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
         hour = request.POST.get("hour")
 
         staff_review_needed = request.POST.get("staff_review_needed")
+        image_reported = request.POST.get("image_reported")
         social_media_worthy = request.POST.get("social_media_worthy")
 
         time_filter_type = request.POST.get("time_filter_type")
@@ -197,6 +200,9 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
         if staff_review_needed:
             staff_review_needed = json.loads(staff_review_needed)
             filterset &= Q(staff_review_needed=staff_review_needed)
+        if image_reported:
+            image_reported = json.loads(image_reported)
+            filterset &= Q(image_reported=image_reported)
         if social_media_worthy:
             filterset &= Q(social_media_worthy__gt=0)
         if len(volunteers) > 0:

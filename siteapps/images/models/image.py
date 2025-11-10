@@ -117,6 +117,9 @@ class Image(TimeStampedModel):
     # Flag for Staff Review. This field is used to indicate images that should be reviewed later by staff users.
     staff_review_needed = models.BooleanField(default=False)
 
+    # Flag for Reported Images. This field is used to indicate images that have been reported by users for review.
+    image_reported = models.BooleanField(default=False)
+
     # Precomputed pipeline stage-related flags.
     category_pipeline_complete = models.BooleanField(default=False)
     species_pipeline_complete = models.BooleanField(default=False)

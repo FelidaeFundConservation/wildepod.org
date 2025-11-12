@@ -461,7 +461,7 @@ def process_annotations(
     social_media_worthy_vote: int,
     batch_tag_images: list,
     staff_review_needed: bool = False,
-    image_reported: bool = False,
+    image_reported: bool | None = None,
     skip: bool = False,
 ):
     # Get the annotator object for the current user
@@ -479,7 +479,11 @@ def process_annotations(
     image.staff_review_needed = bool(staff_review_needed)
 
     # Update the image reported flag
-    image.image_reported = bool(image_reported)
+    # - None: preserve current value (not sent from frontend)
+    # - True: set to True (user reporting or staff checking)
+    # - False: set to False (staff explicitly clearing)
+    if image_reported is not None:
+        image.image_reported = image_reported
 
     # If the user skipped this, add the user to the image skipped list & move on
     if skip:

@@ -200,16 +200,12 @@
 
     // Initialize popovers
     $(document).ready(function(){
-        // ADD THIS DEBUG CODE:
-        console.log('=== DEBUG: Image Reported Checkbox ===');
-        console.log('Template variable image_reported:', {{ image_reported|lower }});
-        let checkbox = document.getElementById('image-reported');
-        console.log('Checkbox element exists:', checkbox !== null);
-        if (checkbox) {
-            console.log('Checkbox checked state:', checkbox.checked);
-            console.log('Has checked attribute:', checkbox.hasAttribute('checked'));
+        // Remove ?fresh=true from URL after first load to prevent queue clearing on navigation
+        if (window.location.search.includes('fresh=true')) {
+            const url = new URL(window.location);
+            url.searchParams.delete('fresh');
+            window.history.replaceState({}, '', url);
         }
-        console.log('=====================================');
 
         $('[data-toggle="popover"]').popover();
 
@@ -420,6 +416,8 @@
                     'social_media_worthy_vote': socialMediaWorthyVote,
                     'staff_review_needed': document.getElementById('staff-review-needed').checked,
                     'custom_annotations': '{{custom_annotations}}',
+                    'staff_review': '{{staff_review}}',
+                    'reported_images': '{{reported_images}}',
                     'activity_category': '{{activity_category}}',
                     'is_reannotation': '{{ is_reannotation }}',
                     'batch_tag_images': JSON.stringify(selectedBatchTagImages),
@@ -438,8 +436,6 @@
                         data['image_reported'] = imageReportCheckbox.checked;
                     }
                 }
-                console.log('>>>>>>>>>>>>>>>>>>>>>>>');
-                console.log(data['image_reported']);
 
                 if (species) {
                     data['species'] = species

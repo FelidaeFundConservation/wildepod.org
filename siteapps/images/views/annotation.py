@@ -37,6 +37,8 @@ VOTE_THRESHOLD = 1
 CATEGORY_ANIMAL = "animal"
 CATEGORY_HUMAN = "human"
 CUSTOM_PREFIX = "Custom"
+STAFF_REVIEW_PREFIX = "StaffReview"
+REPORTED_IMAGES_PREFIX = "ReportedImages"
 SPECIES_QUEUE_NAME = "AnnotateSpeciesQueue"
 ACTIVITY_HUMAN_QUEUE_NAME = "AnnotateHumanBehaviorQueue"
 ACTIVITY_ANIMAL_QUEUE_NAME = "AnnotateAnimalActivityQueue"
@@ -918,14 +920,21 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
     # Check if we're doing custom annotations
     custom_annotations = self.request.GET.get("custom") == "true"
 
-    # Get the annotation queue cached in the datastore
-    queue_name = CUSTOM_PREFIX + queue_name if custom_annotations else queue_name
+    # Get the annotation queue cached in the datastore. 
+    # Treat Custom annotations, Staff Review, and Reported Images as separate queues.
+    if custom_annotations:
+        queue_name = CUSTOM_PREFIX + queue_name
+    elif staff_review:
+        queue_name = STAFF_REVIEW_PREFIX + queue_name
+    elif reported_images:
+        queue_name = REPORTED_IMAGES_PREFIX + queue_name
 
     queue_key = settings.DATASTORE_CLIENT.key(queue_name, str(self.request.user.id))
     queue = settings.DATASTORE_CLIENT.get(queue_key)
 
-    # Clear cached queue for staff review and reported images to ensure fresh, correctly filtered results
-    if (staff_review or reported_images) and queue:
+    # Clear cached queue when fresh=true parameter is present (user clicked menu link)
+    is_fresh_start = self.request.GET.get('fresh') == 'true'
+    if (staff_review or reported_images) and queue and is_fresh_start:
         settings.DATASTORE_CLIENT.delete(queue_key)
         queue = None
 
@@ -1057,6 +1066,8 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
 
     context["activity_list"] = ActivityType.objects.filter(category=activity_category)
     context["custom_annotations"] = custom_annotations
+    context["staff_review"] = staff_review
+    context["reported_images"] = reported_images
 
     if SPECIES_QUEUE_NAME in queue_name:
         context["pipeline"] = "species"
@@ -1392,12 +1403,19 @@ def annotation_processor(queue_name, annotation_type, request):
 
         image.save()
 
-        # Check if we're doing custom annotations
+        # Check if we're doing custom annotations, staff review, or reported images
         custom_annotations = request.POST.get("custom_annotations", False) == "True"
+        staff_review = request.POST.get("staff_review", False) == "True"
+        reported_images = request.POST.get("reported_images", False) == "True"
 
         # Get the annotation queue cached in the datastore
         if custom_annotations:
             queue_name = CUSTOM_PREFIX + queue_name
+        elif staff_review:
+            queue_name = STAFF_REVIEW_PREFIX + queue_name
+        elif reported_images:
+            queue_name = REPORTED_IMAGES_PREFIX + queue_name
+
         queue = settings.DATASTORE_CLIENT.get(settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id)))
 
         # Update the index

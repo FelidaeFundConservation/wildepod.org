@@ -134,11 +134,11 @@
                                         {% if user.is_staff %}
                                             <li>
                                                 <a class="dropdown-item"
-                                                   href="{% url 'images:staff_annotate_species' %}">Staff Review Needed</a>
+                                                   href="{% url 'images:staff_annotate_species' %}?fresh=true">Staff Review Needed</a>
                                             </li>
                                             <li>
                                                 <a class="dropdown-item"
-                                                   href="{% url 'images:reported_images_annotate_species' %}">Reported Images</a>
+                                                   href="{% url 'images:reported_images_annotate_species' %}?fresh=true">Reported Images</a>
                                             </li>
                                         {% endif %}
                                         <li>
@@ -180,7 +180,11 @@
                                 </li>
                                 <li class="nav-item mx-1">
                                     <a class="nav-link"
-                                       href="https://docs.google.com/document/d/1IIzjK1bq3Z4NDz7gYWGa0r4fW2SKjV-kLj2aA_m56Zc/edit?usp=sharing"
+                                        {% if not is_bhutan %}
+                                           href="https://docs.google.com/document/d/1IIzjK1bq3Z4NDz7gYWGa0r4fW2SKjV-kLj2aA_m56Zc/edit?usp=sharing"
+                                        {% else %}
+                                           href="https://docs.google.com/document/d/1O-YXx63zzxfNyW0Njy_rDZKHjNSIb7iWqIdJOnfiEMU/edit?tab=t.0"
+                                        {% endif %}
                                        target="_blank">Instructions</a>
                                 </li>
                                 {% if not is_bhutan %}

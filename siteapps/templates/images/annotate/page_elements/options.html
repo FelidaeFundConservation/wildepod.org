@@ -27,28 +27,20 @@
         <br>
         <input class="form-check-input"
                type="checkbox"
-               {% if staff_review_needed %}checked="checked"{% endif %}
+               {% if image.staff_review_needed %}checked="checked"{% endif %}
                id="staff-review-needed">
         <label class="form-check-label"
                for="staff-review-needed"
                style="font-size: 14px">&nbsp; Flag for Staff Review?</label>
         <br>
-        <input class="form-check-input"
-               type="checkbox"
-               {% if image_reported %}checked="checked"{% endif %}
-               id="image-reported">
-        <label class="form-check-label"
-               for="image-reported"
-               style="font-size: 14px">&nbsp; Report Image?</label>
-        <br>
         {% if user.is_staff %}
             <input class="form-check-input"
                    type="checkbox"
-                   {% if image_reported %}checked="checked"{% endif %}
+                   {% if image.image_reported %}checked="checked"{% endif %}
                    id="image-reported">
             <label class="form-check-label"
                    for="image-reported"
-                   style="font-size: 14px">&nbsp; Image Reported?</label>
+                   style="font-size: 14px">&nbsp; Report Image?</label>
             <br>
         {% endif %}
         {% if user.is_staff %}

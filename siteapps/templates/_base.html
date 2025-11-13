@@ -180,7 +180,11 @@
                                 </li>
                                 <li class="nav-item mx-1">
                                     <a class="nav-link"
-                                       href="https://docs.google.com/document/d/1IIzjK1bq3Z4NDz7gYWGa0r4fW2SKjV-kLj2aA_m56Zc/edit?usp=sharing"
+                                        {% if not is_bhutan %}
+                                           href="https://docs.google.com/document/d/1IIzjK1bq3Z4NDz7gYWGa0r4fW2SKjV-kLj2aA_m56Zc/edit?usp=sharing"
+                                        {% else %}
+                                           href="https://docs.google.com/document/d/1O-YXx63zzxfNyW0Njy_rDZKHjNSIb7iWqIdJOnfiEMU/edit?tab=t.0"
+                                        {% endif %}
                                        target="_blank">Instructions</a>
                                 </li>
                                 {% if not is_bhutan %}

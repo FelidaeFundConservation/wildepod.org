@@ -1306,8 +1306,12 @@ def annotation_processor(queue_name, annotation_type, request):
     staff_review_needed = bool(staff_review_needed and staff_review_needed == "true")
 
     # Check if the image was reported
-    image_reported = request.POST.get("image_reported")
-    image_reported = bool(image_reported and image_reported == "true")
+    # Return None if not sent, True/False if explicitly sent
+    image_reported_raw = request.POST.get("image_reported")
+    if image_reported_raw is None:
+        image_reported = None  # Not sent - preserve current value
+    else:
+        image_reported = image_reported_raw == "true"  # Explicitly true or false
 
     # Get images to batch tag
     batch_tag_images = request.POST.get("batch_tag_images")

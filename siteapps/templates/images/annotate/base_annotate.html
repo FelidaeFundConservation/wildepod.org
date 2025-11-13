@@ -200,6 +200,17 @@
 
     // Initialize popovers
     $(document).ready(function(){
+        // ADD THIS DEBUG CODE:
+        console.log('=== DEBUG: Image Reported Checkbox ===');
+        console.log('Template variable image_reported:', {{ image_reported|lower }});
+        let checkbox = document.getElementById('image-reported');
+        console.log('Checkbox element exists:', checkbox !== null);
+        if (checkbox) {
+            console.log('Checkbox checked state:', checkbox.checked);
+            console.log('Has checked attribute:', checkbox.hasAttribute('checked'));
+        }
+        console.log('=====================================');
+
         $('[data-toggle="popover"]').popover();
 
         // For some reason batch checkboxes are sometimes being checked by default.
@@ -408,7 +419,6 @@
                     'annotations': JSON.stringify(anno.getAnnotations()),
                     'social_media_worthy_vote': socialMediaWorthyVote,
                     'staff_review_needed': document.getElementById('staff-review-needed').checked,
-                    'image_reported': document.getElementById('image-reported').checked,
                     'custom_annotations': '{{custom_annotations}}',
                     'activity_category': '{{activity_category}}',
                     'is_reannotation': '{{ is_reannotation }}',
@@ -416,16 +426,20 @@
                 }
 
                 // Handle image_reported flag
-                // Staff can explicitly set or clear the flag via checkbox
-                // Regular users only set it via the Report Image button
-                let staffReportedCheckbox = document.getElementById('image-reported');
-                if (staffReportedCheckbox) {
-                    // Staff member - send checkbox value (true or false)
-                    data['image_reported'] = staffReportedCheckbox.checked;
-                } else if (imageReported) {
-                    // Regular user clicking Report Image button
+                // If the 'Report Image' button was clicked we directly set it.
+                // Otherwise Staff can explicitly set or clear the flag via checkbox
+                if (imageReported) {
+                    // Report Image button has been clicked
                     data['image_reported'] = true;
+                } else {
+                    let imageReportCheckbox = document.getElementById('image-reported');
+                    if (imageReportCheckbox) {
+                        // Staff member - send checkbox value (true or false)
+                        data['image_reported'] = imageReportCheckbox.checked;
+                    }
                 }
+                console.log('>>>>>>>>>>>>>>>>>>>>>>>');
+                console.log(data['image_reported']);
 
                 if (species) {
                     data['species'] = species

@@ -125,8 +125,8 @@
                     <p class="lead">Click or use arrow keys to move through time. Hover image to enlarge.</p>
                     <div id="context-image-carousel"
                          class="carousel"
-                         data-ride="carousel"
-                         data-interval="false">
+                         data-bs-ride="carousel"
+                         data-bs-interval="false">
                         <div class="carousel-inner">
                             {% for context_image_gcloud_path in context_images %}
                                 <div class="carousel-item {% if context_image_gcloud_path == image.thumbnail_gcloud_path %}active{% endif %}">
@@ -144,7 +144,7 @@
                            class="carousel-control-prev"
                            href="#context-image-carousel"
                            role="button"
-                           data-slide="prev"
+                           data-bs-slide="prev"
                            onmouseover="displayContextImage($('.carousel-item.active img').get(0))"
                            onmouseout="revertContextImage()">
                             <span class="carousel-control-prev-icon" aria-hidden="true"></span>
@@ -154,7 +154,7 @@
                            class="carousel-control-next"
                            href="#context-image-carousel"
                            role="button"
-                           data-slide="next"
+                           data-bs-slide="next"
                            onmouseover="displayContextImage($('.carousel-item.active img').get(0))"
                            onmouseout="revertContextImage()">
                             <span class="carousel-control-next-icon" aria-hidden="true"></span>

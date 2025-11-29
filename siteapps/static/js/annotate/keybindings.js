@@ -22,6 +22,9 @@ $(document).ready(function(){
 
                 anno.removeAnnotation(target.id);
                 anno.cancelSelected();
+                userHasDeletedBox = true;
+                showBboxWarningMsg();
+
                 appendToast(target.id.replace("#", ""), "delete", messageHtml);
                 $(`.tooltip`).remove();
 

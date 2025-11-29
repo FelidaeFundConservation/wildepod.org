@@ -123,7 +123,10 @@
                                 id="report_image_button"
                                 data-bs-toggle="modal"
                                 data-bs-target="#reportImageModal"
-                                style="background-color: #dc9797; border-color: #dc9797; color: white; min-width: 200px;">
+                                style="background-color: #dc9797;
+                                       border-color: #dc9797;
+                                       color: white;
+                                       min-width: 200px">
                             <i class="bi bi-exclamation-triangle"></i>&nbsp;&nbsp;Report Image
                         </button>
                     </div>
@@ -143,7 +146,6 @@
             </div>
         {% endif %}
     </div>
-
     <!-- Report Image Confirmation Modal -->
     <div class="modal fade"
          id="reportImageModal"
@@ -163,19 +165,22 @@
                 </div>
                 <div class="modal-body">
                     <p>This will report this image as inappropriate and remove it from general annotation.</p>
-                    <p class="mb-0"><strong>Click OK to continue.</strong></p>
+                    <p class="mb-0">
+                        <strong>Click OK to continue.</strong>
+                    </p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button"
                             id="confirm_report_image"
                             class="btn"
-                            style="background-color: #dc9797; border-color: #dc9797; color: white;">OK</button>
+                            style="background-color: #dc9797;
+                                   border-color: #dc9797;
+                                   color: white">OK</button>
                 </div>
             </div>
         </div>
     </div>
-
     <div class="toast-container position-fixed bottom-0 end-0 p-1 mh-1"></div>
     <div class="page-background h-100 mt-5"></div>
 {% endblock content %}
@@ -349,13 +354,31 @@
             anno = renderBoundingBoxes("main-{{image.id}}", bboxes = bboxes, widgets = [ClassSelectorWidget]);
 
             // Render bounding boxes
+            userHasDeletedBox = false;
+            userHasCreatedBox = false;
+            bboxWarningMsgShown = false;
+
+            showBboxWarningMsg = () => {
+                if (userHasCreatedBox && userHasDeletedBox && !bboxWarningMsgShown) {
+                    bboxWarningMsgShown = true;
+                    alert("Warning: Please only proceed if you're certain. Annotators should not delete boxes and create their own. If you cannot annotate without deleting boxes, please skip the image instead. Adding your own boxes makes the image hard to clean and pass through the pipeline.")
+                }
+            }
+
+
             renderBoundingBoxPreviews("main-{{image.id}}", anno)
             anno.on("createAnnotation", function () {
+                userHasCreatedBox = true;
+
                 $('#species-list').val("").trigger('change');
                 $('#activity-list').val("").trigger('change');
                 return renderBoundingBoxPreviews("main-{{image.id}}", anno)
             })
-            anno.on("deleteAnnotation", function () { return renderBoundingBoxPreviews("main-{{image.id}}", anno)})
+            anno.on("deleteAnnotation", function () {
+                userHasDeletedBox = true;
+
+                return renderBoundingBoxPreviews("main-{{image.id}}", anno)
+            })
             anno.on("updateAnnotation", function () {
                 $('#species-list').val("").trigger('change');
                 $('#activity-list').val("").trigger('change');

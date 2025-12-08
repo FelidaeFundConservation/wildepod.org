@@ -449,6 +449,9 @@ function renderBoundingBoxPreviews(imageElementID, anno) {
         });
 
         $(`.delete-${cleanedId}`).click(function () {
+            userHasDeletedBox = true;
+            showBboxWarningMsg();
+
             anno.removeAnnotation(annotation.id);
             preview.remove();
             updateAnnotationCount();
@@ -475,6 +478,8 @@ function renderBoundingBoxPreviews(imageElementID, anno) {
 
 
         boxNum++;
+
+        showBboxWarningMsg();
     }
 
     checkNoAnnotations();
@@ -523,6 +528,9 @@ function reHideBboxes(fade = false) {
 }
 
 function createMaintainedAspectRatioCanvas(annotation, cleanedId, imageElement) {
+    // Box was deleted
+    if (!imageElement) return
+
     // Get the bounding box for the annotation
     let x, y, w, h;
     [x, y, w, h] = annotation.target.selector.value.split(':')[1].split(',').map(function (x) { return parseFloat(x).toFixed(5) });

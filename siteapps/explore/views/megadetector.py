@@ -2,8 +2,11 @@
 
 import base64
 import json
-
+import os
 import requests
+
+import google.auth.transport.requests
+import google.oauth2.id_token
 from braces.views import StaffuserRequiredMixin
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -48,19 +51,28 @@ class ExploreMegadetectorView(LoginRequiredMixin, StaffuserRequiredMixin, Templa
                 context["image"] = img_str
 
             # TODO: Probably a better way to handle this. Hardcoded for now. Might not even need a model/record for this
-            bot, _ = Bot.objects.get_or_create(
-                name="MegaDetector",
-                version="4.1.0",
-                task_type="Object Detection",
-                model_api_url=settings.MEGADETECTOR_URL,
-                model_file_url=f"gs://{settings.MODEL_STORAGE_BUCKET}/md_v4.1.0.pb",
-            )
+            bot = Bot.objects.get(name="MegaDetector", version="v6-yolov9c") # "v5a.0.0"
+
+            id_token = os.environ.get("ID_TOKEN")
 
             # Call the MegaDetector cloud function
-            result = requests.post(
+            #result = requests.post(
+            #    bot.model_api_url,
+            #     json={"image": context["image"], "model": bot.model_file_url},
+            #).json()
+
+            #auth_req = google.auth.transport.requests.Request()
+            #url = settings.MEGADETECTOR_URL
+            #id_token = google.oauth2.id_token.fetch_id_token(auth_req, url)
+
+            response = requests.post(
                 bot.model_api_url,
-                json={"image": context["image"], "model": bot.model_file_url},
-            ).json()
+                json={"image": image_src, "megadetector_version": bot.version, "detection_threshold": bot.threshold},
+                headers={"Authorization": f"Bearer {id_token}"},
+                timeout=300,
+            )
+
+            result = response.json()["annotation"]
 
             # Create a new annotation object
             bboxes = [

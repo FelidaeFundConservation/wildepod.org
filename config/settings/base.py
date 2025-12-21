@@ -4,6 +4,7 @@ Base settings to build other settings files upon.
 # This project follows the recommended structure from authors of two scoops of Django
 # https://github.com/cookiecutter/cookiecutter-django
 import io
+import os
 from pathlib import Path
 
 import environ
@@ -45,6 +46,10 @@ elif env("GOOGLE_CLOUD_PROJECT"):
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 # DEBUG MODE
 DEBUG = False
+# LOCAL ENVIRONMENT FLAG
+# Detect if running locally vs in cloud by checking for GCP environment variables
+# K_SERVICE is set on Cloud Run, GAE_ENV is set on App Engine
+LOCAL = not os.environ.get("GAE_ENV")
 # Local time zone. Choices are
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
 # though not all of them may be available with every OS.

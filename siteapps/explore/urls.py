@@ -4,6 +4,7 @@ from .views import (
     ConfirmUpdateView,
     ExploreIndexView,
     ExploreMapView,
+    ExploreMegadetectorView,
     ExplorePopularImagesView,
     PreviewSnapshotImagesView,
     PriorityView,
@@ -16,6 +17,7 @@ from .views import (
     TrackVolunteerEngagementView,
     WorkflowStateView,
 )
+from .views.speciesnet import ExploreSpeciesNetView
 
 urlpatterns = [
     path("", ExploreMapView.as_view(), name="index"),
@@ -25,7 +27,8 @@ urlpatterns = [
         "data/snapshots/preview-snapshot-images/", PreviewSnapshotImagesView.as_view(), name="preview_snapshot_images"
     ),
     path("map/", ExploreMapView.as_view(), name="map"),
-    # path("megadetector/", ExploreMegadetectorView.as_view(), name="megadetector"),
+    path("megadetector/", ExploreMegadetectorView.as_view(), name="megadetector"),
+    path("speciesnet/", ExploreSpeciesNetView.as_view(), name="speciesnet"),
     path(
         "popular-images/remove/",
         RemovePopularImageView.as_view(),

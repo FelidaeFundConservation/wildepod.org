@@ -11,6 +11,10 @@ class ExploreMegadetectorForm(forms.Form):
     image = forms.ImageField(required=False)
 
 
+class ExploreSpeciesNetForm(forms.Form):
+    image = forms.ImageField(required=True)
+
+
 class CreateSnapshotForm(forms.ModelForm):
 
     start_date = forms.DateField(widget=forms.widgets.DateInput(attrs={"type": "date"}), required=False)

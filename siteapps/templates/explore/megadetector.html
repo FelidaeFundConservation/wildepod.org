@@ -82,6 +82,7 @@
         {% for bbox in bboxes %}
             {
                 "id": "{{bbox.id}}",
+                "categoryType": "{{bbox.category}}",
                 "category": "{{bbox.category}}",
                 "confidence": {{bbox.confidence}},
                 "x": {{bbox.x}},
@@ -91,14 +92,49 @@
             },
         {% endfor %}
     ];
+    
+    // Save state of hidden boxes
+    window.hiddenBoxes = [];
+    
     let config = {
         readOnly: true,
     }
-    let categories = ['animal','human','vehicle']
-    let MDClassSelectorWidget = createCategoryWidget(categories)
+    let categories = {
+        "animal": {
+            "open": false,
+            "data": {
+                "null": {
+                    "items": [{"name": "animal", "has_vote": false, "ai_detection": false}]
+                }
+            }
+        },
+        "human": {
+            "open": false,
+            "data": {
+                "null": {
+                    "items": [{"name": "human", "has_vote": false, "ai_detection": false}]
+                }
+            }
+        },
+        "vehicle": {
+            "open": false,
+            "data": {
+                "null": {
+                    "items": [{"name": "vehicle", "has_vote": false, "ai_detection": false}]
+                }
+            }
+        }
+    }
+    let MDClassSelectorWidget = createCategoryWidget(JSON.stringify(categories))
+    
+    // No-op function for adjustImage (image manipulators not used in megadetector demo)
+    function adjustImage() {
+        // Image manipulators are not available in this view
+    }
+    
     window.addEventListener('load', function() {
-        let anno = renderBoundingBoxes("test-image", bboxes=bboxes, widgets=[MDClassSelectorWidget]);
-        renderBoundingBoxPreviews("test-image", "annotations-preview", anno)
+        anno = renderBoundingBoxes("test-image", bboxes, [MDClassSelectorWidget], config);
+        renderBoundingBoxPreviews("test-image", anno)
     });
 </script>
 {% endblock footer_includes %}

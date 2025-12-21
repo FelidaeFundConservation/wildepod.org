@@ -115,7 +115,7 @@ def run_model_inference(image: Image, species: bool = False):
     # Currently there are issues with getting the id token and it is unclear why.
     # As a work around, at least in local mode, the ID token is simply yanked out from the env
     # export ID_TOKEN="$(gcloud auth print-identity-token -q)"
-    if settings.DEBUG:
+    if settings.LOCAL:
         id_token = os.environ.get("ID_TOKEN")
     else:
         # This is specifically to call the Megadetector API on Cloud Run that has auth gating.

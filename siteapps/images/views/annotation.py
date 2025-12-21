@@ -37,6 +37,8 @@ VOTE_THRESHOLD = 1
 CATEGORY_ANIMAL = "animal"
 CATEGORY_HUMAN = "human"
 CUSTOM_PREFIX = "Custom"
+STAFF_REVIEW_PREFIX = "StaffReview"
+REPORTED_IMAGES_PREFIX = "ReportedImages"
 SPECIES_QUEUE_NAME = "AnnotateSpeciesQueue"
 ACTIVITY_HUMAN_QUEUE_NAME = "AnnotateHumanBehaviorQueue"
 ACTIVITY_ANIMAL_QUEUE_NAME = "AnnotateAnimalActivityQueue"
@@ -191,7 +193,7 @@ def get_or_set_annotation_count(request, queue_name, annotator, annotation_num=0
 
 
 # Filter criteria for an image to appear in the Species pipeline
-def species_pipeline_query(images, annotator, staff_review=False):
+def species_pipeline_query(images, annotator, staff_review=False, reported_images=False):
     """
     Filters and reorders a set of images based on Species pipeline eligibility.
     - Image must not be checked or skipped by the current annotator.
@@ -208,9 +210,8 @@ def species_pipeline_query(images, annotator, staff_review=False):
         images (QuerySet<images.models.Image>): The filtered and ordered queryset of images.
     """
     # Only queried when there's no precomputed queues available
-    images = images.filter(
-        # It must not be checked or skipped by the current annotator
-        ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator]),
+    # Build base filter conditions
+    filter_conditions = Q(
         # Image has at least one bounding box tagged by MegaDetector above the predetermined threshold
         Q(has_bbox_above_confidence_threshold=True),
         # Image has at least 1 uncertain bounding box
@@ -224,16 +225,30 @@ def species_pipeline_query(images, annotator, staff_review=False):
         # Image has been preprocessed and we can use precomputed flags
         use_precomputed_flags=True,
         upload__deleted=False,
-    ).order_by("-upload__priority", "-has_cats", "upload__camera_station", "trigger_timestamp")
+    )
 
-    if not staff_review:
+    # Only exclude images checked/skipped by current user in normal annotation mode
+    # In staff review or reported images mode, allow users to review their own flagged/reported images
+    if not staff_review and not reported_images:
+        filter_conditions &= ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator])
+
+    images = images.filter(filter_conditions).order_by("-upload__priority", "-has_cats", "upload__camera_station", "trigger_timestamp")
+
+    if staff_review:
+        images = images.filter(staff_review_needed=True)
+    else:
         images = images.filter(staff_review_needed=False)
+
+    if reported_images:
+        images = images.filter(image_reported=True)
+    else:
+        images = images.filter(image_reported=False)
 
     return images
 
 
 # Filter criteria for an image to appear in the Activity pipelines
-def activity_pipeline_query(images, annotator, activity_category):
+def activity_pipeline_query(images, annotator, activity_category, staff_review=False, reported_images=False):
     """
     Filters and reorders a set of images based on Activity pipeline eligibility.
     - Image must not be checked or skipped by the current annotator.
@@ -250,16 +265,31 @@ def activity_pipeline_query(images, annotator, activity_category):
         images (QuerySet<images.models.Image>):
             The filtered and ordered queryset of images.
     """
-    images = images.filter(
-        # It must not be checked or skipped by the current annotator
-        ~Q(activity_checked_by__in=[annotator]) & ~Q(activity_skipped_by__in=[annotator]),
+    # Build base filter conditions
+    filter_conditions = Q(
         # Image hasn't completed the Activity Pipeline
         activity_pipeline_complete=False,
         # Image has been preprocessed and we can use precomputed flags
         use_precomputed_flags=True,
-        staff_review_needed=False,
         upload__deleted=False,
     )
+
+    # Only exclude images checked/skipped by current user in normal annotation mode
+    # In staff review or reported images mode, allow users to review their own flagged/reported images
+    if not staff_review and not reported_images:
+        filter_conditions &= ~Q(activity_checked_by__in=[annotator]) & ~Q(activity_skipped_by__in=[annotator])
+
+    images = images.filter(filter_conditions)
+
+    if staff_review:
+        images = images.filter(staff_review_needed=True)
+    else:
+        images = images.filter(staff_review_needed=False)
+
+    if reported_images:
+        images = images.filter(image_reported=True)
+    else:
+        images = images.filter(image_reported=False)
 
     # Filter for animals or humans based on the category passed into the view
     if activity_category == CATEGORY_HUMAN:
@@ -272,7 +302,7 @@ def activity_pipeline_query(images, annotator, activity_category):
     return images
 
 
-def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_category, staff_review):
+def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_category, staff_review, reported_images=False):
     """
     Gets a new queue of images based on criteria, and caches the results in Datastore.
     This is the legacy queue system and is only called when the precomputed queues run out.
@@ -288,6 +318,7 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
             between either the human or animal activity pipeline (ex. CATEGORY_HUMAN).
             None if not annotating Activity.
         - staff_review (boolean): Whether annotator is looking at staff review images only or not.
+        - reported_images (boolean): Whether annotator is looking at reported images only or not.
 
     Returns
     ---
@@ -300,9 +331,9 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
 
     # Filter using specified pipeline criteria
     if SPECIES_QUEUE_NAME in queue_name:
-        images = species_pipeline_query(images=images, annotator=annotator, staff_review=staff_review)
+        images = species_pipeline_query(images=images, annotator=annotator, staff_review=staff_review, reported_images=reported_images)
     elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
-        images = activity_pipeline_query(images=images, annotator=annotator, activity_category=activity_category)
+        images = activity_pipeline_query(images=images, annotator=annotator, activity_category=activity_category, staff_review=staff_review, reported_images=reported_images)
     else:
         logging.error(f"Invalid queue name provided to query function: {queue_name}")
 
@@ -349,12 +380,12 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
 
             # Make sure the burst image is pipeline eligible
             if SPECIES_QUEUE_NAME in queue_name:
-                eligible_burst_image_ids = species_pipeline_query(burst_images, annotator=annotator).values_list(
+                eligible_burst_image_ids = species_pipeline_query(burst_images, annotator=annotator, staff_review=staff_review, reported_images=reported_images).values_list(
                     "id", flat=True
                 )
             elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
                 eligible_burst_image_ids = activity_pipeline_query(
-                    burst_images, annotator=annotator, activity_category=activity_category
+                    burst_images, annotator=annotator, activity_category=activity_category, staff_review=staff_review, reported_images=reported_images
                 ).values_list("id", flat=True)
 
             # Add burst images to queue, after the main image
@@ -711,7 +742,7 @@ def get_precomputed_queue(queue_name, annotator, searched):
     annotator_check, pipeline_kwarg, exclusion_condition = get_pipeline_filters(queue_name, annotator)
 
     # Use the pipeline_kwarg in the query
-    q_condition = Q(annotator_check) & Q(has_bbox_above_confidence_threshold=True) & Q(staff_review_needed=False)
+    q_condition = Q(annotator_check) & Q(has_bbox_above_confidence_threshold=True) & Q(staff_review_needed=False) & Q(image_reported=False)
     queue_condition = Exists(
         Image.objects.filter(
             q_condition,
@@ -868,7 +899,7 @@ def set_widget_data(context, image, species_list):
 
 
 # Retrieves data to pass to the views through context (namely queue images and annotations info).
-def populate_view_context(queue_name, context, self, activity_category=None, staff_review=False, searched=False):
+def populate_view_context(queue_name, context, self, activity_category=None, staff_review=False, reported_images=False, searched=False):
 
     """
     Sets data in view context to access from the annotation view templates,
@@ -889,11 +920,23 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
     # Check if we're doing custom annotations
     custom_annotations = self.request.GET.get("custom") == "true"
 
-    # Get the annotation queue cached in the datastore
-    queue_name = CUSTOM_PREFIX + queue_name if custom_annotations else queue_name
+    # Get the annotation queue cached in the datastore. 
+    # Treat Custom annotations, Staff Review, and Reported Images as separate queues.
+    if custom_annotations:
+        queue_name = CUSTOM_PREFIX + queue_name
+    elif staff_review:
+        queue_name = STAFF_REVIEW_PREFIX + queue_name
+    elif reported_images:
+        queue_name = REPORTED_IMAGES_PREFIX + queue_name
 
     queue_key = settings.DATASTORE_CLIENT.key(queue_name, str(self.request.user.id))
     queue = settings.DATASTORE_CLIENT.get(queue_key)
+
+    # Clear cached queue when fresh=true parameter is present (user clicked menu link)
+    is_fresh_start = self.request.GET.get('fresh') == 'true'
+    if (staff_review or reported_images) and queue and is_fresh_start:
+        settings.DATASTORE_CLIENT.delete(queue_key)
+        queue = None
 
     # Check if we have a valid cached queue of images
     queue_available = (
@@ -906,7 +949,7 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
     annotator_check, pipeline_kwarg, exclusion_condition = get_pipeline_filters(queue_name, annotator)
     precomputed_queue = (
         None
-        if (staff_review or custom_annotations)
+        if (staff_review or reported_images or custom_annotations)
         else get_precomputed_queue(queue_name=queue_name, annotator=annotator, searched=searched)
     )
 
@@ -921,7 +964,7 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
 
         if not searched:
             queue_images = queue_images.filter(
-                annotator_check, has_bbox_above_confidence_threshold=True, staff_review_needed=False, **pipeline_kwarg
+                annotator_check, has_bbox_above_confidence_threshold=True, staff_review_needed=False, image_reported=False, **pipeline_kwarg
             ).exclude(exclusion_condition)
 
         partitioned_queue_images = queue_images.filter(trigger_timestamp__gte=precomputed_queue.partition)
@@ -948,19 +991,21 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
             annotator=annotator,
             activity_category=activity_category,
             staff_review=staff_review,
+            reported_images=reported_images,
         )
 
     # If there is a valid image, add bounding box information
     if image_id:
         image = Image.objects.get(id=image_id)
 
-        if return_to_image_id is None and not precomputed_queue and not staff_review:
+        if return_to_image_id is None and not precomputed_queue and not staff_review and not reported_images:
             skip_result = skip_ineligible_images(queue_name=queue_name, queue=queue, annotator=annotator)
             image = skip_result if skip_result else image
 
         context["image"] = image
         context["social_media_worthy"] = image.social_media_worthy
         context["staff_review_needed"] = image.staff_review_needed
+        context["image_reported"] = image.image_reported
         context["bounding_boxes"] = get_valid_or_uncertain_bboxes(image=image)
         context["queue_index"] = queue["index"] if queue else None
         context["queue_length"] = len(queue["images"]) if queue else None
@@ -1021,6 +1066,8 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
 
     context["activity_list"] = ActivityType.objects.filter(category=activity_category)
     context["custom_annotations"] = custom_annotations
+    context["staff_review"] = staff_review
+    context["reported_images"] = reported_images
 
     if SPECIES_QUEUE_NAME in queue_name:
         context["pipeline"] = "species"
@@ -1175,13 +1222,13 @@ class CustomAnnotationView(LoginRequiredMixin, FormView, TemplateView):
 
 
 # Sets filterset for custom annotations
-def set_view_filterset(self, staff_review=False):
+def set_view_filterset(self, staff_review=False, reported_images=False):
     start_date = self.request.GET.get("start_date")
     end_date = self.request.GET.get("end_date")
     camera_id = None if self.request.GET.get("camera_id") == "None" else self.request.GET.get("camera_id")
     macrosite_name = self.request.GET.get("macrosite_name")
 
-    self.filterset = get_filter_params(start_date, end_date, macrosite_name, camera_id, staff_review)
+    self.filterset = get_filter_params(start_date, end_date, macrosite_name, camera_id, staff_review_needed=staff_review, image_reported=reported_images)
 
 
 class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
@@ -1189,7 +1236,7 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
     template_name = "images/annotate/species.html"
 
     def get(self, request, *args, **kwargs):
-        set_view_filterset(self, staff_review=kwargs.get("staff_review", False))
+        set_view_filterset(self, staff_review=kwargs.get("staff_review", False), reported_images=kwargs.get("reported_images", False))
 
         return super().get(request, *args, **kwargs)
 
@@ -1201,6 +1248,7 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
             context,
             self,
             staff_review=kwargs.get("staff_review", False),
+            reported_images=kwargs.get("reported_images", False),
             searched=kwargs.get("searched", False) and self.request.user.is_staff,
         )
 
@@ -1268,6 +1316,14 @@ def annotation_processor(queue_name, annotation_type, request):
     staff_review_needed = request.POST.get("staff_review_needed")
     staff_review_needed = bool(staff_review_needed and staff_review_needed == "true")
 
+    # Check if the image was reported
+    # Return None if not sent, True/False if explicitly sent
+    image_reported_raw = request.POST.get("image_reported")
+    if image_reported_raw is None:
+        image_reported = None  # Not sent - preserve current value
+    else:
+        image_reported = image_reported_raw == "true"  # Explicitly true or false
+
     # Get images to batch tag
     batch_tag_images = request.POST.get("batch_tag_images")
     batch_tag_images = json.loads(batch_tag_images) if batch_tag_images else []
@@ -1291,6 +1347,7 @@ def annotation_processor(queue_name, annotation_type, request):
             user=request.user,
             social_media_worthy_vote=social_media_worthy_vote,
             staff_review_needed=staff_review_needed,
+            image_reported=image_reported,
             batch_tag_images=batch_tag_images,
             skip=skip,
         )
@@ -1304,6 +1361,7 @@ def annotation_processor(queue_name, annotation_type, request):
             user=request.user,
             social_media_worthy_vote=social_media_worthy_vote,
             staff_review_needed=staff_review_needed,
+            image_reported=image_reported,
             batch_tag_images=batch_tag_images,
             skip=skip,
         )
@@ -1317,6 +1375,7 @@ def annotation_processor(queue_name, annotation_type, request):
             user=request.user,
             social_media_worthy_vote=social_media_worthy_vote,
             staff_review_needed=staff_review_needed,
+            image_reported=image_reported,
             batch_tag_images=batch_tag_images,
             skip=skip,
         )
@@ -1344,12 +1403,19 @@ def annotation_processor(queue_name, annotation_type, request):
 
         image.save()
 
-        # Check if we're doing custom annotations
+        # Check if we're doing custom annotations, staff review, or reported images
         custom_annotations = request.POST.get("custom_annotations", False) == "True"
+        staff_review = request.POST.get("staff_review", False) == "True"
+        reported_images = request.POST.get("reported_images", False) == "True"
 
         # Get the annotation queue cached in the datastore
         if custom_annotations:
             queue_name = CUSTOM_PREFIX + queue_name
+        elif staff_review:
+            queue_name = STAFF_REVIEW_PREFIX + queue_name
+        elif reported_images:
+            queue_name = REPORTED_IMAGES_PREFIX + queue_name
+
         queue = settings.DATASTORE_CLIENT.get(settings.DATASTORE_CLIENT.key(queue_name, str(request.user.id)))
 
         # Update the index

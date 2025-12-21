@@ -1,16 +1,25 @@
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
 from io import BytesIO
 
+import dropbox
 import requests
+import torch as _torch
 from colorama import Back, Fore, Style
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
 from django.db.models import Case, Exists, F, OuterRef, Prefetch, Q, When
 from images.models import Annotator, Bot, BoundingBox, Category, Image, Upload
+from images.processors.image import add_thumbnail
+from images.processors.upload import (
+    check_image_valid,
+    get_dropbox_file_listing,
+    get_metadata_with_retry,
+    preretrieve_file_metadata,
+)
 from images.views import activity_pipeline_query, species_pipeline_query
 from images.views.annotation import (
     calculateActivityAnnotationFlags,
@@ -18,7 +27,19 @@ from images.views.annotation import (
     calculateSpeciesAnnotationFlags,
 )
 from PIL import Image as PILImage
-from pyexpat import model
+
+# Save original
+_original_torch_load = _torch.load
+
+
+def patched_torch_load(*args, **kwargs):
+    # Force old behavior
+    kwargs["weights_only"] = False
+    return _original_torch_load(*args, **kwargs)
+
+
+# Patch it
+_torch.load = patched_torch_load
 
 
 def get_pil_image(image_url):
@@ -31,6 +52,89 @@ def get_pil_image(image_url):
         pillow_image = PILImage.open(BytesIO(response.content)).convert("RGB")
 
     return pillow_image
+
+
+def process_entry(entry, preretrieved_metadata, upload):
+    if not isinstance(entry, dropbox.files.FileMetadata):
+        return None
+
+    # Retrieve metadata with retry
+    response = get_metadata_with_retry(preretrieved_metadata, entry, max_retries=10, delay=10)
+
+    # Get media info
+    try:
+        media_info = response.media_info.get_metadata()
+    except Exception as error:
+        print("Metadata error:", error, flush=True)
+        return None
+
+    # Only process images/videos
+    if not isinstance(media_info, (dropbox.files.PhotoMetadata, dropbox.files.VideoMetadata)):
+        return None
+
+    img_obj, created = Image.objects.get_or_create(
+        upload=upload,
+        dropbox_file_name=response.name,
+        dropbox_file_path=response.path_lower,
+        dropbox_file_path_display=response.path_display,
+        dropbox_content_hash=response.content_hash,
+        dropbox_file_id=response.id,
+        file_size=response.size,
+        is_video=isinstance(media_info, dropbox.files.VideoMetadata),
+    )
+
+    if created:
+        if media_info.time_taken:
+            img_obj.trigger_timestamp = media_info.time_taken
+        if media_info.dimensions:
+            img_obj.height = media_info.dimensions.height
+            img_obj.width = media_info.dimensions.width
+        if media_info.location:
+            img_obj.latitude = media_info.location.latitude
+            img_obj.longitude = media_info.location.longitude
+        if img_obj.is_video and media_info.duration:
+            img_obj.duration = media_info.duration
+        img_obj.save()
+
+    if not img_obj.thumbnail_gcloud_path:
+        add_thumbnail(img_obj)
+
+    # Remove corrupted images
+    if not img_obj.processed and not img_obj.is_video:
+        if check_image_valid(img_obj) == False:
+            img_obj.delete()
+            return "deleted"
+
+    return img_obj.id
+
+
+def create_entries(upload, max_workers=15):
+    entries = get_dropbox_file_listing(upload.dropbox_folder_path)
+    print(len(entries), "entries found total.", flush=True)
+
+    existing_paths = {
+        path.rsplit(".", 1)[0] for path in upload.images.all().values_list("dropbox_file_path", flat=True)
+    }
+
+    filtered_entries = [entry for entry in entries if entry.path_lower.rsplit(".", 1)[0] not in existing_paths]
+
+    print(len(filtered_entries), "entries remaining to process. Getting metadata...", flush=True)
+
+    preretrieved_metadata = {}
+    preretrieve_file_metadata(filtered_entries, preretrieved_metadata)
+    print("All metadata retrieved. Starting processing...", flush=True)
+
+    results = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(process_entry, entry, preretrieved_metadata, upload) for entry in filtered_entries]
+        for future in as_completed(futures):
+            try:
+                result = future.result()
+                results.append(result)
+            except Exception as e:
+                print("Error in worker:", e, flush=True)
+
+    return results
 
 
 class Command(BaseCommand):
@@ -51,6 +155,13 @@ class Command(BaseCommand):
             default=None,
             help="The yolov9 model name. Enables species AI detections.",
         )
+
+        parser.add_argument(
+            "--add_thumbnails",
+            action="store_true",
+            help="Pull from dropbox and create image objs.",
+        )
+
         parser.add_argument("--make_changes", action="store_true", help="Flag to enable saving the changes.")
 
     def handle(self, *args, **options):
@@ -112,6 +223,7 @@ class Command(BaseCommand):
                 import yolov5
 
                 bot = Bot.objects.get(name="MegaDetector", version="v5a.0.0")
+                annotator = Annotator.objects.get(type="bot", bot=bot)
 
                 ct_model = yolov5.load(category_model + ".pt")
                 ct_model.conf = 0.1  # NMS confidence threshold
@@ -139,16 +251,19 @@ class Command(BaseCommand):
                         ymins = df["ymin"].tolist()
                         ymaxs = df["ymax"].tolist()
 
+                        img_width, img_height = pil_img.size
+
                         bounding_box_data = [
                             {
                                 "image": image,
                                 "confidence": confidence,
-                                "x": xmin,
-                                "y": ymin,
-                                "w": xmax - xmin,
-                                "h": ymax - ymin,
-                                "created_by": bot,
+                                "x": xmin / img_width,
+                                "y": ymin / img_height,
+                                "w": (xmax - xmin) / img_width,
+                                "h": (ymax - ymin) / img_height,
+                                "created_by": annotator,
                                 "confidence_threshold": bot.threshold,
+                                "category": category,
                             }
                             for category, confidence, xmin, ymin, xmax, ymax in zip(
                                 categories, confidences, xmins, ymins, xmaxs, ymaxs
@@ -156,13 +271,29 @@ class Command(BaseCommand):
                         ]
 
                         for kwargs in bounding_box_data:
+                            category = kwargs.pop("category")
                             bounding_box, created = BoundingBox.objects.get_or_create(**kwargs)
-                            category, created = Category.objects.get_or_create(
-                                bounding_box=bounding_box, category=category
-                            )
 
-                        image.processed = True
-                        image.save()
+                            cats = Category.objects.filter(
+                                bounding_box=bounding_box,
+                                name=category,
+                                created_by=annotator,
+                            )
+                            first_cat = cats.first()
+                            if first_cat:
+                                cats.exclude(id=first_cat.id).delete()
+
+                            category_obj, created = Category.objects.get_or_create(
+                                bounding_box=bounding_box,
+                                name=category,
+                                created_by=annotator,
+                            )
+                            category_obj.confidence = round(kwargs["confidence"], 2)
+                            category_obj.save()
+
+                        if options.get("make_changes"):
+                            image.processed = True
+                            image.save()
 
                 return detect_bboxes
 
@@ -212,8 +343,8 @@ class Command(BaseCommand):
             if category_model:
                 try:
                     detect_bboxes(image)
-                except:
-                    pass
+                except Exception as e:
+                    print(e)
 
             with image_count_lock:
                 image_count += 1
@@ -241,15 +372,30 @@ class Command(BaseCommand):
 
         kwargs = {}
 
-        print(f"\nQuerying images... please wait a moment...\n")
+        print(f"\Creating images... please wait a moment...\n")
+        if options.get("add_thumbnails"):
+            unprocessed = Upload.objects.filter(processed=False, upload_complete=True, deleted=False).order_by(
+                "img_count"
+            )
+
+            for upload_obj in unprocessed:
+                print(f"Pre-processing upload - {upload_obj.id}")
+                print(f"{Image.objects.filter(upload=upload_obj).count()} images in upload before preprocess")
+                try:
+                    results = create_entries(upload_obj)
+                except Exception as e:
+                    print(f"Error processing upload {upload_obj} - {e}")
+                print(f"{Image.objects.filter(upload=upload_obj).count()} images in upload after preprocess")
+
+        print(f"\nQuerying images to run inference... please wait a moment...\n")
 
         # NOTE: Change this query as needed if provided args aren't enough
         if category_model:
-            images_tally = Image.objects.filter(upload__processed=False).exclude(
-                Q(thumbnail_gcloud_path=None) | Q(trigger_timestamp=None)
-            )
+            images_tally = Image.objects.filter(
+                processed=False, upload__upload_complete=True, category_pipeline_complete=False
+            ).exclude(Q(thumbnail_gcloud_path=None) | Q(trigger_timestamp=None))
         elif species_model:
-            images_tally = Image.objects.filter(species_ai_detections=None).exclude(
+            images_tally = Image.objects.filter(species_ai_detections=None, upload__upload_complete=True).exclude(
                 Q(thumbnail_gcloud_path=None) | Q(trigger_timestamp=None)
             )
 
@@ -273,11 +419,31 @@ class Command(BaseCommand):
             if image_chunk:
                 list(executor.map(process_image, image_chunk))
 
-        upload_objs = Upload.objects.filter(processed=False)
+        upload_objs = Upload.objects.filter(processed=False, upload_complete=True, deleted=False)
 
         for upload in upload_objs:
-            if not upload.images.filter(processed=False).exists():
+            unprocessed_imgs = upload.images.filter(processed=False)
+
+            if not unprocessed_imgs.exists():
                 upload.processed = True
                 upload.save()
 
                 print(f"Upload {upload.id} marked as processed.")
+            else:
+                print(f"Upload {upload.id} has {unprocessed_imgs.count()} unprocessed images.")
+
+                # Try one more time
+                for image in unprocessed_imgs:
+                    try:
+                        add_thumbnail(image)
+                    except Exception as e:
+                        print(f"Cannot create thumbnail - deleting - {e}")
+                        image.delete()
+
+                    unprocessed_imgs = upload.images.filter(processed=False)
+
+                    if not unprocessed_imgs.exists():
+                        upload.processed = True
+                        upload.save()
+
+                        print(f"Upload {upload.id} marked as processed.")

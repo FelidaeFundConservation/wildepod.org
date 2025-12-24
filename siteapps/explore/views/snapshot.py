@@ -15,8 +15,9 @@ from django.views.generic import FormView, ListView, View
 from explore.forms import CreateSnapshotForm
 from explore.models import Snapshot
 from exports.views import start_export
-from google.cloud import tasks_v2
 from images.models import Image, Upload
+
+from google.cloud import tasks_v2
 
 MAX_VOTES_PER_IMAGE = 3
 

@@ -2,20 +2,12 @@ import os
 import uuid
 from urllib.parse import quote
 
-import dropbox
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
 from locations.models import CameraStation
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
-
-# Create a dropbox client
-dbx = dropbox.Dropbox(
-    app_key=settings.DROPBOX_APP_KEY,
-    app_secret=settings.DROPBOX_APP_SECRET,
-    oauth2_refresh_token=settings.DROPBOX_REFRESH_TOKEN,
-)
 
 
 class CameraStationAction(TimeStampedModel):

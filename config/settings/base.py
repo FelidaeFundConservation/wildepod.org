@@ -4,10 +4,10 @@ Base settings to build other settings files upon.
 # This project follows the recommended structure from authors of two scoops of Django
 # https://github.com/cookiecutter/cookiecutter-django
 import io
+import os
 from pathlib import Path
 
 import environ
-from google.cloud import datastore, secretmanager
 
 # Repo root
 ROOT_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
@@ -19,14 +19,20 @@ env = environ.Env(DEBUG=(bool, False))
 # Local environment file path
 env_file = ROOT_DIR / ".env"
 
+# Check if running with local settings (no GCP dependencies)
+USING_LOCAL_SETTINGS = os.environ.get("DJANGO_SETTINGS_MODULE", "").endswith(".local")
 
 # Google Cloud Secret Manager
 # ------------------------------------------------------------------------------
 # Load environment variables from .env file or google secret manager
 # When deployed, env variables are read from Google secret manager (GOOGLE_CLOUD_PROJECT is set on deploy)
+# Local settings always use .env file and skip Secret Manager
 if env_file.is_file():
     env.read_env(env_file)
-elif env("GOOGLE_CLOUD_PROJECT"):
+elif not USING_LOCAL_SETTINGS and env("GOOGLE_CLOUD_PROJECT"):
+    # Import GCP dependencies only when needed
+    from google.cloud import secretmanager
+
     # Get project id & start a google secret manager client
     project_id = env("GOOGLE_CLOUD_PROJECT")
     client = secretmanager.SecretManagerServiceClient()
@@ -288,25 +294,35 @@ JAZZMIN_SETTINGS = {
 # CUSTOM VARIABLES
 # ------------------------------------------------------------------------------
 # GCF cloud url where MegaDetector currently serves requests
-MEGADETECTOR_URL = env("MEGADETECTOR_URL")
-SPECIES_DETECTOR_URL = env("SPECIES_DETECTOR_URL")
+# Optional for local development (will error if ML inference is attempted without these)
+MEGADETECTOR_URL = env("MEGADETECTOR_URL", default=None)
+SPECIES_DETECTOR_URL = env("SPECIES_DETECTOR_URL", default=None)
 # Model storage bucket name & relevant model URLs
-MODEL_STORAGE_BUCKET = env("GS_MODELS_BUCKET_NAME")
+MODEL_STORAGE_BUCKET = env("GS_MODELS_BUCKET_NAME", default=None)
 MIN_MEGADETECTOR_CONFIDENCE = 0.25
 
-# Initialize a Datastore client
-DATASTORE_CLIENT = datastore.Client(env("GOOGLE_CLOUD_PROJECT"))
+# Initialize a Datastore client (only for non-local environments)
+if not USING_LOCAL_SETTINGS:
+    from google.cloud import datastore
+    DATASTORE_CLIENT = datastore.Client(env("GOOGLE_CLOUD_PROJECT"))
+else:
+    DATASTORE_CLIENT = None  # Local development doesn't use Datastore
+
 ANNOTATION_QUEUE_SIZE = 100
 ANNOTATION_EXPIRATION_MINS = 60  # minutes
 
 # EXPORT SERVICE AND TASK QUEUE DETAILS
 # ------------------------------------------------------------------------------
-GCP_PROJECT_ID = env("GOOGLE_CLOUD_PROJECT")
+if not USING_LOCAL_SETTINGS:
+    GCP_PROJECT_ID = env("GOOGLE_CLOUD_PROJECT")
+else:
+    GCP_PROJECT_ID = None  # Not needed for local development
+
 GCP_REGION = "us-west2"  # TODO: This can be fetched via the cloud tasks API
 EXPORT_SERVICE_NAME = "jobs"
 EXPORT_QUEUE_NAME = "wildepod-jobs-queue"
 EXPORT_DATE_FORMAT = "%Y-%m-%d"
 EXPORT_URL_SUFFIX = "8jk6fh9m7w2xz5r3t1n0b8v6c"  # TODO: Move this to secret manager
 
-# Google Maps API
-GOOGLE_MAPS_API_KEY = env('GOOGLE_MAPS_API_KEY')
+# Google Maps API (optional for local development)
+GOOGLE_MAPS_API_KEY = env('GOOGLE_MAPS_API_KEY', default=None)

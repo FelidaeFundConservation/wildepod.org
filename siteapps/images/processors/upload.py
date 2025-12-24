@@ -10,17 +10,14 @@ import dropbox
 import requests
 from django.conf import settings
 from images.models import Image, Upload
+from images.utils.dropbox_client import create_dropbox_client
 from PIL import Image as PILImage
 from PIL import UnidentifiedImageError
 
 from .image import process_image
 
-# Create a dropbox client
-dbx = dropbox.Dropbox(
-    app_key=settings.DROPBOX_APP_KEY,
-    app_secret=settings.DROPBOX_APP_SECRET,
-    oauth2_refresh_token=settings.DROPBOX_REFRESH_TOKEN,
-)
+# Dropbox client is now created on-demand via create_dropbox_client() function
+# Logging level for dropbox set when client is created
 logging.getLogger("dropbox").setLevel(logging.WARNING)
 
 # NOTE: Dropbox doesn't like this going too high.
@@ -31,15 +28,14 @@ MAX_THREADS_FOR_IMAGE_PROCESSING = 10
 MAX_THREADS_FOR_DROPBOX_API = 15
 
 
-def setup_dropbox_paths(upload_obj, data_sheet):
+def setup_dropbox_paths(upload_obj, data_sheet, dbx=None):
     from urllib.parse import quote
 
-    # Create a dropbox client
-    dbx = dropbox.Dropbox(
-        app_key=settings.DROPBOX_APP_KEY,
-        app_secret=settings.DROPBOX_APP_SECRET,
-        oauth2_refresh_token=settings.DROPBOX_REFRESH_TOKEN,
-    )
+    if dbx is None:
+        dbx = create_dropbox_client()
+
+    if dbx is None:
+        raise ValueError("Dropbox credentials not configured")
 
     # If the object is being created for the first time, create a Dropbox request url and populate relevant fields
 
@@ -75,12 +71,12 @@ def setup_dropbox_paths(upload_obj, data_sheet):
 
     # Save a copy of the datasheet in dropbox
     if data_sheet:
-        clone_data_sheet(data_sheet, upload_obj.data_sheet.name, upload_obj.dropbox_folder_name)
+        clone_data_sheet(data_sheet, upload_obj.data_sheet.name, upload_obj.dropbox_folder_name, dbx)
     else:
         response = dbx.files_create_folder(upload_obj.dropbox_folder_path)
 
 
-def clone_data_sheet(file, sheet_name, dropbox_folder_name):
+def clone_data_sheet(file, sheet_name, dropbox_folder_name, dbx=None):
     """
     Uploads a copy of the data sheet to the upload folder in dropbox
 
@@ -88,7 +84,14 @@ def clone_data_sheet(file, sheet_name, dropbox_folder_name):
     ---
         - file (InMemoryUploadedFile): The temporary file object created from submitting the upload form.
         - upload (images.models.Upload): The upload obj that was created to pull info from.
+        - dbx: Dropbox client instance (optional, will be created if not provided)
     """
+    if dbx is None:
+        dbx = create_dropbox_client()
+
+    if dbx is None:
+        raise ValueError("Dropbox credentials not configured")
+
     file_bytes = file.read()
 
     path = f"/{dropbox_folder_name}/data_sheet/{sheet_name}"
@@ -139,8 +142,13 @@ def precompute_context_images(upload):
             image.save()
 
 
-def get_dropbox_file_listing(dropbox_folder_path: str) -> list:
+def get_dropbox_file_listing(dropbox_folder_path: str, dbx=None) -> list:
     """Function to get a list of files in a dropbox directory."""
+    if dbx is None:
+        dbx = create_dropbox_client()
+
+    if dbx is None:
+        raise ValueError("Dropbox credentials not configured")
 
     logging.info("Retrieving file listing for the dropbox directory..")
     # NOTE: retry on error is already built into the dropbox client and is not required here
@@ -158,10 +166,17 @@ def get_dropbox_file_listing(dropbox_folder_path: str) -> list:
     return entries
 
 
-def preretrieve_file_metadata(entries, metadata_dict):
+def preretrieve_file_metadata(entries, metadata_dict, dbx=None):
+    if dbx is None:
+        dbx = create_dropbox_client()
+
+    if dbx is None:
+        raise ValueError("Dropbox credentials not configured")
+
     preretrieved_metadata_lock = threading.Lock()
 
     def append_metadata(entry):
+        # Uses dbx from closure
         data = dbx.files_get_metadata(entry.path_lower, include_media_info=True)
 
         with preretrieved_metadata_lock:
@@ -259,10 +274,16 @@ def process_dropbox_file(
 # & processing image objects retrieved.
 
 
-def process_upload(upload_id: uuid.UUID):
+def process_upload(upload_id: uuid.UUID, dbx=None):
     """Function to process a dropbox upload.
     This function creates image objects corresponding to the files in the dropbox directory
     """
+    if dbx is None:
+        dbx = create_dropbox_client()
+
+    if dbx is None:
+        raise ValueError("Dropbox credentials not configured")
+
     # This thread can start before the model save is completed on update
     # To ensure the latest copy of the object is retrieved here, the function
     # will wait until the "upload_complete" flag is set in the retrieved object
@@ -300,7 +321,7 @@ def process_upload(upload_id: uuid.UUID):
     logging.info("Successfully closed dropbox request.")
 
     # Get the list of file entries in the dropbox directory
-    entries = get_dropbox_file_listing(upload.dropbox_folder_path)
+    entries = get_dropbox_file_listing(upload.dropbox_folder_path, dbx)
 
     # Save the item count in a global dict
     dropbox_item_counts[f"{upload_id}"] = len(entries)
@@ -324,7 +345,7 @@ def process_upload(upload_id: uuid.UUID):
     # Pre-retrieve metadata for all files asynchronously
     preretrieved_metadata = {}
 
-    metadata_thread = threading.Thread(target=preretrieve_file_metadata, args=(entries, preretrieved_metadata))
+    metadata_thread = threading.Thread(target=preretrieve_file_metadata, args=(entries, preretrieved_metadata, dbx))
     metadata_thread.start()
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS_FOR_IMAGE_PROCESSING) as executor:

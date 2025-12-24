@@ -5,9 +5,20 @@
 ### Setting up the environment for the first time
 
 1. Git clone this repo
-2. Create a virtualenv
-3. Install Python dependencies `pip install -r requirements.txt`
-4. Install SASS compiler - Sass is a stylesheet language that’s compiled to CSS. It is installed on the OS level, not in the virtualenv.
+2. Install uv (modern Python package manager):
+   * macOS/Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+   * Or via Homebrew: `brew install uv`
+   * Windows: `powershell -c "irm https://astral.sh/uv/install.ps1 | iex"`
+   * More info: https://docs.astral.sh/uv/getting-started/installation/
+3. Install dependencies:
+   ```bash
+   uv sync
+   ```
+   This single command will:
+   - Create a virtual environment (`.venv`) with Python 3.10
+   - Install all dependencies from `pyproject.toml`
+   - Generate a lock file (`uv.lock`) for reproducible builds
+4. Install SASS compiler - Sass is a stylesheet language that's compiled to CSS. It is installed on the OS level, not in the virtualenv.
    * https://sass-lang.com/install
    * If you're using MacOs/Linux , you can use Homebrew : `brew install sass/sass/sass`
    Install Homebrew package manager if you still don't have (https://brew.sh)

@@ -14,7 +14,7 @@ ALLOWED_HOSTS = ["*"]
 DEBUG = True
 
 # https://docs.djangoproject.com/en/dev/ref/settings/#wsgi-application
-WSGI_APPLICATION = "config.wsgi.staging.application"
+WSGI_APPLICATION = "config.wsgi.local.application"
 
 # django-debug-toolbar
 # ------------------------------------------------------------------------------
@@ -35,14 +35,11 @@ WSGI_APPLICATION = "config.wsgi.staging.application"
 # DATABASES
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases
+# Using SQLite for local development (no PostgreSQL setup needed)
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "db.postgresql",
-        "USER": "postgres",
-        "PASSWORD": "{ YOUR_PASSWORD }",
-        "HOST": "127.0.0.1",
-        "PORT": "5432",
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": str(ROOT_DIR / "db.sqlite3"),  # noqa F405
     }
 }
 
@@ -59,10 +56,11 @@ ADMIN_URL_SUFFIX = ""
 
 # MEDIA
 # ------------------------------------------------------------------------------
-GS_BUCKET_NAME = env("GS_BUCKET_NAME_DEV")
-GS_DEFAULT_ACL = "publicRead"
-DEFAULT_FILE_STORAGE = "siteapps.my_utils.storages.MediaRootGoogleCloudStorage"
-MEDIA_URL = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/media/"
+# Use local file storage instead of Google Cloud Storage for local development
+MEDIA_ROOT = str(ROOT_DIR / "media")  # noqa F405
+MEDIA_URL = "/media/"
+# Note: For local development, you'll need to serve media files with:
+# python manage.py runserver --insecure (or configure your local server to serve media)
 
 # EMAIL
 # ------------------------------------------------------------------------------
@@ -79,9 +77,10 @@ INSTALLED_APPS += ["django_extensions"]  # noqa F405
 
 # EXTERNAL APPS CONFIG
 # ------------------------------------------------------------------------------
-DROPBOX_APP_KEY = env("DROPBOX_APP_KEY_STAGING")
-DROPBOX_APP_SECRET = env("DROPBOX_APP_SECRET_STAGING")
-DROPBOX_REFRESH_TOKEN = env("DROPBOX_REFRESH_TOKEN_STAGING")
+# Dropbox credentials are optional for local development
+DROPBOX_APP_KEY = env("DROPBOX_APP_KEY_STAGING", default=None)
+DROPBOX_APP_SECRET = env("DROPBOX_APP_SECRET_STAGING", default=None)
+DROPBOX_REFRESH_TOKEN = env("DROPBOX_REFRESH_TOKEN_STAGING", default=None)
 DROPBOX_URL_PREFIX = "https://www.dropbox.com/work/WildePod%20Cloud%20DB/Apps/wildepod_staging"
 
 

@@ -1,19 +1,61 @@
+# ==============================================================================
+# REQUIRED FOR ALL ENVIRONMENTS
+# ==============================================================================
 DJANGO_SECRET_KEY=ASJAbnmwetwiwogsdgnwpodjfdnsfrekjerkjfsnmsnfkjsfhjsekgfskdjfkdswbmbffdfdddw
 ADMIN_URL_SUFFIX=-DUMMYSUFFIX
-GOOGLE_CLOUD_PROJECT=wildepod-339517
 DJANGO_ACCOUNT_ALLOW_REGISTRATION=False
+
+# ==============================================================================
+# LOCAL DEVELOPMENT WITHOUT GCP
+# ==============================================================================
+# For local development (config.settings.local), you only need:
+# - DJANGO_SECRET_KEY (above)
+# - Local PostgreSQL database credentials (see config/settings/local.py)
+# - Optionally: Dropbox credentials if you need to test Dropbox integration
+#
+# The following GCP-related variables are OPTIONAL for local development.
+# They are only needed if you want to test GCP-dependent features:
+# - GOOGLE_CLOUD_PROJECT (for Datastore, Secret Manager)
+# - MEGADETECTOR_URL, SPECIES_DETECTOR_URL (for ML inference)
+# - GS_MODELS_BUCKET_NAME (for model storage)
+# - GS_BUCKET_NAME_* (for cloud storage)
+# - GOOGLE_MAPS_API_KEY (for maps)
+#
+# Local settings use local file storage (media/ directory) instead of GCS.
+# ML inference and Datastore features will error if attempted without GCP setup.
+
+# ==============================================================================
+# GCP CONFIGURATION (Required for prod/staging/dev, optional for local)
+# ==============================================================================
+GOOGLE_CLOUD_PROJECT=wildepod-339517
+
+# ML Model Inference URLs (optional for local)
 MEGADETECTOR_URL=https://megadetector-fastapi-cmwfrnoova-wl.a.run.app
 SPECIES_DETECTOR_URL=https://us-west2-wildepod-339517.cloudfunctions.net/wildepod-species-detector-tPjGk2qKHAfGXdPi6xfA
 GS_MODELS_BUCKET_NAME=wildepod_models
+
+# Cloud Storage Buckets (optional for local)
 GS_BUCKET_NAME_PROD=wildepod_prod
 GS_BUCKET_NAME_STAGING=wildepod_staging
 GS_BUCKET_NAME_DEV=wildepod_dev
+
+# ==============================================================================
+# DATABASE URLS (Environment-specific)
+# ==============================================================================
 PROD_DATABASE_URL=postgres://user:DUMMYPASSWORDDUMMYPASSWORDDUMMYPASSWORD@//cloudsql/wildepod-339517:us-west2:wildepoddb/prod
 STAGING_DATABASE_URL=postgres://user:DUMMYPASSWORDDUMMYPASSWORDDUMMYPASSWORD@//cloudsql/wildepod-339517:us-west2:wildepoddb/staging
+
+# ==============================================================================
+# DROPBOX CONFIGURATION (Optional)
+# ==============================================================================
 DROPBOX_APP_KEY_STAGING=DUMMYKEYDUMMYKEY
 DROPBOX_APP_SECRET_STAGING=DUMMYSECRET
 DROPBOX_REFRESH_TOKEN_STAGING=DUMMYTOKENDUMMYTOKENDUMMYTOKENDUMMYTOKEN
 DROPBOX_APP_KEY_PROD=DUMMYKEYDUMMYKEY
 DROPBOX_APP_SECRET_PROD=DUMMYSECRET
 DROPBOX_REFRESH_TOKEN_PROD=DUMMYTOKENDUMMYTOKENDUMMYTOKENDUMMYTOKEN
+
+# ==============================================================================
+# EMAIL CONFIGURATION (Optional)
+# ==============================================================================
 SENDGRID_API_KEY=DUMMYTOKENDUMMYTOKENDUMMYTOKENDUMMYTOKEN

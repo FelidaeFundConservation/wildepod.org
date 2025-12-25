@@ -33,6 +33,7 @@ django==4.2.16
     #   django-extensions
     #   django-jazzmin
     #   django-model-utils
+    #   django-simple-history
     #   django-storages
     #   wildepod
 django-allauth==0.51.0
@@ -49,9 +50,9 @@ django-extensions==3.2.1
     # via wildepod
 django-jazzmin==2.4.9
     # via wildepod
-django-model-utils==4.2.0
+django-model-utils==5.0.0
     # via wildepod
-django-simple-history==3.0.0
+django-simple-history==3.11.0
     # via wildepod
 django-storages==1.12.3
     # via
@@ -71,13 +72,14 @@ google-api-core==1.34.1
     #   google-cloud-tasks
 google-api-python-client==2.58.0
     # via wildepod
-google-auth==2.11.0
+google-auth==2.45.0
     # via
     #   google-api-core
     #   google-api-python-client
     #   google-auth-httplib2
     #   google-auth-oauthlib
     #   google-cloud-core
+    #   google-cloud-secret-manager
     #   google-cloud-storage
     #   wildepod
 google-auth-httplib2==0.1.0
@@ -99,7 +101,7 @@ google-cloud-datastore==2.13.0
     # via wildepod
 google-cloud-logging==3.2.2
     # via wildepod
-google-cloud-secret-manager==2.11.1
+google-cloud-secret-manager==2.26.0
     # via wildepod
 google-cloud-storage==2.11.0
     # via django-storages
@@ -123,6 +125,7 @@ grpc-google-iam-v1==0.14.3
 grpcio==1.76.0
     # via
     #   google-api-core
+    #   google-cloud-secret-manager
     #   googleapis-common-protos
     #   grpc-google-iam-v1
     #   grpcio-status
@@ -213,7 +216,6 @@ setuptools==80.9.0
 six==1.17.0
     # via
     #   dropbox
-    #   google-auth
     #   google-auth-httplib2
     #   python-dateutil
     #   stone

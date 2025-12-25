@@ -1,51 +1,111 @@
 # Django Website for WildePod (Felidae Conservation Fund)
 
+## Table of Contents
+- [Quick Setup](#quick-setup)
+  - [Setting up the environment for the first time](#setting-up-the-environment-for-the-first-time)
+  - [Strictly Local: Run the Django server locally for the first time](#strictly-local-run-the-django-server-locally-for-the-first-time)
+    - [Initialize some data - hacky version (Might be outdated)](#initalize-some-data---hacky-version-might-be-outdated)
+  - [Local with Cloud: Local development environment with GCloud connectivity](#local-with-cloud-local-development-environment-with-gcloud-connectivity)
+- [Gotchas](#gotchas)
+- [Deployment instructions (Fresh GCP)](#deployment-instructions-fresh-gcp)
+- [Deploying new YOLOv5 species detection model](#deploying-new-yolov5-species-detection-model)
+- [System Overview Flowcharts](#system-overview-flowcharts)
+  - [Image Queue System](#image-queue-system)
+  - [Image Data Loading](#image-data-loading)
+  - [Save Image/Annotations](#save-imageannotations)
+  - [Upload Processing](#upload-processing)
+
+---
 
 ## Quick Setup
 ### Setting up the environment for the first time
 
 1. Git clone this repo
-2. Create a virtualenv
-3. Install Python dependencies `pip install -r requirements.txt`
-4. Install SASS compiler - Sass is a stylesheet language that’s compiled to CSS. It is installed on the OS level, not in the virtualenv.
+2. Install uv (modern Python package manager):
+   * macOS/Linux: 
+   ```
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+   * Or via Homebrew:
+   ```
+   brew install uv
+   ```
+   * Windows: `powershell -c "irm https://astral.sh/uv/install.ps1 | iex"`
+   * More info: https://docs.astral.sh/uv/getting-started/installation/
+3. Install dependencies:
+   ```
+   uv sync
+   ```
+   This single command will:
+   - Create a virtual environment (`.venv`) with Python 3.10
+   - Install all dependencies from `pyproject.toml`
+   - Verify or update the lock file (`uv.lock`) for reproducible builds
+4. Install SASS compiler - Sass is a stylesheet language that's compiled to CSS. It is installed on the OS level, not in the virtualenv.
    * https://sass-lang.com/install
-   * If you're using MacOs/Linux , you can use Homebrew : `brew install sass/sass/sass`
-   Install Homebrew package manager if you still don't have (https://brew.sh)
-5. Set env variables:
-    * Set the Google Cloud project : `export GOOGLE_CLOUD_PROJECT=wildepod-339517`
-    * The next two environment variables are only needed if you're connecting to staging or prod dbs on the cloud.
-      - Use Cloud SQL Auth proxy for connecting to cloud dbs : `export USE_CLOUD_SQL_AUTH_PROXY=True`
-      - Disable HTTPS redirecting when accessing sites locally : `export DJANGO_SECURE_SSL_REDIRECT=False`
-6. By default Django uses a sqlite database locally. Verify this by checking DATABASES variable in: `/config/settings/local.py`
-7. Currently the Google Cloud authentication happens even when running the server locally (We maybe able to fix this). Please setup and authenticate the GCloud SDK by following the section later on this doc.
+   * If you're using MacOs/Linux , you can use Homebrew : 
+   ```
+   brew install sass/sass/sass
+   ```
 
-### Run the Django server locally for the first time
+---
 
-1. Make migrations - `python manage.py makemigrations --settings=config.settings.local`
+### Now you have a choice,
+* **Strictly Local :**    Run a bare-bones Django server locally connecting to a local database: `config.settings.local`  
+    
+  This lets you work with a local SQLite (or even PostgreSQL) database but will not let you access the annotation images, dropbox uploads, cloud tasks, model processing etc. This is still useful for quick testing and also experimenting in a completely sandboxed, local environment.        
+
+
+* **Local with Cloud :**  Run the Django server locally but connect to Wildepod cloud services: `config.settings.staging`
+
+  This lets you run the server locally but connect to all our cloud resources. This is a useful option for debugging and feature development but you'll have to be mindful since you can even directly work with / modify prod data.
+    
+---
+
+### Strictly Local: Run the Django server locally for the first time
+1. By default Django uses a sqlite database locally. Verify this by checking DATABASES variable in: `/config/settings/local.py`
+
+2. Make migrations 
+```
+uv run manage.py makemigrations --settings=config.settings.local
+```
    (Note: This may not work since `migrations` folder is gitignored for now and Django requires the folder's existence.
    To fix that for now, simply create python packages named `migrations` in each of the app packages.
-   This has to be a package so the `migrations` folder must have a `__init__.py` file or django can't see it.
-2. Apply migrations - `python manage.py migrate --settings=config.settings.local`
+   This has to be a package so the `migrations` folder must have a `__init__.py` file or django can't see it.)
+
+3. Apply migrations 
+```
+uv run manage.py migrate --settings=config.settings.local
+```
    These two commands check and update the DB models as necessary for our Django project. The very first time you run it, it will create all the DB models. Afterwords, it will only do the required updates. Do not run this command on Staging or Prod unless you're sure of what you're doing.
-3. Create superuser - `python manage.py createsuperuser --settings=config.settings.local`
-4. Run server - `python manage.py runserver --settings=config.settings.local`
+
+4. Create superuser
+```
+uv run manage.py createsuperuser --settings=config.settings.local
+```
+
+5. Run server
+```
+uv run manage.py runserver --settings=config.settings.local
+```
 
 This should have things running on `localhost:8000` and use a local sqlite db
 
-# Initalize some data - hacky version (Might be outdated)
+#### Initalize some data - hacky version (Might be outdated)
 
 1. Download the "active camera data" & "Camera inventory" sheets from the Slack channel
 2. Alter lines 7-10 of `scratch/load.py` file accordingly depending on where the downloaded files are saved
-3. Run `python manage.py shell --settings=config.settings.local < scratch/load.py`
-
+3. Run Django shell script to import data
+```
+uv run manage.py shell --settings=config.settings.local < scratch/load.py
+```
 This should be fine for those spreadsheets. If there is any error, add that row to the skip list in the code
 
-## Local development environment
-To have a fully operational environment for development, you need to have access to the project's GCP.
+---
 
-### Google Cloud SDK
-Our project is deployed on Google Cloud (GCP), and we use a number of cloud services (Cloud SQL, Image storage, Secrets manager etc). You need to be authenticated to access these services.
-1. If not already done, ask the WildePod adminstrators to add your credentials to the GCP. 
+### Local with Cloud: Local development environment with GCloud connectivity
+To have a fully operational environment for development, you need to have access to the project's GCP. We use a number of cloud services (Cloud SQL, Image storage, Secrets manager etc). You need to be authenticated to access these.
+
+1. If not provided already, ask the WildePod adminstrators to add your credentials to GCP. 
 2. Install the GCloud command line SDK (https://cloud.google.com/sdk/docs/install)
 3. Authenticate yourself with GCloud and set the config.
 ```
@@ -53,44 +113,31 @@ gcloud auth application-default login
 gcloud auth login
 gcloud config set project wildepod-339517
 ```
+4. Set the following environment variables
 
----
+    * Set the Google Cloud project : 
+    ```
+    export GOOGLE_CLOUD_PROJECT=wildepod-339517
+    ```
+    * Use Cloud SQL Auth proxy for connecting to cloud dbs : 
+    ```
+    export USE_CLOUD_SQL_AUTH_PROXY=True
+    ```
+    * Disable HTTPS redirecting when accessing sites locally : 
+    ```
+    export DJANGO_SECURE_SSL_REDIRECT=False
+    ```
+        - Local dev servers won't have HTTPS. However, both Django and Chrome may try to redirect your request to HTTPS which will result in an error.
+        - In Chrome, you'll have to disable HSTS for a Local Domain and clear any cached settings for localhost.
 
-## Using AppEngine on Gcloud
-
-1. Read the tutorial [here](https://cloud.google.com/python/django/appengine).
-2. Alter `app.yaml` & `dev/staging/prod` settings as needed
-3. Deploy + Check cloud build to see what happpened
-
----
-## Deployment instructions
-To deploy to GCP on existing environments (test, staging and prod)
-
-Ask for the following files:
-* /env_file.yaml
-* /env_file.py
-* /cnfig/settings/env_file.py
-* /config/wsgi/env_file.py
-
-Deploy app using `gcloud app deploy env_file.yaml`
-
----
-## With SQL proxy
-
-Setenv
-
+5. Install and launch [Cloud SQL Proxy](https://docs.cloud.google.com/sql/docs/postgres/sql-proxy)
 ```
-export USE_CLOUD_SQL_AUTH_PROXY=true
-export GOOGLE_CLOUD_PROJECT=<project-name>
+./cloud-sql-proxy -p 5440 wildepod-339517:us-west2:wildepoddb
 ```
-
-Emulating google app.yaml locally. Make sure proxy is running using
-
-`./cloud_sql_proxy -instances="<project-name>:<region>:<dbname>"=tcp:<port>`
-
-Then run this so app.yaml uses the proxy. Note there can be many .yaml configs that can be specified
-
-`dev_appserver.py app.yaml --env_var=USE_CLOUD_SQL_AUTH_PROXY=true`
+6. In another terminal, run the local server with staging config
+```
+uv run manage.py runserver --settings=config.settings.staging
+```
 
 ---
 
@@ -130,7 +177,9 @@ gcloud auth list
 ---
 
 
-## Deployment instructions (Fresh GCP - if needed)
+## Deployment instructions (Fresh GCP)
+Jump ahead to step 8 if deploying on existing existing environments (staging, prod, bhutan). If you're not familiar with AppEngine, please go through [this tutorial](https://cloud.google.com/python/django/appengine) first.
+
 
 1. Create a new GCP project
 2. Enable cloud function API & deploy megadetector cloud function (independent of app engine)
@@ -138,11 +187,12 @@ gcloud auth list
 4. Create relevant buckets on Google Storage and make sure they have fine-grained permissions
 5. Create relevant Dropbox apps with appropriate permissions & set tokens in env if haven't already
 6. Use cloud sql proxy and run db migrations
-7. Install sass compiler (if needed) and run from project root. This should continuously watch for changes in scss files and compile them to css (static files are served using whitenoise)
+7. Add relevant secrets from .env to Secret manager (Important: Give your appengine app "Secret Manager Secret Accessor" permission)
+8. Install sass compiler (if needed) and run from project root. This should continuously watch for changes in scss files and compile them to css (static files are served using whitenoise)
    `sass --watch --style compressed ./siteapps/static/scss/main.scss:./siteapps/static/css/main.css`
-8. Collect static files using `python manage.py collectstatic --settings=config.settings.prod`
-9. Deploy app using `gcloud app deploy`
-10. Add relevant secrets from .env to Secret manager (Important: Give your appengine app "Secret Manager Secret Accessor" permission)
+9. Collect static files using `python manage.py collectstatic --settings=config.settings.prod`
+10. Deploy app using `gcloud app deploy <env>.yaml`
+
 
 ---
 ## Deploying new YOLOv5 species detection model

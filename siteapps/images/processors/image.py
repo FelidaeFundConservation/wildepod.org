@@ -9,16 +9,13 @@ import requests
 from django.conf import settings
 from django.db.models import F, Q
 from images.models import Annotator, Bot, BoundingBox, Category, Image
+from images.utils.dropbox_client import create_dropbox_client
 from my_utils.storages import MediaRootGoogleCloudStorage
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 
-# Create a dropbox client
-dbx = dropbox.Dropbox(
-    app_key=settings.DROPBOX_APP_KEY,
-    app_secret=settings.DROPBOX_APP_SECRET,
-    oauth2_refresh_token=settings.DROPBOX_REFRESH_TOKEN,
-)
+# Dropbox client is now created on-demand via create_dropbox_client() function
+# imported from processors module
 
 # Create a storage object instance
 storage = MediaRootGoogleCloudStorage()
@@ -50,11 +47,18 @@ def has_bbox_above_confidence_threshold(image):
 
 # Function to save the thumbnails of the image
 # This function is run for every valid image uploaded into dropbox
-def add_thumbnail(image: Image):
+def add_thumbnail(image: Image, dbx=None):
     """Function to retrieve thumbnails from dropbox and save it into google buckets for serving
 
     Returns the full storage url
     """
+    if dbx is None:
+        dbx = create_dropbox_client()
+
+    if dbx is None:
+        logging.warning("Dropbox client not configured, skipping thumbnail retrieval")
+        return
+
     logging.info("Retrieving thumbnail from dropbox..")
     # TODO: Handle error or Rollback on failure
     # Get a 1024x1024 thumbnail from dropbox.
@@ -212,11 +216,14 @@ def add_bounding_boxes(image: Image, image_url: str, bot: Bot, id_token: str, an
 
 
 # Function to process an image
-def process_image(image: Image):
+def process_image(image: Image, dbx=None):
     """Function to process an image and create relevant metadata"""
+    if dbx is None:
+        dbx = create_dropbox_client()
+
     # First, add a thumbnail to the image object if it doesn't already exist
     if not image.thumbnail_gcloud_path:
-        add_thumbnail(image)
+        add_thumbnail(image, dbx)
 
     if image.thumbnail_gcloud_path:
         try:

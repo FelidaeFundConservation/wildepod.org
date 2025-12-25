@@ -4,10 +4,12 @@ Base settings to build other settings files upon.
 # This project follows the recommended structure from authors of two scoops of Django
 # https://github.com/cookiecutter/cookiecutter-django
 import io
+import logging
 import os
 from pathlib import Path
 
 import environ
+from google.cloud import secretmanager
 
 # Repo root
 ROOT_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
@@ -19,30 +21,44 @@ env = environ.Env(DEBUG=(bool, False))
 # Local environment file path
 env_file = ROOT_DIR / ".env"
 
+# Local Development Environment related flags
+# ------------------------------------------------------------------------------
+# Detect if running in google cloud vs locally by checking for GCP environment variables
+# K_SERVICE is set on Cloud Run, GAE_ENV is set on App Engine
+RUNNING_ON_APP_ENGINE = os.environ.get("GAE_ENV")
+
 # Check if running with local settings (no GCP dependencies)
 USING_LOCAL_SETTINGS = os.environ.get("DJANGO_SETTINGS_MODULE", "").endswith(".local")
 
+# Note that you can run locally without local settings (eg:- debugging with staging/prod settings).
+# However the reverse is not true, you cannot run in cloud with local settings.
+if RUNNING_ON_APP_ENGINE and USING_LOCAL_SETTINGS:
+    raise ValueError("Cannot run in cloud with local settings. Please use staging or prod settings.")
+
 # Google Cloud Secret Manager
 # ------------------------------------------------------------------------------
-# Load environment variables from .env file or google secret manager
-# When deployed, env variables are read from Google secret manager (GOOGLE_CLOUD_PROJECT is set on deploy)
-# Local settings always use .env file and skip Secret Manager
-if env_file.is_file():
-    env.read_env(env_file)
-elif not USING_LOCAL_SETTINGS and env("GOOGLE_CLOUD_PROJECT"):
-    # Import GCP dependencies only when needed
-    from google.cloud import secretmanager
-
-    # Get project id & start a google secret manager client
-    project_id = env("GOOGLE_CLOUD_PROJECT")
-    client = secretmanager.SecretManagerServiceClient()
-    # Secrets usually saved as "django_settings" in secret manager
-    settings_name = env.str("SETTINGS_NAME", "django_settings")
-    # Hardcoded path to get the latest secrets file
-    name = f"projects/{project_id}/secrets/{settings_name}/versions/latest"
-    payload = client.access_secret_version(name=name).payload.data.decode("UTF-8")
-    # Read env variables from payload
-    env.read_env(io.StringIO(payload))
+# Load environment variables from .env file or Google secret manager
+# When running locally with local settings, we use the .env file and skip Secret Manager.
+# In all other cases, (i.e. deployed to cloud, running locally with staging/prod settings) we use Secret Manager.
+if USING_LOCAL_SETTINGS and not RUNNING_ON_APP_ENGINE:
+    if env_file.is_file():
+        env.read_env(env_file)
+    else:
+        raise ValueError("Local environment file not found. Please create a .env file in the root directory.")
+else:
+    if env("GOOGLE_CLOUD_PROJECT"):
+        # Get project id & start a google secret manager client
+        project_id = env("GOOGLE_CLOUD_PROJECT")
+        client = secretmanager.SecretManagerServiceClient()
+        # Secrets usually saved as "django_settings" in secret manager
+        settings_name = env.str("SETTINGS_NAME", "django_settings")
+        # Hardcoded path to get the latest secrets file
+        name = f"projects/{project_id}/secrets/{settings_name}/versions/latest"
+        payload = client.access_secret_version(name=name).payload.data.decode("UTF-8")
+        # Read env variables from payload
+        env.read_env(io.StringIO(payload))
+    else:
+        raise ValueError("Google Cloud project not found. Please set the GOOGLE_CLOUD_PROJECT environment variable.")
 
 
 # GENERAL

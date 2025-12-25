@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 
 import environ
-from google.cloud import secretmanager
+from google.cloud import datastore, secretmanager
 
 # Repo root
 ROOT_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
@@ -319,7 +319,6 @@ MIN_MEGADETECTOR_CONFIDENCE = 0.25
 
 # Initialize a Datastore client (only for non-local environments)
 if not USING_LOCAL_SETTINGS:
-    from google.cloud import datastore
     DATASTORE_CLIENT = datastore.Client(env("GOOGLE_CLOUD_PROJECT"))
 else:
     DATASTORE_CLIENT = None  # Local development doesn't use Datastore
@@ -329,11 +328,7 @@ ANNOTATION_EXPIRATION_MINS = 60  # minutes
 
 # EXPORT SERVICE AND TASK QUEUE DETAILS
 # ------------------------------------------------------------------------------
-if not USING_LOCAL_SETTINGS:
-    GCP_PROJECT_ID = env("GOOGLE_CLOUD_PROJECT")
-else:
-    GCP_PROJECT_ID = None  # Not needed for local development
-
+GCP_PROJECT_ID = env("GOOGLE_CLOUD_PROJECT", default=None)
 GCP_REGION = "us-west2"  # TODO: This can be fetched via the cloud tasks API
 EXPORT_SERVICE_NAME = "jobs"
 EXPORT_QUEUE_NAME = "wildepod-jobs-queue"

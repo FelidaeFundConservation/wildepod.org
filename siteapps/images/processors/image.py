@@ -161,6 +161,129 @@ def detect_species(image: Image, image_url: str, bot: Bot, id_token: str, annota
         raise Exception(f"Species detector cloud run failed with status code: {response.status_code}")
 
 
+def extract_common_name(taxonomy_string):
+    """Extract common name from taxonomy string.
+
+    Example: 'febff896...;mammalia;artiodactyla;...;mule deer' -> 'mule deer'
+
+    Args:
+        taxonomy_string: Semicolon-separated taxonomy string
+
+    Returns:
+        Common name (last part of taxonomy) or 'unknown' if not found
+    """
+    if not taxonomy_string:
+        return "unknown"
+    parts = taxonomy_string.split(';')
+    return parts[-1].strip() if parts else "unknown"
+
+
+def run_speciesnet_inference(image: Image, image_url: str):
+    """Function to run SpeciesNet inference on an image.
+
+    SpeciesNet is an ensemble model that combines MegaDetector (for bounding boxes)
+    and species classification in a single API call.
+
+    Args:
+        image: Image object to process
+        image_url: URL to the image thumbnail in Google Cloud Storage
+
+    Returns:
+        tuple: (bounding_boxes_created, species_detections_list)
+    """
+    try:
+        bot = Bot.objects.get(name="SpeciesNet", version="v4.0.2a")
+        logging.info("SpeciesNet v4.0.2a bot already exists. Successfully retrieved.")
+    except Bot.DoesNotExist:
+        logging.error("SpeciesNet v4.0.2a bot does not exist. Please create it first.")
+        raise
+
+    annotator, created = Annotator.objects.get_or_create(type="bot", bot=bot)
+    if created:
+        logging.info("SpeciesNet annotator object successfully created")
+    else:
+        logging.info("SpeciesNet annotator object already exists. Successfully retrieved.")
+
+    # Get authentication token
+    if not settings.RUNNING_ON_APP_ENGINE:
+        id_token = os.environ.get("ID_TOKEN")
+    else:
+        auth_req = google.auth.transport.requests.Request()
+        id_token = google.oauth2.id_token.fetch_id_token(auth_req, bot.model_api_url)
+
+    logging.info(f"Calling SpeciesNet on image with url - {image_url}")
+
+    # Download the image from GCS to upload to SpeciesNet
+    # SpeciesNet expects multipart form-data file upload, not a URL
+    logging.info("Downloading image from GCS for SpeciesNet upload...")
+    image_response = requests.get(image_url, timeout=60)
+    if image_response.status_code != 200:
+        raise Exception(f"Failed to download image from GCS: {image_response.status_code}")
+
+    # Prepare file upload
+    image_bytes = BytesIO(image_response.content)
+    files = {"file": (f"{image.dropbox_content_hash}.jpg", image_bytes, "image/jpeg")}
+
+    # Call SpeciesNet API with file upload
+    response = http.post(
+        bot.model_api_url,
+        files=files,
+        headers={"Authorization": f"Bearer {id_token}"},
+        timeout=300,
+    )
+
+    if response.status_code != 200:
+        raise Exception(f"SpeciesNet cloud run failed with status code: {response.status_code}")
+
+    result = response.json()
+    logging.info(f"""SpeciesNet call successful. Response received with {len(result.get("detections", []))} detections""")
+
+    # Process detections (bounding boxes)
+    detections = result.get("detections", [])
+    for i, detection in enumerate(detections):
+        # Create bounding box
+        bounding_box, created = BoundingBox.objects.get_or_create(
+            image=image,
+            confidence=detection["conf"],
+            x=detection["bbox"][0],
+            y=detection["bbox"][1],
+            w=detection["bbox"][2],
+            h=detection["bbox"][3],
+            created_by=annotator,
+            confidence_threshold=bot.threshold,
+        )
+        if created:
+            logging.info(
+                f"""Successfully created bounding box for object #{i+1} - {detection.get("label", detection["category"])} (confidence - {detection["conf"]})"""
+            )
+        else:
+            logging.info("Bounding box already exists. Successfully retrieved.")
+
+        # Create category annotation
+        category_name = MEGADETECTOR_LABEL_MAP.get(detection["category"], detection.get("label", "unknown"))
+        category, _ = Category.objects.get_or_create(
+            bounding_box=bounding_box,
+            name=category_name,
+            created_by=annotator,
+            confidence=detection["conf"],
+        )
+
+    # Process species classifications
+    classifications = result.get("classifications", {})
+    classes = classifications.get("classes", [])
+
+    # Extract common names from the top classes
+    species_detections = [extract_common_name(cls) for cls in classes]
+
+    logging.info(f"SpeciesNet identified {len(species_detections)} species classes")
+
+    # Update image bbox flags
+    image.has_bbox_above_confidence_threshold = has_bbox_above_confidence_threshold(image)
+    image.has_uncertain_bbox = image.boundingbox_set.filter(validity="UNCERTAIN").exists()
+
+    return len(detections), species_detections
+
+
 def add_bounding_boxes(image: Image, image_url: str, bot: Bot, id_token: str, annotator: Annotator):
     response = http.post(
         bot.model_api_url,
@@ -227,22 +350,21 @@ def process_image(image: Image, dbx=None):
 
     if image.thumbnail_gcloud_path:
         try:
-            # Next, add bounding boxes to the image object
-            run_model_inference(image)
+            # Use SpeciesNet for combined detection and classification
+            image_url = f"""https://storage.googleapis.com/{settings.GS_BUCKET_NAME}/media/{image.thumbnail_gcloud_path}"""
+            num_detections, species_detections = run_speciesnet_inference(image, image_url)
 
-            # Then, detect species present in the image
-            if not image.species_ai_detections:
-                image.species_ai_detections = run_model_inference(image, species=True)
+            # Store species detections
+            image.species_ai_detections = species_detections
 
             image.processed = True
             image.use_precomputed_flags = True
             image.has_cats = "Puma" in image.species_ai_detections or "Bobcat" in image.species_ai_detections
             image.save()
         except Exception as e:
-            logging.error(f"Error adding bounding boxes to image: {e}")
+            logging.error(f"Error processing image with SpeciesNet: {e}")
     else:
         logging.error("Thumbnail for image doesn't exist. Skipping..")
 
     # Return the status of the image processing
     return image.processed
-    # Additional Species detection annotations go here.

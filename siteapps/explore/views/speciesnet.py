@@ -54,11 +54,12 @@ class ExploreSpeciesNetView(LoginRequiredMixin, StaffuserRequiredMixin, Template
             bot = Bot.objects.get(name="SpeciesNet", version="v4.0.2a")
 
             # Get authentication token
-            if settings.LOCAL:
-                id_token = os.environ.get("ID_TOKEN")
-            else:
+            if settings.RUNNING_ON_APP_ENGINE:
                 auth_req = google.auth.transport.requests.Request()
                 id_token = google.oauth2.id_token.fetch_id_token(auth_req, bot.model_api_url)
+            else:
+                # Use this command to get the id_token in shell: export ID_TOKEN="$(gcloud auth print-identity-token -q)"
+                id_token = os.environ.get("ID_TOKEN")
 
             # Detect MIME type from file extension
             mime_type, _ = mimetypes.guess_type(image.name)

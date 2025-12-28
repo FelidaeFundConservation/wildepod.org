@@ -114,6 +114,13 @@ class Image(TimeStampedModel):
     # Save the detections from the cloud run for re-use. This is a list in string form that should be converted back to a list.
     species_ai_detections = models.CharField(max_length=1024, null=True)
 
+    # Full AI inference result (JSON from SpeciesNet or other models)
+    ai_result = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Full AI inference result including detections and classifications"
+    )
+
     # Flag for Staff Review. This field is used to indicate images that should be reviewed later by staff users.
     staff_review_needed = models.BooleanField(default=False)
 

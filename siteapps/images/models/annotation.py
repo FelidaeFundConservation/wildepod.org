@@ -231,6 +231,15 @@ class SpeciesName(TimeStampedModel):
     name = models.CharField("Common Name", max_length=250, unique=True)
     scientific_name = models.CharField(max_length=250, unique=True)
 
+    # SpeciesNet taxonomy UUID for AI model integration
+    speciesnet_uuid = models.UUIDField(
+        "SpeciesNet UUID",
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="UUID from SpeciesNet taxonomy for mapping AI detections"
+    )
+
     # Species name is currently used and shown in the annotation widget
     active = models.BooleanField(default=True)
 

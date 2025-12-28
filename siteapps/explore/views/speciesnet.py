@@ -14,6 +14,8 @@ from django.urls.base import reverse_lazy
 from django.views.generic import TemplateView
 from explore.forms import ExploreSpeciesNetForm
 from images.models import Bot
+from images.utils.speciesnet_taxonomy import extract_taxonomy_from_string
+from images.utils.species_mapper import get_species_mapper
 
 
 def extract_common_name(taxonomy_string):
@@ -96,19 +98,31 @@ class ExploreSpeciesNetView(LoginRequiredMixin, StaffuserRequiredMixin, Template
                 for i, detection in enumerate(result.get("detections", []))
             ]
 
-            # Build top 5 classifications list
+            # Build top 5 classifications list with WildePod species mapping
             classifications = result.get("classifications", {})
             classes = classifications.get("classes", [])
             scores = classifications.get("scores", [])
 
-            top_classifications = [
-                {
-                    "species": extract_common_name(cls),
+            species_mapper = get_species_mapper()
+            top_classifications = []
+
+            for cls, score in zip(classes[:5], scores[:5]):
+                # Extract UUID and common name from taxonomy string
+                speciesnet_uuid, common_name = extract_taxonomy_from_string(cls)
+
+                # Try to find matching WildePod species
+                wildepod_species = None
+                if speciesnet_uuid:
+                    wildepod_species = species_mapper.lookup_species(speciesnet_uuid)
+
+                classification = {
+                    "species": common_name,
                     "full_taxonomy": cls,
-                    "score": score
+                    "score": score,
+                    "wildepod_species": wildepod_species,  # SpeciesName object or None
+                    "speciesnet_uuid": str(speciesnet_uuid) if speciesnet_uuid else None,
                 }
-                for cls, score in zip(classes[:5], scores[:5])
-            ]
+                top_classifications.append(classification)
 
             # Pass data to template
             image.file.seek(0)

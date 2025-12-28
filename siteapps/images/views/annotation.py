@@ -819,20 +819,37 @@ def set_widget_data(context, image, species_list):
             logging.error(f"Failed to parse species_ai_detections for image {image.id}: {e}")
             ai_detections = []
 
-    detection_query = Q()
+    # Preserve AI detection order (confidence-sorted from SpeciesNet)
     if ai_detections:
+        detected_species = []
+        detected_ids = set()
+
+        # Iterate through AI detections in order to preserve confidence ranking
         for det in ai_detections:
-            detection_query |= Q(name__icontains=det)
-        context["species_list"] = list(species_list.filter(detection_query)) + list(species_list.exclude(detection_query))
+            # Find matching species (case-insensitive substring match)
+            matching = species_list.filter(name__icontains=det)
+            for species in matching:
+                if species.id not in detected_ids:
+                    detected_species.append(species)
+                    detected_ids.add(species.id)
+
+        # Add remaining species that weren't detected
+        remaining_species = [s for s in species_list if s.id not in detected_ids]
+        context["species_list"] = detected_species + remaining_species
     else:
         context["species_list"] = list(species_list)
 
     # Get the data from the name
     def get_species_button_data(species):
+        # Check if this species is in AI detections (case-insensitive)
+        is_ai_detection = False
+        if ai_detections:
+            is_ai_detection = any(species.name.lower() == det.lower() for det in ai_detections)
+
         return {
             "name": species.name,
             "has_vote": species.name in species_tags,
-            "ai_detection": image is not None and image.species_ai_detections is not None and species.name in image.species_ai_detections,
+            "ai_detection": is_ai_detection,
             "selected": False,
         }
 

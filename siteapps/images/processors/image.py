@@ -10,6 +10,8 @@ from django.conf import settings
 from django.db.models import F, Q
 from images.models import Annotator, Bot, BoundingBox, Category, Image
 from images.utils.dropbox_client import create_dropbox_client
+from images.utils.speciesnet_taxonomy import extract_taxonomy_from_string
+from images.utils.species_mapper import get_species_mapper
 from my_utils.storages import MediaRootGoogleCloudStorage
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
@@ -238,8 +240,19 @@ def run_speciesnet_inference(image: Image, image_url: str):
     result = response.json()
     logging.info(f"""SpeciesNet call successful. Response received with {len(result.get("detections", []))} detections""")
 
-    # Process detections (bounding boxes)
-    detections = result.get("detections", [])
+    # Store full inference result
+    image.ai_result = result
+
+    # Process detections (bounding boxes) - filter by MIN_MEGADETECTOR_CONFIDENCE
+    all_detections = result.get("detections", [])
+    detections = [d for d in all_detections if d["conf"] >= settings.MIN_MEGADETECTOR_CONFIDENCE]
+
+    if len(all_detections) > len(detections):
+        logging.info(
+            f"Filtered out {len(all_detections) - len(detections)} detections below "
+            f"confidence threshold {settings.MIN_MEGADETECTOR_CONFIDENCE}"
+        )
+
     for i, detection in enumerate(detections):
         # Create bounding box
         bounding_box, created = BoundingBox.objects.get_or_create(
@@ -271,11 +284,54 @@ def run_speciesnet_inference(image: Image, image_url: str):
     # Process species classifications
     classifications = result.get("classifications", {})
     classes = classifications.get("classes", [])
+    scores = classifications.get("scores", [])
 
-    # Extract common names from the top classes
-    species_detections = [extract_common_name(cls) for cls in classes]
+    # Log species detections with probabilities
+    if classes and scores:
+        logging.info("=" * 60)
+        logging.info("SPECIES DETECTIONS (with probabilities):")
+        for i, (taxonomy_string, score) in enumerate(zip(classes, scores), 1):
+            # Extract common name for display
+            _, common_name = extract_taxonomy_from_string(taxonomy_string)
+            logging.info(f"  {i}. {common_name}: {score:.4f} ({score*100:.2f}%)")
+        logging.info("=" * 60)
 
-    logging.info(f"SpeciesNet identified {len(species_detections)} species classes")
+    # Get species mapper for UUID lookups
+    species_mapper = get_species_mapper()
+
+    # Enhanced extraction with UUID mapping - only store highest probability species
+    species_detections = []
+    mapped_species_names = []  # Track which species were successfully mapped
+
+    # Only process the top species (highest probability)
+    if classes and scores:
+        taxonomy_string = classes[0]
+        score = scores[0]
+
+        # Extract UUID and common name from taxonomy string
+        speciesnet_uuid, common_name = extract_taxonomy_from_string(taxonomy_string)
+
+        # Attempt to map to SpeciesName if UUID available
+        stored_name = common_name  # Default to SpeciesNet common name
+        if speciesnet_uuid:
+            species_obj = species_mapper.lookup_species(speciesnet_uuid)
+            if species_obj:
+                # Use WildePod name instead of SpeciesNet name
+                stored_name = species_obj.name
+                mapped_species_names.append(species_obj.name)
+                logging.info(
+                    f"Mapped SpeciesNet detection: {common_name} (prob: {score:.4f}) -> "
+                    f"SpeciesName '{species_obj.name}' (UUID: {speciesnet_uuid})"
+                )
+            # Note: Unmapped species are logged inside lookup_species()
+        else:
+            logging.debug(f"No UUID in taxonomy string for: {common_name}")
+
+        # Store the appropriate name (WildePod name if mapped, otherwise SpeciesNet name)
+        species_detections.append(stored_name)
+        logging.info(f"Stored species: {stored_name} ({score:.4f})")
+    else:
+        logging.warning("No species classifications returned by SpeciesNet")
 
     # Update image bbox flags
     image.has_bbox_above_confidence_threshold = has_bbox_above_confidence_threshold(image)

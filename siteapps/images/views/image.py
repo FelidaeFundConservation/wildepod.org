@@ -21,6 +21,7 @@ from images.models import (
     SpeciesName,
     Upload,
 )
+from images.processors.image import extract_taxonomy_from_string
 from images.views import species_pipeline_query
 from images.views.annotation import calculate_image_luma, set_widget_data
 
@@ -92,6 +93,30 @@ class ImageDetailView(LoginRequiredMixin, DetailView):
         context["bbox_all_annotations"] = infoList
 
         context["luma_adjustment"] = calculate_image_luma(img_obj, context["bounding_boxes"])
+
+        # Extract SpeciesNet prediction (top species and confidence) for display on first detection bbox
+        speciesnet_prediction = None
+        if img_obj.ai_result:
+            classifications = img_obj.ai_result.get("classifications", {})
+            classes = classifications.get("classes", [])
+            scores = classifications.get("scores", [])
+            detections = img_obj.ai_result.get("detections", [])
+
+            if classes and scores and detections:
+                # Extract common name from taxonomy string (format: "kingdom;phylum;...;species|UUID")
+                _, common_name = extract_taxonomy_from_string(classes[0])
+                # Get the first detection's bbox coordinates to match with Django bbox
+                first_detection = detections[0]
+                speciesnet_prediction = {
+                    "name": common_name,
+                    "confidence": scores[0],
+                    "bbox_x": first_detection["bbox"][0],
+                    "bbox_y": first_detection["bbox"][1],
+                    "bbox_w": first_detection["bbox"][2],
+                    "bbox_h": first_detection["bbox"][3],
+                }
+
+        context["speciesnet_prediction"] = speciesnet_prediction
 
         return context
 

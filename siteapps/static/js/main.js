@@ -222,36 +222,91 @@ function createCategoryWidget(widgetData, pipeline) {
   }
 */
 function renderBoundingBoxes(imageElementID, annotations, widgets, config) {
-    // Initialize a megadetector annotation widget
-    let anno = Annotorious.init({
+    // Create formatter function before initialization
+    const formatter = function(annotation) {
+        console.log('Formatter called for:', annotation.id);
+        // The annotation ID from Annotorious includes a # prefix, so we need to match both ways
+        const cleanId = annotation.id.replace('#', '');
+        const annotationData = annotations.find(a => a.id === annotation.id || a.id === cleanId);
+
+        if (annotationData && annotationData.speciesnetName) {
+            // Format confidence as percentage (rounded to nearest integer)
+            const confidencePercent = Math.round(annotationData.speciesnetConfidence * 100);
+            const label = `${annotationData.speciesnetName} (${confidencePercent}%)`;
+            console.log('Returning label:', label);
+            return label;
+        }
+        return null; // No label for other boxes
+    };
+
+    // Initialize with formatter if ShapeLabelsFormatter is available
+    let initConfig = {
         image: imageElementID,
         widgets: widgets,
         fragmentUnit: 'percent',
         ...config
-    });
+    };
+
+    // Add formatter to config if available
+    if (typeof Annotorious.ShapeLabelsFormatter !== 'undefined') {
+        initConfig.formatter = Annotorious.ShapeLabelsFormatter(formatter);
+    }
+
+    let anno = Annotorious.init(initConfig);
+
     // Load each passed annotation
     for (const annotation of annotations) {
-        anno.addAnnotation(
-            {
-                "@context": "http://www.w3.org/ns/anno.jsonld",
-                "id": annotation.id,
-                "type": "Annotation",
-                "body": [{
-                    "type": "TextualBody",
-                    "purpose": "classifying",
-                    "category": annotation.categoryType,
-                    "value": annotation.category,
-                    "confidence": annotation.confidence
-                }],
-                "target": {
-                    "selector": {
-                        "type": "FragmentSelector",
-                        "conformsTo": "http://www.w3.org/TR/media-frags/",
-                        "value": `xywh=percent:${annotation.x * 100},${annotation.y * 100},${annotation.w * 100},${annotation.h * 100}`,
-                    }
+        const annotationBody = {
+            "@context": "http://www.w3.org/ns/anno.jsonld",
+            "id": annotation.id,
+            "type": "Annotation",
+            "body": [{
+                "type": "TextualBody",
+                "purpose": "classifying",
+                "category": annotation.categoryType,
+                "value": annotation.category,
+                "confidence": annotation.confidence
+            }],
+            "target": {
+                "selector": {
+                    "type": "FragmentSelector",
+                    "conformsTo": "http://www.w3.org/TR/media-frags/",
+                    "value": `xywh=percent:${annotation.x * 100},${annotation.y * 100},${annotation.w * 100},${annotation.h * 100}`,
                 }
             }
-        );
+        };
+
+        // Add SpeciesNet prediction as a tag for the shape-labels plugin to display
+        if (annotation.speciesnetName) {
+            const confidencePercent = Math.round(annotation.speciesnetConfidence * 100);
+            const aiPrediction = `ai: ${annotation.speciesnetName} (${confidencePercent}%)`;
+            let labelValue;
+
+            // Check if user has annotated this bbox
+            if (annotation.userSpeciesAnnotation && annotation.userSpeciesAnnotation.trim() !== '') {
+                const userSpecies = annotation.userSpeciesAnnotation.trim();
+                const aiSpecies = annotation.speciesnetName.trim();
+
+                if (userSpecies.toLowerCase() === aiSpecies.toLowerCase()) {
+                    // User confirmed AI prediction - add checkmark
+                    labelValue = `${aiPrediction} ✓`;
+                } else {
+                    // User corrected AI prediction - strikethrough AI and show correction
+                    labelValue = `<del>${aiPrediction}</del> ${userSpecies}`;
+                }
+            } else {
+                // No user annotation yet - just show AI prediction
+                labelValue = aiPrediction;
+            }
+
+            annotationBody.body.push({
+                "type": "TextualBody",
+                "purpose": "tagging",
+                "value": labelValue
+            });
+        }
+
+        anno.addAnnotation(annotationBody);
     }
     // Return the annotation object to be used by the caller
     return anno

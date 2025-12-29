@@ -7,6 +7,39 @@
     let categories = [
     {% for species in species_list %}"{{ species }}",{% endfor %}
     ];
+
+    // SpeciesNet prediction for the first detection's bounding box
+    {% if speciesnet_prediction %}
+    window.speciesnetPrediction = {
+        name: "{{ speciesnet_prediction.name|escapejs }}",
+        confidence: {{ speciesnet_prediction.confidence }},
+        bbox_x: {{ speciesnet_prediction.bbox_x }},
+        bbox_y: {{ speciesnet_prediction.bbox_y }},
+        bbox_w: {{ speciesnet_prediction.bbox_w }},
+        bbox_h: {{ speciesnet_prediction.bbox_h }}
+    };
+
+    // Find the bbox that matches the first SpeciesNet detection by coordinates
+    if (bboxes.length > 0) {
+        const targetBbox = bboxes.find(bbox =>
+            Math.abs(bbox.x - window.speciesnetPrediction.bbox_x) < 0.001 &&
+            Math.abs(bbox.y - window.speciesnetPrediction.bbox_y) < 0.001 &&
+            Math.abs(bbox.w - window.speciesnetPrediction.bbox_w) < 0.001 &&
+            Math.abs(bbox.h - window.speciesnetPrediction.bbox_h) < 0.001
+        );
+
+        if (targetBbox) {
+            targetBbox.speciesnetName = window.speciesnetPrediction.name;
+            targetBbox.speciesnetConfidence = window.speciesnetPrediction.confidence;
+            targetBbox.userSpeciesAnnotation = targetBbox.userSpecies || null;
+            console.log('SpeciesNet prediction attached to bbox:', targetBbox.id, 'User annotation:', targetBbox.userSpeciesAnnotation);
+        } else {
+            console.warn('Could not find bbox matching SpeciesNet first detection coordinates');
+        }
+    }
+    {% else %}
+    window.speciesnetPrediction = null;
+    {% endif %}
 {% endblock set_categories %}
 {% block include_nav_menu %}
     {% include './annotate/page_elements/nav-menu/single_img.html' %}
@@ -17,7 +50,74 @@
 {% block show_bbox_category_and_confidence %}
     "category": "{{ bbox.species_set.all.0.name }}",
     "confidence": "{{ bbox.category_set.all.0.confidence }}",
+    "userSpecies": "{{ bbox.species_set.all.0.name.name|default:'' }}",
 {% endblock show_bbox_category_and_confidence %}
 {% block enable_save_buttons %}
     document.getElementById("save_annotations").disabled = false;
 {% endblock enable_save_buttons %}
+{% block additional_event_handlers %}
+    // Update SpeciesNet label when user selects a species
+    anno.on("updateAnnotation", function(annotation) {
+        console.log('updateAnnotation event fired:', annotation);
+
+        // Check if annotation has bodies property
+        if (!annotation || !annotation.body) {
+            console.log('No annotation.body found');
+            return;
+        }
+
+        // annotation.body is an array in Annotorious
+        const bodies = Array.isArray(annotation.body) ? annotation.body : [annotation.body];
+
+        // Check if this annotation has a SpeciesNet prediction
+        const tagBody = bodies.find(b => b.purpose === 'tagging' && b.value && b.value.includes('ai:'));
+        if (!tagBody) {
+            console.log('No SpeciesNet tag body found');
+            return;
+        }
+
+        // Extract the user's selected species from the classifying body
+        const classifyingBody = bodies.find(b => b.purpose === 'classifying');
+        if (!classifyingBody || !classifyingBody.value) {
+            console.log('No classifying body or value found');
+            return;
+        }
+
+        const userSpecies = classifyingBody.value;
+        console.log('User selected species:', userSpecies);
+
+        // Find the original bbox data to get the SpeciesNet prediction
+        const cleanId = annotation.id.replace('#', '');
+        const bboxData = bboxes.find(b => b.id === annotation.id || b.id === cleanId);
+        if (!bboxData || !bboxData.speciesnetName) {
+            console.log('No bbox data or SpeciesNet prediction found');
+            return;
+        }
+
+        // Format the new label based on whether user confirmed or corrected
+        const confidencePercent = Math.round(bboxData.speciesnetConfidence * 100);
+        const aiPrediction = `ai: ${bboxData.speciesnetName} (${confidencePercent}%)`;
+        let newLabelValue;
+
+        if (userSpecies.toLowerCase() === bboxData.speciesnetName.toLowerCase()) {
+            // User confirmed - add checkmark
+            newLabelValue = `${aiPrediction} ✓`;
+            console.log('User confirmed AI prediction');
+        } else {
+            // User corrected - strikethrough and show correction
+            newLabelValue = `<del>${aiPrediction}</del> ${userSpecies}`;
+            console.log('User corrected to:', userSpecies);
+        }
+
+        // Update the tag body with the new label
+        console.log('Updating label to:', newLabelValue);
+
+        // Update the tag body value in place
+        tagBody.value = newLabelValue;
+
+        // Refresh the annotation by removing and re-adding it
+        // This forces the label to re-render with the new value
+        anno.removeAnnotation(annotation);
+        anno.addAnnotation(annotation);
+    });
+{% endblock additional_event_handlers %}

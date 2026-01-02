@@ -73,9 +73,6 @@ docs/_build/
 # PyBuilder
 target/
 
-# pyenv
-.python-version
-
 # celery beat schedule file
 celerybeat-schedule
 
@@ -94,6 +91,9 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# UV specific
+.uv_cache/
 
 
 ### Linux template

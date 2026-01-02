@@ -284,7 +284,7 @@
                     cameraStation,
                     `
                     <a href="/images/image/${imageId}" target="_blank">
-                        <img class="w-100" src="{% get_media_prefix %}${thumbnail}" alt="Thumbnail" loading="lazy">
+                        <img class="w-100" src="{% get_media_prefix %}${thumbnail}" alt="Thumbnail" loading="lazy" onclick="this.style.outline='5px solid orange'; event.stopPropagation();">
                     </a>
                     `
                 ];

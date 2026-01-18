@@ -1,5 +1,6 @@
 """This is the staging settings that links to a staging database and will be deployed as its own service in within app engine
 """
+
 import google.cloud.logging
 
 from .base import *  # noqa
@@ -99,13 +100,13 @@ EMAIL_USE_TLS = True
 # Logging into Google Cloud
 
 # Instantiates a client
-#google_logging_client = google.cloud.logging.Client(project=env("GOOGLE_CLOUD_PROJECT"))
+# google_logging_client = google.cloud.logging.Client(project=env("GOOGLE_CLOUD_PROJECT"))
 
 # Retrieves a Cloud Logging handler based on the environment
 # you're running in and integrates the handler with the
 # Python logging module. By default this captures all logs
 # at INFO level and higher
-#google_logging_client.setup_logging()
+# google_logging_client.setup_logging()
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

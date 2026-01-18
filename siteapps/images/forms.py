@@ -44,7 +44,7 @@ class UploadForm(forms.ModelForm):
         help_text="For modifying only a part of the upload. Images with timestamps after this date will not be changed.",
     )
 
-    is_bhutan = 'bhutan' in settings.WSGI_APPLICATION
+    is_bhutan = "bhutan" in settings.WSGI_APPLICATION
 
     # Only show daylight savings if not Bhutan
     if not is_bhutan:
@@ -55,11 +55,11 @@ class UploadForm(forms.ModelForm):
         )
 
     upload_method_choices = Upload._meta.get_field("upload_method").choices
-    default_upload_method = 'E'
+    default_upload_method = "E"
     # If is_bhutan, only allow direct upload method
     if is_bhutan:
-        upload_method_choices = [c for c in upload_method_choices if c[0] == 'D']
-        default_upload_method = 'D'
+        upload_method_choices = [c for c in upload_method_choices if c[0] == "D"]
+        default_upload_method = "D"
 
     upload_method = forms.ChoiceField(
         label="Upload Method",
@@ -124,7 +124,7 @@ class UploadForm(forms.ModelForm):
 
         # Only add daylight savings row if not Bhutan
         if not self.is_bhutan:
-            self.helper.layout.append(        
+            self.helper.layout.append(
                 Row(
                     Column("daylight_savings_correction", css_class="form-group"),
                     HTML(

@@ -204,11 +204,7 @@ def get_metadata_with_retry(preretrieved_metadata, entry, max_retries=10, delay=
     return None
 
 
-def process_dropbox_file(
-    upload: Upload,
-    entry: dropbox.files.FileMetadata,
-    preretrieved_metadata: dict
-):
+def process_dropbox_file(upload: Upload, entry: dropbox.files.FileMetadata, preretrieved_metadata: dict):
     """Process each file in the dropbox directory."""
     # By default, processed return True. This is to ensure that non-image files don't affect upload status
     processed = True

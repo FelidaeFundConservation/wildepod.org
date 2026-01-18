@@ -1,6 +1,7 @@
 """
 Base settings to build other settings files upon.
 """
+
 # This project follows the recommended structure from authors of two scoops of Django
 # https://github.com/cookiecutter/cookiecutter-django
 import io
@@ -336,4 +337,4 @@ EXPORT_DATE_FORMAT = "%Y-%m-%d"
 EXPORT_URL_SUFFIX = "8jk6fh9m7w2xz5r3t1n0b8v6c"  # TODO: Move this to secret manager
 
 # Google Maps API (optional for local development)
-GOOGLE_MAPS_API_KEY = env('GOOGLE_MAPS_API_KEY', default=None)
+GOOGLE_MAPS_API_KEY = env("GOOGLE_MAPS_API_KEY", default=None)

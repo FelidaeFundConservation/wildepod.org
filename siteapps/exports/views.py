@@ -3,7 +3,6 @@ import gc
 import importlib.resources
 import json
 import logging
-import os
 import threading
 import zipfile
 from datetime import datetime
@@ -346,13 +345,13 @@ def execute_export_query_sql(macrosite_param=None, station_id_param=None, start_
     """Execute the image export SQL query with the given parameters"""
     with connection.cursor() as cursor:
         # Read the SQL file
-        with importlib.resources.open_text('siteapps.exports', 'export_images.sql') as sql_file:
+        with importlib.resources.open_text("siteapps.exports", "export_images.sql") as sql_file:
             sql_query = sql_file.read()
-        
+
         # Build WHERE clause and params list
         where_clauses = []
         params = []
-        
+
         if macrosite_param:
             where_clauses.append("macrosite = %s")
             params.append(macrosite_param)
@@ -362,14 +361,14 @@ def execute_export_query_sql(macrosite_param=None, station_id_param=None, start_
         if end_date_param:
             where_clauses.append("trigger_timestamp <= %s")
             params.append(end_date_param)
-      
+
         if where_clauses:
             sql_query += " WHERE " + " AND ".join(where_clauses)
-        
+
         logging.info(f"Executing SQL query: {sql_query} with params: {params}")
         cursor.execute(sql_query, params)
         return cursor.fetchall()
-    
+
 
 def create_snapshot_sql(data):
     """This is a hacky function to create a snapshot inside a thread and update the object when done"""
@@ -412,9 +411,7 @@ def create_snapshot_sql(data):
         end_date += " 00:00:00-08:00"
 
     images = execute_export_query_sql(
-        macrosite_param=macrosites_str, 
-        start_date_param=start_date, 
-        end_date_param=end_date
+        macrosite_param=macrosites_str, start_date_param=start_date, end_date_param=end_date
     )
 
     try:

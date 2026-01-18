@@ -1,3 +1,7 @@
+"""
+Pipeline flag calculations.
+"""
+
 import ast
 import datetime
 import json
@@ -11,8 +15,7 @@ from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import connections
-from django.db.models import (BooleanField, Case, CharField, Count, Exists, F,
-                              OuterRef, Q, Subquery, Value, When)
+from django.db.models import BooleanField, Case, CharField, Count, Exists, F, OuterRef, Q, Subquery, Value, When
 from django.http.response import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -20,14 +23,26 @@ from django.utils import timezone
 from django.views.generic import FormView
 from django.views.generic.base import TemplateView, View
 from images.forms import AnnotationForm
-from images.models import (Activity, ActivityType, AnnotationCounter,
-                           Annotator, BoundingBox, Category, Image, ImageQueue,
-                           Species, SpeciesName, SpeciesSubgroup)
+from images.models import (
+    Activity,
+    ActivityType,
+    AnnotationCounter,
+    Annotator,
+    BoundingBox,
+    Category,
+    Image,
+    ImageQueue,
+    Species,
+    SpeciesName,
+    SpeciesSubgroup,
+)
 from images.models.custom_fields import get_filter_params
-from images.processors import (has_bbox_above_confidence_threshold,
-                               process_activity_annotations,
-                               process_species_annotations,
-                               run_model_inference)
+from images.processors import (
+    has_bbox_above_confidence_threshold,
+    process_activity_annotations,
+    process_species_annotations,
+    run_model_inference,
+)
 from PIL import Image as PILImage
 
 # TODO: There might be some duplicate constants between here and the settings. Should probably move these to the base settings file.
@@ -232,7 +247,9 @@ def species_pipeline_query(images, annotator, staff_review=False, reported_image
     if not staff_review and not reported_images:
         filter_conditions &= ~Q(species_checked_by__in=[annotator]) & ~Q(species_skipped_by__in=[annotator])
 
-    images = images.filter(filter_conditions).order_by("-upload__priority", "-has_cats", "upload__camera_station", "trigger_timestamp")
+    images = images.filter(filter_conditions).order_by(
+        "-upload__priority", "-has_cats", "upload__camera_station", "trigger_timestamp"
+    )
 
     if staff_review:
         images = images.filter(staff_review_needed=True)
@@ -302,7 +319,9 @@ def activity_pipeline_query(images, annotator, activity_category, staff_review=F
     return images
 
 
-def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_category, staff_review, reported_images=False):
+def gather_queue_images(
+    self, queue, queue_name, queue_key, annotator, activity_category, staff_review, reported_images=False
+):
     """
     Gets a new queue of images based on criteria, and caches the results in Datastore.
     This is the legacy queue system and is only called when the precomputed queues run out.
@@ -331,9 +350,17 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
 
     # Filter using specified pipeline criteria
     if SPECIES_QUEUE_NAME in queue_name:
-        images = species_pipeline_query(images=images, annotator=annotator, staff_review=staff_review, reported_images=reported_images)
+        images = species_pipeline_query(
+            images=images, annotator=annotator, staff_review=staff_review, reported_images=reported_images
+        )
     elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
-        images = activity_pipeline_query(images=images, annotator=annotator, activity_category=activity_category, staff_review=staff_review, reported_images=reported_images)
+        images = activity_pipeline_query(
+            images=images,
+            annotator=annotator,
+            activity_category=activity_category,
+            staff_review=staff_review,
+            reported_images=reported_images,
+        )
     else:
         logging.error(f"Invalid queue name provided to query function: {queue_name}")
 
@@ -380,12 +407,16 @@ def gather_queue_images(self, queue, queue_name, queue_key, annotator, activity_
 
             # Make sure the burst image is pipeline eligible
             if SPECIES_QUEUE_NAME in queue_name:
-                eligible_burst_image_ids = species_pipeline_query(burst_images, annotator=annotator, staff_review=staff_review, reported_images=reported_images).values_list(
-                    "id", flat=True
-                )
+                eligible_burst_image_ids = species_pipeline_query(
+                    burst_images, annotator=annotator, staff_review=staff_review, reported_images=reported_images
+                ).values_list("id", flat=True)
             elif ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
                 eligible_burst_image_ids = activity_pipeline_query(
-                    burst_images, annotator=annotator, activity_category=activity_category, staff_review=staff_review, reported_images=reported_images
+                    burst_images,
+                    annotator=annotator,
+                    activity_category=activity_category,
+                    staff_review=staff_review,
+                    reported_images=reported_images,
                 ).values_list("id", flat=True)
 
             # Add burst images to queue, after the main image
@@ -742,7 +773,12 @@ def get_precomputed_queue(queue_name, annotator, searched):
     annotator_check, pipeline_kwarg, exclusion_condition = get_pipeline_filters(queue_name, annotator)
 
     # Use the pipeline_kwarg in the query
-    q_condition = Q(annotator_check) & Q(has_bbox_above_confidence_threshold=True) & Q(staff_review_needed=False) & Q(image_reported=False)
+    q_condition = (
+        Q(annotator_check)
+        & Q(has_bbox_above_confidence_threshold=True)
+        & Q(staff_review_needed=False)
+        & Q(image_reported=False)
+    )
     queue_condition = Exists(
         Image.objects.filter(
             q_condition,
@@ -823,7 +859,9 @@ def set_widget_data(context, image, species_list):
     if ai_detections:
         for det in ai_detections:
             detection_query |= Q(name__icontains=det)
-        context["species_list"] = list(species_list.filter(detection_query)) + list(species_list.exclude(detection_query))
+        context["species_list"] = list(species_list.filter(detection_query)) + list(
+            species_list.exclude(detection_query)
+        )
     else:
         context["species_list"] = list(species_list)
 
@@ -832,7 +870,9 @@ def set_widget_data(context, image, species_list):
         return {
             "name": species.name,
             "has_vote": species.name in species_tags,
-            "ai_detection": image is not None and image.species_ai_detections is not None and species.name in image.species_ai_detections,
+            "ai_detection": image is not None
+            and image.species_ai_detections is not None
+            and species.name in image.species_ai_detections,
             "selected": False,
         }
 
@@ -886,11 +926,15 @@ def set_widget_data(context, image, species_list):
     # Default open other tabs too
     if not animal_widget["open"]:
         human_list = list(species_list.filter(Q(species_group="HUMAN")))
-        context["widget_data"]["person"]["open"] = ai_detections is not None and any(category.name in ai_detections for category in human_list)
+        context["widget_data"]["person"]["open"] = ai_detections is not None and any(
+            category.name in ai_detections for category in human_list
+        )
 
         if not context["widget_data"]["person"]["open"]:
             vehicle_list = list(species_list.filter(Q(species_group="VEHICLE")))
-            context["widget_data"]["vehicle"]["open"] = ai_detections is not None and any(category.name in ai_detections for category in vehicle_list)
+            context["widget_data"]["vehicle"]["open"] = ai_detections is not None and any(
+                category.name in ai_detections for category in vehicle_list
+            )
 
             if not context["widget_data"]["vehicle"]["open"]:
                 animal_widget["open"] = True
@@ -899,8 +943,9 @@ def set_widget_data(context, image, species_list):
 
 
 # Retrieves data to pass to the views through context (namely queue images and annotations info).
-def populate_view_context(queue_name, context, self, activity_category=None, staff_review=False, reported_images=False, searched=False):
-
+def populate_view_context(
+    queue_name, context, self, activity_category=None, staff_review=False, reported_images=False, searched=False
+):
     """
     Sets data in view context to access from the annotation view templates,
     including the image data, bounding boxes, species suggestions, and more.
@@ -920,7 +965,7 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
     # Check if we're doing custom annotations
     custom_annotations = self.request.GET.get("custom") == "true"
 
-    # Get the annotation queue cached in the datastore. 
+    # Get the annotation queue cached in the datastore.
     # Treat Custom annotations, Staff Review, and Reported Images as separate queues.
     if custom_annotations:
         queue_name = CUSTOM_PREFIX + queue_name
@@ -933,7 +978,7 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
     queue = settings.DATASTORE_CLIENT.get(queue_key)
 
     # Clear cached queue when fresh=true parameter is present (user clicked menu link)
-    is_fresh_start = self.request.GET.get('fresh') == 'true'
+    is_fresh_start = self.request.GET.get("fresh") == "true"
     if (staff_review or reported_images) and queue and is_fresh_start:
         settings.DATASTORE_CLIENT.delete(queue_key)
         queue = None
@@ -964,7 +1009,11 @@ def populate_view_context(queue_name, context, self, activity_category=None, sta
 
         if not searched:
             queue_images = queue_images.filter(
-                annotator_check, has_bbox_above_confidence_threshold=True, staff_review_needed=False, image_reported=False, **pipeline_kwarg
+                annotator_check,
+                has_bbox_above_confidence_threshold=True,
+                staff_review_needed=False,
+                image_reported=False,
+                **pipeline_kwarg,
             ).exclude(exclusion_condition)
 
         partitioned_queue_images = queue_images.filter(trigger_timestamp__gte=precomputed_queue.partition)
@@ -1228,7 +1277,14 @@ def set_view_filterset(self, staff_review=False, reported_images=False):
     camera_id = None if self.request.GET.get("camera_id") == "None" else self.request.GET.get("camera_id")
     macrosite_name = self.request.GET.get("macrosite_name")
 
-    self.filterset = get_filter_params(start_date, end_date, macrosite_name, camera_id, staff_review_needed=staff_review, image_reported=reported_images)
+    self.filterset = get_filter_params(
+        start_date,
+        end_date,
+        macrosite_name,
+        camera_id,
+        staff_review_needed=staff_review,
+        image_reported=reported_images,
+    )
 
 
 class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
@@ -1236,7 +1292,9 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
     template_name = "images/annotate/species.html"
 
     def get(self, request, *args, **kwargs):
-        set_view_filterset(self, staff_review=kwargs.get("staff_review", False), reported_images=kwargs.get("reported_images", False))
+        set_view_filterset(
+            self, staff_review=kwargs.get("staff_review", False), reported_images=kwargs.get("reported_images", False)
+        )
 
         return super().get(request, *args, **kwargs)
 
@@ -1556,11 +1614,6 @@ class ChangeAnnotationView(LoginRequiredMixin, View):
             success = False
 
         return JsonResponse({"success": success, "oldName": annotationName, "newName": newAnnotationName})
-
-
-"""
-Pipeline flag calculations.
-"""
 
 
 def annotate(zipped_querysets):

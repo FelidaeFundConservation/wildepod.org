@@ -6,10 +6,10 @@ exclude: ^siteapps/.*/migrations/.|^siteapps/templates/images/annotate/activity.
 repos:
   # Common pre-commit hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.3.0
+    rev: v4.5.0
     hooks:
       - id: check-added-large-files
-        args: ['--maxkb=25000']
+        args: ["--maxkb=25000"]
       - id: check-ast
       - id: check-builtin-literals
       - id: check-case-conflict
@@ -23,48 +23,41 @@ repos:
       - id: detect-private-key
       - id: end-of-file-fixer
       - id: pretty-format-json
-        args: ['--autofix']
+        args: ["--autofix"]
       - id: trailing-whitespace
       - id: name-tests-test
-        args: ['--django']
+        args: ["--django"]
 
   - repo: https://github.com/Lucas-C/pre-commit-hooks
-    rev: v1.3.1
+    rev: v1.5.5
     hooks:
       - id: forbid-crlf
-        name: CRLF end-lines checker
-        description: "Forbid files containing CRLF end-lines to be committed"
-        entry: forbid_crlf
-        language: python
       - id: forbid-tabs
-        name: No-tabs checker
-        description: "Forbid files containing tabs to be committed"
-        entry: forbid_tabs
-        language: python
 
   - repo: https://github.com/hadialqattan/pycln
-    rev: v2.1.1
+    rev: v2.6.0
     hooks:
       - id: pycln
         name: pycln
         description: "A formatter for finding and removing unused import statements."
         entry: pycln
         language: python
-        language_version: python3
+        language_version: python3.10
         types: [python]
+        files: ^siteapps/
 
   - repo: local
     hooks:
       - id: jupyter-nb-clear-output
         name: jupyter-nb-clear-output
         description: "Clear jupyter notebook cell-outputs"
-        entry: jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace
+        entry: /home/jnovak/Projects/wildepod_client_sorting/.venv/bin/jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace
         files: \.ipynb$
         stages: [commit]
         language: system
 
   - repo: https://github.com/mwouts/jupytext
-    rev: v1.14.1
+    rev: v1.16.1
     hooks:
       - id: jupytext
         name: jupytext
@@ -74,10 +67,10 @@ repos:
         require_serial: true
         args: [--sync, --pipe, black]
         additional_dependencies:
-          - black==22.1.0
+          - black==24.1.1
 
   - repo: https://github.com/psf/black
-    rev: 22.8.0
+    rev: 24.1.1
     hooks:
       - id: black
         name: black
@@ -92,7 +85,7 @@ repos:
           - "--line-length=120"
 
   - repo: https://github.com/timothycrosley/isort
-    rev: 5.12.0
+    rev: 5.13.2
     hooks:
       - id: isort
         name: isort
@@ -101,8 +94,8 @@ repos:
         require_serial: true
         language: python
         language_version: python3
-        types_or: [ cython, pyi, python ]
-        minimum_pre_commit_version: '2.9.2'
+        types_or: [cython, pyi, python]
+        minimum_pre_commit_version: "2.9.2"
         files: "\\.(py)$"
         args:
           - "--filter-files"
@@ -112,7 +105,7 @@ repos:
           - "--trailing-comma"
 
   - repo: https://github.com/PyCQA/flake8
-    rev: 5.0.4
+    rev: 6.1.0
     hooks:
       - id: flake8
         name: flake8
@@ -122,21 +115,21 @@ repos:
         types: [python]
         require_serial: true
         exclude: ^scratch/
-        additional_dependencies: [
+        additional_dependencies:
+          [
             "flake8-bugbear",
             "flake8-comprehensions",
             "flake8-mutable",
             "flake8-print",
             "flake8-simplify",
-        ]
+          ]
         args:
           - "--max-line-length=120"
           - "--max-complexity=12"
-          - "--ignore=E501,W503,E203,F405,F403,F401,SIM105,C901,SIM113"
-
+          - "--ignore=E501,W503,E203,F405,F403,F401,SIM105,C901,SIM113,T201"
 
   - repo: https://github.com/Riverside-Healthcare/djLint
-    rev: v1.33.0
+    rev: v1.34.1
     hooks:
       - id: djlint-reformat-django
       - id: djlint-django

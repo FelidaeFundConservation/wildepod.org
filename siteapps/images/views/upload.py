@@ -26,6 +26,7 @@ from users.models import User
 # Pagination size for images displayed for the upload detail page
 IMAGE_PAGINATION_LIMIT = 24
 
+
 # Views
 # ------------------------------------------------------------------------------
 class UploadCreateView(LoginRequiredMixin, CreateView):
@@ -492,9 +493,11 @@ class PreviewTimeCorrectionsView(LoginRequiredMixin, View):
                     )
 
             # Apply daylight savings shift
-            if daylight_savings_datetime and new_timestamp is not None and new_timestamp.replace(
-                tzinfo=pytz.UTC
-            ) >= daylight_savings_datetime.replace(tzinfo=pytz.UTC):
+            if (
+                daylight_savings_datetime
+                and new_timestamp is not None
+                and new_timestamp.replace(tzinfo=pytz.UTC) >= daylight_savings_datetime.replace(tzinfo=pytz.UTC)
+            ):
                 if daylight_savings_month == "03" or daylight_savings_month == "3":
                     if correction_applied and timestamp is not None:
                         new_timestamp = timestamp + relativedelta(hours=-1)

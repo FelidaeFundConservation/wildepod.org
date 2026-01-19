@@ -27,18 +27,16 @@ astroid==4.0.2
     # via pylint
 asttokens==3.0.1
     # via stack-data
-atomicwrites==1.4.1 ; sys_platform == 'win32'
-    # via pytest
 attrs==25.4.0
     # via
+    #   flake8-bugbear
     #   jsonschema
-    #   pytest
     #   referencing
 babel==2.17.0
     # via jupyterlab-server
 beautifulsoup4==4.14.3
     # via nbconvert
-black==22.1.0
+black==26.1.0
     # via wildepod
 bleach==6.3.0
     # via nbconvert
@@ -59,6 +57,7 @@ click==8.3.1
     # via
     #   black
     #   djlint
+    #   typer
 collectfast==2.2.0
     # via wildepod
 colorama==0.4.6
@@ -75,7 +74,7 @@ comm==0.2.3
     #   ipywidgets
 contourpy==1.3.2
     # via matplotlib
-coverage==6.3.1
+coverage==7.13.1
     # via
     #   django-coverage-plugin
     #   wildepod
@@ -105,10 +104,12 @@ django==4.2.16
     #   crispy-bootstrap5
     #   django-allauth
     #   django-braces
+    #   django-coverage-plugin
     #   django-debug-toolbar
     #   django-extensions
     #   django-jazzmin
     #   django-model-utils
+    #   django-simple-history
     #   django-storages
     #   django-stubs
     #   django-stubs-ext
@@ -117,13 +118,13 @@ django-allauth==0.51.0
     # via wildepod
 django-braces==1.15.0
     # via wildepod
-django-coverage-plugin==2.0.2
+django-coverage-plugin==3.2.0
     # via wildepod
 django-crispy-forms==1.14.0
     # via
     #   crispy-bootstrap5
     #   wildepod
-django-debug-toolbar==3.2.4
+django-debug-toolbar==6.1.0
     # via wildepod
 django-environ==0.9.0
     # via wildepod
@@ -131,19 +132,19 @@ django-extensions==3.2.1
     # via wildepod
 django-jazzmin==2.4.9
     # via wildepod
-django-model-utils==4.2.0
+django-model-utils==5.0.0
     # via wildepod
-django-simple-history==3.0.0
+django-simple-history==3.11.0
     # via wildepod
 django-storages==1.12.3
     # via
     #   collectfast
     #   wildepod
-django-stubs==1.9.0
+django-stubs==5.2.8
     # via wildepod
 django-stubs-ext==5.2.8
     # via django-stubs
-djlint==1.34.0
+djlint==1.36.4
     # via wildepod
 dropbox==12.0.2
     # via wildepod
@@ -155,9 +156,10 @@ exceptiongroup==1.3.1
     # via
     #   anyio
     #   ipython
+    #   pytest
 executing==2.2.1
     # via stack-data
-factory-boy==3.2.1
+factory-boy==3.3.3
     # via wildepod
 faker==39.0.0
     # via factory-boy
@@ -167,12 +169,22 @@ filelock==3.20.1
     # via
     #   torch
     #   virtualenv
-flake8==4.0.1
+flake8==7.3.0
     # via
+    #   flake8-bugbear
+    #   flake8-comprehensions
     #   flake8-isort
+    #   flake8-mutable
+    #   flake8-print
+    #   flake8-simplify
     #   wildepod
-flake8-isort==4.1.1
+flake8-bugbear==23.3.12
+flake8-comprehensions==3.17.0
+flake8-isort==7.0.0
     # via wildepod
+flake8-mutable==1.2.0
+flake8-print==5.0.0
+flake8-simplify==0.30.0
 fonttools==4.61.1
     # via matplotlib
 fqdn==1.5.1
@@ -195,13 +207,14 @@ google-api-core==1.34.1
     #   google-cloud-tasks
 google-api-python-client==2.58.0
     # via wildepod
-google-auth==2.11.0
+google-auth==2.45.0
     # via
     #   google-api-core
     #   google-api-python-client
     #   google-auth-httplib2
     #   google-auth-oauthlib
     #   google-cloud-core
+    #   google-cloud-secret-manager
     #   google-cloud-storage
     #   wildepod
 google-auth-httplib2==0.1.0
@@ -223,7 +236,7 @@ google-cloud-datastore==2.13.0
     # via wildepod
 google-cloud-logging==3.2.2
     # via wildepod
-google-cloud-secret-manager==2.11.1
+google-cloud-secret-manager==2.26.0
     # via wildepod
 google-cloud-storage==2.11.0
     # via django-storages
@@ -247,6 +260,7 @@ grpc-google-iam-v1==0.14.3
 grpcio==1.76.0
     # via
     #   google-api-core
+    #   google-cloud-secret-manager
     #   googleapis-common-protos
     #   grpc-google-iam-v1
     #   grpcio-status
@@ -255,10 +269,6 @@ grpcio-status==1.48.2
     # via google-api-core
 gunicorn==20.1.0
     # via wildepod
-html-tag-names==0.1.2
-    # via djlint
-html-void-elements==0.1.0
-    # via djlint
 httplib2==0.31.0
     # via
     #   google-api-python-client
@@ -307,7 +317,7 @@ jinja2==3.1.6
     #   nbconvert
     #   notebook
     #   torch
-jsbeautifier==1.14.11
+jsbeautifier==1.15.4
     # via
     #   cssbeautifier
     #   djlint
@@ -364,12 +374,22 @@ jupyterlab-server==2.16.3
     # via jupyterlab
 jupyterlab-widgets==3.0.16
     # via ipywidgets
+jupytext==1.19.0
 kiwisolver==1.4.9
     # via matplotlib
 lark==1.3.1
     # via rfc3987-syntax
+libcst==1.8.6
+    # via pycln
+librt==0.7.8 ; platform_python_implementation != 'PyPy'
+    # via mypy
 markdown==3.10
     # via tensorboard
+markdown-it-py==4.0.0
+    # via
+    #   jupytext
+    #   mdit-py-plugins
+    #   rich
 markupsafe==3.0.3
     # via
     #   jinja2
@@ -383,18 +403,20 @@ matplotlib-inline==0.2.1
     # via
     #   ipykernel
     #   ipython
-mccabe==0.6.1
+mccabe==0.7.0
     # via
     #   flake8
     #   pylint
+mdit-py-plugins==0.5.0
+    # via jupytext
+mdurl==0.1.2
+    # via markdown-it-py
 mistune==3.2.0
     # via nbconvert
 mpmath==1.3.0
     # via sympy
-mypy==0.931
-    # via
-    #   django-stubs
-    #   wildepod
+mypy==1.19.1
+    # via wildepod
 mypy-extensions==1.1.0
     # via
     #   black
@@ -413,6 +435,7 @@ nbconvert==7.16.6
 nbformat==5.10.4
     # via
     #   jupyter-server
+    #   jupytext
     #   nbclient
     #   nbconvert
     #   notebook
@@ -501,15 +524,16 @@ overrides==7.7.0
     # via jupyter-server
 packaging==25.0
     # via
+    #   black
     #   ipykernel
     #   jupyter-events
     #   jupyter-server
     #   jupyterlab
     #   jupyterlab-server
+    #   jupytext
     #   matplotlib
     #   nbconvert
     #   pytest
-    #   pytest-sugar
     #   tensorboard
 pandas==2.2.3
     # via
@@ -520,10 +544,12 @@ pandocfilters==1.5.1
     # via nbconvert
 parso==0.8.5
     # via jedi
-pathspec==0.11.2
+pathspec==1.0.3
     # via
     #   black
     #   djlint
+    #   mypy
+    #   pycln
 pexpect==4.9.0 ; sys_platform != 'emscripten' and sys_platform != 'win32'
     # via ipython
 pillow==10.4.0
@@ -543,7 +569,7 @@ pluggy==1.6.0
     # via pytest
 ply==3.11
     # via stone
-pre-commit==2.17.0
+pre-commit==4.5.1
     # via wildepod
 prometheus-client==0.23.1
     # via
@@ -587,31 +613,34 @@ ptyprocess==0.7.0 ; os_name != 'nt' or (sys_platform != 'emscripten' and sys_pla
     #   terminado
 pure-eval==0.2.3
     # via stack-data
-py==1.11.0
-    # via pytest
 pyasn1==0.6.1
     # via
     #   pyasn1-modules
     #   rsa
 pyasn1-modules==0.4.2
     # via google-auth
+pycln==2.6.0
 pycocotools==2.0.11
     # via yolov9pip
-pycodestyle==2.8.0
-    # via flake8
+pycodestyle==2.14.0
+    # via
+    #   flake8
+    #   flake8-print
 pycparser==2.23 ; implementation_name != 'PyPy'
     # via cffi
 pydantic==2.12.5
     # via albumentations
 pydantic-core==2.41.5
     # via pydantic
-pyflakes==2.4.0
+pyflakes==3.4.0
     # via flake8
 pygments==2.19.2
     # via
     #   ipython
     #   jupyter-console
     #   nbconvert
+    #   pytest
+    #   rich
 pyjwt==2.10.1
     # via django-allauth
 pylint==4.0.4
@@ -626,14 +655,14 @@ pyparsing==3.3.1
     # via
     #   httplib2
     #   matplotlib
-pytest==7.0.1
+pytest==9.0.2
     # via
     #   pytest-django
     #   pytest-sugar
     #   wildepod
 pytest-django==4.5.2
     # via wildepod
-pytest-sugar==0.9.4
+pytest-sugar==1.1.1
     # via wildepod
 python-dateutil==2.9.0.post0
     # via
@@ -647,6 +676,8 @@ python-slugify==6.0.1
     # via wildepod
 python3-openid==3.2.0
     # via django-allauth
+pytokens==0.4.0
+    # via black
 pytz==2021.3
     # via
     #   pandas
@@ -661,7 +692,10 @@ pyyaml==6.0.3
     #   albumentations
     #   djlint
     #   jupyter-events
+    #   jupytext
+    #   libcst
     #   pre-commit
+    #   pycln
     #   yolov9pip
 pyzmq==27.1.0
     # via
@@ -703,6 +737,8 @@ rfc3986-validator==0.1.1
     #   jupyter-events
 rfc3987-syntax==1.1.0
     # via jsonschema
+rich==14.2.0
+    # via typer
 rpds-py==0.30.0
     # via
     #   jsonschema
@@ -723,14 +759,14 @@ setuptools==80.9.0
     # via
     #   gunicorn
     #   tensorboard
+shellingham==1.5.4
+    # via typer
 simsimd==6.5.12
     # via albucore
 six==1.17.0
     # via
     #   cssbeautifier
-    #   django-coverage-plugin
     #   dropbox
-    #   google-auth
     #   google-auth-httplib2
     #   jsbeautifier
     #   python-dateutil
@@ -763,28 +799,26 @@ terminado==0.18.1
     #   jupyter-server
     #   jupyter-server-terminals
     #   notebook
-testfixtures==6.18.5
-    # via flake8-isort
 text-unidecode==1.3
     # via python-slugify
 thop==0.1.1.post2209072238
     # via yolov9pip
 tinycss2==1.4.0
     # via bleach
-toml==0.10.2
-    # via
-    #   django-stubs
-    #   pre-commit
 tomli==2.3.0
     # via
     #   black
+    #   django-stubs
     #   djlint
     #   jupyterlab
+    #   jupytext
     #   mypy
     #   pylint
     #   pytest
 tomlkit==0.13.3
-    # via pylint
+    # via
+    #   pycln
+    #   pylint
 torch==2.9.1
     # via
     #   thop
@@ -821,11 +855,11 @@ traitlets==5.14.3
     #   notebook
 triton==3.5.1 ; platform_machine == 'x86_64' and sys_platform == 'linux'
     # via torch
-types-pytz==2025.2.0.20251108
-    # via django-stubs
+typer==0.21.1
+    # via pycln
 types-pyyaml==6.0.12.20250915
     # via django-stubs
-types-requests==2.27.15
+types-requests==2.31.0.6
     # via wildepod
 types-urllib3==1.26.25.14
     # via types-requests
@@ -835,10 +869,12 @@ typing-extensions==4.15.0
     #   asgiref
     #   astroid
     #   beautifulsoup4
+    #   black
     #   collectfast
     #   cryptography
     #   django-stubs
     #   django-stubs-ext
+    #   djlint
     #   exceptiongroup
     #   grpcio
     #   ipython
@@ -848,6 +884,7 @@ typing-extensions==4.15.0
     #   pydantic-core
     #   referencing
     #   torch
+    #   typer
     #   typing-inspection
     #   virtualenv
 typing-inspection==0.4.2

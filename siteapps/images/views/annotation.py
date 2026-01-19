@@ -1611,6 +1611,7 @@ class ChangeAnnotationView(LoginRequiredMixin, View):
 
         return JsonResponse({"success": success, "oldName": annotationName, "newName": newAnnotationName})
 
+
 # Pipeline flag calculations. (Was triple quoted)
 def annotate(zipped_querysets):
     """

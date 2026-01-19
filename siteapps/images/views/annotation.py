@@ -1,7 +1,3 @@
-"""
-Pipeline flag calculations.
-"""
-
 import ast
 import datetime
 import json
@@ -1615,7 +1611,7 @@ class ChangeAnnotationView(LoginRequiredMixin, View):
 
         return JsonResponse({"success": success, "oldName": annotationName, "newName": newAnnotationName})
 
-
+# Pipeline flag calculations. (Was triple quoted)
 def annotate(zipped_querysets):
     """
     Alternative to the ORM .annotate() to calculate object properties, which returns incorrect data due to multiple aggregations.

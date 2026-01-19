@@ -51,7 +51,7 @@ repos:
       - id: jupyter-nb-clear-output
         name: jupyter-nb-clear-output
         description: "Clear jupyter notebook cell-outputs"
-        entry: /home/jnovak/Projects/wildepod_client_sorting/.venv/bin/jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace
+        entry: jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace
         files: \.ipynb$
         stages: [commit]
         language: system

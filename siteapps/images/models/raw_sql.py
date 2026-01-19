@@ -138,14 +138,14 @@ def get_object_annotation_images(
                 INNER JOIN images_boundingbox AS ib
                     ON ib.id = ignore_bbs.boundingbox_id
             ),
-            ignore_image_by_confidence AS 
-            (   
-                SELECT ib.image_id AS id    
+            ignore_image_by_confidence AS
+            (
+                SELECT ib.image_id AS id
                 FROM images_bot AS ibot
-                LEFT JOIN images_annotator AS ia 
-                    ON ibot.id = ia.bot_id 
+                LEFT JOIN images_annotator AS ia
+                    ON ibot.id = ia.bot_id
                 RIGHT JOIN images_boundingbox AS ib
-                    ON ia.id = ib.created_by_id 
+                    ON ia.id = ib.created_by_id
                 WHERE (ib.confidence < ibot.threshold)
                     OR (ib.confidence < ibot.threshold)
             ),
@@ -154,7 +154,7 @@ def get_object_annotation_images(
                 SELECT * FROM ignore_images_by_annotator
                 UNION
                 SELECT * FROM ignore_image_by_confidence
-            )            
+            )
             SELECT
                 rs.id,
                 rs.ts,
@@ -296,7 +296,7 @@ def get_images_to_ignore(annotator=None):
             (
                 SELECT ia.id AS id
                 FROM users_user AS uu
-                INNER JOIN	images_annotator AS ia
+                INNER JOIN    images_annotator AS ia
                     ON ia.human_id = uu.id
                 WHERE uu.is_staff
                     {}
@@ -317,7 +317,7 @@ def get_images_to_ignore(annotator=None):
             (
                 SELECT DISTINCT(image_id) as id
                 FROM ignore_bbs
-                INNER JOIN	images_boundingbox AS ib
+                INNER JOIN    images_boundingbox AS ib
                     ON ib.id = ignore_bbs.boundingbox_id
             )
             SELECT * FROM ignore_images

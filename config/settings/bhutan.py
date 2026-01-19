@@ -1,5 +1,6 @@
 """This is the final production setting
 """
+
 import google.cloud.logging
 
 from .base import *  # noqa
@@ -91,7 +92,6 @@ EMAIL_HOST_USER = "noreply@wildepod.org"
 EMAIL_HOST_PASSWORD = MAILGUN_SMTP_PASSWORD
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-
 
 
 # LOGGING

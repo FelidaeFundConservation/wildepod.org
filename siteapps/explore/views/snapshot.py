@@ -15,9 +15,8 @@ from django.views.generic import FormView, ListView, View
 from explore.forms import CreateSnapshotForm
 from explore.models import Snapshot
 from exports.views import start_export
-from images.models import Image, Upload
-
 from google.cloud import tasks_v2
+from images.models import Image, Upload
 
 MAX_VOTES_PER_IMAGE = 3
 
@@ -145,9 +144,9 @@ class PreviewSnapshotImagesView(LoginRequiredMixin, View):
                     "volunteer": upload["volunteer__name"],
                     "imageCount": images.count(),
                     "hasTimeCorrection": has_time_correction,
-                    "timeCorrectionApplied": not images.filter(time_correction_applied=False).exists()
-                    if has_time_correction
-                    else True,
+                    "timeCorrectionApplied": (
+                        not images.filter(time_correction_applied=False).exists() if has_time_correction else True
+                    ),
                 }
             )
 

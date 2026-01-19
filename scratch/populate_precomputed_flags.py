@@ -3,7 +3,11 @@ import time
 from django.db import connection
 from django.db.models import Exists, OuterRef, Prefetch, Q
 from images.models import Annotator, BoundingBox, Category, Image
-from images.views.annotation import calculateCategoryAnnotationFlags, calculateSpeciesAnnotationFlags, calculateActivityAnnotationFlags
+from images.views.annotation import (
+    calculateActivityAnnotationFlags,
+    calculateCategoryAnnotationFlags,
+    calculateSpeciesAnnotationFlags,
+)
 
 start_time = time.time()
 
@@ -11,13 +15,13 @@ make_changes = False  # Set to True ONLY if you want to batch update the databas
 
 # Assuming that if no flag is True, the image has yet to be checked.
 images = Image.objects.filter(
-    Q(category_pipeline_complete=False) &
-    Q(species_pipeline_complete=False) &
-    Q(activity_pipeline_complete=False) &
-    Q(has_animals=False) &
-    Q(has_humans=False) &
-    Q(has_vehicles=False) &
-    Q(has_wild_animals=False)
+    Q(category_pipeline_complete=False)
+    & Q(species_pipeline_complete=False)
+    & Q(activity_pipeline_complete=False)
+    & Q(has_animals=False)
+    & Q(has_humans=False)
+    & Q(has_vehicles=False)
+    & Q(has_wild_animals=False)
 )
 
 image_count = 0
@@ -73,7 +77,9 @@ for image in images:
             f"\nHas animal flags set: {has_animals_count}, "
             f"\nHas humans flags set: {has_humans_count}, "
             f"\nHas vehicles flags set: {has_vehicles_count}, "
-            f"\nHas wild animals flags set: {has_wild_animals_count}\n", end="\r", flush=True
+            f"\nHas wild animals flags set: {has_wild_animals_count}\n",
+            end="\r",
+            flush=True,
         )
 
     if make_changes:
@@ -88,5 +94,3 @@ total_time = end_time - start_time
 print("Operation complete. Total time taken: {:.2f} seconds".format(total_time))
 print(f"First image checked (local dev link): http://127.0.0.1:8000/images/image/{images[0].id}")
 print(f"Last image checked (local dev link): http://127.0.0.1:8000/images/image/{images[len(images) - 1].id}")
-
-

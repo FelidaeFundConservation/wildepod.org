@@ -68,8 +68,7 @@ class UserManager(BaseUserManager):
         EmailAddress.objects.create(user=user, email=email, primary=True, verified=True)
         logging.info("Email address created successfully!")
         # We only send emails from prod and bhutan, the two production environments, to prevent accidental emailing
-        if ("prod" in settings.WSGI_APPLICATION
-            or "bhutan" in settings.WSGI_APPLICATION):
+        if "prod" in settings.WSGI_APPLICATION or "bhutan" in settings.WSGI_APPLICATION:
             send_welcome_email(user, password_generated)
 
         return user

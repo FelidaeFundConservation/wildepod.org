@@ -1,0 +1,94 @@
+# GCP Deployment Configuration
+# Copy this file to .deploy.config and update with your values
+
+# ============================================================================
+# Project Configuration
+# ============================================================================
+GCP_PROJECT_ID="your-project-id"
+GCP_REGION="us-central1"
+GCP_ZONE="us-central1-a"
+
+# ============================================================================
+# Database Configuration
+# ============================================================================
+# Database tier options:
+# - db-f1-micro (shared CPU, 0.6GB RAM) - Development/Staging
+# - db-g1-small (shared CPU, 1.7GB RAM) - Small production
+# - db-custom-2-7680 (2 vCPU, 7.5GB RAM) - Production
+# - db-custom-4-15360 (4 vCPU, 15GB RAM) - High performance
+DB_TIER="db-f1-micro"
+DB_VERSION="POSTGRES_14"
+
+# ============================================================================
+# Environment-Specific Settings
+# ============================================================================
+
+# STAGING
+STAGING_SQL_INSTANCE="wildepod-staging-db"
+STAGING_DB_NAME="wildepod_staging"
+STAGING_DB_USER="wildepod_staging_user"
+
+# PRODUCTION
+PROD_SQL_INSTANCE="wildepod-prod-db"
+PROD_DB_NAME="wildepod_prod"
+PROD_DB_USER="wildepod_prod_user"
+
+# BHUTAN
+BHUTAN_SQL_INSTANCE="wildepod-bhutan-db"
+BHUTAN_DB_NAME="wildepod_bhutan"
+BHUTAN_DB_USER="wildepod_bhutan_user"
+
+# ============================================================================
+# App Engine Configuration
+# ============================================================================
+APP_ENGINE_REGION="us-central"  # Note: Different from GCP_REGION
+
+# ============================================================================
+# GitHub Actions Configuration
+# ============================================================================
+GITHUB_SERVICE_ACCOUNT="github-actions"
+
+# ============================================================================
+# Storage Configuration
+# ============================================================================
+STAGING_MEDIA_BUCKET="${GCP_PROJECT_ID}-staging-media"
+PROD_MEDIA_BUCKET="${GCP_PROJECT_ID}-prod-media"
+BHUTAN_MEDIA_BUCKET="${GCP_PROJECT_ID}-bhutan-media"
+
+# ============================================================================
+# Monitoring and Alerts
+# ============================================================================
+ENABLE_CLOUD_MONITORING=true
+ENABLE_ERROR_REPORTING=true
+ENABLE_CLOUD_TRACE=false
+
+# ============================================================================
+# Backup Configuration
+# ============================================================================
+BACKUP_START_TIME="03:00"  # UTC time for daily backups
+BACKUP_RETENTION_DAYS=30
+
+# ============================================================================
+# Network Configuration
+# ============================================================================
+VPC_CONNECTOR_NAME="wildepod-connector"
+VPC_CONNECTOR_RANGE="10.8.0.0/28"
+
+# ============================================================================
+# Security Configuration
+# ============================================================================
+# IAP (Identity-Aware Proxy) - Optional
+ENABLE_IAP=false
+IAP_SUPPORT_EMAIL=""
+
+# ============================================================================
+# Cost Controls
+# ============================================================================
+# Maximum instances for auto-scaling
+MAX_INSTANCES_STAGING=3
+MAX_INSTANCES_PROD=10
+
+# Minimum instances (0 for cost savings, >0 for performance)
+MIN_INSTANCES_STAGING=0
+MIN_INSTANCES_PROD=1
+

@@ -1,0 +1,65 @@
+# Google App Engine configuration template for custom deployments
+#
+# This is a TEMPLATE file. When using deploy_custom.sh, this file will be
+# auto-generated with your custom environment name.
+#
+# PLACEHOLDERS TO REPLACE:
+# - <env-name> → Your environment name in lowercase-hyphen format (e.g., my-dev)
+# - <instance-class> → App Engine instance class (F1, F2, F4, B1, B2, etc.)
+#
+# DO NOT COMMIT: Custom environment files should be added to .gitignore
+#
+# Documentation: https://cloud.google.com/appengine/docs/standard/python3/config/appref
+
+# Python runtime version
+runtime: python310
+
+# App Engine instance class
+# F1 = 128MB RAM, 600MHz CPU (default, lowest cost)
+# F2 = 256MB RAM, 1.2GHz CPU
+# F4 = 512MB RAM, 2.4GHz CPU
+# F4_1G = 1024MB RAM, 2.4GHz CPU
+instance_class: F1
+
+# Service name (each custom deployment is a separate service)
+# This will appear as: https://<env-name>-dot-<project-id>.appspot.com
+service: <env-name>
+
+# Entrypoint command
+# Gunicorn with 2400s timeout to handle long-running requests
+# Binds to $PORT environment variable (provided by App Engine)
+# References the application object from <env-name>.py
+entrypoint: gunicorn -t 2400 -b :$PORT <env-name>:app
+
+# Automatic scaling configuration (optional)
+# Uncomment to customize scaling behavior:
+# automatic_scaling:
+#   target_cpu_utilization: 0.65
+#   min_instances: 1
+#   max_instances: 10
+#   min_idle_instances: automatic
+#   max_idle_instances: automatic
+#   min_pending_latency: automatic
+#   max_pending_latency: automatic
+
+# Environment variables (optional)
+# Note: Secrets should be stored in Secret Manager, not here
+# env_variables:
+#   EXAMPLE_VAR: "value"
+
+# VPC Access Connector (optional)
+# Uncomment if you need to access resources in a VPC network:
+# vpc_access_connector:
+#   name: "projects/<project-id>/locations/<region>/connectors/<connector-name>"
+
+# Handlers (optional)
+# Custom routing for static files, etc.
+# handlers:
+# - url: /static
+#   static_dir: static/
+#   secure: always
+
+# Inbound services (optional)
+# Uncomment to enable additional services:
+# inbound_services:
+# - warmup

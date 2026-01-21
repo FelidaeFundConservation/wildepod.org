@@ -7,6 +7,9 @@
   - [Strictly Local: Run the Django server locally for the first time](#strictly-local-run-the-django-server-locally-for-the-first-time)
     - [Initialize some data - hacky version (Might be outdated)](#initalize-some-data---hacky-version-might-be-outdated)
   - [Local with Cloud: Local development environment with GCloud connectivity](#local-with-cloud-local-development-environment-with-gcloud-connectivity)
+- [Deployment Options](#deployment-options)
+  - [Custom Deployment (NEW)](#custom-deployment-new)
+  - [Standard Environments](#standard-environments)
 - [Gotchas](#gotchas)
 - [Deployment instructions (Fresh GCP)](#deployment-instructions-fresh-gcp)
 - [Deploying new YOLOv5 species detection model](#deploying-new-yolov5-species-detection-model)
@@ -162,6 +165,47 @@ gcloud config set project wildepod-339517
 ```
 uv run manage.py runserver --settings=config.settings.staging
 ```
+
+---
+
+## Deployment Options
+
+WildePod supports flexible deployment configurations:
+
+### Custom Deployment (Recommended for Development)
+**Create your own isolated environment with a custom name prefix.**
+
+```bash
+# Quick start
+./deploy_custom.sh <your-name>-dev --use-existing-db --db-instance wildepoddb --full
+./post_deploy_setup.sh <your-name>-dev
+```
+
+Perfect for:
+- Personal development environments
+- Feature branch testing
+- Team collaboration spaces
+- Experimentation
+
+**Benefits:**
+- User-specified names for all resources
+- Automated configuration file generation
+- Choose between shared or dedicated database
+- Complete environment isolation
+- Cost-effective (< $1/month with shared DB)
+
+### Standard Environments
+Pre-configured environments for common use cases:
+- **staging** - Team staging environment
+- **prod** - Production environment
+- **bhutan** - Bhutan-specific deployment
+
+```bash
+./deploy_gcp.sh <environment> --full
+```
+
+📖 **Full Documentation:** [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
+⚡ **Quick Reference:** [QUICK_REFERENCE.md](QUICK_REFERENCE.md)
 
 ---
 

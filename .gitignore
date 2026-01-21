@@ -78,10 +78,18 @@ celerybeat-schedule
 
 # Environments
 .env
+.env.*
+!.env.example
 .venv
 env/
 venv/
 ENV/
+
+# GCP deployment files
+.deploy.config
+*.backup
+github-sa-key.json
+cloud_sql_proxy
 
 # Rope project settings
 .ropeproject

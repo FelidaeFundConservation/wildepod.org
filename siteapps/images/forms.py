@@ -167,6 +167,10 @@ class UploadForm(forms.ModelForm):
         labels = {
             "date_retrieved": "Date & time retrieved",
         }
+        
+        widgets = {
+            "user_image_count": forms.NumberInput(attrs={"min": "1"}),
+        }
 
     def clean_daylight_savings_correction(self):
         date = self.cleaned_data.get("daylight_savings_correction")

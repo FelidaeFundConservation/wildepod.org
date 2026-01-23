@@ -3,6 +3,7 @@ import uuid
 from urllib.parse import quote
 
 from django.conf import settings
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import Q
 from model_utils.models import TimeStampedModel
@@ -73,7 +74,12 @@ class Upload(TimeStampedModel):
     img_count = models.IntegerField(default=0)
     
     # User-reported image count at upload creation time
-    user_image_count = models.IntegerField(null=True, blank=True, help_text="Number of images reported by user when creating upload")
+    user_image_count = models.IntegerField(
+        null=True, 
+        blank=True, 
+        validators=[MinValueValidator(1)],
+        help_text="Number of images reported by user when creating upload"
+    )
 
     time_correction = models.ForeignKey(
         TimeCorrection, on_delete=models.PROTECT, null=True, blank=True, related_name="upload"

@@ -1,5 +1,6 @@
 # Generated migration to add composite indexes for optimizing species sighting queries
 # These indexes target GROUP BY and JOIN operations in the species exploration views
+# Note: Indexes on CameraStation and MicroSite need to be created manually or in locations app
 
 from django.db import migrations, models
 
@@ -11,15 +12,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Add composite index on CameraStation for GROUP BY location columns
-        # Optimizes grouping by micro_site_id, station_id, latitude, longitude
-        migrations.AddIndex(
-            model_name='camerastation',
-            index=models.Index(
-                fields=['micro_site', 'station_id', 'latitude', 'longitude'],
-                name='idx_camerastation_grouping'
-            ),
-        ),
+        # Note: idx_camerastation_grouping and idx_microsite_macro_name should be created
+        # in the locations app or manually via SQL
+        
         # Add composite index on Image for trigger timestamp operations
         # Covering index for GROUP BY trigger_timestamp with upload_id filtering
         migrations.AddIndex(
@@ -27,15 +22,6 @@ class Migration(migrations.Migration):
             index=models.Index(
                 fields=['trigger_timestamp', 'upload'],
                 name='idx_image_trigger_upload'
-            ),
-        ),
-        # Add composite index on MicroSite for macro site JOIN optimization
-        # Optimizes microsite-to-macrosite relationships in species queries
-        migrations.AddIndex(
-            model_name='microsite',
-            index=models.Index(
-                fields=['macro_site', 'name'],
-                name='idx_microsite_macro_name'
             ),
         ),
         # Add composite index on Species for name + bounding box lookup
@@ -66,15 +52,15 @@ class Migration(migrations.Migration):
             ),
         ),
         # Add composite index on Image for popular images query optimization
-        # Covers filter (social_media_worthy > 0, species_checked_by IS NOT NULL)
-        # and sort (trigger_timestamp DESC, id DESC, social_media_worthy DESC)
+        # Covers filter (social_media_worthy > 0) and sort (trigger_timestamp DESC, id DESC, social_media_worthy DESC)
+        # Note: Cannot include species_checked_by condition in index since it's a ManyToMany field requiring JOIN
         # Reduces query time from 5-15 seconds to 50-200ms
         migrations.AddIndex(
             model_name='image',
             index=models.Index(
                 fields=['-trigger_timestamp', '-id', '-social_media_worthy'],
                 name='idx_image_popular_sort',
-                condition=models.Q(social_media_worthy__gt=0) & ~models.Q(species_checked_by=None)
+                condition=models.Q(social_media_worthy__gt=0)
             ),
         ),
     ]

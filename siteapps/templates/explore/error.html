@@ -1,0 +1,10 @@
+{% extends "_base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="alert alert-warning" role="alert">
+        {{ error_message|safe }}
+    </div>
+    <a href="{% url 'home:index' %}" class="btn btn-primary">Return to Home</a>
+</div>
+{% endblock %}

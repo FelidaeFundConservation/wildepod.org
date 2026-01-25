@@ -10,17 +10,65 @@
         <div class="row justify-content-evenly my-3 p-3">
             <h1>Social Media Worthy Images</h1>
         </div>
+        
         {% if user.is_staff %}
             <div class="mx-2 text-center">
                 <hr>
-                <button type="button"
-                        id="remove-multiple"
-                        value="[]"
-                        class="btn btn-warning removePopularImageBtn disabled"
-                        data-bs-toggle="modal"
-                        data-bs-target="#removePopularImageModal">
-                    <i class="bi bi-x"></i>&nbsp;&nbsp;Remove 0 Selected Image(s)
-                </button>
+                <div class="d-flex justify-content-center align-items-start gap-3">
+                    <button type="button"
+                            id="remove-multiple"
+                            value="[]"
+                            class="btn btn-warning removePopularImageBtn disabled"
+                            data-bs-toggle="modal"
+                            data-bs-target="#removePopularImageModal">
+                        <i class="bi bi-x"></i>&nbsp;&nbsp;Remove 0 Selected Image(s)
+                    </button>
+                    
+                    <!-- Species Filter -->
+                    <form method="get" id="speciesFilterForm" class="d-flex align-items-start gap-2">
+                        <div>
+                            <select name="species" id="speciesSelect" class="form-select" multiple size="5" style="min-width: 250px;">
+                                <option value="">-- All Species --</option>
+                                {% for species in all_species %}
+                                    <option value="{{ species.id }}" 
+                                            {% if species.id in selected_species %}selected{% endif %}>
+                                        {{ species.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-muted">
+                                Hold Ctrl/Cmd to select multiple
+                            </small>
+                        </div>
+                        <div class="d-flex flex-column gap-1">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="bi bi-funnel"></i> Filter
+                            </button>
+                            <a href="{% url 'explore:popular_images' %}" class="btn btn-secondary btn-sm">
+                                <i class="bi bi-x-circle"></i> Clear
+                            </a>
+                            {% if selected_species %}
+                                <span class="badge bg-info mt-1">
+                                    {{ selected_species|length }} selected
+                                </span>
+                            {% endif %}
+                        </div>
+                    </form>
+                    
+                    <!-- Images per page selector -->
+                    <div class="d-flex flex-column align-items-start">
+                        <label for="per_page_select" class="form-label small mb-1">Images per page:</label>
+                        <select id="per_page_select"
+                                class="form-select form-select-sm"
+                                onchange="changePerPage(this.value)">
+                            <option value="12" {% if per_page == '12' %}selected{% endif %}>12</option>
+                            <option value="24" {% if per_page == '24' %}selected{% endif %}>24</option>
+                            <option value="48" {% if per_page == '48' %}selected{% endif %}>48</option>
+                            <option value="96" {% if per_page == '96' %}selected{% endif %}>96</option>
+                            <option value="all" {% if per_page == 'all' %}selected{% endif %}>All</option>
+                        </select>
+                    </div>
+                </div>
                 <hr>
             </div>
         {% endif %}
@@ -73,30 +121,76 @@
                     </div>
                 {% endfor %}
             </div>
-            <div class="row pt-2 mt-2 text-center">
-                <p class="d-flex">
-                    <div class="justify-content-evenly">
-                        {% if paged_images.has_previous %}
-                            <a href="?page={{ paged_images.previous_page_number }}"
-                               class="btn btn-primary mx-2 w-25"><i class="bi bi-arrow-left mx-2"></i>Prev</a>
-                        {% endif %}
-                        {% if paged_images.has_next %}
-                            <a href="?page={{ paged_images.next_page_number }}"
-                               class="btn btn-primary mx-2 w-25">Next<i class="bi bi-arrow-right mx-2"></i></a>&nbsp;&nbsp;
-                        {% endif %}
-                        <hr>
-                        {% for pg in paged_images.paginator.page_range %}
-                            {% if paged_images.number == pg %}
-                                <a href="?page={{ pg }}"
-                                   class="btn btn-secondary m-1"
-                                   style="width: 50px">{{ pg }}</a>
+            {% if is_paginated %}
+                <div class="row justify-content-center mt-3">
+                    <nav aria-label="Social media worthy images pagination">
+                        <ul class="pagination">
+                            {% if paged_images.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link"
+                                       href="?page=1{% if request.GET.per_page %}&per_page={{ request.GET.per_page }}{% endif %}{% for sp in request.GET.getlist.species %}&species={{ sp }}{% endfor %}"
+                                       aria-label="First">
+                                        <span aria-hidden="true">&laquo;&laquo;</span>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link"
+                                       href="?page={{ paged_images.previous_page_number }}{% if request.GET.per_page %}&per_page={{ request.GET.per_page }}{% endif %}{% for sp in request.GET.getlist.species %}&species={{ sp }}{% endfor %}"
+                                       aria-label="Previous">
+                                        <span aria-hidden="true">&laquo;</span>
+                                    </a>
+                                </li>
                             {% else %}
-                                <a href="?page={{ pg }}" class="btn btn-light m-1" style="width: 50px;">{{ pg }}</a>
+                                <li class="page-item disabled">
+                                    <span class="page-link">&laquo;&laquo;</span>
+                                </li>
+                                <li class="page-item disabled">
+                                    <span class="page-link">&laquo;</span>
+                                </li>
                             {% endif %}
-                        {% endfor %}
-                    </div>
-                </p>
-            </div>
+                            {% for pg in page_range %}
+                                {% if pg == '...' %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">{{ pg }}</span>
+                                    </li>
+                                {% elif paged_images.number == pg %}
+                                    <li class="page-item active" aria-current="page">
+                                        <span class="page-link">{{ pg }}</span>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item">
+                                        <a class="page-link"
+                                           href="?page={{ pg }}{% if request.GET.per_page %}&per_page={{ request.GET.per_page }}{% endif %}{% for sp in request.GET.getlist.species %}&species={{ sp }}{% endfor %}">{{ pg }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            {% if paged_images.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link"
+                                       href="?page={{ paged_images.next_page_number }}{% if request.GET.per_page %}&per_page={{ request.GET.per_page }}{% endif %}{% for sp in request.GET.getlist.species %}&species={{ sp }}{% endfor %}"
+                                       aria-label="Next">
+                                        <span aria-hidden="true">&raquo;</span>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link"
+                                       href="?page={{ paged_images.paginator.num_pages }}{% if request.GET.per_page %}&per_page={{ request.GET.per_page }}{% endif %}{% for sp in request.GET.getlist.species %}&species={{ sp }}{% endfor %}"
+                                       aria-label="Last">
+                                        <span aria-hidden="true">&raquo;&raquo;</span>
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">&raquo;</span>
+                                </li>
+                                <li class="page-item disabled">
+                                    <span class="page-link">&raquo;&raquo;</span>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+            {% endif %}
             <!-- Modal - Remove from popular images -->
             <div class="modal fade"
                  id="removePopularImageModal"
@@ -185,5 +279,13 @@
         });
     });
 }
+
+    // Handle per_page dropdown change
+    function changePerPage(value) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('per_page', value);
+        url.searchParams.delete('page'); // Reset to page 1 when changing per_page
+        window.location.href = url.toString();
+    }
     </script>
 {% endblock content %}

@@ -10,8 +10,9 @@ from django.db.models import Case, Count, Exists, F, IntegerField, OuterRef, Q, 
 from django.db.models.functions import Cast
 from django.shortcuts import render
 from django.views.generic import FormView
-from images.models import Annotator, BoundingBox, Image, Species
-from locations.models import CameraStation, MacroSite
+
+from siteapps.images.models import Annotator, BoundingBox, Image, Species, SpeciesName
+from siteapps.locations.models import CameraStation, MacroSite, MicroSite
 
 MAX_VOTES_PER_IMAGE = 2
 
@@ -23,6 +24,15 @@ class QueryDataForm(forms.Form):
     end_date = forms.DateField(widget=forms.widgets.DateInput(attrs={"type": "date"}), required=False)
 
     macrosites = forms.ModelMultipleChoiceField(queryset=MacroSite.objects.all(), required=False)
+    
+    microsites = forms.ModelMultipleChoiceField(queryset=MicroSite.objects.all(), required=False)
+    
+    camera_stations = forms.ModelMultipleChoiceField(queryset=CameraStation.objects.all(), required=False)
+    
+    species = forms.ModelMultipleChoiceField(
+        queryset=SpeciesName.objects.filter(active=True).order_by('name'),
+        required=False
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -34,6 +44,15 @@ class QueryDataForm(forms.Form):
             ),
             Row(
                 Column("macrosites", css_class="form-group col-12"),
+            ),
+            Row(
+                Column("microsites", css_class="form-group col-12"),
+            ),
+            Row(
+                Column("camera_stations", css_class="form-group col-12"),
+            ),
+            Row(
+                Column("species", css_class="form-group col-12"),
             ),
             Row(
                 Column(Submit("submit", "Query", css_class="form-group btn-primary")),
@@ -57,6 +76,9 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             start_date = form.cleaned_data["start_date"]
             end_date = form.cleaned_data["end_date"]
             macrosites = form.cleaned_data["macrosites"]
+            microsites = form.cleaned_data["microsites"]
+            camera_stations = form.cleaned_data["camera_stations"]
+            species = form.cleaned_data["species"]
 
             # Apply the filters specified on the form on to the queryset
             filterset = {}
@@ -66,6 +88,10 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                 filterset["trigger_timestamp__lte"] = end_date
             if macrosites:
                 filterset["upload__camera_station__micro_site__macro_site__in"] = macrosites
+            if microsites:
+                filterset["upload__camera_station__micro_site__in"] = microsites
+            if camera_stations:
+                filterset["upload__camera_station__in"] = camera_stations
 
             # Image has at least one bounding box tagged by MegaDetector above the predetermined threshold
             bounding_box_md_filter = BoundingBox.objects.filter(image=OuterRef("pk")).filter(
@@ -73,6 +99,17 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             )
 
             queryset = Image.objects.filter(**filterset)
+            
+            # Apply species filter if specified
+            if species:
+                # Get species IDs from SpeciesName objects
+                species_ids = [s.species_id for s in species if s.species_id]
+                if species_ids:
+                    # Filter images that have bounding boxes with these species
+                    queryset = queryset.filter(
+                        boundingbox__species__in=species_ids
+                    ).distinct()
+            
             aggregate_column_name = "upload__camera_station__micro_site__macro_site__name"
             queryset = (
                 queryset.values(aggregate_column_name)

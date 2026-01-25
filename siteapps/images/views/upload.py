@@ -16,12 +16,13 @@ from django.http.response import JsonResponse
 from django.urls import reverse
 from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
 from django.views.generic.base import TemplateView, View
-from images.forms import TimeCorrectionForm, UploadCompleteForm, UploadForm, get_daylight_savings_date
-from images.models import Annotator, BoundingBox, Image, TimeCorrection, Upload
-from images.processors import clone_data_sheet, process_upload, setup_dropbox_paths
-from images.processors.upload import get_dropbox_item_count
-from locations.models import CameraStation, MacroSite, MicroSite
-from users.models import User
+
+from siteapps.images.forms import TimeCorrectionForm, UploadCompleteForm, UploadForm, get_daylight_savings_date
+from siteapps.images.models import Annotator, BoundingBox, Image, TimeCorrection, Upload
+from siteapps.images.processors import clone_data_sheet, process_upload, setup_dropbox_paths
+from siteapps.images.processors.upload import get_dropbox_item_count
+from siteapps.locations.models import CameraStation, MacroSite, MicroSite
+from siteapps.users.models import User
 
 # Pagination size for images displayed for the upload detail page
 IMAGE_PAGINATION_LIMIT = 24
@@ -184,6 +185,45 @@ class UploadListView(LoginRequiredMixin, ListView):
         else:
             return super().get_queryset().filter(volunteer=self.request.user)
 
+    def get_elided_page_range(self, paginator, current_page):
+        """
+        Generate an elided page range for pagination.
+        Shows: 1, 2, ..., current-2, current-1, current, current+1, current+2, ..., last-1, last
+        """
+        num_pages = paginator.num_pages
+        
+        if num_pages <= 7:
+            # If 7 or fewer pages, show all
+            return list(range(1, num_pages + 1))
+        
+        page_range = []
+        
+        # Always show first two pages
+        page_range.extend([1, 2])
+        
+        # Determine the range around the current page
+        start = max(3, current_page - 2)
+        end = min(num_pages - 1, current_page + 2)
+        
+        # Add ellipsis after page 2 if needed
+        if start > 3:
+            page_range.append('...')
+        
+        # Add pages around current page
+        page_range.extend(range(start, end + 1))
+        
+        # Add ellipsis before last two pages if needed
+        if end < num_pages - 2:
+            page_range.append('...')
+        
+        # Always show last two pages
+        if num_pages - 1 not in page_range:
+            page_range.append(num_pages - 1)
+        if num_pages not in page_range:
+            page_range.append(num_pages)
+        
+        return page_range
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
@@ -220,6 +260,10 @@ class UploadListView(LoginRequiredMixin, ListView):
         paginator = Paginator(context["object_list"], 99)
         page_number = self.request.GET.get("page")
         context["object_list"] = paginator.get_page(page_number)
+        
+        # Add elided page range for pagination
+        if paginator.num_pages > 1:
+            context["page_range"] = self.get_elided_page_range(paginator, context["object_list"].number)
 
         return context
 

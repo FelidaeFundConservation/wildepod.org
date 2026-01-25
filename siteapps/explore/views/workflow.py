@@ -2,10 +2,12 @@ import json
 
 from django.conf import settings
 from django.http import HttpResponseServerError
+from django.shortcuts import render
 from django.views.generic.base import TemplateView
-from images.models.annotation import Activity, Category, Species
-from images.models.image import Image
-from images.models.raw_sql import get_images_to_ignore, get_prioritized_images, get_uncertain_images
+
+from siteapps.images.models.annotation import Activity, Category, Species
+from siteapps.images.models.image import Image
+from siteapps.images.models.raw_sql import get_images_to_ignore, get_prioritized_images, get_uncertain_images
 
 
 class WorkflowStateView(TemplateView):
@@ -19,6 +21,11 @@ class WorkflowStateView(TemplateView):
     def _get_datastore(self):
         try:
             client = settings.DATASTORE_CLIENT
+            
+            # Check if Datastore is available (not available in local development)
+            if client is None:
+                return HttpResponseServerError("Datastore is not available in local development")
+            
             client.namespace = "workflow"
 
             totals = settings.DATASTORE_CLIENT.get(client.key("total", "workflow"))
@@ -61,8 +68,26 @@ class WorkflowStateView(TemplateView):
             print(e)
             return HttpResponseServerError("Error in getting data from datastore")
 
-    def get_context_data(self, **kwargs):
+    def get(self, request, *args, **kwargs):
+        """Override get to check datastore availability before rendering"""
         datastore = self._get_datastore()
+        
+        # If datastore retrieval failed, show error page
+        if isinstance(datastore, HttpResponseServerError):
+            error_message = """
+            <h2>Workflow State Not Available</h2>
+            <p>The workflow state page requires Google Cloud Datastore, which is not available in local development.</p>
+            <p>This feature is only available in the deployed GCP environment.</p>
+            """
+            return render(request, 'explore/error.html', {'error_message': error_message}, status=503)
+        
+        # Store datastore in request for use in get_context_data
+        request.datastore = datastore
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        # Get datastore from request (set in get method)
+        datastore = self.request.datastore
         context = super().get_context_data(**kwargs)
 
         # Key Findings

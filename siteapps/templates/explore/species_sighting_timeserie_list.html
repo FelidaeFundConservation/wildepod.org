@@ -182,12 +182,16 @@
                                 <span class="page-link">&laquo;</span>
                             </li>
                         {% endif %}
-                        {% for num in page_obj.paginator.page_range %}
-                            {% if page_obj.number == num %}
+                        {% for num in page_range %}
+                            {% if num == '...' %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                            {% elif page_obj.number == num %}
                                 <li class="page-item active" aria-current="page">
                                     <span class="page-link">{{ num }}</span>
                                 </li>
-                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            {% else %}
                                 <li class="page-item">
                                     <a class="page-link"
                                        href="?page={{ num }}{% if request.GET.macrosite %}&macrosite={{ request.GET.macrosite }}{% endif %}{% if request.GET.microsite %}&microsite={{ request.GET.microsite }}{% endif %}{% if request.GET.station %}&station={{ request.GET.station }}{% endif %}{% if request.GET.per_page %}&per_page={{ request.GET.per_page }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}{% if request.GET.dir %}&dir={{ request.GET.dir }}{% endif %}">{{ num }}</a>

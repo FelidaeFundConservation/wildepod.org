@@ -76,11 +76,9 @@ class MicroSite(TimeStampedModel):
     class Meta:
         ordering = ("name",)
 
-        # Keep commented while testing to check effect on performance
-        # indexes = [
-        #     models.Index(fields=['macro_site',]),
-        #     models.Index(fields=['name',])
-        # ]
+        indexes = [
+            models.Index(fields=['macro_site', 'name'], name='idx_microsite_macro_name'),
+        ]
 
 
 class TrailType(TimeStampedModel):
@@ -226,7 +224,6 @@ class CameraStation(TimeStampedModel):
     class Meta:
         ordering = ("station_id",)
 
-        # Keep commented while testing to check effect on performance
-        # indexes = [
-        #     models.Index(fields=['micro_site',])
-        # ]
+        indexes = [
+            models.Index(fields=['micro_site', 'station_id', 'latitude', 'longitude'], name='idx_camerastation_grouping'),
+        ]

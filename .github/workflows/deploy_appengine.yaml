@@ -1,0 +1,24 @@
+name: Deploy to GCP App Engine
+
+on:
+  workflow_dispatch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }} # Use the GitHub secret for credentials
+
+      - name: Deploy to App Engine
+        uses: google-github-actions/deploy-appengine@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }} # Replace with your GCP Project ID
+          deliverables: staging.yaml # Path to your app.yaml file
+          # No container image build step is needed as App Engine handles it.

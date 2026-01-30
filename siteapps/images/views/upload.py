@@ -17,12 +17,12 @@ from django.urls import reverse
 from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
 from django.views.generic.base import TemplateView, View
 
-from siteapps.images.forms import TimeCorrectionForm, UploadCompleteForm, UploadForm, get_daylight_savings_date
-from siteapps.images.models import Annotator, BoundingBox, Image, TimeCorrection, Upload
-from siteapps.images.processors import clone_data_sheet, process_upload, setup_dropbox_paths
-from siteapps.images.processors.upload import get_dropbox_item_count
-from siteapps.locations.models import CameraStation, MacroSite, MicroSite
-from siteapps.users.models import User
+from images.forms import TimeCorrectionForm, UploadCompleteForm, UploadForm, get_daylight_savings_date
+from images.models import Annotator, BoundingBox, Image, TimeCorrection, Upload
+from images.processors import clone_data_sheet, process_upload, setup_dropbox_paths
+from images.processors.upload import get_dropbox_item_count
+from locations.models import CameraStation, MacroSite, MicroSite
+from users.models import User
 
 # Pagination size for images displayed for the upload detail page
 IMAGE_PAGINATION_LIMIT = 24

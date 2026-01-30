@@ -2,8 +2,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import connection, reset_queries
 from django.views.generic.list import ListView
 
-from siteapps.images.models.annotation import Species, SpeciesName
-from siteapps.images.models.image import Image
+from images.models.annotation import Species, SpeciesName
+from images.models.image import Image
 
 
 def _build_filter_clauses(macrosite=None, microsite=None, station=None):

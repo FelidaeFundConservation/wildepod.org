@@ -23,14 +23,8 @@
     <div class="row justify-content-evenly mt-3 pt-3">
         {% for il in images_list %}
             <div class="col-12 col-md-6 col-xl-4 text-center py-3">
-                <a href='https://{% if is_bhutan %}bhutan.{% endif %}wildepod.org/images/image/{{ il.id }}'>
-                {% if is_staging %}
-                    <img class="img-fluid" src='https://storage.googleapis.com/wildepod_staging/media/{{ il.thumbnail }}'/>
-                {% elif is_bhutan %}
-                    <img class="img-fluid" src='https://storage.googleapis.com/wildepod_bhutan/media/{{ il.thumbnail }}'/>
-                {% else %}
-                    <img class="img-fluid" src='https://storage.googleapis.com/wildepod_prod/media/{{ il.thumbnail }}'/>
-                {% endif %}
+                <a href="{% url 'images:image' il.id %}">
+                    <img class="img-fluid" src="{% get_media_prefix %}{{ il.thumbnail }}"/>
                 </a>
             </div>
             {% if forloop.counter|divisibleby:3 %}

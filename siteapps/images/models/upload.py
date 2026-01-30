@@ -3,11 +3,13 @@ import uuid
 from urllib.parse import quote
 
 from django.conf import settings
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import Q
-from locations.models import CameraStation
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
+
+from siteapps.locations.models import CameraStation
 
 
 class CameraStationAction(TimeStampedModel):
@@ -70,6 +72,14 @@ class Upload(TimeStampedModel):
     volunteer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
     img_count = models.IntegerField(default=0)
+    
+    # User-reported image count at upload creation time
+    user_image_count = models.IntegerField(
+        null=True, 
+        blank=True, 
+        validators=[MinValueValidator(1)],
+        help_text="Number of images reported by user when creating upload"
+    )
 
     time_correction = models.ForeignKey(
         TimeCorrection, on_delete=models.PROTECT, null=True, blank=True, related_name="upload"

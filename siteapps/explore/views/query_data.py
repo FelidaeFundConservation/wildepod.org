@@ -11,8 +11,8 @@ from django.db.models.functions import Cast
 from django.shortcuts import render
 from django.views.generic import FormView
 
-from siteapps.images.models import Annotator, BoundingBox, Image, Species, SpeciesName
-from siteapps.locations.models import CameraStation, MacroSite, MicroSite
+from images.models import Annotator, BoundingBox, Image, Species, SpeciesName
+from locations.models import CameraStation, MacroSite, MicroSite
 
 MAX_VOTES_PER_IMAGE = 2
 

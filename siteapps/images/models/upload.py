@@ -9,7 +9,7 @@ from django.db.models import Q
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
 
-from siteapps.locations.models import CameraStation
+from locations.models import CameraStation
 
 
 class CameraStationAction(TimeStampedModel):

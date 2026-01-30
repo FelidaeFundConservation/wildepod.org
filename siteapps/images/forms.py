@@ -7,7 +7,7 @@ from crispy_forms.layout import HTML, Button, Column, Layout, Row, Submit
 from django import forms
 from django.conf import settings
 
-from siteapps.locations.models import CameraStation, MacroSite
+from locations.models import CameraStation, MacroSite
 
 from .models import TimeCorrection, Upload
 

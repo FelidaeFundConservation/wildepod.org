@@ -13,8 +13,8 @@ from django.views.generic import FormView, ListView, TemplateView, UpdateView, V
 from images.models import Activity, Annotator, Category, Species
 from users.models import User
 
-from siteapps.explore.views import calculate_volunteer_engagement
-from siteapps.users.managers import send_welcome_email
+from explore.views import calculate_volunteer_engagement
+from users.managers import send_welcome_email
 
 from .forms import RegisterVolunteerForm
 

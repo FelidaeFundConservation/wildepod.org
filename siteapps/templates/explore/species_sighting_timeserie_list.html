@@ -1,113 +1,279 @@
 {% extends '_base.html' %}
 {% load static %}
-
-{% block title %} Species Sighting {% endblock %}
+{% block title %}Species Sighting{% endblock %}
 <!-- Set corresponding nav pill to active -->
-{% block nav_explore %}active{% endblock nav_explore %}
-
+{% block nav_explore %}
+    active
+{% endblock nav_explore %}
 {% block header_includes %}
-<link
-    href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
-    rel="stylesheet"
-/>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+          rel="stylesheet" />
 {% endblock header_includes %}
-
 {% block content %}
-<div class="container">
-
-    <div class="row  mt-3 pt-3">
-        <h1>Species Sightings</h1>
-
-        <div class="col-12 col-md-9 col-sm-2 justify-content-evenly py-3">
-            <h2>{{ species }}</h2>
-
-            <p>
-            Species annotated in a sighting. The sightings are grouped by date and location. <br>
-            Click on the number of pictures to see the pictures of a related sighting.
-            </p>
-
-            <p>
-            You can select a different species from the dropdown menu below,
-            and do location filtering by clicking on a specific macro site or camera station.
-            </p>
+    <div class="container">
+        <div class="row  mt-3 pt-3">
+            <h1>Species Sightings</h1>
+            <div class="col-12 col-md-9 col-sm-2 justify-content-evenly py-3">
+                <h2>{{ species }}</h2>
+                <p>
+                    Species annotated in a sighting. The sightings are grouped by date and location.
+                    <br>
+                    Click on the number of pictures to see the pictures of a related sighting.
+                </p>
+                <p>
+                    You can select a different species from the dropdown menu below,
+                    and do location filtering by clicking on a specific macro site or camera station.
+                </p>
+            </div>
+            <div class="col-12 col-md-3 col-sm-2 justify-content-evenly py-3">
+                <h2>View Species</h2>
+                <form id="form_species" method="get">
+                    <select id="select_species" name="species" onchange="this.form.submit()">
+                        <option>Bobcat</option>
+                        <option>Puma</option>
+                        <option disabled>----------------</option>
+                        {% for species_dd in species_l %}
+                            {% if species_dd == species %}
+                                <option value="{{ species_dd }}" selected="selected">{{ species_dd }}</option>
+                            {% else %}
+                                <option value="{{ species_dd }}">{{ species_dd }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </form>
+            </div>
         </div>
-
-        <div class="col-12 col-md-3 col-sm-2 justify-content-evenly py-3">
-            <h2>View Species</h2>
-            <form id="form_species" method="get">
-                <select id="select_species" name="species" onchange="this.form.submit()">
-                    <option>Bobcat</option>
-                    <option>Puma</option>
-                    <option disabled>----------------</option>
-                    {% for species_dd in species_l %}
-                        {% if species_dd == species %}
-                            <option value="{{species_dd}}" selected="selected">{{ species_dd }}</option>
-                        {% else %}
-                            <option value="{{species_dd}}">{{species_dd}}</option>
-                        {% endif %}
-                    {% endfor %}
+        <div class="row justify-content-end mt-2">
+            <div class="col-auto">
+                <label for="per_page_select" class="form-label small mb-0">Items per page:</label>
+                <select id="per_page_select"
+                        class="form-select form-select-sm"
+                        onchange="changePerPage(this.value)">
+                    <option value="10" {% if per_page == '10' %}selected{% endif %}>10</option>
+                    <option value="25" {% if per_page == '25' %}selected{% endif %}>25</option>
+                    <option value="50" {% if per_page == '50' %}selected{% endif %}>50</option>
+                    <option value="100" {% if per_page == '100' %}selected{% endif %}>100</option>
+                    <option value="all" {% if per_page == 'all' %}selected{% endif %}>All</option>
                 </select>
-            </form>
-
+            </div>
         </div>
-
+        <div class="row justify-content-evenly mt-3 pt-3">
+            <table width=100% id="sightings-table">
+                <thead>
+                    <tr>
+                        <th class="sortable {% if current_sort == 'exif_dt' %}sorted-{{ current_dir }}{% endif %}"
+                            data-sort="exif_dt"
+                            style="cursor: pointer">
+                            <a href="?sort=exif_dt&dir={% if current_sort == 'exif_dt' and current_dir == 'asc' %}desc{% else %}asc{% endif %}{% if request.GET.macrosite %}&macrosite={{ request.GET.macrosite }}{% endif %}{% if request.GET.microsite %}&microsite={{ request.GET.microsite }}{% endif %}{% if request.GET.station %}&station={{ request.GET.station }}{% endif %}{% if request.GET.per_page %}&per_page={{ request.GET.per_page }}{% endif %}"
+                               class="text-decoration-none text-dark">
+                                Trigger timestamp <span class="sort-arrow"></span>
+                            </a>
+                        </th>
+                        <th class="sortable {% if current_sort == 'uploaded_dt' %}sorted-{{ current_dir }}{% endif %}"
+                            data-sort="uploaded_dt"
+                            style="cursor: pointer">
+                            <a href="?sort=uploaded_dt&dir={% if current_sort == 'uploaded_dt' and current_dir == 'asc' %}desc{% else %}asc{% endif %}{% if request.GET.macrosite %}&macrosite={{ request.GET.macrosite }}{% endif %}{% if request.GET.microsite %}&microsite={{ request.GET.microsite }}{% endif %}{% if request.GET.station %}&station={{ request.GET.station }}{% endif %}{% if request.GET.per_page %}&per_page={{ request.GET.per_page }}{% endif %}"
+                               class="text-decoration-none text-dark">
+                                Uploaded <span class="sort-arrow"></span>
+                            </a>
+                        </th>
+                        <th class="sortable {% if current_sort == 'species_annot_dt' %}sorted-{{ current_dir }}{% endif %}"
+                            data-sort="species_annot_dt"
+                            style="cursor: pointer">
+                            <a href="?sort=species_annot_dt&dir={% if current_sort == 'species_annot_dt' and current_dir == 'asc' %}desc{% else %}asc{% endif %}{% if request.GET.macrosite %}&macrosite={{ request.GET.macrosite }}{% endif %}{% if request.GET.microsite %}&microsite={{ request.GET.microsite }}{% endif %}{% if request.GET.station %}&station={{ request.GET.station }}{% endif %}{% if request.GET.per_page %}&per_page={{ request.GET.per_page }}{% endif %}"
+                               class="text-decoration-none text-dark">
+                                Species Annotated <span class="sort-arrow"></span>
+                            </a>
+                        </th>
+                        <th class="sortable {% if current_sort == 'macrosite' %}sorted-{{ current_dir }}{% endif %}"
+                            data-sort="macrosite"
+                            style="cursor: pointer">
+                            <a href="?sort=macrosite&dir={% if current_sort == 'macrosite' and current_dir == 'asc' %}desc{% else %}asc{% endif %}{% if request.GET.macrosite %}&macrosite={{ request.GET.macrosite }}{% endif %}{% if request.GET.microsite %}&microsite={{ request.GET.microsite }}{% endif %}{% if request.GET.station %}&station={{ request.GET.station }}{% endif %}{% if request.GET.per_page %}&per_page={{ request.GET.per_page }}{% endif %}"
+                               class="text-decoration-none text-dark">
+                                Macro Site <span class="sort-arrow"></span>
+                            </a>
+                        </th>
+                        <th class="sortable {% if current_sort == 'station_id' %}sorted-{{ current_dir }}{% endif %}"
+                            data-sort="station_id"
+                            style="cursor: pointer">
+                            <a href="?sort=station_id&dir={% if current_sort == 'station_id' and current_dir == 'asc' %}desc{% else %}asc{% endif %}{% if request.GET.macrosite %}&macrosite={{ request.GET.macrosite }}{% endif %}{% if request.GET.microsite %}&microsite={{ request.GET.microsite }}{% endif %}{% if request.GET.station %}&station={{ request.GET.station }}{% endif %}{% if request.GET.per_page %}&per_page={{ request.GET.per_page }}{% endif %}"
+                               class="text-decoration-none text-dark">
+                                Station <span class="sort-arrow"></span>
+                            </a>
+                        </th>
+                        <th class="sortable {% if current_sort == 'latitude' %}sorted-{{ current_dir }}{% endif %}"
+                            data-sort="latitude"
+                            style="cursor: pointer">
+                            <a href="?sort=latitude&dir={% if current_sort == 'latitude' and current_dir == 'asc' %}desc{% else %}asc{% endif %}{% if request.GET.macrosite %}&macrosite={{ request.GET.macrosite }}{% endif %}{% if request.GET.microsite %}&microsite={{ request.GET.microsite }}{% endif %}{% if request.GET.station %}&station={{ request.GET.station }}{% endif %}{% if request.GET.per_page %}&per_page={{ request.GET.per_page }}{% endif %}"
+                               class="text-decoration-none text-dark">
+                                Latitude <span class="sort-arrow"></span>
+                            </a>
+                        </th>
+                        <th class="sortable {% if current_sort == 'longitude' %}sorted-{{ current_dir }}{% endif %}"
+                            data-sort="longitude"
+                            style="cursor: pointer">
+                            <a href="?sort=longitude&dir={% if current_sort == 'longitude' and current_dir == 'asc' %}desc{% else %}asc{% endif %}{% if request.GET.macrosite %}&macrosite={{ request.GET.macrosite }}{% endif %}{% if request.GET.microsite %}&microsite={{ request.GET.microsite }}{% endif %}{% if request.GET.station %}&station={{ request.GET.station }}{% endif %}{% if request.GET.per_page %}&per_page={{ request.GET.per_page }}{% endif %}"
+                               class="text-decoration-none text-dark">
+                                Longitude <span class="sort-arrow"></span>
+                            </a>
+                        </th>
+                        <th class="sortable {% if current_sort == 'total' %}sorted-{{ current_dir }}{% endif %}"
+                            data-sort="total"
+                            style="cursor: pointer">
+                            <a href="?sort=total&dir={% if current_sort == 'total' and current_dir == 'asc' %}desc{% else %}asc{% endif %}{% if request.GET.macrosite %}&macrosite={{ request.GET.macrosite }}{% endif %}{% if request.GET.microsite %}&microsite={{ request.GET.microsite }}{% endif %}{% if request.GET.station %}&station={{ request.GET.station }}{% endif %}{% if request.GET.per_page %}&per_page={{ request.GET.per_page }}{% endif %}"
+                               class="text-decoration-none text-dark">
+                                Pictures <span class="sort-arrow"></span>
+                            </a>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sstl in page_obj %}
+                        <tr>
+                            <td>{{ sstl.exif_dt }}</td>
+                            <td>{{ sstl.uploaded_dt }}</td>
+                            <td>{{ sstl.species_annot_dt }}</td>
+                            <td>
+                                <a href="{% url 'explore:species_sighting_timeserie_list' species=species %}?macrosite={{ sstl.macrosite }}">
+                                    {{ sstl.macrosite }}
+                                </a>
+                            </td>
+                            <td>
+                                <a href="{% url 'explore:species_sighting_timeserie_list' species=species %}?station={{ sstl.station_id }}">
+                                    {{ sstl.station_id }}
+                                </a>
+                            </td>
+                            <td>{{ sstl.latitude }}</td>
+                            <td>{{ sstl.longitude }}</td>
+                            <td class="text-center">
+                                <a href="{% url 'explore:species_sighting_images' %}?species={{ species }}&macrosite={{ sstl.macrosite }}&microsite={{ sstl.microsite }}&date_sighting={{ sstl.exif_dt|date:'Y-m-d' }}&station={{ sstl.station_id }}">
+                                    {{ sstl.total }}
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if page_obj.paginator.num_pages > 1 %}
+            <div class="row justify-content-center mt-3">
+                <nav aria-label="Species sightings pagination">
+                    <ul class="pagination">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link"
+                                   href="?page=1{% if request.GET.macrosite %}&macrosite={{ request.GET.macrosite }}{% endif %}{% if request.GET.microsite %}&microsite={{ request.GET.microsite }}{% endif %}{% if request.GET.station %}&station={{ request.GET.station }}{% endif %}{% if request.GET.per_page %}&per_page={{ request.GET.per_page }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}{% if request.GET.dir %}&dir={{ request.GET.dir }}{% endif %}"
+                                   aria-label="First">
+                                    <span aria-hidden="true">&laquo;&laquo;</span>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link"
+                                   href="?page={{ page_obj.previous_page_number }}{% if request.GET.macrosite %}&macrosite={{ request.GET.macrosite }}{% endif %}{% if request.GET.microsite %}&microsite={{ request.GET.microsite }}{% endif %}{% if request.GET.station %}&station={{ request.GET.station }}{% endif %}{% if request.GET.per_page %}&per_page={{ request.GET.per_page }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}{% if request.GET.dir %}&dir={{ request.GET.dir }}{% endif %}"
+                                   aria-label="Previous">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">&laquo;&laquo;</span>
+                            </li>
+                            <li class="page-item disabled">
+                                <span class="page-link">&laquo;</span>
+                            </li>
+                        {% endif %}
+                        {% for num in page_range %}
+                            {% if num == '...' %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                            {% elif page_obj.number == num %}
+                                <li class="page-item active" aria-current="page">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                            {% else %}
+                                <li class="page-item">
+                                    <a class="page-link"
+                                       href="?page={{ num }}{% if request.GET.macrosite %}&macrosite={{ request.GET.macrosite }}{% endif %}{% if request.GET.microsite %}&microsite={{ request.GET.microsite }}{% endif %}{% if request.GET.station %}&station={{ request.GET.station }}{% endif %}{% if request.GET.per_page %}&per_page={{ request.GET.per_page }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}{% if request.GET.dir %}&dir={{ request.GET.dir }}{% endif %}">{{ num }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link"
+                                   href="?page={{ page_obj.next_page_number }}{% if request.GET.macrosite %}&macrosite={{ request.GET.macrosite }}{% endif %}{% if request.GET.microsite %}&microsite={{ request.GET.microsite }}{% endif %}{% if request.GET.station %}&station={{ request.GET.station }}{% endif %}{% if request.GET.per_page %}&per_page={{ request.GET.per_page }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}{% if request.GET.dir %}&dir={{ request.GET.dir }}{% endif %}"
+                                   aria-label="Next">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link"
+                                   href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.macrosite %}&macrosite={{ request.GET.macrosite }}{% endif %}{% if request.GET.microsite %}&microsite={{ request.GET.microsite }}{% endif %}{% if request.GET.station %}&station={{ request.GET.station }}{% endif %}{% if request.GET.per_page %}&per_page={{ request.GET.per_page }}{% endif %}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}{% if request.GET.dir %}&dir={{ request.GET.dir }}{% endif %}"
+                                   aria-label="Last">
+                                    <span aria-hidden="true">&raquo;&raquo;</span>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">&raquo;</span>
+                            </li>
+                            <li class="page-item disabled">
+                                <span class="page-link">&raquo;&raquo;</span>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+            <div class="row justify-content-center">
+                <p class="text-center text-muted">
+                    <small>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} ({{ page_obj.paginator.count }} total sightings)</small>
+                </p>
+            </div>
+        {% endif %}
+        <div class="row justify-content-evenly mt-3 pt-3">
+            <p>
+                <small>
+                    The annotation of a species is a process checked by a group of volunteers. The resulting database of cannonical data of species sightings can be used in the future to train and improve the machine learning models.
+                </small>
+            </p>
+        </div>
     </div>
-
-
-
-
-    <div class="row justify-content-evenly mt-3 pt-3">
-        <table width=100%>
-        <tr>
-            <th>Trigger timestamp</th>
-            <th>Uploaded</th>
-            <th>Species Annotated</th>
-            <th>Macro Site</th>
-            <th>Station</th>
-            <th>Latitude</th>
-            <th>Longitude</th>
-            <th>Pictures</th>
-        </tr>
-
-        {% for sstl in species_sighting_timeserie_list %}
-            <tr>
-                <td>{{ sstl.exif_dt|date:'Y-m-d' }}</td>
-                <td>{{ sstl.uploaded_dt|date:'Y-m-d' }}</td>
-                <td>{{ sstl.created|date:'Y-m-d' }}</td>
-                <td><a href="{% url 'explore:species_sighting_timeserie_list' species=species %}?macrosite={{ sstl.macrosite }}">
-                        {{ sstl.macrosite }}
-                    </a></td>
-                <td><a href="{% url 'explore:species_sighting_timeserie_list' species=species %}?station={{ sstl.station_id }}">
-                        {{ sstl.station_id }}
-                    </a></td>
-                <td>{{ sstl.latitude }}</td>
-                <td>{{ sstl.longitude }}</td>
-                <td class="text-center">
-                    <a href="{% url 'explore:species_sighting_images'%}?species={{species}}&macrosite={{ sstl.macrosite }}&microsite={{ sstl.microsite }}&date_sighting={{ sstl.exif_dt|date:'Y-m-d' }}&station={{ sstl.station_id }}">
-                        {{ sstl.total }}
-                    </a>
-                </td>
-            </tr>
-        {% endfor %}
-
-        </table>
-    </div>
-
-    <div class="row justify-content-evenly mt-3 pt-3">
-        <p><small>
-            The annotation of a species is a process checked by a group of volunteers. The resulting database of cannonical data of species sightings can be used in the future to train and improve the machine learning models.
-        </small></p>
-    </div>
-
-</div>
 {% endblock content %}
-
 {% block footer_includes %}
-<script>
+    <style>
+    .sort-arrow {
+        margin-left: 5px;
+        opacity: 0.3;
+    }
+    .sort-arrow::after {
+        content: '⇅';
+    }
+    th.sorted-asc .sort-arrow {
+        opacity: 1;
+    }
+    th.sorted-asc .sort-arrow::after {
+        content: '▲';
+    }
+    th.sorted-desc .sort-arrow {
+        opacity: 1;
+    }
+    th.sorted-desc .sort-arrow::after {
+        content: '▼';
+    }
+    </style>
+    <script>
     document.getElementById('select_species').onchange = function() {
         var newaction = '/explore/species/' + this.value;
         document.getElementById('form_species').action = newaction;
         this.form.submit()
     };
-</script>
+
+    // Handle per_page dropdown change
+    function changePerPage(value) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('per_page', value);
+        url.searchParams.delete('page'); // Reset to page 1 when changing per_page
+        window.location.href = url.toString();
+    }
+    </script>
 {% endblock footer_includes %}

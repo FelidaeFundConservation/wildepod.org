@@ -88,7 +88,37 @@
                             </p>
                         </div>
                         <div class="col-8">
-                            <p>{{ object.images.all.count }}</p>
+                            <p>{{ object.img_count }}</p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-4 text-end">
+                            <p>
+                                <b># User Reported:</b>
+                            </p>
+                        </div>
+                        <div class="col-8">
+                            <p>{% if object.user_image_count %}{{ object.user_image_count }}{% else %}Not supplied{% endif %}</p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-4 text-end">
+                            <p>
+                                <b>Comments:</b>
+                            </p>
+                        </div>
+                        <div class="col-8">
+                            <p style="word-wrap: break-word; white-space: normal; text-align: left;">{% if object.comments %}{{ object.comments }}{% else %}Not supplied{% endif %}</p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-4 text-end">
+                            <p>
+                                <b>Time Correction:</b>
+                            </p>
+                        </div>
+                        <div class="col-8">
+                            <p>{% if object.time_correction %}{% with tc=object.time_correction %}{% if tc.years %}{{ tc.years }}y {% endif %}{% if tc.months %}{{ tc.months }}m {% endif %}{% if tc.days %}{{ tc.days }}d {% endif %}{% if tc.hours %}{{ tc.hours }}h {% endif %}{% if tc.minutes %}{{ tc.minutes }}min{% endif %}{% if tc.applied_at %} (Applied: {{ tc.applied_at|date:"Y-m-d H:i" }}){% endif %}{% endwith %}{% else %}No Correction{% endif %}</p>
                         </div>
                     </div>
                     {% if user.is_staff and user.is_active %}

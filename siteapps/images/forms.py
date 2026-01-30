@@ -6,7 +6,8 @@ from crispy_forms.helper import FormHelper
 from crispy_forms.layout import HTML, Button, Column, Layout, Row, Submit
 from django import forms
 from django.conf import settings
-from locations.models import CameraStation, MacroSite
+
+from siteapps.locations.models import CameraStation, MacroSite
 
 from .models import TimeCorrection, Upload
 
@@ -88,6 +89,10 @@ class UploadForm(forms.ModelForm):
                 css_class="form-row mb-3 px-3",
             ),
             Row(
+                Column("user_image_count", css_class="form-group col-md-4"),
+                css_class="form-row mb-3 px-3",
+            ),
+            Row(
                 Column("data_sheet", css_class="form-group"),
                 css_class="form-row mb-3 px-3",
             ),
@@ -154,12 +159,17 @@ class UploadForm(forms.ModelForm):
             "date_retrieved",
             "volunteer",
             "last_action",
+            "user_image_count",
             "comments",
             "upload_method",
         ]
 
         labels = {
             "date_retrieved": "Date & time retrieved",
+        }
+        
+        widgets = {
+            "user_image_count": forms.NumberInput(attrs={"min": "1"}),
         }
 
     def clean_daylight_savings_correction(self):

@@ -5,9 +5,9 @@ from django.http import HttpResponseServerError
 from django.shortcuts import render
 from django.views.generic.base import TemplateView
 
-from siteapps.images.models.annotation import Activity, Category, Species
-from siteapps.images.models.image import Image
-from siteapps.images.models.raw_sql import get_images_to_ignore, get_prioritized_images, get_uncertain_images
+from images.models.annotation import Activity, Category, Species
+from images.models.image import Image
+from images.models.raw_sql import get_images_to_ignore, get_prioritized_images, get_uncertain_images
 
 
 class WorkflowStateView(TemplateView):

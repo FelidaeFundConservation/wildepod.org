@@ -64,8 +64,10 @@ dev = [
     "django-coverage-plugin>=3.0.0",
     "factory-boy>=3.3.0",
     "pytest>=8.0.0",
+    "pytest-cov>=3.0.0",
     "pytest-django>=4.5.0",
     "pytest-sugar>=1.0.0",
+    "pytest-xdist>=2.5.0",
 
     # Development Tools
     "django-debug-toolbar>=4.0.0",
@@ -109,7 +111,87 @@ skip_glob = ["*/migrations/*"]
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings.local"
 python_files = ["test_*.py", "*_test.py", "testing/python/*.py"]
-addopts = "--reuse-db"
+addopts = [
+    "--reuse-db",
+    "--cov=siteapps",
+    "--cov=config",
+    "--cov-report=html",
+    "--cov-report=term-missing",
+    "--cov-report=xml",
+    "--cov-config=pyproject.toml",
+    "-v",
+]
+testpaths = ["siteapps"]
+norecursedirs = [
+    ".git",
+    ".venv",
+    "*.egg",
+    "dist",
+    "build",
+    "migrations",
+    "node_modules",
+]
+
+[tool.coverage.run]
+source = ["siteapps", "config"]
+omit = [
+    "*/migrations/*",
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/.venv/*",
+    "*/node_modules/*",
+    "*/templates/*",
+    "manage.py",
+    "*/wsgi.py",
+    "*/asgi.py",
+    "scratch/*",
+    # Omit small boilerplate files (< 25 lines)
+    "*/__init__.py",
+    "*/apps.py",
+    "*/urls.py",
+    "*/tests.py",
+    "*/admin.py",
+    "*/adapters.py",
+    "*/context_processors.py",
+    "*/storages.py",
+    "config/wsgi/*.py",
+    "config/settings/dev.py",
+    "config/settings/local.py",
+    # Omit minimal stub/placeholder files (1-12 lines)
+    "siteapps/backyard/models.py",
+    "siteapps/exports/models.py",
+    "siteapps/home/models.py",
+    "siteapps/home/views.py",
+    "siteapps/inventory/views.py",
+    "siteapps/explore/views/index.py",
+    "siteapps/explore/views/map.py",
+    "siteapps/backyard/views.py",
+    "siteapps/explore/utils.py",
+    "siteapps/images/models/custom_fields.py",
+]
+plugins = ["django_coverage_plugin"]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+skip_empty = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "def __str__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "if settings.DEBUG",
+    "@abstract",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
 
 [tool.mypy]
 python_version = "3.10"

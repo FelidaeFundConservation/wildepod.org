@@ -211,6 +211,13 @@ class BoundingBox(TimeStampedModel):
             models.CheckConstraint(check=Q(h__gte=0.0, h__lte=1.0), name="h_between_0_and_1"),
         ]
 
+        indexes = [
+            models.Index(fields=['-modified'], name='images_bbox_modified_idx'),
+            models.Index(fields=['-created'], name='images_bbox_created_idx'),
+            models.Index(fields=['image'], name='idx_bbox_image_id'),
+            models.Index(fields=['image_id'], name='idx_boundingbox_image_id'),
+        ]
+
 
 class SpeciesSubgroup(TimeStampedModel):
     name = models.CharField("Subgroup Name", max_length=250, unique=True)
@@ -336,6 +343,14 @@ class Species(TimeStampedModel):
     class Meta:
         ordering = ("-modified",)
         verbose_name_plural = "Species Annotations"
+
+        indexes = [
+            models.Index(fields=['-modified'], name='img_spc_modified_idx'),
+            models.Index(fields=['-created'], name='img_spc_created_idx'),
+            models.Index(fields=['name', '-modified'], name='img_spc_name_mod_idx'),
+            models.Index(fields=['name', 'bounding_box'], name='idx_species_name_bbox'),
+            models.Index(fields=['name_id', 'bounding_box_id'], name='idx_species_name_id_bbox'),
+        ]
 
     @staticmethod
     def get_total_species():

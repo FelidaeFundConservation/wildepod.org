@@ -13,8 +13,8 @@ from django.views.generic import FormView, ListView, TemplateView, UpdateView, V
 from images.models import Activity, Annotator, Category, Species
 from users.models import User
 
-from siteapps.explore.views import calculate_volunteer_engagement
-from siteapps.users.managers import send_welcome_email
+from explore.views import calculate_volunteer_engagement
+from users.managers import send_welcome_email
 
 from .forms import RegisterVolunteerForm
 
@@ -63,13 +63,13 @@ class UserUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
         return context
 
 
-class VolunteerListView(LoginRequiredMixin, StaffuserRequiredMixin, ListView):
+class VolunteerListView(StaffuserRequiredMixin, LoginRequiredMixin, ListView):
     model = User
     login_url = settings.LOGIN_URL
     template_name = "users/volunteers/list.html"
 
 
-class VolunteerRegisterView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
+class VolunteerRegisterView(StaffuserRequiredMixin, LoginRequiredMixin, FormView):
     login_url = settings.LOGIN_URL
     template_name = "users/volunteers/add.html"
     form_class = RegisterVolunteerForm
@@ -89,7 +89,7 @@ class VolunteerRegisterView(LoginRequiredMixin, StaffuserRequiredMixin, FormView
         return super().form_valid(form)
 
 
-class VolunteerRegisterSuccessView(LoginRequiredMixin, StaffuserRequiredMixin, TemplateView):
+class VolunteerRegisterSuccessView(StaffuserRequiredMixin, LoginRequiredMixin, TemplateView):
     login_url = settings.LOGIN_URL
     template_name = "users/volunteers/added.html"
 
@@ -122,7 +122,7 @@ class PrioritizeTaggingAnimalsView(LoginRequiredMixin, View):
         return JsonResponse({"success": True})
 
 
-class VolunteerResendInviteView(LoginRequiredMixin, StaffuserRequiredMixin, View):
+class VolunteerResendInviteView(StaffuserRequiredMixin, LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         try:
             user = User.objects.get(id=request.POST.get("volunteer_id"))

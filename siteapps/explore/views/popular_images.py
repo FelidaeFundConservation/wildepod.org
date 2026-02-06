@@ -10,7 +10,7 @@ from django.shortcuts import get_object_or_404
 from django.views import View
 from django.views.generic import ListView
 
-from siteapps.images.models import Image, SpeciesName
+from images.models import Image, SpeciesName
 
 IMAGE_PAGINATION_LIMIT = 24
 

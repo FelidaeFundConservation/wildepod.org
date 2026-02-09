@@ -633,6 +633,18 @@ wheels = [
 ]
 
 [[package]]
+name = "django-schema-viewer"
+version = "0.5.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/37/80/55f39f2ec3c50fd2f2db8dd7fbc9cf7ade15cf82347a8496023e2e86bb59/django_schema_viewer-0.5.3.tar.gz", hash = "sha256:d5bdaa7cfec0827d1232f1d79f746ea5a7f42bf6abf2359615084acb230b2d1c", size = 486091, upload-time = "2025-03-23T20:07:47.136Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e8/7e/1203dcdce3fd1fbf6f7924961ba5aed4407cddd4074d784806de3f0242f5/django_schema_viewer-0.5.3-py3-none-any.whl", hash = "sha256:f6385d74c6e2c5e204fc7b2b8d7d25affe63f9f6b96b03e79e5b094b5012588a", size = 492696, upload-time = "2025-03-23T20:07:45.616Z" },
+]
+
+[[package]]
 name = "django-simple-history"
 version = "3.11.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3475,6 +3487,7 @@ dependencies = [
     { name = "google-cloud-secret-manager" },
     { name = "google-cloud-tasks" },
     { name = "gunicorn" },
+    { name = "matplotlib" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "pillow" },
@@ -3492,6 +3505,7 @@ dev = [
     { name = "coverage" },
     { name = "django-coverage-plugin" },
     { name = "django-debug-toolbar" },
+    { name = "django-schema-viewer" },
     { name = "django-stubs" },
     { name = "djlint" },
     { name = "factory-boy" },
@@ -3527,6 +3541,7 @@ requires-dist = [
     { name = "django-extensions", specifier = "==3.2.1" },
     { name = "django-jazzmin", specifier = "==2.4.9" },
     { name = "django-model-utils", specifier = ">=5.0.0" },
+    { name = "django-schema-viewer", marker = "extra == 'dev'" },
     { name = "django-simple-history", specifier = ">=3.8.0" },
     { name = "django-storages", extras = ["google"], specifier = "==1.12.3" },
     { name = "django-stubs", marker = "extra == 'dev'", specifier = "==1.9.0" },
@@ -3546,6 +3561,7 @@ requires-dist = [
     { name = "gunicorn", specifier = "==20.1.0" },
     { name = "jsbeautifier", marker = "extra == 'dev'", specifier = "==1.14.11" },
     { name = "jupyter", marker = "extra == 'dev'" },
+    { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "mypy", marker = "extra == 'dev'", specifier = "==0.931" },
     { name = "numpy", specifier = "==1.26.4" },
     { name = "onnx", marker = "extra == 'dev'", specifier = "==1.15.0" },

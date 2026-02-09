@@ -9,7 +9,6 @@ license = {text = "Proprietary"}
 dependencies = [
     # Authentication & Security
     "argon2-cffi==21.3.0",
-
     # Django Core
     "crispy-bootstrap5==0.6",
     "django==4.2.16",
@@ -22,7 +21,6 @@ dependencies = [
     "django-model-utils>=5.0.0",
     "django-simple-history>=3.8.0",
     "django-storages[google]==1.12.3",
-
     # Cloud Storage & APIs
     "dropbox>=11.30.0",
     "google-api-python-client>=2.58.0",
@@ -31,27 +29,24 @@ dependencies = [
     "google-auth-oauthlib>=0.5.2",
     "google-cloud-datastore>=2.13.0",
     "google-cloud-secret-manager>=2.26.0",
-
     # Production Services
     "Collectfast==2.2.0",
     "google-cloud-logging>=3.2.2",
     "google-cloud-tasks>=2.12.1",
     "gunicorn==20.1.0",
-
     # Data Processing
     "numpy==1.26.4",
     "pandas==2.2.3",
-
     # Image Processing & Utilities
     "Pillow==10.4.0",
     "psycopg2-binary==2.9.9",
     "python-slugify==6.0.1",
     "pytz==2021.3",
     "rcssmin==1.1.0",
-
     # Third Party Libs
     "requests==2.27.1",
     "whitenoise==6.4.0",
+    "matplotlib>=3.10.8",
 ]
 
 [project.optional-dependencies]
@@ -69,6 +64,7 @@ dev = [
 
     # Development Tools
     "django-debug-toolbar==3.2.4",
+    "django-schema-viewer",
     "django-stubs==1.9.0",
     "djlint==1.34.0",
     "jupyter",
@@ -117,3 +113,4 @@ plugins = ["mypy_django_plugin.main"]
 
 [tool.django-stubs]
 django_settings_module = "config.settings.local"
+

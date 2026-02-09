@@ -75,6 +75,14 @@ EMAIL_TIMEOUT = 5
 # https://django-extensions.readthedocs.io/en/latest/installation_instructions.html#configuration
 INSTALLED_APPS += ["django_extensions"]  # noqa F405
 
+# django-schema-viewer
+# ------------------------------------------------------------------------------
+# https://github.com/tomdyson/django-schema-viewer
+INSTALLED_APPS += ["schema_viewer"]  # noqa F405
+SCHEMA_VIEWER = {
+    "apps": ["images"],
+}
+
 # EXTERNAL APPS CONFIG
 # ------------------------------------------------------------------------------
 # Dropbox credentials are optional for local development

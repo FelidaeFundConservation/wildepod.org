@@ -37,6 +37,10 @@ if getattr(settings, "EXPORT_SERVICE", False):
     ]
 
 if settings.DEBUG:
+    # django-schema-viewer for interactive model browsing
+    if "schema_viewer" in settings.INSTALLED_APPS:
+        urlpatterns += [path("schema/", include("schema_viewer.urls"))]
+
     # This allows the error pages to be debugged during development, just visit
     # these url in browser to see how these error pages look like.
     urlpatterns += [

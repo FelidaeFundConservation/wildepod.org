@@ -3,6 +3,11 @@ from datetime import datetime
 from django.db import IntegrityError, transaction
 from django.test import Client, TestCase
 from django.urls import reverse
+from images.management.commands.ingest_annotations import (
+    _extract_scientific_name_from_prediction,
+    ingest_megadetector,
+    ingest_speciesnet,
+)
 from images.models import (
     Activity,
     ActivityType,
@@ -736,3 +741,353 @@ class ImageUniquenessTestCase(TestCase):
         with transaction.atomic(), self.assertRaises(IntegrityError):
             image.upload.deleted = False
             image.upload.save()
+
+
+# ---------------------------------------------------------------------------
+# Tests for the ingest_annotations management command helpers
+# ---------------------------------------------------------------------------
+
+
+def create_test_image_for_ingestion(upload, filename, content_hash):
+    """Create an image with a specific filename for ingestion tests."""
+    return Image.objects.create(
+        upload=upload,
+        dropbox_file_name=filename,
+        dropbox_file_path=f"/test/{filename.lower()}",
+        dropbox_file_path_display=f"/test/{filename}",
+        dropbox_content_hash=content_hash,
+        dropbox_file_id=f"id:{filename}",
+        file_size=1024,
+    )
+
+
+class IngestAnnotationsBaseTestCase(TestCase):
+    """Base test case with common setup for ingestion tests."""
+
+    def setUp(self):
+        user, email, password = create_test_user_object("IngestUser")
+        self.user = user
+        self.upload = create_test_upload_object(self)
+
+        self.image_animal = create_test_image_for_ingestion(
+            self.upload, "animal_image.jpg", "hash_animal_001"
+        )
+        self.image_person = create_test_image_for_ingestion(
+            self.upload, "person_image.jpg", "hash_person_001"
+        )
+
+
+class ExtractScientificNameTestCase(TestCase):
+    """Tests for the _extract_scientific_name_from_prediction helper."""
+
+    def test_full_taxonomic_path(self):
+        result = _extract_scientific_name_from_prediction(
+            "mammalia;carnivora;felidae;puma;puma concolor"
+        )
+        self.assertEqual(result, "Puma concolor")
+
+    def test_simple_binomial(self):
+        result = _extract_scientific_name_from_prediction("lynx rufus")
+        self.assertEqual(result, "Lynx rufus")
+
+    def test_blank_prediction(self):
+        result = _extract_scientific_name_from_prediction("blank")
+        self.assertEqual(result, "")
+
+    def test_empty_prediction(self):
+        result = _extract_scientific_name_from_prediction("")
+        self.assertEqual(result, "")
+
+    def test_unknown_prediction(self):
+        result = _extract_scientific_name_from_prediction("unknown")
+        self.assertEqual(result, "")
+
+    def test_no_cv_result(self):
+        result = _extract_scientific_name_from_prediction("no_cv_result")
+        self.assertEqual(result, "")
+
+
+class IngestMegadetectorTestCase(IngestAnnotationsBaseTestCase):
+    """Tests for the ingest_megadetector function."""
+
+    def _make_md_data(self, detections_per_image=None):
+        """Build a minimal MegaDetector output dict."""
+        if detections_per_image is None:
+            detections_per_image = {
+                "animal_image.jpg": [{"category": "1", "conf": 0.92, "bbox": [0.1, 0.1, 0.3, 0.4]}],
+                "person_image.jpg": [{"category": "2", "conf": 0.85, "bbox": [0.2, 0.2, 0.5, 0.6]}],
+            }
+        return {
+            "images": [
+                {"file": filepath, "detections": dets}
+                for filepath, dets in detections_per_image.items()
+            ],
+            "detection_categories": {"1": "animal", "2": "person", "3": "vehicle"},
+            "info": {"detector": "md_v5a.0.0"},
+        }
+
+    def test_dry_run_creates_no_records(self):
+        data = self._make_md_data()
+        ingest_megadetector(data, confidence_threshold=0.1, make_changes=False)
+
+        self.assertEqual(BoundingBox.objects.count(), 0)
+        self.assertEqual(Category.objects.count(), 0)
+
+    def test_creates_bbox_and_category(self):
+        data = self._make_md_data()
+        stats = ingest_megadetector(data, confidence_threshold=0.1, make_changes=True)
+
+        self.assertEqual(stats["bboxes_created"], 2)
+        self.assertEqual(stats["categories_created"], 2)
+        self.assertEqual(BoundingBox.objects.count(), 2)
+        self.assertEqual(Category.objects.count(), 2)
+
+    def test_category_names_are_correct(self):
+        data = self._make_md_data()
+        ingest_megadetector(data, confidence_threshold=0.1, make_changes=True)
+
+        animal_bbox = BoundingBox.objects.get(image=self.image_animal)
+        person_bbox = BoundingBox.objects.get(image=self.image_person)
+
+        self.assertEqual(Category.objects.get(bounding_box=animal_bbox).name, "animal")
+        self.assertEqual(Category.objects.get(bounding_box=person_bbox).name, "person")
+
+    def test_confidence_threshold_filters_detections(self):
+        data = self._make_md_data(
+            detections_per_image={
+                "animal_image.jpg": [
+                    {"category": "1", "conf": 0.95, "bbox": [0.1, 0.1, 0.3, 0.4]},
+                    {"category": "1", "conf": 0.05, "bbox": [0.5, 0.5, 0.1, 0.1]},  # below threshold
+                ]
+            }
+        )
+        stats = ingest_megadetector(data, confidence_threshold=0.2, make_changes=True)
+
+        # Only the high-confidence detection should be saved
+        self.assertEqual(stats["bboxes_created"], 1)
+        self.assertEqual(BoundingBox.objects.count(), 1)
+
+    def test_image_not_found_is_counted(self):
+        data = self._make_md_data(
+            detections_per_image={
+                "nonexistent_image.jpg": [{"category": "1", "conf": 0.9, "bbox": [0.1, 0.1, 0.3, 0.4]}]
+            }
+        )
+        stats = ingest_megadetector(data, confidence_threshold=0.1, make_changes=True)
+
+        self.assertEqual(stats["images_not_found"], 1)
+        self.assertEqual(BoundingBox.objects.count(), 0)
+
+    def test_idempotent_ingestion(self):
+        data = self._make_md_data(
+            detections_per_image={
+                "animal_image.jpg": [{"category": "1", "conf": 0.92, "bbox": [0.1, 0.1, 0.3, 0.4]}]
+            }
+        )
+        ingest_megadetector(data, confidence_threshold=0.1, make_changes=True)
+        stats2 = ingest_megadetector(data, confidence_threshold=0.1, make_changes=True)
+
+        # Second run should skip the existing record
+        self.assertEqual(stats2["skipped_existing"], 1)
+        self.assertEqual(BoundingBox.objects.count(), 1)
+
+    def test_bot_and_annotator_created(self):
+        data = self._make_md_data()
+        ingest_megadetector(data, confidence_threshold=0.1, make_changes=True)
+
+        bot = Bot.objects.filter(name="MegaDetector").first()
+        self.assertIsNotNone(bot)
+        self.assertEqual(Annotator.objects.filter(type="bot", bot=bot).count(), 1)
+
+    def test_vehicle_category(self):
+        data = self._make_md_data(
+            detections_per_image={
+                "animal_image.jpg": [{"category": "3", "conf": 0.9, "bbox": [0.1, 0.1, 0.3, 0.4]}]
+            }
+        )
+        ingest_megadetector(data, confidence_threshold=0.1, make_changes=True)
+
+        bbox = BoundingBox.objects.first()
+        self.assertIsNotNone(bbox)
+        self.assertEqual(Category.objects.get(bounding_box=bbox).name, "vehicle")
+
+    def test_bbox_coordinates_stored_correctly(self):
+        data = self._make_md_data(
+            detections_per_image={
+                "animal_image.jpg": [{"category": "1", "conf": 0.9, "bbox": [0.1, 0.2, 0.3, 0.4]}]
+            }
+        )
+        ingest_megadetector(data, confidence_threshold=0.1, make_changes=True)
+
+        bbox = BoundingBox.objects.first()
+        self.assertAlmostEqual(bbox.x, 0.1, places=5)
+        self.assertAlmostEqual(bbox.y, 0.2, places=5)
+        self.assertAlmostEqual(bbox.w, 0.3, places=5)
+        self.assertAlmostEqual(bbox.h, 0.4, places=5)
+
+    def test_filename_match_with_directory_prefix(self):
+        # JSON has a full path; DB only stores the filename
+        data = self._make_md_data(
+            detections_per_image={
+                "some/nested/path/animal_image.jpg": [
+                    {"category": "1", "conf": 0.9, "bbox": [0.1, 0.1, 0.3, 0.3]}
+                ]
+            }
+        )
+        stats = ingest_megadetector(data, confidence_threshold=0.1, make_changes=True)
+
+        # Should match via filename fallback
+        self.assertEqual(stats["images_found"], 1)
+        self.assertEqual(stats["bboxes_created"], 1)
+
+
+class IngestSpeciesNetTestCase(IngestAnnotationsBaseTestCase):
+    """Tests for the ingest_speciesnet function."""
+
+    def setUp(self):
+        super().setUp()
+        # Create a SpeciesName that SpeciesNet can match
+        self.puma_species = SpeciesName.objects.get_or_create(
+            name="Puma",
+            defaults={"scientific_name": "Puma concolor", "species_group": "WILD"},
+        )[0]
+        if not self.puma_species.scientific_name:
+            self.puma_species.scientific_name = "Puma concolor"
+            self.puma_species.save()
+
+    def _make_sn_data(self, predictions=None):
+        """Build a minimal SpeciesNet output dict (dict-keyed format)."""
+        if predictions is None:
+            predictions = {
+                "animal_image.jpg": {
+                    "detections": [{"label": "1", "conf": 0.93, "bbox": [0.1, 0.1, 0.3, 0.4]}],
+                    "prediction": "mammalia;carnivora;felidae;puma;puma concolor",
+                    "score": 0.85,
+                }
+            }
+        return {"predictions": predictions, "info": {"model": "speciesnet_v4.0.0a"}}
+
+    def test_dry_run_creates_no_records(self):
+        data = self._make_sn_data()
+        ingest_speciesnet(data, confidence_threshold=0.1, make_changes=False)
+
+        self.assertEqual(BoundingBox.objects.count(), 0)
+        self.assertEqual(Category.objects.count(), 0)
+        self.assertEqual(Species.objects.count(), 0)
+
+    def test_creates_bbox_category_and_species(self):
+        data = self._make_sn_data()
+        stats = ingest_speciesnet(data, confidence_threshold=0.1, make_changes=True)
+
+        self.assertEqual(stats["bboxes_created"], 1)
+        self.assertEqual(stats["categories_created"], 1)
+        self.assertEqual(stats["species_created"], 1)
+        self.assertEqual(BoundingBox.objects.count(), 1)
+        self.assertEqual(Category.objects.count(), 1)
+        self.assertEqual(Species.objects.count(), 1)
+
+    def test_species_linked_to_correct_species_name(self):
+        data = self._make_sn_data()
+        ingest_speciesnet(data, confidence_threshold=0.1, make_changes=True)
+
+        species_obj = Species.objects.first()
+        self.assertIsNotNone(species_obj)
+        self.assertEqual(species_obj.name.scientific_name, "Puma concolor")
+
+    def test_blank_prediction_creates_no_species(self):
+        data = self._make_sn_data(
+            predictions={
+                "animal_image.jpg": {
+                    "detections": [{"label": "1", "conf": 0.9, "bbox": [0.1, 0.1, 0.3, 0.4]}],
+                    "prediction": "blank",
+                    "score": 0.99,
+                }
+            }
+        )
+        stats = ingest_speciesnet(data, confidence_threshold=0.1, make_changes=True)
+
+        self.assertEqual(stats["bboxes_created"], 1)
+        self.assertEqual(stats["species_created"], 0)
+        self.assertEqual(Species.objects.count(), 0)
+
+    def test_unmatched_species_is_counted(self):
+        data = self._make_sn_data(
+            predictions={
+                "animal_image.jpg": {
+                    "detections": [{"label": "1", "conf": 0.9, "bbox": [0.1, 0.1, 0.3, 0.4]}],
+                    "prediction": "mammalia;rodentia;sciuridae;sciurus;sciurus carolinensis",
+                    "score": 0.9,
+                }
+            }
+        )
+        stats = ingest_speciesnet(data, confidence_threshold=0.1, make_changes=True)
+
+        self.assertEqual(stats["species_not_matched"], 1)
+        self.assertEqual(Species.objects.count(), 0)
+
+    def test_person_detection_creates_no_species(self):
+        data = self._make_sn_data(
+            predictions={
+                "person_image.jpg": {
+                    "detections": [{"label": "2", "conf": 0.9, "bbox": [0.1, 0.1, 0.3, 0.4]}],
+                    "prediction": "mammalia;carnivora;felidae;puma;puma concolor",
+                    "score": 0.9,
+                }
+            }
+        )
+        ingest_speciesnet(data, confidence_threshold=0.1, make_changes=True)
+
+        # Category should be 'person', not animal, so no Species created
+        self.assertEqual(Category.objects.filter(name="person").count(), 1)
+        self.assertEqual(Species.objects.count(), 0)
+
+    def test_list_format_predictions(self):
+        """SpeciesNet can also output predictions as a list."""
+        data = {
+            "predictions": [
+                {
+                    "filepath": "animal_image.jpg",
+                    "detections": [{"label": "1", "conf": 0.9, "bbox": [0.1, 0.1, 0.3, 0.4]}],
+                    "prediction": "mammalia;carnivora;felidae;puma;puma concolor",
+                    "score": 0.85,
+                }
+            ],
+            "info": {"model": "speciesnet_v4.0.0a"},
+        }
+        stats = ingest_speciesnet(data, confidence_threshold=0.1, make_changes=True)
+
+        self.assertEqual(stats["bboxes_created"], 1)
+        self.assertEqual(stats["species_created"], 1)
+
+    def test_idempotent_ingestion(self):
+        data = self._make_sn_data()
+        ingest_speciesnet(data, confidence_threshold=0.1, make_changes=True)
+        stats2 = ingest_speciesnet(data, confidence_threshold=0.1, make_changes=True)
+
+        self.assertEqual(stats2["skipped_existing"], 1)
+        self.assertEqual(BoundingBox.objects.count(), 1)
+        self.assertEqual(Species.objects.count(), 1)
+
+    def test_species_confidence_below_threshold_creates_no_species(self):
+        data = self._make_sn_data(
+            predictions={
+                "animal_image.jpg": {
+                    "detections": [{"label": "1", "conf": 0.9, "bbox": [0.1, 0.1, 0.3, 0.4]}],
+                    "prediction": "mammalia;carnivora;felidae;puma;puma concolor",
+                    "score": 0.05,  # below threshold
+                }
+            }
+        )
+        stats = ingest_speciesnet(data, confidence_threshold=0.2, make_changes=True)
+
+        self.assertEqual(stats["bboxes_created"], 1)
+        self.assertEqual(stats["species_created"], 0)
+        self.assertEqual(Species.objects.count(), 0)
+
+    def test_bot_and_annotator_created(self):
+        data = self._make_sn_data()
+        ingest_speciesnet(data, confidence_threshold=0.1, make_changes=True)
+
+        bot = Bot.objects.filter(name="SpeciesNet").first()
+        self.assertIsNotNone(bot)
+        self.assertEqual(Annotator.objects.filter(type="bot", bot=bot).count(), 1)

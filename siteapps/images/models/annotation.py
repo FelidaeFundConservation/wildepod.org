@@ -347,7 +347,7 @@ class Species(TimeStampedModel):
         indexes = [
             models.Index(fields=['-modified'], name='images_species_modified_idx'),
             models.Index(fields=['-created'], name='images_species_created_idx'),
-            models.Index(fields=['name', '-modified'], name='images_species_name_modified_idx'),
+            models.Index(fields=['name', '-modified'], name='idx_species_name_modified'),
             models.Index(fields=['name', 'bounding_box'], name='idx_species_name_bbox'),
             models.Index(fields=['name_id', 'bounding_box_id'], name='idx_species_name_id_bbox'),
         ]

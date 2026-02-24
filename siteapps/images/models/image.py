@@ -31,7 +31,7 @@ class ImageManager(models.Manager):
     # Calculates the proportion of images per macro site.
     def proportion_per_macrosite(self):
         total_count = self.count()
-        proportion = self.values("macro_site__name").annotate(count=models.Count("id")).order_by()
+        proportion = self.values("upload__camera_station__micro_site__macro_site__name").annotate(count=models.Count("id")).order_by()
         for item in proportion:
             item["proportion"] = item["count"] / total_count
         return proportion
@@ -39,7 +39,7 @@ class ImageManager(models.Manager):
     # Calculates the proportion of images per camera station.
     def proportion_per_camera_station(self):
         total_count = self.count()
-        proportion = self.values("camera_station__name").annotate(count=models.Count("id")).order_by()
+        proportion = self.values("upload__camera_station__station_id").annotate(count=models.Count("id")).order_by()
         for item in proportion:
             item["proportion"] = item["count"] / total_count
         return proportion

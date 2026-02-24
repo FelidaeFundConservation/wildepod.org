@@ -7,6 +7,7 @@ Base settings to build other settings files upon.
 import io
 import logging
 import os
+import sys
 from pathlib import Path
 
 import environ
@@ -16,6 +17,11 @@ from google.cloud import datastore, secretmanager
 ROOT_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 # siteapps/
 APPS_DIR = ROOT_DIR / "siteapps"
+
+# Add siteapps to Python path to support relative imports:
+# - "from images.models import ..." (used in source code and Django app resolution)
+if str(APPS_DIR) not in sys.path:
+    sys.path.insert(0, str(APPS_DIR))
 
 # Create a django environ object with default getter as a bool
 env = environ.Env(DEBUG=(bool, False))

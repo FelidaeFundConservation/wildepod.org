@@ -23,7 +23,7 @@ class Migration(migrations.Migration):
         # Add composite index on (name_id, modified) for species-filtered sorted queries
         migrations.AddIndex(
             model_name='species',
-            index=models.Index(fields=['name', '-modified'], name='images_species_name_modified_idx'),
+            index=models.Index(fields=['name', '-modified'], name='idx_species_name_modified'),
         ),
         # Add index on images_boundingbox.modified for bounding box sorting
         migrations.AddIndex(

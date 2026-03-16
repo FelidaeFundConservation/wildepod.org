@@ -1014,7 +1014,8 @@ def populate_view_context(
 
         partitioned_queue_images = queue_images.filter(trigger_timestamp__gte=precomputed_queue.partition)
 
-        image_id = return_to_image_id if return_to_image_id else partitioned_queue_images.first().id
+        first_image = partitioned_queue_images.first()
+        image_id = return_to_image_id if return_to_image_id else (first_image.id if first_image else None)
 
         # View all images in the queue
         context["grid_images_w_boxes"] = [

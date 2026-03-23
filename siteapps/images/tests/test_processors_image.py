@@ -273,3 +273,294 @@ class TestRunModelInference:
         
         # Check if bot was created or already existed
         assert Bot.objects.filter(name="MegaDetector").exists()
+
+
+@pytest.mark.django_db
+class TestAddThumbnailExtended:
+    """Extended tests for add_thumbnail function."""
+    
+    @patch('images.processors.image.create_dropbox_client')
+    @patch('images.processors.image.storage')
+    def test_add_thumbnail_success(self, mock_storage, mock_create_client, image):
+        """Test successful thumbnail addition."""
+        from images.processors.image import add_thumbnail
+        
+        # Mock dropbox client
+        mock_dbx = MagicMock()
+        mock_create_client.return_value = mock_dbx
+        
+        # Mock dropbox response
+        mock_metadata = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = b"fake_image_data"
+        mock_dbx.files_get_thumbnail_v2.return_value = (mock_metadata, mock_response)
+        
+        # Mock storage save
+        mock_storage.save.return_value = "thumbnails/1024/test_hash.jpg"
+        
+        # Call the function
+        add_thumbnail(image, dbx=mock_dbx)
+        
+        # Verify thumbnail path was set
+        assert image.thumbnail_gcloud_path == "thumbnails/1024/test_hash.jpg"
+        
+        # Verify dropbox was called
+        assert mock_dbx.files_get_thumbnail_v2.called
+        
+        # Verify storage save was called
+        assert mock_storage.save.called
+    
+    @patch('images.processors.image.create_dropbox_client')
+    @patch('images.processors.image.storage')
+    def test_add_thumbnail_storage_error(self, mock_storage, mock_create_client, image):
+        """Test thumbnail addition when storage fails."""
+        from images.processors.image import add_thumbnail
+        
+        # Mock dropbox client
+        mock_dbx = MagicMock()
+        mock_create_client.return_value = mock_dbx
+        
+        # Mock dropbox response
+        mock_metadata = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = b"fake_image_data"
+        mock_dbx.files_get_thumbnail_v2.return_value = (mock_metadata, mock_response)
+        
+        # Mock storage failure
+        mock_storage.save.side_effect = Exception("Storage error")
+        
+        # Should handle error gracefully
+        add_thumbnail(image, dbx=mock_dbx)
+        
+        # Image should not have thumbnail path
+        assert not image.thumbnail_gcloud_path
+
+
+@pytest.mark.django_db
+class TestAddBoundingBoxes:
+    """Test add_bounding_boxes function."""
+    
+    @patch('images.processors.image.http')
+    def test_add_bounding_boxes_success(self, mock_http, image, bot, ml_annotator):
+        """Test successful bounding box addition."""
+        from images.processors.image import add_bounding_boxes
+        
+        # Mock HTTP response
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "annotation": {
+                "detections": [
+                    {
+                        "category": "1",  # animal
+                        "conf": 0.95,
+                        "bbox": [0.1, 0.2, 0.3, 0.4]
+                    },
+                    {
+                        "category": "2",  # person
+                        "conf": 0.87,
+                        "bbox": [0.5, 0.6, 0.2, 0.3]
+                    }
+                ]
+            }
+        }
+        mock_http.post.return_value = mock_response
+        
+        image.thumbnail_gcloud_path = "test/path.jpg"
+        image.save()
+        
+        # Call function
+        add_bounding_boxes(
+            image=image,
+            image_url="http://test.com/image.jpg",
+            bot=bot,
+            id_token="test_token",
+            annotator=ml_annotator
+        )
+        
+        # Verify bounding boxes were created
+        bboxes = BoundingBox.objects.filter(image=image)
+        assert bboxes.count() == 2
+        
+        # Verify categories were created
+        categories = Category.objects.filter(bounding_box__image=image)
+        assert categories.count() == 2
+        
+        # Check bboxes (order may vary)
+        confidences = sorted([bbox.confidence for bbox in bboxes])
+        assert 0.87 in confidences
+        assert 0.95 in confidences
+        
+        # Check that x values are present
+        x_values = [bbox.x for bbox in bboxes]
+        assert 0.1 in x_values
+        assert 0.5 in x_values
+        
+        # Check image flags were updated
+        image.refresh_from_db()
+        assert hasattr(image, 'has_bbox_above_confidence_threshold')
+    
+    @patch('images.processors.image.http')
+    def test_add_bounding_boxes_api_failure(self, mock_http, image, bot, ml_annotator):
+        """Test bounding box addition when API fails."""
+        from images.processors.image import add_bounding_boxes
+        
+        # Mock HTTP error response
+        mock_response = Mock()
+        mock_response.status_code = 500
+        mock_http.post.return_value = mock_response
+        
+        image.thumbnail_gcloud_path = "test/path.jpg"
+        image.save()
+        
+        # Should raise exception
+        with pytest.raises(Exception) as exc_info:
+            add_bounding_boxes(
+                image=image,
+                image_url="http://test.com/image.jpg",
+                bot=bot,
+                id_token="test_token",
+                annotator=ml_annotator
+            )
+        
+        assert "failed with status code: 500" in str(exc_info.value)
+
+
+@pytest.mark.django_db  
+class TestDetectSpecies:
+    """Test detect_species function."""
+    
+    @patch('images.processors.image.http')
+    def test_detect_species_success(self, mock_http, image, bot, ml_annotator):
+        """Test successful species detection."""
+        from images.processors.image import detect_species
+        
+        # Mock HTTP response
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "classes": ["Puma", "Deer", "Bear"]
+        }
+        mock_http.post.return_value = mock_response
+        
+        # Call function
+        result = detect_species(
+            image=image,
+            image_url="http://test.com/image.jpg",
+            bot=bot,
+            id_token="test_token",
+            annotator=ml_annotator
+        )
+        
+        # Verify species were returned
+        assert result == ["Puma", "Deer", "Bear"]
+        assert len(result) == 3
+        
+        # Verify HTTP was called correctly
+        mock_http.post.assert_called_once()
+    
+    @patch('images.processors.image.http')
+    def test_detect_species_api_failure(self, mock_http, image, bot, ml_annotator):
+        """Test species detection when API fails."""
+        from images.processors.image import detect_species
+        
+        # Mock HTTP error response
+        mock_response = Mock()
+        mock_response.status_code = 500
+        mock_http.post.return_value = mock_response
+        
+        # Should raise exception
+        with pytest.raises(Exception) as exc_info:
+            detect_species(
+                image=image,
+                image_url="http://test.com/image.jpg",
+                bot=bot,
+                id_token="test_token",
+                annotator=ml_annotator
+            )
+        
+        assert "failed with status code: 500" in str(exc_info.value)
+
+
+@pytest.mark.django_db
+class TestProcessImage:
+    """Test process_image function."""
+    
+    @patch('images.processors.image.run_model_inference')
+    @patch('images.processors.image.add_thumbnail')
+    @patch('images.processors.image.create_dropbox_client')
+    def test_process_image_success(self, mock_create_client, mock_add_thumbnail, mock_inference, image):
+        """Test successful image processing."""
+        from images.processors.image import process_image
+        
+        # Setup mocks
+        mock_dbx = MagicMock()
+        mock_create_client.return_value = mock_dbx
+        
+        # Set image to have thumbnail path
+        image.thumbnail_gcloud_path = "test/path.jpg"
+        image.processed = False
+        image.save()
+        
+        # Mock inference returns
+        mock_inference.side_effect = [None, ["Puma", "Deer"]]
+        
+        # Call function
+        result = process_image(image, dbx=mock_dbx)
+        
+        # Verify image was processed
+        assert result is True
+        image.refresh_from_db()
+        assert image.processed is True
+        assert image.use_precomputed_flags is True
+        assert image.has_cats is True  # Puma detected
+    
+    @patch('images.processors.image.add_thumbnail')
+    @patch('images.processors.image.create_dropbox_client')
+    def test_process_image_no_thumbnail(self, mock_create_client, mock_add_thumbnail, image):
+        """Test image processing when thumbnail creation fails."""
+        from images.processors.image import process_image
+        
+        # Setup mocks
+        mock_dbx = MagicMock()
+        mock_create_client.return_value = mock_dbx
+        
+        # Image has no thumbnail
+        image.thumbnail_gcloud_path = None
+        image.processed = False
+        image.save()
+        
+        # Mock add_thumbnail doesn't set path
+        mock_add_thumbnail.side_effect = lambda img, dbx: None
+        
+        # Call function
+        result = process_image(image, dbx=mock_dbx)
+        
+        # Image should not be processed
+        assert result is False
+    
+    @patch('images.processors.image.run_model_inference')
+    @patch('images.processors.image.add_thumbnail')
+    @patch('images.processors.image.create_dropbox_client')
+    def test_process_image_with_exception(self, mock_create_client, mock_add_thumbnail, mock_inference, image):
+        """Test image processing when inference fails."""
+        from images.processors.image import process_image
+        
+        # Setup mocks
+        mock_dbx = MagicMock()
+        mock_create_client.return_value = mock_dbx
+        
+        # Set image to have thumbnail path
+        image.thumbnail_gcloud_path = "test/path.jpg"
+        image.processed = False
+        image.save()
+        
+        # Mock inference raises exception
+        mock_inference.side_effect = Exception("Inference failed")
+        
+        # Call function
+        result = process_image(image, dbx=mock_dbx)
+        
+        # Image should not be marked as processed
+        image.refresh_from_db()
+        assert image.processed is False

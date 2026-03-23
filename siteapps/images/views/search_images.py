@@ -120,6 +120,13 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
     login_url = settings.LOGIN_URL
     template_name = "images/search_images.html"
     form_class = SearchImagesForm
+    
+    def handle_no_permission(self, request=None):
+        """Override to handle braces compatibility with newer Django versions."""
+        # Django's AccessMixin.handle_no_permission() doesn't take request
+        # but braces passes it, so we accept it optionally and ignore it
+        from django.contrib.auth.mixins import AccessMixin
+        return AccessMixin.handle_no_permission(self)
 
     def post(self, request, *args, **kwargs):
         SPECIES_ANNO_TYPE = "SP"

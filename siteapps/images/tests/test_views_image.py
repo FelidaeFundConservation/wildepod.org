@@ -244,6 +244,92 @@ class TestImageDetailView:
         assert response.status_code == 200
         assert response.context_data["staff_review_needed"] is True
 
+    @patch("images.views.annotation.get_pil_image")
+    @patch("images.models.Image.objects.filter")
+    def test_detail_view_handles_objectdoesnotexist_next(self, mock_filter, mock_get_pil, request_factory, user, image_with_bboxes):
+        """Test detail view handles ObjectDoesNotExist for next_image (lines 49-52)"""
+        from django.core.exceptions import ObjectDoesNotExist
+        from PIL import Image as PILImage
+        
+        mock_image = PILImage.new('RGB', (100, 100), color=(128, 128, 128))
+        mock_get_pil.return_value = mock_image
+        
+        # Make .first() raise ObjectDoesNotExist for next_image query
+        mock_queryset = MagicMock()
+        mock_queryset.first.side_effect = ObjectDoesNotExist()
+        mock_filter.return_value = mock_queryset
+        
+        request = request_factory.get(reverse("images:image", args=[image_with_bboxes.id]))
+        request.user = user
+        response = ImageDetailView.as_view()(request, pk=image_with_bboxes.id)
+        
+        assert response.status_code == 200
+        # Should handle exception gracefully
+
+    @patch("images.views.annotation.get_pil_image")
+    @patch("images.models.Image.objects.filter")
+    def test_detail_view_handles_base_exception_previous(self, mock_filter, mock_get_pil, request_factory, user, image_with_bboxes):
+        """Test detail view handles BaseException for previous_image (lines 57-60)"""
+        from PIL import Image as PILImage
+        
+        mock_image = PILImage.new('RGB', (100, 100), color=(128, 128, 128))
+        mock_get_pil.return_value = mock_image
+        
+        # Make .last() raise BaseException for previous_image query
+        def side_effect_func():
+            # First call is for next_image, second for previous_image
+            if not hasattr(side_effect_func, 'called'):
+                side_effect_func.called = True
+                mock_qs = MagicMock()
+                mock_qs.first.return_value = None
+                return mock_qs
+            else:
+                mock_qs = MagicMock()
+                mock_qs.last.side_effect = Exception("Test exception")
+                return mock_qs
+        
+        mock_filter.side_effect = side_effect_func
+        
+        request = request_factory.get(reverse("images:image", args=[image_with_bboxes.id]))
+        request.user = user
+        response = ImageDetailView.as_view()(request, pk=image_with_bboxes.id)
+        
+        assert response.status_code == 200
+        # Should handle exception gracefully
+
+    @patch("images.views.annotation.get_pil_image")
+    @patch("images.models.BoundingBox.objects.filter")
+    def test_detail_view_handles_bbox_exception(self, mock_bbox_filter, mock_get_pil, request_factory, user, image_with_bboxes):
+        """Test detail view handles exception when fetching bboxes (lines 80-81)"""
+        from PIL import Image as PILImage
+        
+        mock_image = PILImage.new('RGB', (100, 100), color=(128, 128, 128))
+        mock_get_pil.return_value = mock_image
+        
+        # Make the first bbox.filter call (for annotations) raise exception
+        def bbox_side_effect(*args, **kwargs):
+            if not hasattr(bbox_side_effect, 'call_count'):
+                bbox_side_effect.call_count = 0
+            bbox_side_effect.call_count += 1
+            
+            # First call in get_context_data
+            if bbox_side_effect.call_count == 1:
+                return MagicMock()  # Return normally for context["bounding_boxes"]
+            # Second call for gathering annotations
+            elif bbox_side_effect.call_count == 2:
+                raise IndexError("Test exception")
+            else:
+                return MagicMock()
+        
+        mock_bbox_filter.side_effect = bbox_side_effect
+        
+        request = request_factory.get(reverse("images:image", args=[image_with_bboxes.id]))
+        request.user = user
+        response = ImageDetailView.as_view()(request, pk=image_with_bboxes.id)
+        
+        assert response.status_code == 200
+        # Should handle exception gracefully and set bboxes = []
+
 
 # SetImageQueuePartitionView Tests
 # ------------------------------------------------------------------------------
@@ -260,12 +346,57 @@ class TestSetImageQueuePartitionView:
         assert response.status_code == 302
 
     def test_set_partition_with_valid_data(self, request_factory, user):
-        """Simplified test"""
-        assert True
+        """Test setting partition with valid queue"""
+        # Create annotator and queue first
+        annotator, _ = Annotator.objects.get_or_create(type="human", human=user)
+        queue = ImageQueue.objects.create(
+            pipeline_name="Species",
+            assigned_to=annotator,
+            partition=timezone.now()  # Need a valid datetime, not None
+        )
+        
+        new_partition = "2024-01-15 12:00:00"
+        request = request_factory.post(
+            reverse("images:set_queue_partition"),
+            data={"partition": new_partition}
+        )
+        request.user = user
+        response = SetImageQueuePartitionView.as_view()(request)
+        
+        assert response.status_code == 200
+        data = json.loads(response.content)
+        assert data["success"] is True
+        assert data["newPartition"] == new_partition
 
-    def test_set_partition_missing_data(self, request_factory, user):
-        """Simplified test"""
-        assert True
+    def test_set_partition_updated_successfully(self, request_factory, user):
+        """Test partition is actually updated in database"""
+        annotator, _ = Annotator.objects.get_or_create(type="human", human=user)
+        old_partition = timezone.now()
+        queue = ImageQueue.objects.create(
+            pipeline_name="Species",
+            assigned_to=annotator,
+            partition=old_partition
+        )
+        
+        new_partition = "2024-05-20 08:00:00"
+        request = request_factory.post(
+            reverse("images:set_queue_partition"),
+            data={"partition": new_partition}
+        )
+        request.user = user
+        response = SetImageQueuePartitionView.as_view()(request)
+        
+        assert response.status_code == 200
+        data = json.loads(response.content)
+        assert data["success"] is True
+        # The returned newPartition is the actual saved value
+        # Don't compare with the input string since timezone conversion happens
+        assert data["newPartition"] is not None
+        
+        # Verify it was saved to database  
+        queue.refresh_from_db()
+        # Verify the date part matches (time may differ due to timezone)
+        assert queue.partition.strftime("%Y-%m-%d") == "2024-05-20"
 
     def test_create_queue_requires_login(self, request_factory):
         """Test creating precomputed queue requires authentication"""
@@ -332,20 +463,53 @@ class TestPrecomputeImageQueuesView:
         assert response.status_code == 200
         assert response["Content-Type"] == "application/json"
 
-    def test_precompute_with_partition_filter(self, request_factory, user):
-        """Test precomputing with partition filter"""
+    @patch("images.views.image.species_pipeline_query")
+    def test_precompute_with_images_having_timestamps(self, mock_pipeline, request_factory, user, upload_with_images):
+        """Test precomputing when images have trigger_timestamp - covers burst image logic (lines 164-182)"""
+        # Create images with proper timestamps
+        images = list(upload_with_images.images.all())
+        base_time = timezone.now()
+        
+        for i, img in enumerate(images):
+            img.trigger_timestamp = base_time + timedelta(seconds=i*60)
+            img.species_ai_detections = '["Deer"]'
+            img.save()
+        
+        # Mock the pipeline query to return images with timestamps
+        mock_pipeline.return_value = images[:5]  # Return enough images to create at least one queue
+        
         request = request_factory.post(
             reverse("images:precompute_queues"),
-            data={
-                "pipeline": "species",
-                "partition": "2024-01-15 00:00:00"
-            }
+            data={"pipeline": "species"}
         )
         request.user = user
         
         response = PrecomputeImageQueuesView.as_view()(request)
         
         assert response.status_code == 200
+        data = json.loads(response.content)
+        assert data["success"] is True
+
+    def test_precompute_already_running(self, request_factory, user):
+        """Test precompute when recent queues exist - covers else branch (lines 187-190)"""
+        # Create a recent queue to trigger the "already running" condition
+        recent_queue = ImageQueue.objects.create(
+            pipeline_name="Species",
+            created=timezone.now()  # Recent, so won't be deleted
+        )
+        
+        request = request_factory.post(
+            reverse("images:precompute_queues"),
+            data={"pipeline": "species"}
+        )
+        request.user = user
+        
+        response = PrecomputeImageQueuesView.as_view()(request)
+        
+        assert response.status_code == 200
+        data = json.loads(response.content)
+        assert data["success"] is True
+        assert "already completed or in progress" in data["message"]
 
 
 # Integration Tests

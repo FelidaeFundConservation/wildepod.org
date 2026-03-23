@@ -102,13 +102,10 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             
             # Apply species filter if specified
             if species:
-                # Get species IDs from SpeciesName objects
-                species_ids = [s.species_id for s in species if s.species_id]
-                if species_ids:
-                    # Filter images that have bounding boxes with these species
-                    queryset = queryset.filter(
-                        boundingbox__species__in=species_ids
-                    ).distinct()
+                # Filter images that have bounding boxes with these species
+                queryset = queryset.filter(
+                    boundingbox__species__name__in=species
+                ).distinct()
             
             aggregate_column_name = "upload__camera_station__micro_site__macro_site__name"
             queryset = (

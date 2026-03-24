@@ -120,44 +120,42 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
     login_url = settings.LOGIN_URL
     template_name = "images/search_images.html"
     form_class = SearchImagesForm
-    
+
     def handle_no_permission(self, request=None):
         """Override to handle braces compatibility with newer Django versions."""
         # Django's AccessMixin.handle_no_permission() doesn't take request
         # but braces passes it, so we accept it optionally and ignore it
         from django.contrib.auth.mixins import AccessMixin
+
         return AccessMixin.handle_no_permission(self)
 
     def post(self, request, *args, **kwargs):
-        SPECIES_ANNO_TYPE = "SP"
-        ACTIVITY_ANNO_TYPE = "ACT"
-
         TRIGGER_TIMESTAMP_TYPE = "TT"
         LAST_ANNOTATED_TYPE = "LA"
 
         # Use the form data to retrieve the filter conditions
         macrosites = request.POST.get("macrosites")
-        if macrosites and type(macrosites) != list:
+        if macrosites and not isinstance(macrosites, list):
             macrosites = json.loads(macrosites)
 
         camera_stations = request.POST.get("camera_stations")
-        if camera_stations and type(camera_stations) != list:
+        if camera_stations and not isinstance(camera_stations, list):
             camera_stations = json.loads(camera_stations)
 
         volunteers = request.POST.get("volunteers")
-        if volunteers and type(volunteers) != list:
+        if volunteers and not isinstance(volunteers, list):
             volunteers = json.loads(volunteers)
 
         species = request.POST.get("species")
-        if species and type(species) != list:
+        if species and not isinstance(species, list):
             species = json.loads(species)
 
         species_ai = request.POST.get("species_ai")
-        if species_ai and type(species_ai) != list:
+        if species_ai and not isinstance(species_ai, list):
             species_ai = json.loads(species_ai)
 
         search_type = request.POST.get("search_type")
-        if search_type and type(search_type) != list:
+        if search_type and not isinstance(search_type, list):
             search_type = json.loads(search_type)
 
         date = request.POST.get("date")
@@ -172,8 +170,6 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
         social_media_worthy = request.POST.get("social_media_worthy")
 
         time_filter_type = request.POST.get("time_filter_type")
-
-        annotation_type = request.POST.get("annotation_type")
 
         # Apply filters conditionally
         filterset = Q()

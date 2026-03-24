@@ -2,8 +2,9 @@
 Comprehensive tests for Image views
 Coverage target: images/views/image.py (114 lines, 23.68% -> 70%+)
 """
+
 import json
-from datetime import datetime, timedelta
+from datetime import timedelta
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -11,7 +12,6 @@ from django.contrib.auth.models import AnonymousUser
 from django.test import RequestFactory
 from django.urls import reverse
 from django.utils import timezone
-
 from images.models import (
     Activity,
     ActivityType,
@@ -39,18 +39,12 @@ def request_factory():
 
 @pytest.fixture
 def user(db):
-    return User.objects.create_user(
-        email="test@example.com",
-        password="testpass123"
-    )
+    return User.objects.create_user(email="test@example.com", password="testpass123")
 
 
 @pytest.fixture
 def staff_user(db):
-    user = User.objects.create_user(
-        email="staff@example.com",
-        password="staffpass123"
-    )
+    user = User.objects.create_user(email="staff@example.com", password="staffpass123")
     user.is_staff = True
     user.save()
     return user
@@ -59,19 +53,13 @@ def staff_user(db):
 @pytest.fixture
 def species_name(db):
     """Create a species name for annotations"""
-    return SpeciesName.objects.create(
-        name="White-tailed Deer",
-        scientific_name="Odocoileus virginianus"
-    )
+    return SpeciesName.objects.create(name="White-tailed Deer", scientific_name="Odocoileus virginianus")
 
 
 @pytest.fixture
 def activity_type(db):
     """Create an activity type for annotations"""
-    return ActivityType.objects.create(
-        name="Walking",
-        category="animal"
-    )
+    return ActivityType.objects.create(name="Walking", category="animal")
 
 
 # ImageDetailView Tests
@@ -91,9 +79,10 @@ class TestImageDetailView:
         """Test authenticated user can view image details"""
         # Mock the PIL image to avoid HTTP requests and ensure non-zero luma
         from PIL import Image as PILImage
-        mock_image = PILImage.new('RGB', (100, 100), color=(128, 128, 128))
+
+        mock_image = PILImage.new("RGB", (100, 100), color=(128, 128, 128))
         mock_get_pil.return_value = mock_image
-        
+
         request = request_factory.get(reverse("images:image", args=[image_with_bboxes.id]))
         request.user = user
         response = ImageDetailView.as_view()(request, pk=image_with_bboxes.id)
@@ -104,43 +93,50 @@ class TestImageDetailView:
     def test_detail_view_context_includes_dropbox_prefix(self, mock_get_pil, request_factory, user, image_with_bboxes):
         """Test detail view includes Dropbox URL prefix in context"""
         from PIL import Image as PILImage
-        mock_image = PILImage.new('RGB', (100, 100), color=(128, 128, 128))
+
+        mock_image = PILImage.new("RGB", (100, 100), color=(128, 128, 128))
         mock_get_pil.return_value = mock_image
-        
+
         request = request_factory.get(reverse("images:image", args=[image_with_bboxes.id]))
         request.user = user
         response = ImageDetailView.as_view()(request, pk=image_with_bboxes.id)
-        
+
         assert response.status_code == 200
         assert "dropbox_prefix" in response.context_data
         assert response.context_data["dropbox_prefix"] is not None
 
     @patch("images.views.annotation.get_pil_image")
-    def test_detail_view_context_includes_species_list(self, mock_get_pil, request_factory, user, image_with_bboxes, species_name):
+    def test_detail_view_context_includes_species_list(
+        self, mock_get_pil, request_factory, user, image_with_bboxes, species_name
+    ):
         """Test detail view includes species list for annotations"""
         from PIL import Image as PILImage
-        mock_image = PILImage.new('RGB', (100, 100), color=(128, 128, 128))
+
+        mock_image = PILImage.new("RGB", (100, 100), color=(128, 128, 128))
         mock_get_pil.return_value = mock_image
-        
+
         request = request_factory.get(reverse("images:image", args=[image_with_bboxes.id]))
         request.user = user
         response = ImageDetailView.as_view()(request, pk=image_with_bboxes.id)
-        
+
         assert response.status_code == 200
         assert "species_list" in response.context_data
         assert species_name in response.context_data["species_list"]
 
     @patch("images.views.annotation.get_pil_image")
-    def test_detail_view_context_includes_activity_list(self, mock_get_pil, request_factory, user, image_with_bboxes, activity_type):
+    def test_detail_view_context_includes_activity_list(
+        self, mock_get_pil, request_factory, user, image_with_bboxes, activity_type
+    ):
         """Test detail view includes activity types for annotations"""
         from PIL import Image as PILImage
-        mock_image = PILImage.new('RGB', (100, 100), color=(128, 128, 128))
+
+        mock_image = PILImage.new("RGB", (100, 100), color=(128, 128, 128))
         mock_get_pil.return_value = mock_image
-        
+
         request = request_factory.get(reverse("images:image", args=[image_with_bboxes.id]))
         request.user = user
         response = ImageDetailView.as_view()(request, pk=image_with_bboxes.id)
-        
+
         assert response.status_code == 200
         assert "activity_list" in response.context_data
         assert activity_type in response.context_data["activity_list"]
@@ -149,13 +145,14 @@ class TestImageDetailView:
     def test_detail_view_context_includes_bboxes(self, mock_get_pil, request_factory, user, image_with_bboxes):
         """Test detail view includes bounding boxes"""
         from PIL import Image as PILImage
-        mock_image = PILImage.new('RGB', (100, 100), color=(128, 128, 128))
+
+        mock_image = PILImage.new("RGB", (100, 100), color=(128, 128, 128))
         mock_get_pil.return_value = mock_image
-        
+
         request = request_factory.get(reverse("images:image", args=[image_with_bboxes.id]))
         request.user = user
         response = ImageDetailView.as_view()(request, pk=image_with_bboxes.id)
-        
+
         assert response.status_code == 200
         assert "bounding_boxes" in response.context_data
         bboxes = list(response.context_data["bounding_boxes"])
@@ -165,17 +162,18 @@ class TestImageDetailView:
     def test_detail_view_next_previous_images(self, mock_get_pil, request_factory, user, upload_with_images):
         """Test detail view provides next/previous image navigation"""
         from PIL import Image as PILImage
-        mock_image = PILImage.new('RGB', (100, 100), color=(128, 128, 128))
+
+        mock_image = PILImage.new("RGB", (100, 100), color=(128, 128, 128))
         mock_get_pil.return_value = mock_image
-        
+
         images = list(upload_with_images.images.all().order_by("trigger_timestamp"))
-        
+
         # Test middle image has both next and previous
         middle_image = images[1]
         request = request_factory.get(reverse("images:image", args=[middle_image.id]))
         request.user = user
         response = ImageDetailView.as_view()(request, pk=middle_image.id)
-        
+
         assert response.status_code == 200
         # Context should include next/previous if they exist
         # (implementation may vary based on actual code)
@@ -184,13 +182,14 @@ class TestImageDetailView:
     def test_detail_view_with_annotated_image(self, mock_get_pil, request_factory, user, annotated_image):
         """Test detail view with fully annotated image"""
         from PIL import Image as PILImage
-        mock_image = PILImage.new('RGB', (100, 100), color=(128, 128, 128))
+
+        mock_image = PILImage.new("RGB", (100, 100), color=(128, 128, 128))
         mock_get_pil.return_value = mock_image
-        
+
         request = request_factory.get(reverse("images:image", args=[annotated_image.id]))
         request.user = user
         response = ImageDetailView.as_view()(request, pk=annotated_image.id)
-        
+
         assert response.status_code == 200
         assert "bbox_all_annotations" in response.context_data
         bbox_annotations = response.context_data["bbox_all_annotations"]
@@ -200,13 +199,14 @@ class TestImageDetailView:
     def test_detail_view_luma_adjustment(self, mock_get_pil, request_factory, user, image_with_bboxes):
         """Test detail view includes luma adjustment calculation"""
         from PIL import Image as PILImage
-        mock_image = PILImage.new('RGB', (100, 100), color=(128, 128, 128))
+
+        mock_image = PILImage.new("RGB", (100, 100), color=(128, 128, 128))
         mock_get_pil.return_value = mock_image
-        
+
         request = request_factory.get(reverse("images:image", args=[image_with_bboxes.id]))
         request.user = user
         response = ImageDetailView.as_view()(request, pk=image_with_bboxes.id)
-        
+
         assert response.status_code == 200
         assert "luma_adjustment" in response.context_data
 
@@ -214,16 +214,17 @@ class TestImageDetailView:
     def test_detail_view_social_media_flags(self, mock_get_pil, request_factory, user, image_with_bboxes):
         """Test detail view includes social media worthy flag"""
         from PIL import Image as PILImage
-        mock_image = PILImage.new('RGB', (100, 100), color=(128, 128, 128))
+
+        mock_image = PILImage.new("RGB", (100, 100), color=(128, 128, 128))
         mock_get_pil.return_value = mock_image
-        
+
         image_with_bboxes.social_media_worthy = 1
         image_with_bboxes.save()
-        
+
         request = request_factory.get(reverse("images:image", args=[image_with_bboxes.id]))
         request.user = user
         response = ImageDetailView.as_view()(request, pk=image_with_bboxes.id)
-        
+
         assert response.status_code == 200
         assert response.context_data["social_media_worthy"] == 1
 
@@ -231,54 +232,59 @@ class TestImageDetailView:
     def test_detail_view_staff_review_flag(self, mock_get_pil, request_factory, user, image_with_bboxes):
         """Test detail view includes staff review needed flag"""
         from PIL import Image as PILImage
-        mock_image = PILImage.new('RGB', (100, 100), color=(128, 128, 128))
+
+        mock_image = PILImage.new("RGB", (100, 100), color=(128, 128, 128))
         mock_get_pil.return_value = mock_image
-        
+
         image_with_bboxes.staff_review_needed = True
         image_with_bboxes.save()
-        
+
         request = request_factory.get(reverse("images:image", args=[image_with_bboxes.id]))
         request.user = user
         response = ImageDetailView.as_view()(request, pk=image_with_bboxes.id)
-        
+
         assert response.status_code == 200
         assert response.context_data["staff_review_needed"] is True
 
     @patch("images.views.annotation.get_pil_image")
     @patch("images.models.Image.objects.filter")
-    def test_detail_view_handles_objectdoesnotexist_next(self, mock_filter, mock_get_pil, request_factory, user, image_with_bboxes):
+    def test_detail_view_handles_objectdoesnotexist_next(
+        self, mock_filter, mock_get_pil, request_factory, user, image_with_bboxes
+    ):
         """Test detail view handles ObjectDoesNotExist for next_image (lines 49-52)"""
         from django.core.exceptions import ObjectDoesNotExist
         from PIL import Image as PILImage
-        
-        mock_image = PILImage.new('RGB', (100, 100), color=(128, 128, 128))
+
+        mock_image = PILImage.new("RGB", (100, 100), color=(128, 128, 128))
         mock_get_pil.return_value = mock_image
-        
+
         # Make .first() raise ObjectDoesNotExist for next_image query
         mock_queryset = MagicMock()
         mock_queryset.first.side_effect = ObjectDoesNotExist()
         mock_filter.return_value = mock_queryset
-        
+
         request = request_factory.get(reverse("images:image", args=[image_with_bboxes.id]))
         request.user = user
         response = ImageDetailView.as_view()(request, pk=image_with_bboxes.id)
-        
+
         assert response.status_code == 200
         # Should handle exception gracefully
 
     @patch("images.views.annotation.get_pil_image")
     @patch("images.models.Image.objects.filter")
-    def test_detail_view_handles_base_exception_previous(self, mock_filter, mock_get_pil, request_factory, user, image_with_bboxes):
+    def test_detail_view_handles_base_exception_previous(
+        self, mock_filter, mock_get_pil, request_factory, user, image_with_bboxes
+    ):
         """Test detail view handles BaseException for previous_image (lines 57-60)"""
         from PIL import Image as PILImage
-        
-        mock_image = PILImage.new('RGB', (100, 100), color=(128, 128, 128))
+
+        mock_image = PILImage.new("RGB", (100, 100), color=(128, 128, 128))
         mock_get_pil.return_value = mock_image
-        
+
         # Make .last() raise BaseException for previous_image query
         def side_effect_func():
             # First call is for next_image, second for previous_image
-            if not hasattr(side_effect_func, 'called'):
+            if not hasattr(side_effect_func, "called"):
                 side_effect_func.called = True
                 mock_qs = MagicMock()
                 mock_qs.first.return_value = None
@@ -287,31 +293,33 @@ class TestImageDetailView:
                 mock_qs = MagicMock()
                 mock_qs.last.side_effect = Exception("Test exception")
                 return mock_qs
-        
+
         mock_filter.side_effect = side_effect_func
-        
+
         request = request_factory.get(reverse("images:image", args=[image_with_bboxes.id]))
         request.user = user
         response = ImageDetailView.as_view()(request, pk=image_with_bboxes.id)
-        
+
         assert response.status_code == 200
         # Should handle exception gracefully
 
     @patch("images.views.annotation.get_pil_image")
     @patch("images.models.BoundingBox.objects.filter")
-    def test_detail_view_handles_bbox_exception(self, mock_bbox_filter, mock_get_pil, request_factory, user, image_with_bboxes):
+    def test_detail_view_handles_bbox_exception(
+        self, mock_bbox_filter, mock_get_pil, request_factory, user, image_with_bboxes
+    ):
         """Test detail view handles exception when fetching bboxes (lines 80-81)"""
         from PIL import Image as PILImage
-        
-        mock_image = PILImage.new('RGB', (100, 100), color=(128, 128, 128))
+
+        mock_image = PILImage.new("RGB", (100, 100), color=(128, 128, 128))
         mock_get_pil.return_value = mock_image
-        
+
         # Make the first bbox.filter call (for annotations) raise exception
         def bbox_side_effect(*args, **kwargs):
-            if not hasattr(bbox_side_effect, 'call_count'):
+            if not hasattr(bbox_side_effect, "call_count"):
                 bbox_side_effect.call_count = 0
             bbox_side_effect.call_count += 1
-            
+
             # First call in get_context_data
             if bbox_side_effect.call_count == 1:
                 return MagicMock()  # Return normally for context["bounding_boxes"]
@@ -320,13 +328,13 @@ class TestImageDetailView:
                 raise IndexError("Test exception")
             else:
                 return MagicMock()
-        
+
         mock_bbox_filter.side_effect = bbox_side_effect
-        
+
         request = request_factory.get(reverse("images:image", args=[image_with_bboxes.id]))
         request.user = user
         response = ImageDetailView.as_view()(request, pk=image_with_bboxes.id)
-        
+
         assert response.status_code == 200
         # Should handle exception gracefully and set bboxes = []
 
@@ -337,10 +345,7 @@ class TestImageDetailView:
 class TestSetImageQueuePartitionView:
     def test_set_partition_requires_login(self, request_factory):
         """Test setting queue partition requires authentication"""
-        request = request_factory.post(
-            reverse("images:set_queue_partition"),
-            data={"partition": "20240101"}
-        )
+        request = request_factory.post(reverse("images:set_queue_partition"), data={"partition": "20240101"})
         request.user = AnonymousUser()
         response = SetImageQueuePartitionView.as_view()(request)
         assert response.status_code == 302
@@ -349,20 +354,15 @@ class TestSetImageQueuePartitionView:
         """Test setting partition with valid queue"""
         # Create annotator and queue first
         annotator, _ = Annotator.objects.get_or_create(type="human", human=user)
-        queue = ImageQueue.objects.create(
-            pipeline_name="Species",
-            assigned_to=annotator,
-            partition=timezone.now()  # Need a valid datetime, not None
+        ImageQueue.objects.create(
+            pipeline_name="Species", assigned_to=annotator, partition=timezone.now()  # Need a valid datetime, not None
         )
-        
+
         new_partition = "2024-01-15 12:00:00"
-        request = request_factory.post(
-            reverse("images:set_queue_partition"),
-            data={"partition": new_partition}
-        )
+        request = request_factory.post(reverse("images:set_queue_partition"), data={"partition": new_partition})
         request.user = user
         response = SetImageQueuePartitionView.as_view()(request)
-        
+
         assert response.status_code == 200
         data = json.loads(response.content)
         assert data["success"] is True
@@ -372,38 +372,28 @@ class TestSetImageQueuePartitionView:
         """Test partition is actually updated in database"""
         annotator, _ = Annotator.objects.get_or_create(type="human", human=user)
         old_partition = timezone.now()
-        queue = ImageQueue.objects.create(
-            pipeline_name="Species",
-            assigned_to=annotator,
-            partition=old_partition
-        )
-        
+        queue = ImageQueue.objects.create(pipeline_name="Species", assigned_to=annotator, partition=old_partition)
+
         new_partition = "2024-05-20 08:00:00"
-        request = request_factory.post(
-            reverse("images:set_queue_partition"),
-            data={"partition": new_partition}
-        )
+        request = request_factory.post(reverse("images:set_queue_partition"), data={"partition": new_partition})
         request.user = user
         response = SetImageQueuePartitionView.as_view()(request)
-        
+
         assert response.status_code == 200
         data = json.loads(response.content)
         assert data["success"] is True
         # The returned newPartition is the actual saved value
         # Don't compare with the input string since timezone conversion happens
         assert data["newPartition"] is not None
-        
-        # Verify it was saved to database  
+
+        # Verify it was saved to database
         queue.refresh_from_db()
         # Verify the date part matches (time may differ due to timezone)
         assert queue.partition.strftime("%Y-%m-%d") == "2024-05-20"
 
     def test_create_queue_requires_login(self, request_factory):
         """Test creating precomputed queue requires authentication"""
-        request = request_factory.post(
-            reverse("images:create_precomputed_queue"),
-            data={"queue_type": "species"}
-        )
+        request = request_factory.post(reverse("images:create_precomputed_queue"), data={"queue_type": "species"})
         request.user = AnonymousUser()
         response = CreatePrecomputedQueueView.as_view()(request)
         assert response.status_code == 302
@@ -412,27 +402,24 @@ class TestSetImageQueuePartitionView:
         """Test creating queue with valid queue type"""
         request = request_factory.post(
             reverse("images:create_precomputed_queue"),
-            data={"queue_type": "species", "partition": "2024-01-15 00:00:00"}
+            data={"queue_type": "species", "partition": "2024-01-15 00:00:00"},
         )
         request.user = user
-        
+
         response = CreatePrecomputedQueueView.as_view()(request)
-        
+
         assert response.status_code == 200
         assert response["Content-Type"] == "application/json"
 
     def test_create_queue_invalid_type(self, request_factory, user):
         """Test creating queue with invalid queue type"""
-        request = request_factory.post(
-            reverse("images:create_precomputed_queue"),
-            data={"queue_type": "invalid_type"}
-        )
+        request = request_factory.post(reverse("images:create_precomputed_queue"), data={"queue_type": "invalid_type"})
         request.user = user
-        
+
         response = CreatePrecomputedQueueView.as_view()(request)
-        
+
         assert response.status_code == 200
-        data = json.loads(response.content)
+        json.loads(response.content)
         # Should handle invalid type gracefully
 
 
@@ -442,24 +429,18 @@ class TestSetImageQueuePartitionView:
 class TestPrecomputeImageQueuesView:
     def test_precompute_requires_login(self, request_factory):
         """Test precomputing queues requires authentication"""
-        request = request_factory.post(
-            reverse("images:precompute_queues"),
-            data={}
-        )
+        request = request_factory.post(reverse("images:precompute_queues"), data={})
         request.user = AnonymousUser()
         response = PrecomputeImageQueuesView.as_view()(request)
         assert response.status_code == 302
 
     def test_precompute_queues_successful(self, request_factory, user):
         """Test precomputing image queues"""
-        request = request_factory.post(
-            reverse("images:precompute_queues"),
-            data={"pipeline": "species"}
-        )
+        request = request_factory.post(reverse("images:precompute_queues"), data={"pipeline": "species"})
         request.user = user
-        
+
         response = PrecomputeImageQueuesView.as_view()(request)
-        
+
         assert response.status_code == 200
         assert response["Content-Type"] == "application/json"
 
@@ -469,23 +450,20 @@ class TestPrecomputeImageQueuesView:
         # Create images with proper timestamps
         images = list(upload_with_images.images.all())
         base_time = timezone.now()
-        
+
         for i, img in enumerate(images):
-            img.trigger_timestamp = base_time + timedelta(seconds=i*60)
+            img.trigger_timestamp = base_time + timedelta(seconds=i * 60)
             img.species_ai_detections = '["Deer"]'
             img.save()
-        
+
         # Mock the pipeline query to return images with timestamps
         mock_pipeline.return_value = images[:5]  # Return enough images to create at least one queue
-        
-        request = request_factory.post(
-            reverse("images:precompute_queues"),
-            data={"pipeline": "species"}
-        )
+
+        request = request_factory.post(reverse("images:precompute_queues"), data={"pipeline": "species"})
         request.user = user
-        
+
         response = PrecomputeImageQueuesView.as_view()(request)
-        
+
         assert response.status_code == 200
         data = json.loads(response.content)
         assert data["success"] is True
@@ -493,19 +471,13 @@ class TestPrecomputeImageQueuesView:
     def test_precompute_already_running(self, request_factory, user):
         """Test precompute when recent queues exist - covers else branch (lines 187-190)"""
         # Create a recent queue to trigger the "already running" condition
-        recent_queue = ImageQueue.objects.create(
-            pipeline_name="Species",
-            created=timezone.now()  # Recent, so won't be deleted
-        )
-        
-        request = request_factory.post(
-            reverse("images:precompute_queues"),
-            data={"pipeline": "species"}
-        )
+        ImageQueue.objects.create(pipeline_name="Species", created=timezone.now())  # Recent, so won't be deleted
+
+        request = request_factory.post(reverse("images:precompute_queues"), data={"pipeline": "species"})
         request.user = user
-        
+
         response = PrecomputeImageQueuesView.as_view()(request)
-        
+
         assert response.status_code == 200
         data = json.loads(response.content)
         assert data["success"] is True
@@ -517,32 +489,33 @@ class TestPrecomputeImageQueuesView:
 @pytest.mark.django_db
 class TestImageViewsIntegration:
     """Integration tests for image view workflows"""
-    
+
     @patch("images.views.annotation.get_pil_image")
-    def test_image_detail_to_annotation_workflow(self, mock_pil, request_factory, user, image_with_bboxes, species_name):
+    def test_image_detail_to_annotation_workflow(
+        self, mock_pil, request_factory, user, image_with_bboxes, species_name
+    ):
         """Simplified test"""
         assert True
 
     def test_image_queue_creation_workflow(self, request_factory, user, annotated_image):
         """Test creating and managing image queues"""
-        
+
         # Create a precomputed queue
         create_request = request_factory.post(
             reverse("images:create_precomputed_queue"),
-            data={"queue_type": "species", "partition": "2024-01-15 00:00:00"}
+            data={"queue_type": "species", "partition": "2024-01-15 00:00:00"},
         )
         create_request.user = user
-        
+
         create_response = CreatePrecomputedQueueView.as_view()(create_request)
         assert create_response.status_code == 200
-        
+
         # Set partition
         partition_request = request_factory.post(
-            reverse("images:set_queue_partition"),
-            data={"partition": "2024-01-15 00:00:00"}
+            reverse("images:set_queue_partition"), data={"partition": "2024-01-15 00:00:00"}
         )
         partition_request.user = user
-        
+
         partition_response = SetImageQueuePartitionView.as_view()(partition_request)
         assert partition_response.status_code == 200
 
@@ -562,12 +535,15 @@ class TestImageViewsIntegration:
     def test_image_detail_nonexistent_image(self, request_factory, user):
         """Test viewing non-existent image returns 404"""
         from uuid import uuid4
+
         fake_id = uuid4()
-        
+
         request = request_factory.get(reverse("images:image", args=[fake_id]))
         request.user = user
-        
-        with pytest.raises(Exception):  # Should raise 404 or similar
+
+        from django.http import Http404
+
+        with pytest.raises(Http404):  # Should raise 404
             ImageDetailView.as_view()(request, pk=fake_id)
 
     @patch("images.views.annotation.get_pil_image")
@@ -578,25 +554,21 @@ class TestImageViewsIntegration:
     def test_queue_creation_with_empty_partition(self, request_factory, user):
         """Test queue creation with empty pa        rtition string"""
         request = request_factory.post(
-            reverse("images:create_precomputed_queue"),
-            data={"queue_type": "species", "partition": ""}
+            reverse("images:create_precomputed_queue"), data={"queue_type": "species", "partition": ""}
         )
         request.user = user
-        
+
         response = CreatePrecomputedQueueView.as_view()(request)
-        
+
         assert response.status_code == 200
         # Should handle gracefully
 
     def test_precompute_without_pipeline(self, request_factory, user):
         """Test precompute without specifying pipeline"""
-        request = request_factory.post(
-            reverse("images:precompute_queues"),
-            data={}
-        )
+        request = request_factory.post(reverse("images:precompute_queues"), data={})
         request.user = user
-        
+
         response = PrecomputeImageQueuesView.as_view()(request)
-        
+
         assert response.status_code == 200
         # Should handle missing pipeline parameter

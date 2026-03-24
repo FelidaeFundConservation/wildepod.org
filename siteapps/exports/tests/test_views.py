@@ -2,10 +2,10 @@
 Comprehensive tests for exports/views.py
 Coverage target: 18.95% -> 50%+
 """
+
 import json
-import zipfile
 from datetime import datetime
-from io import BytesIO, StringIO
+from io import StringIO
 from unittest.mock import MagicMock, Mock, PropertyMock, call, patch
 
 import pytest
@@ -14,7 +14,6 @@ from django.contrib.auth.models import AnonymousUser
 from django.test import RequestFactory
 from django.urls import reverse
 from django.utils import timezone
-
 from explore.models import Snapshot
 from exports.views import (
     ExportStartView,
@@ -178,7 +177,7 @@ class TestExportImageData:
         """Test basic image data export"""
         mock_settings.GS_BUCKET_NAME = "test-bucket"
         mock_settings.DROPBOX_URL_PREFIX = "https://dropbox.com"
-        
+
         mock_archive = Mock()
         mock_archive.writestr = Mock()
 
@@ -202,7 +201,7 @@ class TestExportImageData:
         """Test that pagination and cleanup work correctly"""
         mock_settings.GS_BUCKET_NAME = "test-bucket"
         mock_settings.DROPBOX_URL_PREFIX = "https://dropbox.com"
-        
+
         mock_archive = Mock()
         mock_archive.writestr = Mock()
 
@@ -223,7 +222,7 @@ class TestWriteRow:
         """Test writing a single row"""
         mock_settings.GS_BUCKET_NAME = "test-bucket"
         mock_settings.DROPBOX_URL_PREFIX = "https://dropbox.com"
-        
+
         csv_file = StringIO()
         import csv
 
@@ -253,9 +252,7 @@ class TestWriteRow:
 class TestCreateSnapshot:
     @patch("exports.views.export_camera_station_data")
     @patch("exports.views.export_image_data")
-    def test_create_snapshot_success(
-        self, mock_export_image, mock_export_camera, user, macro_site, image_with_data
-    ):
+    def test_create_snapshot_success(self, mock_export_image, mock_export_camera, user, macro_site, image_with_data):
         """Test successful snapshot creation"""
         data = {
             "user": user.pk,
@@ -324,7 +321,10 @@ class TestPortalExport:
         mock_connection.cursor.return_value.__enter__.return_value = mock_cursor
 
         results = portal_export(
-            macrosite_param="Test Site", station_id_param="CAM001", start_date_param="2024-01-01", end_date_param="2024-12-31"
+            macrosite_param="Test Site",
+            station_id_param="CAM001",
+            start_date_param="2024-01-01",
+            end_date_param="2024-12-31",
         )
 
         # Verify stored procedure was called
@@ -361,7 +361,7 @@ class TestExecuteExportQuerySql:
         mock_cursor.fetchall.return_value = [("result1",)]
         mock_connection.cursor.return_value.__enter__.return_value = mock_cursor
 
-        results = execute_export_query_sql(macrosite_param="Test Site", start_date_param="2024-01-01")
+        execute_export_query_sql(macrosite_param="Test Site", start_date_param="2024-01-01")
 
         # Verify SQL was modified with WHERE clause
         assert mock_cursor.execute.called
@@ -380,7 +380,7 @@ class TestExecuteExportQuerySql:
         mock_cursor.fetchall.return_value = []
         mock_connection.cursor.return_value.__enter__.return_value = mock_cursor
 
-        results = execute_export_query_sql()
+        execute_export_query_sql()
 
         # Should execute without WHERE clause
         assert mock_cursor.execute.called
@@ -399,7 +399,33 @@ class TestExportImageDataSql:
 
         # Mock SQL query results
         test_rows = [
-            ("img1", "hash1", "file1.jpg", "thumb1", "link1", "2024-01-01", 27.5, 89.5, False, "CAM001", "micro", "macro", "2024-01-01", "volunteer", "folder", 5, 1, 2, 1, 1, "Animal", 1, 1, 0, "Deer"),
+            (
+                "img1",
+                "hash1",
+                "file1.jpg",
+                "thumb1",
+                "link1",
+                "2024-01-01",
+                27.5,
+                89.5,
+                False,
+                "CAM001",
+                "micro",
+                "macro",
+                "2024-01-01",
+                "volunteer",
+                "folder",
+                5,
+                1,
+                2,
+                1,
+                1,
+                "Animal",
+                1,
+                1,
+                0,
+                "Deer",
+            ),
         ]
 
         export_image_data_sql(mock_archive, test_rows)
@@ -492,9 +518,7 @@ class TestExportStartView:
 
         data = {"user": str(user.pk), "start_date": "2024-01-01", "end_date": "2024-12-31"}
 
-        request = request_factory.post(
-            "/exports/start/", data=json.dumps(data), content_type="application/json"
-        )
+        request = request_factory.post("/exports/start/", data=json.dumps(data), content_type="application/json")
 
         response = ExportStartView.as_view()(request)
 
@@ -512,9 +536,7 @@ class TestExportStartView:
         # The view should work without CSRF token
         data = {"user": 1, "test": "data"}
 
-        request = request_factory.post(
-            "/exports/start/", data=json.dumps(data), content_type="application/json"
-        )
+        request = request_factory.post("/exports/start/", data=json.dumps(data), content_type="application/json")
         # Don't set CSRF token
 
         # Should not raise CSRF error
@@ -538,7 +560,7 @@ class TestExportIntegration:
         mock_settings.GS_BUCKET_NAME = "test-bucket"
         mock_settings.DROPBOX_URL_PREFIX = "https://dropbox.com"
         mock_settings.EXPORT_DATE_FORMAT = "%Y-%m-%d"
-        
+
         # Update image timestamp to match filter
         image_with_data.trigger_timestamp = datetime(2024, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
         image_with_data.save()
@@ -582,7 +604,7 @@ class TestExportIntegration:
         # Get filtered images (mimicking what create_snapshot does)
         start_date = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
         end_date = datetime(2024, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
-        
+
         filterset = {"trigger_timestamp__gte": start_date, "trigger_timestamp__lte": end_date}
         images = Image.objects.filter(**filterset)
 

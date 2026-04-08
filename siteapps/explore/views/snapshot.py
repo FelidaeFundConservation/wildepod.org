@@ -27,6 +27,11 @@ class SnapshotCreateView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
     form_class = CreateSnapshotForm
     success_url = reverse_lazy("explore:data_snapshots")
 
+    def handle_no_permission(self, request=None):
+        from django.contrib.auth.mixins import AccessMixin
+
+        return AccessMixin.handle_no_permission(self)
+
     def post(self, request, *args, **kwargs):
         form = CreateSnapshotForm(request.POST)
 
@@ -89,6 +94,11 @@ class SnapshotListView(LoginRequiredMixin, StaffuserRequiredMixin, ListView):
     login_url = settings.LOGIN_URL
     template_name = "explore/snapshots/list.html"
     model = Snapshot
+
+    def handle_no_permission(self, request=None):
+        from django.contrib.auth.mixins import AccessMixin
+
+        return AccessMixin.handle_no_permission(self)
 
 
 class PreviewSnapshotImagesView(LoginRequiredMixin, View):

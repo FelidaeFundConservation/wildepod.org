@@ -66,6 +66,11 @@ class PriorityView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
     template_name = "explore/set_priority.html"
     form_class = SetPriorityForm
 
+    def handle_no_permission(self, request=None):
+        from django.contrib.auth.mixins import AccessMixin
+
+        return AccessMixin.handle_no_permission(self)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
@@ -171,6 +176,11 @@ class PriorityView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
 class ConfirmUpdateView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
     login_url = settings.LOGIN_URL
     template_name = "explore/set_priority_confirm.html"
+
+    def handle_no_permission(self, request=None):
+        from django.contrib.auth.mixins import AccessMixin
+
+        return AccessMixin.handle_no_permission(self)
 
     def post(self, request, *args, **kwargs):
         model_data = self.request.session.pop("priority_form_data")

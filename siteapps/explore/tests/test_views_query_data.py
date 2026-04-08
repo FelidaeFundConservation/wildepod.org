@@ -208,13 +208,9 @@ class TestSearchDataView:
         client.force_login(user)
         
         url = reverse('explore:query_data')
-        try:
-            response = client.get(url)
-            # Should be forbidden or redirected
-            assert response.status_code in [302, 403, 500]
-        except TypeError:
-            # Handle handle_no_permission signature issue
-            pass
+        response = client.get(url)
+        # Should be forbidden or redirected
+        assert response.status_code in [302, 403]
     
     def test_get_with_staff_user(self, client_logged_in):
         """Test GET with staff user returns form."""

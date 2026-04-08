@@ -573,12 +573,9 @@ class TestTrackVolunteerEngagementView:
         """Test that view requires staff user."""
         client.force_login(regular_user)
         url = reverse("explore:track_volunteer_engagement")
-        
-        # StaffuserRequiredMixin raises exception when non-staff tries to access
-        # We expect a 500 error due to TypeError in handle_no_permission
-        # or a redirect/403 if implemented differently
-        with pytest.raises(TypeError):
-            response = client.get(url)
+        response = client.get(url)
+        # Non-staff users should be redirected or forbidden
+        assert response.status_code in [302, 403]
 
     def test_staff_user_can_access(self, client, staff_user, db):
         """Test that staff user can access view."""

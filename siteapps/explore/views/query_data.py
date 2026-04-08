@@ -67,6 +67,11 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
     template_name = "explore/query_data.html"
     form_class = QueryDataForm
 
+    def handle_no_permission(self, request=None):
+        from django.contrib.auth.mixins import AccessMixin
+
+        return AccessMixin.handle_no_permission(self)
+
     def post(self, request, *args, **kwargs):
         form = QueryDataForm(request.POST)
         results = {}

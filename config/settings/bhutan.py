@@ -5,6 +5,11 @@ import google.cloud.logging
 
 from .base import *  # noqa
 
+# TIMEZONE
+# ------------------------------------------------------------------------------
+# Bhutan Standard Time (UTC+6)
+TIME_ZONE = "Asia/Thimphu"
+
 # HOSTS CONFIG
 # ------------------------------------------------------------------------------
 # NOTE: SECURITY WARNING: App Engine's security features ensure that it is safe to

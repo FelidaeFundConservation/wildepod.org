@@ -10,3 +10,7 @@ dispatch:
   # Route all requests to wildebackyard.com (and its paths) to the default service
   - url: "wildebackyard.com/*"
     service: wildebackyard-web
+
+  # Route all requests to www.wildebackyard.com (and its paths) to the default service
+  - url: "www.wildebackyard.com/*"
+    service: wildebackyard-web

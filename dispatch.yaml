@@ -6,3 +6,7 @@ dispatch:
   # Route all requests to the subdomain bhutan.wildepod.org to the bhutan service
   - url: "bhutan.wildepod.org/*"
     service: bhutan
+
+  # Route all requests to wildebackyard.com (and its paths) to the default service
+  - url: "wildebackyard.com/*"
+    service: wildebackyard-web

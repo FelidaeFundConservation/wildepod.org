@@ -83,6 +83,7 @@
 
 
     let lastDate;
+    const visitedImages = new Set();
 
      function addDateRangeButton(){
         const options = { year: 'numeric', month: 'short', day: 'numeric' };
@@ -144,6 +145,18 @@
     $(document).ready(function () {
         addHourButtons();
         $('#results-table').DataTable();
+
+        $('#results-table').on('draw.dt', function() {
+            visitedImages.forEach(id => {
+                $(`[data-image-id="${id}"] img`).css('outline', '5px solid orange');
+            });
+        });
+
+        $(document).on('click', '[data-image-id]', function() {
+            const imageId = $(this).data('image-id');
+            visitedImages.add(imageId);
+            $(this).find('img').css('outline', '5px solid orange');
+        });
     });
 
 
@@ -217,6 +230,7 @@
     function queryImages(date, hour){
         var resultsBody = $("#results-body");
         $("#result-count").text("0");
+        visitedImages.clear();
         $("#results-table").DataTable().clear().draw();
         resultsBody.empty();
         resultsBody.append(`
@@ -283,7 +297,7 @@
                     macrosite,
                     cameraStation,
                     `
-                    <a href="/images/image/${imageId}" target="_blank">
+                    <a href="/images/image/${imageId}" target="_blank" data-image-id="${imageId}">
                         <img class="w-100" src="{% get_media_prefix %}${thumbnail}" alt="Thumbnail" loading="lazy">
                     </a>
                     `

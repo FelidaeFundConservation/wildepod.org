@@ -25,6 +25,7 @@
         </button>
         <label style="font-size: 12px; margin-bottom: 8px">&nbsp;Social Media Worthy? ({{ image.social_media_worthy }})</label>
         <br>
+        {% if user.is_staff %}
         <input class="form-check-input"
                type="checkbox"
                {% if image.staff_review_needed %}checked="checked"{% endif %}
@@ -32,6 +33,7 @@
         <label class="form-check-label"
                for="staff-review-needed"
                style="font-size: 14px">&nbsp; Flag for Staff Review?</label>
+        {% endif %}
         <br>
         {% if user.is_staff %}
             <input class="form-check-input"

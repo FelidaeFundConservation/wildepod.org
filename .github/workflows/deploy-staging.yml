@@ -6,7 +6,7 @@ on:
 
 env:
   GCP_PROJECT_ID: wildepod-339517
-  STAGING_DB_INSTANCE: wildepod-339517:us-central1:wildepod-staging-db
+  STAGING_DB_INSTANCE: wildepod-339517:us-west2:wildepoddb
   STAGING_DB_PORT: 5440
   # Name of the Django settings secret in GCP Secret Manager for staging
   STAGING_SETTINGS_NAME: django_settings

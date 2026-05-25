@@ -34,7 +34,7 @@ jobs:
         run: uv sync --extra dev
 
       - name: Run tests
-        run: uv run pytest --settings=config.settings.ci
+        run: uv run pytest
 
       - name: Run flake8
         run: uv run flake8

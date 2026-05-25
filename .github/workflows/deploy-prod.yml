@@ -1,0 +1,132 @@
+name: Deploy to Prod / Bhutan
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy"
+        required: true
+        type: choice
+        options:
+          - prod
+          - bhutan
+      run_migrations:
+        description: "Run database migrations after deploy"
+        required: true
+        type: boolean
+        default: true
+
+env:
+  GCP_PROJECT_ID: wildepod-339517
+  DB_PORT: 5440
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.ci
+      DJANGO_CI_MODE: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Install sass
+        run: npm install -g sass
+
+      - name: Compile SASS
+        run: sass --style compressed ./siteapps/static/scss/main.scss:./siteapps/static/css/main.css
+
+      - name: Regenerate requirements.txt
+        run: uv export --no-hashes -o requirements.txt
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Collect static files
+        run: uv run python manage.py collectstatic --noinput --settings=config.settings.ci
+
+      - name: Deploy to App Engine
+        run: gcloud app deploy ${{ inputs.environment }}.yaml --quiet --project=${{ env.GCP_PROJECT_ID }}
+
+  migrate:
+    name: Run Migrations (${{ inputs.environment }})
+    needs: deploy
+    if: ${{ inputs.run_migrations }}
+    runs-on: ubuntu-latest
+    env:
+      GOOGLE_CLOUD_PROJECT: wildepod-339517
+      USE_CLOUD_SQL_AUTH_PROXY: "True"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Resolve DB config for ${{ inputs.environment }}
+        id: db-config
+        run: |
+          if [ "${{ inputs.environment }}" = "prod" ]; then
+            echo "instance=wildepod-339517:us-central1:wildepod-prod-db" >> $GITHUB_OUTPUT
+            echo "settings=config.settings.prod" >> $GITHUB_OUTPUT
+            echo "settings_name=django_settings" >> $GITHUB_OUTPUT
+          else
+            echo "instance=wildepod-339517:us-central1:wildepod-bhutan-db" >> $GITHUB_OUTPUT
+            echo "settings=config.settings.bhutan" >> $GITHUB_OUTPUT
+            echo "settings_name=django_settings" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download Cloud SQL Proxy
+        run: |
+          curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.1/cloud-sql-proxy.linux.amd64
+          chmod +x cloud-sql-proxy
+
+      - name: Start Cloud SQL Proxy
+        run: |
+          ./cloud-sql-proxy --port=${{ env.DB_PORT }} ${{ steps.db-config.outputs.instance }} &
+          sleep 3
+
+      - name: Run migrations
+        env:
+          SETTINGS_NAME: ${{ steps.db-config.outputs.settings_name }}
+        run: |
+          uv run python manage.py migrate --settings=${{ steps.db-config.outputs.settings }} 2>&1 | tee migration_output.txt
+
+      - name: Write migration summary
+        if: always()
+        run: |
+          echo "## ${{ inputs.environment }} Migrations" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat migration_output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

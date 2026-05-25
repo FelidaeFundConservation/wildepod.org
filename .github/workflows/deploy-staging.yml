@@ -1,0 +1,135 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [main]
+
+env:
+  GCP_PROJECT_ID: wildepod-339517
+  STAGING_DB_INSTANCE: wildepod-339517:us-central1:wildepod-staging-db
+  STAGING_DB_PORT: 5440
+  # Name of the Django settings secret in GCP Secret Manager for staging
+  STAGING_SETTINGS_NAME: django_settings
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.ci
+      DJANGO_CI_MODE: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run tests
+        run: uv run pytest --settings=config.settings.ci
+
+      - name: Run flake8
+        run: uv run flake8
+
+  deploy:
+    name: Deploy to Staging
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.ci
+      DJANGO_CI_MODE: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Install sass
+        run: npm install -g sass
+
+      - name: Compile SASS
+        run: sass --style compressed ./siteapps/static/scss/main.scss:./siteapps/static/css/main.css
+
+      - name: Regenerate requirements.txt
+        run: uv export --no-hashes -o requirements.txt
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Collect static files
+        run: uv run python manage.py collectstatic --noinput --settings=config.settings.ci
+
+      - name: Deploy to App Engine
+        run: gcloud app deploy staging.yaml --quiet --project=${{ env.GCP_PROJECT_ID }}
+
+  migrate:
+    name: Run Migrations
+    needs: deploy
+    runs-on: ubuntu-latest
+    env:
+      GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_PROJECT_ID || 'wildepod-339517' }}
+      USE_CLOUD_SQL_AUTH_PROXY: "True"
+      SETTINGS_NAME: ${{ vars.STAGING_SETTINGS_NAME || 'django_settings' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Download Cloud SQL Proxy
+        run: |
+          curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.1/cloud-sql-proxy.linux.amd64
+          chmod +x cloud-sql-proxy
+
+      - name: Start Cloud SQL Proxy
+        run: |
+          ./cloud-sql-proxy --port=${{ env.STAGING_DB_PORT }} ${{ env.STAGING_DB_INSTANCE }} &
+          sleep 3
+
+      - name: Run migrations
+        run: |
+          uv run python manage.py migrate --settings=config.settings.staging 2>&1 | tee migration_output.txt
+
+      - name: Write migration summary
+        if: always()
+        run: |
+          echo "## Staging Migrations" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat migration_output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

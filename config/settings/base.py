@@ -33,6 +33,7 @@ env_file = ROOT_DIR / ".env"
 # Detect if running in google cloud vs locally by checking for GCP environment variables
 # K_SERVICE is set on Cloud Run, GAE_ENV is set on App Engine
 RUNNING_ON_APP_ENGINE = os.environ.get("GAE_ENV")
+RUNNING_IN_CI = os.environ.get("DJANGO_CI_MODE", "")
 
 # Check if running with local settings (no GCP dependencies)
 USING_LOCAL_SETTINGS = os.environ.get("DJANGO_SETTINGS_MODULE", "").endswith(".local")
@@ -46,12 +47,15 @@ if RUNNING_ON_APP_ENGINE and USING_LOCAL_SETTINGS:
 # ------------------------------------------------------------------------------
 # Load environment variables from .env file or Google secret manager
 # When running locally with local settings, we use the .env file and skip Secret Manager.
+# In CI (GitHub Actions sets CI=true), env vars are injected directly by the workflow.
 # In all other cases, (i.e. deployed to cloud, running locally with staging/prod settings) we use Secret Manager.
 if USING_LOCAL_SETTINGS and not RUNNING_ON_APP_ENGINE:
     if env_file.is_file():
         env.read_env(env_file)
     else:
         raise ValueError("Local environment file not found. Please create a .env file in the root directory.")
+elif RUNNING_IN_CI:
+    pass  # env vars are set directly by the GitHub Actions workflow
 else:
     if env("GOOGLE_CLOUD_PROJECT"):
         # Get project id & start a google secret manager client
@@ -71,7 +75,7 @@ else:
 # GENERAL
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#secret-key
-SECRET_KEY = env("DJANGO_SECRET_KEY")
+SECRET_KEY = env("DJANGO_SECRET_KEY", default="insecure-ci-key-do-not-use-in-production")
 # DEBUG MODE
 DEBUG = False
 # Local time zone. Choices are
@@ -324,11 +328,11 @@ SPECIES_DETECTOR_URL = env("SPECIES_DETECTOR_URL", default=None)
 MODEL_STORAGE_BUCKET = env("GS_MODELS_BUCKET_NAME", default=None)
 MIN_MEGADETECTOR_CONFIDENCE = 0.25
 
-# Initialize a Datastore client (only for non-local environments)
-if not USING_LOCAL_SETTINGS:
+# Initialize a Datastore client (only for non-local, non-CI environments)
+if not USING_LOCAL_SETTINGS and not RUNNING_IN_CI:
     DATASTORE_CLIENT = datastore.Client(env("GOOGLE_CLOUD_PROJECT"))
 else:
-    DATASTORE_CLIENT = None  # Local development doesn't use Datastore
+    DATASTORE_CLIENT = None  # Local development and CI don't use Datastore
 
 ANNOTATION_QUEUE_SIZE = 100
 ANNOTATION_EXPIRATION_MINS = 60  # minutes

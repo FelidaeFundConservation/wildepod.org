@@ -3,6 +3,7 @@
 from .base import *  # noqa
 
 DEBUG = True
+WSGI_APPLICATION = "config.wsgi.staging.application"
 
 DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}}
 

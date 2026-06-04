@@ -13,52 +13,27 @@ from .image import Annotator, Image
 
 class BaseAnnotationManager(models.Manager):
     """
-    Base Manager to annotate objects with certainty
+    Base Manager that filters annotations by the stored `validity` field.
+    The field is populated by compute_validity() in processors/annotation.py
+    and persisted by calculate*AnnotationFlags in views/annotation.py.
+
+    annotated() is kept as a passthrough so subclasses (BoundingBoxManager)
+    can chain additional annotations on top via super().annotated().
     """
 
     def annotated(self):
-        # Combining multiple aggregations with annotate() will yield the wrong results because joins are used instead of subqueries
-        # https://docs.djangoproject.com/en/4.0/topics/db/aggregation/#combining-multiple-aggregations
-        return self.annotate(
-            keep=ExpressionWrapper(Q(confidence__gte=F("confidence_threshold")), output_field=models.BooleanField()),
-            num_accepted=Coalesce(Count("accepted_by", distinct=True), 0),
-            num_rejected=Coalesce(Count("rejected_by", distinct=True), 0),
-            vote_diff=F("num_accepted") - F("num_rejected"),
-            voted_valid=ExpressionWrapper(
-                Q(vote_diff__gte=settings.NUM_ACCEPTS_OVER_REJECTS),
-                output_field=models.BooleanField(),
-            ),
-            voted_invalid=ExpressionWrapper(
-                Q(vote_diff__lte=-settings.NUM_ACCEPTS_OVER_REJECTS), output_field=models.BooleanField()
-            ),
-            vote_uncertain=ExpressionWrapper(
-                Q(vote_diff__lt=settings.NUM_ACCEPTS_OVER_REJECTS)
-                & Q(vote_diff__gt=-settings.NUM_ACCEPTS_OVER_REJECTS),
-                output_field=models.BooleanField(),
-            ),
-            is_staff_vote=ExpressionWrapper(
-                Exists(
-                    BoundingBox.objects.filter(
-                        Exists(
-                            Annotator.objects.filter(
-                                Q(human__is_staff=True) | Q(human__is_expert=True), accepted_annotation=OuterRef("pk")
-                            )
-                        ),
-                        image=OuterRef("image"),
-                    )
-                ),
-                output_field=models.BooleanField(),
-            ),
-        )
-
-    def uncertain(self):
-        return self.annotated().filter(Q(vote_uncertain=True) & Q(is_staff_vote=False), keep=True)
+        # No-op now that validity is stored on the model. Subclasses may
+        # extend with additional .annotate() calls.
+        return self.get_queryset()
 
     def valid(self):
-        return self.annotated().filter(Q(voted_valid=True) | Q(is_staff_vote=True), keep=True)
+        return self.filter(validity="VALID")
+
+    def uncertain(self):
+        return self.filter(validity="UNCERTAIN")
 
     def valid_or_uncertain(self):
-        return self.annotated().filter(Q(voted_valid=True) | Q(vote_uncertain=True), keep=True)
+        return self.filter(validity__in=["VALID", "UNCERTAIN"])
 
 
 # Certainty annotations for bounding boxes
@@ -128,22 +103,34 @@ class BoundingBoxManager(BaseAnnotationManager):
 
 # Certainty annotations for categories
 class CategoryManager(BaseAnnotationManager):
-    # Override the default methods
+    # Add ordering. The previous `vote_diff` ordering is dropped because the
+    # weighted score is no longer materialized on the queryset; confidence and
+    # timestamps remain useful tiebreakers.
     def valid(self):
-        return super().valid().order_by("-vote_diff", "-confidence", "-created", "-modified")
+        return super().valid().order_by("-confidence", "-created", "-modified")
 
     def valid_or_uncertain(self):
-        return super().valid_or_uncertain().order_by("-vote_diff", "-confidence", "-created", "-modified")
+        return super().valid_or_uncertain().order_by("-confidence", "-created", "-modified")
 
 
 # Certainty annotations for activites
 class ActivityManager(BaseAnnotationManager):
-    # Override the default methods
     def valid(self):
-        return super().valid().order_by("-vote_diff", "-confidence", "-created", "-modified")
+        return super().valid().order_by("-confidence", "-created", "-modified")
 
     def valid_or_uncertain(self):
-        return super().valid_or_uncertain().order_by("-vote_diff", "-confidence", "-created", "-modified")
+        return super().valid_or_uncertain().order_by("-confidence", "-created", "-modified")
+
+
+# Shared validity enum used across all annotation models (BoundingBox, Category,
+# Species, Activity). NULL on the field represents UNSEEN (no votes / no
+# annotations). Category/Species/Activity always have a creator whose vote
+# contributes to one of these values; BoundingBox may be NULL when the
+# cascade finds no child annotations.
+class Validity(models.TextChoices):
+    VALID = "VALID", "Valid"
+    INVALID = "INVALID", "Invalid"
+    UNCERTAIN = "UNCERTAIN", "Uncertain"
 
 
 # Each annotation is a bounding box linked to an image
@@ -179,17 +166,15 @@ class BoundingBox(TimeStampedModel):
     accepted_by = models.ManyToManyField(Annotator, related_name="accepted_annotation", blank=True)
     rejected_by = models.ManyToManyField(Annotator, related_name="rejected_annotation", blank=True)
 
-    # Bounding box validity
+    # Bounding box validity. UNSEEN means no annotations exist (or all rejected);
+    # other values come from the cascade rule in calculate*AnnotationFlags based
+    # on child Category/Species/Activity validity.
     validity = models.CharField(
         "Validity",
-        max_length=250,
-        choices=(
-            ("INVALID", "Invalid"),
-            ("UNCERTAIN", "Uncertain"),
-            ("VALID", "Valid"),
-        ),
+        max_length=9,
+        choices=Validity.choices,
         null=True,
-        default="UNCERTAIN",
+        default=Validity.UNCERTAIN,
     )
 
     objects = BoundingBoxManager()
@@ -299,6 +284,16 @@ class Category(TimeStampedModel):
     accepted_by = models.ManyToManyField(Annotator, related_name="accepted_category_annotation", blank=True)
     rejected_by = models.ManyToManyField(Annotator, related_name="rejected_category_annotation", blank=True)
 
+    # Vote-derived validity. NULL = UNSEEN (no votes yet). Computed and saved
+    # by calculate*AnnotationFlags via compute_validity().
+    validity = models.CharField(
+        max_length=9,
+        choices=Validity.choices,
+        null=True,
+        default=None,
+        db_index=True,
+    )
+
     objects = CategoryManager()
 
     def __str__(self):
@@ -334,6 +329,16 @@ class Species(TimeStampedModel):
     # List of accept/rejects for this annotation
     accepted_by = models.ManyToManyField(Annotator, related_name="accepted_species_annotation", blank=True)
     rejected_by = models.ManyToManyField(Annotator, related_name="rejected_species_annotation", blank=True)
+
+    # Vote-derived validity. NULL = UNSEEN (no votes yet). Computed and saved
+    # by calculate*AnnotationFlags via compute_validity().
+    validity = models.CharField(
+        max_length=9,
+        choices=Validity.choices,
+        null=True,
+        default=None,
+        db_index=True,
+    )
 
     objects = CategoryManager()
 
@@ -419,6 +424,16 @@ class Activity(TimeStampedModel):
     # List of accept/rejects for this annotation
     accepted_by = models.ManyToManyField(Annotator, related_name="accepted_activity_annotation", blank=True)
     rejected_by = models.ManyToManyField(Annotator, related_name="rejected_activity_annotation", blank=True)
+
+    # Vote-derived validity. NULL = UNSEEN (no votes yet). Computed and saved
+    # by calculate*AnnotationFlags via compute_validity().
+    validity = models.CharField(
+        max_length=9,
+        choices=Validity.choices,
+        null=True,
+        default=None,
+        db_index=True,
+    )
 
     objects = ActivityManager()
 

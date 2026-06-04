@@ -428,8 +428,13 @@ class TestHandleBboxDeletions:
 
         assert not BoundingBox.objects.filter(id=bbox_id).exists()
 
-    def test_non_creator_rejection_marks_invalid(self, test_image, human_annotator, user):
-        """Test that non-creator rejection marks bbox as invalid"""
+    def test_non_creator_rejection_updates_m2m(self, test_image, human_annotator, user):
+        """
+        Non-creator rejecting a bbox records the vote in rejected_by but does NOT
+        directly write bbox.validity. Under the new single-writer design, validity
+        is owned by calculate*AnnotationFlags and is derived from child Category/
+        Species/Activity validity, not from the bbox's own M2M votes.
+        """
         bbox = BoundingBox.objects.create(
             image=test_image, x=0.1, y=0.2, w=0.3, h=0.4, created_by=human_annotator
         )
@@ -445,5 +450,8 @@ class TestHandleBboxDeletions:
         handle_bbox_deletions(initial_bboxes, formatted_annotations, other_user, other_annotator, test_image)
 
         bbox.refresh_from_db()
-        assert bbox.validity == "INVALID"
+        # The rejection vote is recorded
         assert other_annotator in bbox.rejected_by.all()
+        # bbox.validity is NOT touched here — it remains whatever it was before
+        # (default "UNCERTAIN" for a freshly created bbox). The cascade in
+        # calculate*AnnotationFlags will recompute it from child validities.

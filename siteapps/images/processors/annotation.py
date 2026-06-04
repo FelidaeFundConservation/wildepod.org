@@ -1,10 +1,12 @@
 import logging
-from typing import Any, Dict
+from dataclasses import dataclass
+from typing import Any, Dict, Optional
 
 from django.conf import settings
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from django.db.models import Count, Q, Sum
 from images.models import Activity, ActivityType, Annotator, BoundingBox, Category, Image, Species, SpeciesName, Upload
+from images.models.annotation import Validity
 
 # TODO: This entire module is very hacky and needs to be refactored
 MAX_VOTES_PER_IMAGE = 2
@@ -19,6 +21,114 @@ UNKNOWN_CATEGORY = "unknown"
 PERSON_CATEGORY = "person"
 ANIMAL_CATEGORY = "animal"
 VEHICLE_CATEGORY = "vehicle"
+
+# Vote weight model: normal=1, staff/expert=5, threshold>=2 for VALID, <=-2 for INVALID.
+# Future tier splits (expert vs staff) only require updating _weight() — the
+# _is_staff_or_expert() role check stays as the override gate.
+NORMAL_VOTE_WEIGHT = 1
+STAFF_OR_EXPERT_VOTE_WEIGHT = 5
+VALIDITY_THRESHOLD = 2
+
+
+@dataclass
+class VoteResult:
+    """
+    Result of computing validity for a Category, Species, or Activity annotation.
+
+    `validity` is one of "VALID" / "INVALID" / "UNCERTAIN" (never None for these
+    models since they always have a creator whose vote contributes to the score).
+    Consumers use the count fields for UI display; vote() uses validity to
+    persist.
+
+    Fields:
+    - validity: VALID / INVALID / UNCERTAIN
+    - score: weighted score (creator + accepts - rejects, with staff=5 / normal=1)
+    - accepted_count / rejected_count: raw vote counts from M2M tables (unweighted)
+    - staff_accept_count / staff_reject_count: subset of the above from staff/expert
+    - staff_override: True if validity was decided by a staff/expert overriding
+      via last-vote-wins (set only when called from vote() at vote time)
+    """
+    validity: Optional[str]
+    score: int
+    accepted_count: int
+    rejected_count: int
+    staff_accept_count: int
+    staff_reject_count: int
+    staff_override: bool
+
+
+def _is_staff_or_expert(annotator: Optional[Annotator]) -> bool:
+    """Role check — kept independent of vote weight so future tier splits don't break it."""
+    return bool(
+        annotator
+        and annotator.human
+        and (annotator.human.is_staff or annotator.human.is_expert)
+    )
+
+
+def _weight(annotator: Optional[Annotator]) -> int:
+    return STAFF_OR_EXPERT_VOTE_WEIGHT if _is_staff_or_expert(annotator) else NORMAL_VOTE_WEIGHT
+
+
+def compute_validity(
+    obj,
+    annotator: Optional[Annotator] = None,
+    accept: Optional[bool] = None,
+) -> VoteResult:
+    """
+    Compute validity for a Category, Species, or Activity annotation.
+
+    Two modes:
+    - With annotator+accept (called at vote time): if the voter is staff/expert,
+      their decision wins outright (last-staff-vote-wins). Otherwise falls
+      through to the weighted sum.
+    - Without annotator (backfill / display): pure weighted sum from current
+      M2M state.
+
+    Always returns one of VALID/INVALID/UNCERTAIN. NULL/UNSEEN is reserved for
+    BoundingBox.validity (set by the cascade in calculate*AnnotationFlags when
+    a bbox has no annotations).
+    """
+    # Use .all() (not select_related) so we benefit from any prefetch_related
+    # the caller set up. For non-prefetched callers (like vote()), Django
+    # falls back to a query as before. Backfill / report commands set up
+    # Prefetch(... queryset=Annotator.objects.select_related("human")) so
+    # .human access is free here.
+    accepted = list(obj.accepted_by.all())
+    rejected = list(obj.rejected_by.all())
+    accepted_count = len(accepted)
+    rejected_count = len(rejected)
+    staff_accept_count = sum(1 for a in accepted if _is_staff_or_expert(a))
+    staff_reject_count = sum(1 for a in rejected if _is_staff_or_expert(a))
+
+    # Last staff/expert vote wins outright when called from vote()
+    if _is_staff_or_expert(annotator):
+        if accept:
+            validity = Validity.VALID
+            score = _weight(annotator)
+        else:
+            validity = Validity.INVALID
+            score = -_weight(annotator)
+        return VoteResult(
+            validity, score, accepted_count, rejected_count,
+            staff_accept_count, staff_reject_count, staff_override=True,
+        )
+
+    # Weighted sum (creator's vote always counts)
+    score = _weight(obj.created_by)
+    score += sum(_weight(a) for a in accepted)
+    score -= sum(_weight(a) for a in rejected)
+
+    if score >= VALIDITY_THRESHOLD:
+        validity = Validity.VALID
+    elif score <= -VALIDITY_THRESHOLD:
+        validity = Validity.INVALID
+    else:
+        validity = Validity.UNCERTAIN
+    return VoteResult(
+        validity, score, accepted_count, rejected_count,
+        staff_accept_count, staff_reject_count, staff_override=False,
+    )
 
 
 def flatten_annotorious_annotations(annotations: list) -> dict:
@@ -50,7 +160,22 @@ def flatten_annotorious_annotations(annotations: list) -> dict:
 
 
 def vote(obj, annotator: Annotator, accept: bool):
-    """Helper function to cast a vote for an object"""
+    """
+    Cast a vote for an annotation object (BoundingBox, Category, Species, Activity).
+
+    Updates the M2M tables only. Validity is computed and persisted by
+    calculate*AnnotationFlags later in the request cycle — DO NOT touch
+    obj.validity here. This keeps a single writer for the field and avoids
+    contention between vote() and the cascade.
+
+    Edge case: if the creator rejects their own annotation with no other
+    accepts, the object is deleted. If there are other accepters, creation
+    is reassigned to one of them and obj.save() persists that change.
+
+    Callers outside the standard annotation_processor flow (one-off scripts,
+    test fixtures) must invoke calculate*AnnotationFlags(image) after their
+    vote() calls to keep validity fields in sync.
+    """
     if accept:
         obj.accepted_by.add(annotator)
         obj.rejected_by.remove(annotator)
@@ -58,19 +183,15 @@ def vote(obj, annotator: Annotator, accept: bool):
         obj.accepted_by.remove(annotator)
         obj.rejected_by.add(annotator)
 
-        # Undo creation if reannotating
+        # Undo creation if the creator is reannotating their own work
         if obj.created_by == annotator:
             if obj.accepted_by.count() == 0:
                 obj.delete()
-            else:
-                other_annotator = obj.accepted_by.first()
-                obj.created_by = other_annotator
-                obj.accepted_by.remove(other_annotator)
-                obj.save()
-        else:
-            obj.save()
-
-    return
+                return
+            other_annotator = obj.accepted_by.first()
+            obj.created_by = other_annotator
+            obj.accepted_by.remove(other_annotator)
+            obj.save()  # persist created_by reassignment
 
 
 def set_image_checked_by(annotation_type, image, annotator):
@@ -188,9 +309,9 @@ def handle_bbox_deletions(initial_bboxes, formatted_annotations, user, annotator
                     bbox_obj.delete()
                     logging.info(f"Deleting bounding box with id {bbox_id}.")
                 else:
+                    # vote() updates M2M only; bbox.validity is owned by
+                    # calculate*AnnotationFlags which runs later in the request.
                     vote(bbox_obj, annotator, accept=False)
-                    bbox_obj.validity = "INVALID"
-                    bbox_obj.save()
                     logging.info(f"Rejected bounding box with id {bbox_id}. Object still exists in rejected state.")
             except ObjectDoesNotExist:
                 logging.info(f"Bounding box with id {bbox_id} doesn't exist in image {image.id}. Skipping deletion.")

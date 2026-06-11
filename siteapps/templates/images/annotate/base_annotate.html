@@ -196,12 +196,12 @@
           href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.css" />
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.js"></script>
     <script>
-    document.querySelector('label[for="staff-review-needed"]').addEventListener('click', function(event) {
-        event.preventDefault();
-    });
-
-
-    let hoveredAnnotation = null;
+    let staffReviewLabel = document.querySelector('label[for="staff-review-needed"]');
+    if (staffReviewLabel) {
+        staffReviewLabel.addEventListener('click', function(event) {
+            event.preventDefault();
+        });
+    }
 
     // Initialize popovers
     $(document).ready(function(){
@@ -437,7 +437,7 @@
                     'initial_bboxes': JSON.stringify(bboxes),
                     'annotations': JSON.stringify(anno.getAnnotations()),
                     'social_media_worthy_vote': socialMediaWorthyVote,
-                    'staff_review_needed': document.getElementById('staff-review-needed').checked,
+                    'staff_review_needed': document.getElementById('staff-review-needed')?.checked ?? false,
                     'custom_annotations': '{{custom_annotations}}',
                     'staff_review': '{{staff_review}}',
                     'reported_images': '{{reported_images}}',

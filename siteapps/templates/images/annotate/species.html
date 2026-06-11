@@ -82,6 +82,7 @@ observer.observe(document, { attributes: false, childList: true, characterData: 
 
 {% endblock save_recent_tags %}
 {% block recent_tags_handling %}
+    const speciesDetections = {{ species_detections|safe }};
     // Retrieve recent tags
     (async () => {
         try {

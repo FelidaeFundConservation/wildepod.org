@@ -1,3 +1,5 @@
+let hoveredAnnotation = null;
+
 // Widget for category selection
 // Modified example from here - https://recogito.github.io/guides/editor-widgets/
 // This is a second order function that takes a list of categories and returns a category selection widget

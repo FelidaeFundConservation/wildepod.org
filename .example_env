@@ -27,23 +27,34 @@ DJANGO_ACCOUNT_ALLOW_REGISTRATION=False
 # ==============================================================================
 # GCP CONFIGURATION (Required for prod/staging/dev, optional for local)
 # ==============================================================================
-GOOGLE_CLOUD_PROJECT=wildepod-339517
+# Real values are NOT stored in this file. See CONFIGURATION.md for where to
+# find/store the real project ID, service URLs, and other GCP identifiers.
+GOOGLE_CLOUD_PROJECT=<YOUR-PROJECT-ID>
 
 # ML Model Inference URLs (optional for local)
-MEGADETECTOR_URL=https://megadetector-fastapi-cmwfrnoova-wl.a.run.app
-SPECIES_DETECTOR_URL=https://us-west2-wildepod-339517.cloudfunctions.net/wildepod-species-detector-tPjGk2qKHAfGXdPi6xfA
-GS_MODELS_BUCKET_NAME=wildepod_models
+MEGADETECTOR_URL=https://<your-cloud-run-service>-<hash>-wl.a.run.app
+SPECIES_DETECTOR_URL=https://<region>-<YOUR-PROJECT-ID>.cloudfunctions.net/<your-function-name>
+GS_MODELS_BUCKET_NAME=<your-project-models-bucket>
 
 # Cloud Storage Buckets (optional for local)
-GS_BUCKET_NAME_PROD=wildepod_prod
-GS_BUCKET_NAME_STAGING=wildepod_staging
-GS_BUCKET_NAME_DEV=wildepod_dev
+GS_BUCKET_NAME_PROD=<your-project-prod-bucket>
+GS_BUCKET_NAME_STAGING=<your-project-staging-bucket>
+GS_BUCKET_NAME_DEV=<your-project-dev-bucket>
 
 # ==============================================================================
 # DATABASE URLS (Environment-specific)
 # ==============================================================================
-PROD_DATABASE_URL=postgres://user:DUMMYPASSWORDDUMMYPASSWORDDUMMYPASSWORD@//cloudsql/wildepod-339517:us-west2:wildepoddb/prod
-STAGING_DATABASE_URL=postgres://user:DUMMYPASSWORDDUMMYPASSWORDDUMMYPASSWORD@//cloudsql/wildepod-339517:us-west2:wildepoddb/staging
+PROD_DATABASE_URL=******//cloudsql/<YOUR-PROJECT-ID>:<region>:<YOUR-DB-INSTANCE>/prod
+STAGING_DATABASE_URL=******//cloudsql/<YOUR-PROJECT-ID>:<region>:<YOUR-DB-INSTANCE>/staging
+
+# ==============================================================================
+# EXPORT SERVICE
+# ==============================================================================
+# This token is part of the URL path for the internal export job trigger endpoint.
+# It acts as a shared secret — keep it out of source code.
+# Stored in: GCP Secret Manager as part of the django_settings secret.
+# Generate with: python -c "import secrets; print(secrets.token_urlsafe(18))"
+EXPORT_URL_SUFFIX=DUMMYTOKENDUMMYTOKEN
 
 # ==============================================================================
 # DROPBOX CONFIGURATION (Optional)

@@ -344,7 +344,7 @@ GCP_REGION = "us-west2"  # TODO: This can be fetched via the cloud tasks API
 EXPORT_SERVICE_NAME = "jobs"
 EXPORT_QUEUE_NAME = "wildepod-jobs-queue"
 EXPORT_DATE_FORMAT = "%Y-%m-%d"
-EXPORT_URL_SUFFIX = "8jk6fh9m7w2xz5r3t1n0b8v6c"  # TODO: Move this to secret manager
+EXPORT_URL_SUFFIX = env("EXPORT_URL_SUFFIX")  # Stored in GCP Secret Manager as part of django_settings
 
 # Google Maps API (optional for local development)
 GOOGLE_MAPS_API_KEY = env("GOOGLE_MAPS_API_KEY", default=None)

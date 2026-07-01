@@ -38,7 +38,7 @@ The `deploy_custom.sh` script automatically generates these files:
 
 ```bash
 # Script will create all 4 files for you
-./deploy_custom.sh my-dev --use-existing-db --db-instance wildepoddb --full
+./deploy_custom.sh my-dev --use-existing-db --db-instance <YOUR-DB-INSTANCE> --full
 ```
 
 Generated files:

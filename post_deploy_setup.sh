@@ -23,10 +23,30 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 # Configuration
-ENVIRONMENT="${1:-jnovak-dev}"
-PROJECT_ID="wildepod-339517"
-REGION="us-west2"
-DB_INSTANCE="wildepoddb"
+# GCP_PROJECT_ID and GCP_DB_INSTANCE must be set as environment variables.
+# Store the real values in your shell profile or source a local config file.
+ENVIRONMENT="${1:-}"
+PROJECT_ID="${GCP_PROJECT_ID:-}"
+REGION="${GCP_REGION:-us-west2}"
+DB_INSTANCE="${GCP_DB_INSTANCE:-}"
+
+if [[ -z "$ENVIRONMENT" ]]; then
+    echo "Usage: $0 <environment-name>"
+    echo "  environment-name: The App Engine service name (e.g., my-dev, staging)"
+    exit 1
+fi
+
+if [[ -z "$PROJECT_ID" ]]; then
+    echo "Error: GCP_PROJECT_ID environment variable is required."
+    echo "  export GCP_PROJECT_ID=<your-project-id>"
+    exit 1
+fi
+
+if [[ -z "$DB_INSTANCE" ]]; then
+    echo "Error: GCP_DB_INSTANCE environment variable is required."
+    echo "  export GCP_DB_INSTANCE=<your-db-instance-name>"
+    exit 1
+fi
 SERVICE_NAME="${ENVIRONMENT}"
 
 # Derived variables

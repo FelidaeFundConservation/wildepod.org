@@ -6,11 +6,15 @@ on:
   workflow_dispatch:
 
 env:
-  GCP_PROJECT_ID: wildepod-339517
-  STAGING_DB_INSTANCE: wildepod-339517:us-west2:wildepoddb
+  # Real values are stored as GitHub Actions repository variables.
+  # Set them under: Settings → Secrets and variables → Actions → Variables
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  GCP_DB_INSTANCE: ${{ vars.GCP_DB_INSTANCE }}
+  GCP_REGION: ${{ vars.GCP_REGION }}
+  STAGING_DB_INSTANCE: ${{ vars.GCP_PROJECT_ID }}:${{ vars.GCP_REGION }}:${{ vars.GCP_DB_INSTANCE }}
   STAGING_DB_PORT: 5440
   # Name of the Django settings secret in GCP Secret Manager for staging
-  STAGING_SETTINGS_NAME: django_settings
+  STAGING_SETTINGS_NAME: ${{ vars.STAGING_SETTINGS_NAME || 'django_settings' }}
 
 jobs:
   test:
@@ -88,7 +92,7 @@ jobs:
     needs: deploy
     runs-on: ubuntu-latest
     env:
-      GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_PROJECT_ID || 'wildepod-339517' }}
+      GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_PROJECT_ID }}
       USE_CLOUD_SQL_AUTH_PROXY: "True"
       SETTINGS_NAME: ${{ vars.STAGING_SETTINGS_NAME || 'django_settings' }}
     steps:

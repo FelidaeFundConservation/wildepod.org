@@ -129,14 +129,14 @@ To have a fully operational environment for development, you need to have access
 ```
 gcloud auth application-default login
 gcloud auth login
-gcloud config set project wildepod-339517
+gcloud config set project <YOUR-PROJECT-ID>
 ```
 
 4.  Set the following environment variables
     - Set the Google Cloud project :
 
     ```
-    export GOOGLE_CLOUD_PROJECT=wildepod-339517
+    export GOOGLE_CLOUD_PROJECT=<YOUR-PROJECT-ID>
     ```
 
     - Use Cloud SQL Auth proxy for connecting to cloud dbs :
@@ -157,7 +157,7 @@ gcloud config set project wildepod-339517
 5.  Install and launch [Cloud SQL Proxy](https://docs.cloud.google.com/sql/docs/postgres/sql-proxy)
 
 ```
-./cloud-sql-proxy -p 5440 wildepod-339517:us-west2:wildepoddb
+./cloud-sql-proxy -p 5440 <YOUR-PROJECT-ID>:us-west2:<YOUR-DB-INSTANCE>
 ```
 
 6. In another terminal, run the local server with staging config
@@ -177,7 +177,7 @@ WildePod supports flexible deployment configurations:
 
 ```bash
 # Quick start
-./deploy_custom.sh <your-name>-dev --use-existing-db --db-instance wildepoddb --full
+./deploy_custom.sh <your-name>-dev --use-existing-db --db-instance <YOUR-DB-INSTANCE> --full
 ./post_deploy_setup.sh <your-name>-dev
 ```
 

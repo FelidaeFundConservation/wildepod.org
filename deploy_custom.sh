@@ -15,7 +15,7 @@
 #
 # Example:
 #   ./deploy_custom.sh alice-dev --setup-db --full
-#   ./deploy_custom.sh bob-test --use-existing-db wildepoddb --full
+#   ./deploy_custom.sh bob-test --use-existing-db --db-instance <YOUR-DB-INSTANCE> --full
 #
 # Options:
 #   --setup-db          Create and configure Cloud SQL instance
@@ -25,7 +25,7 @@
 #   --full              Complete setup including database and deployment
 #   --skip-tests        Skip running tests before deployment
 #   --dry-run           Show what would be done without making changes
-#   --project-id        GCP project ID (default: wildepod-339517)
+#   --project-id        GCP project ID (overrides $GCP_PROJECT_ID env var)
 #   --region            GCP region (default: us-west2)
 #   --db-instance       Existing database instance to use
 ################################################################################
@@ -75,17 +75,20 @@ Options:
   --full              Complete setup including database and deployment
   --skip-tests        Skip running tests before deployment
   --dry-run           Show what would be done without making changes
-  --project-id ID     GCP project ID (default: wildepod-339517)
+  --project-id ID     GCP project ID (overrides $GCP_PROJECT_ID env var; required if not set)
   --region REGION     GCP region (default: us-west2)
   --db-tier TIER      Database tier (default: db-f1-micro)
   --help              Show this help message
 
 Examples:
+  # Set project ID via environment (recommended)
+  export GCP_PROJECT_ID=<YOUR-PROJECT-ID>
+
   # Create new deployment with new database
   $0 alice-dev --setup-db --full
 
-  # Create deployment using existing wildepoddb instance
-  $0 bob-test --use-existing-db --db-instance wildepoddb --full
+  # Create deployment using existing database instance
+  $0 bob-test --use-existing-db --db-instance <YOUR-DB-INSTANCE> --full
 
   # Deploy only (assuming database exists)
   $0 charlie-staging --deploy-only
@@ -115,8 +118,11 @@ Name must:
 fi
 
 # Default configuration
-PROJECT_ID="wildepod-339517"
-REGION="us-west2"
+# GCP_PROJECT_ID must be set via environment variable or --project-id flag.
+# Store the real value as: export GCP_PROJECT_ID=<your-project-id>
+# (or set it in your shell profile / .deploy.config)
+PROJECT_ID="${GCP_PROJECT_ID:-}"
+REGION="${GCP_REGION:-us-west2}"
 ZONE="us-west2-a"
 DB_TIER="db-f1-micro"
 DB_VERSION="POSTGRES_14"
@@ -197,6 +203,13 @@ fi
 # If using existing DB instance, require it to be specified
 if [[ "$USE_EXISTING_DB" == true ]] && [[ -z "$EXISTING_DB_INSTANCE" ]]; then
     log_error "When using --use-existing-db, you must specify --db-instance NAME"
+fi
+
+# Require GCP project ID — never default to a hardcoded value
+if [[ -z "$PROJECT_ID" ]]; then
+    log_error "GCP project ID is required. Set it via:
+  export GCP_PROJECT_ID=<your-project-id>
+  or pass --project-id <your-project-id>"
 fi
 
 # Generate resource names based on prefix

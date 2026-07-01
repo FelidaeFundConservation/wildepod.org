@@ -109,3 +109,6 @@ LOGGING = {
 # ------------------------------------------------------------------------------
 # Annotation configuration
 NUM_ACCEPTS_OVER_REJECTS = 2
+
+# Export URL suffix is not needed locally; override base with an empty default
+EXPORT_URL_SUFFIX = env("EXPORT_URL_SUFFIX", default="")

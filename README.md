@@ -18,6 +18,7 @@
   - [Image Data Loading](#image-data-loading)
   - [Save Image/Annotations](#save-imageannotations)
   - [Upload Processing](#upload-processing)
+- [License](#license)
 
 ---
 
@@ -316,3 +317,7 @@ This figure visualizes the process of saving and updating image annotations.
 This figure visualizes how user upload sets are created and processed.
 
 ![WildepodImageUpload drawio](https://github.com/FelidaeFundConservation/wildepod.org/assets/78624502/ef0bf6e4-8647-4990-96ab-28c76c4fca69)
+
+## License
+
+Copyright (c) 2026 Felidae Conservation Fund. See [LICENSE](LICENSE) for details.

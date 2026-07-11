@@ -11,7 +11,7 @@
 # Usage:
 #   ./deploy_gcp.sh [environment] [options]
 #
-# Environments: staging, prod, bhutan, jnovak-dev
+# Environments: staging, prod, bhutan, custom-dev
 # Options:
 #   --setup-db          Create and configure Cloud SQL instance
 #   --use-existing-db   Use existing Cloud SQL instance (prompts for name)
@@ -110,8 +110,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Validate environment
-if [[ ! "$ENVIRONMENT" =~ ^(staging|prod|bhutan|jnovak-dev)$ ]]; then
-    log_error "Invalid environment: $ENVIRONMENT. Must be staging, prod, bhutan, or jnovak-dev"
+if [[ ! "$ENVIRONMENT" =~ ^(staging|prod|bhutan|custom-dev)$ ]]; then
+    log_error "Invalid environment: $ENVIRONMENT. Must be staging, prod, bhutan, or custom-dev"
 fi
 
 # Set environment-specific variables
@@ -137,12 +137,12 @@ case $ENVIRONMENT in
         SERVICE_NAME="bhutan"
         APP_YAML="bhutan.yaml"
         ;;
-    jnovak-dev)
-        SQL_INSTANCE_NAME="wildepod-jnovak-dev-db"
-        DB_NAME="wildepod_jnovak_dev"
-        DB_USER="wildepod_jnovak_dev_user"
-        SERVICE_NAME="jnovak-dev"
-        APP_YAML="jnovak-dev.yaml"
+    custom-dev)
+        SQL_INSTANCE_NAME="wildepod-custom-dev-db"
+        DB_NAME="wildepod_custom_dev"
+        DB_USER="wildepod_custom_dev_user"
+        SERVICE_NAME="custom-dev"
+        APP_YAML="custom-dev.yaml"
         ;;
 esac
 

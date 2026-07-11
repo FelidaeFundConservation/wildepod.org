@@ -132,7 +132,7 @@ For prefix `alice-dev`:
 --deploy-only              Deploy app only (skip database)
 --full                     Complete deployment (database + app)
 --dry-run                  Show what would happen without changes
---project-id ID            GCP project (default: <YOUR-PROJECT-ID>)
+--project-id ID            GCP project (required: set via $GCP_PROJECT_ID or --project-id flag)
 --region REGION            GCP region (default: us-west2)
 --db-tier TIER             Database tier (default: db-f1-micro)
 ```

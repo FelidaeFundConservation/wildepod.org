@@ -1,4 +1,9 @@
 #!/bin/bash
+# Copyright (c) 2026 Felidae Conservation Fund info@felidaefund.org
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 
 # Local setup script for WildePod Django project
 # This script checks for required tools and runs the quick setup commands

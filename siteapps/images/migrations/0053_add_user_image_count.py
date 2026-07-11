@@ -1,3 +1,8 @@
+# Copyright (c) 2026 Felidae Conservation Fund info@felidaefund.org
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 # Manual migration to add user_image_count field to Upload model
 
 from django.db import migrations, models

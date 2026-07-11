@@ -1,3 +1,8 @@
+# Copyright (c) 2026 Felidae Conservation Fund info@felidaefund.org
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 # 2db6e3bc-82fd-45a8-97f1-e627e84998ef
 # python manage.py delete_upload --upload_id="2db6e3bc-82fd-45a8-97f1-e627e84998ef" --settings=config.settings.staging
 

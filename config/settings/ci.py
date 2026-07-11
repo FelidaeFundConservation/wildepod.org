@@ -23,3 +23,5 @@ EMAIL_2FA_PASSWORD = ""
 
 SECURE_SSL_REDIRECT = False
 ADMIN_URL_SUFFIX = ""
+
+WSGI_APPLICATION = "config.wsgi.staging.application"

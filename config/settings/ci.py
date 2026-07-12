@@ -27,3 +27,5 @@ ADMIN_URL_SUFFIX = ""
 WSGI_APPLICATION = "config.wsgi.staging.application"
 
 NUM_ACCEPTS_OVER_REJECTS = 2
+
+STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"

@@ -1,3 +1,8 @@
+# Copyright (c) 2026 Felidae Conservation Fund info@felidaefund.org
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 from crispy_forms.bootstrap import StrictButton
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Button, Column, Layout, Row, Submit

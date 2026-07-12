@@ -1,3 +1,8 @@
+# Copyright (c) 2026 Felidae Conservation Fund info@felidaefund.org
+#
+# This source code is licensed under the license found in the
+# LICENSE file in the root directory of this source tree.
+
 """
 This script updates the workflow documents in the datastore/firebase.
 """

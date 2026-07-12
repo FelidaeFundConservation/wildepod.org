@@ -1,0 +1,6 @@
+[flake8]
+exclude = 
+    .venv,
+    venv,
+    migrations,
+    generated_files/*.py

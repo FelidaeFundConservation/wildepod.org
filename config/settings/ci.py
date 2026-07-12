@@ -1,3 +1,8 @@
+# Copyright (c) 2026 Felidae Conservation Fund info@felidaefund.org
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 """CI settings for GitHub Actions. Extends base only — no cloud credentials required."""
 
 from .base import *  # noqa
@@ -24,3 +29,9 @@ EMAIL_2FA_PASSWORD = ""
 SECURE_SSL_REDIRECT = False
 ADMIN_URL_SUFFIX = ""
 EXPORT_URL_SUFFIX = "ci-placeholder"
+
+WSGI_APPLICATION = "config.wsgi.staging.application"
+
+NUM_ACCEPTS_OVER_REJECTS = 2
+
+STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"

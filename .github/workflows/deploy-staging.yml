@@ -89,7 +89,7 @@ jobs:
     needs: deploy
     runs-on: ubuntu-latest
     env:
-      GOOGLE_CLOUD_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
+      GOOGLE_CLOUD_PROJECT: ${{ env.GCP_PROJECT_ID }}
       USE_CLOUD_SQL_AUTH_PROXY: "True"
       SETTINGS_NAME: ${{ vars.STAGING_SETTINGS_NAME || 'django_settings' }}
     steps:

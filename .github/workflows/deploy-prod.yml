@@ -17,7 +17,7 @@ on:
         default: true
 
 env:
-  GCP_PROJECT_ID: wildepod-339517
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   DB_PORT: 5440
 
 jobs:
@@ -70,7 +70,7 @@ jobs:
     if: ${{ inputs.run_migrations }}
     runs-on: ubuntu-latest
     env:
-      GOOGLE_CLOUD_PROJECT: wildepod-339517
+      GOOGLE_CLOUD_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
       USE_CLOUD_SQL_AUTH_PROXY: "True"
     steps:
       - uses: actions/checkout@v4
@@ -98,11 +98,11 @@ jobs:
         id: db-config
         run: |
           if [ "${{ inputs.environment }}" = "prod" ]; then
-            echo "instance=wildepod-339517:us-west2:wildepoddb" >> $GITHUB_OUTPUT
+            echo "instance=${GCP_PROJECT_ID}:us-west2:wildepoddb" >> $GITHUB_OUTPUT
             echo "settings=config.settings.prod" >> $GITHUB_OUTPUT
             echo "settings_name=django_settings" >> $GITHUB_OUTPUT
           else
-            echo "instance=wildepod-339517:us-west2:wildepoddb" >> $GITHUB_OUTPUT
+            echo "instance=${GCP_PROJECT_ID}:us-west2:wildepoddb" >> $GITHUB_OUTPUT
             echo "settings=config.settings.bhutan" >> $GITHUB_OUTPUT
             echo "settings_name=django_settings" >> $GITHUB_OUTPUT
           fi

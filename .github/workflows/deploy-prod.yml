@@ -70,7 +70,7 @@ jobs:
     if: ${{ inputs.run_migrations }}
     runs-on: ubuntu-latest
     env:
-      GOOGLE_CLOUD_PROJECT: ${{ env.GCP_PROJECT_ID }}
+      GOOGLE_CLOUD_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
       USE_CLOUD_SQL_AUTH_PROXY: "True"
     steps:
       - uses: actions/checkout@v4

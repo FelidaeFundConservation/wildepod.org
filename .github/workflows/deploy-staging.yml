@@ -34,7 +34,7 @@ jobs:
         run: uv sync --extra dev
 
       - name: Run tests
-        run: uv run pytest
+        run: DJANGO_SETTINGS_MODULE=config.settings.ci DJANGO_CI_MODE=true uv run pytest
 
       - name: Run flake8
         run: uv run flake8

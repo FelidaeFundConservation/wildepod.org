@@ -1,3 +1,8 @@
+-- Copyright (c) 2026 Felidae Conservation Fund info@felidaefund.org
+--
+-- This source code is licensed under the MIT license found in the
+-- LICENSE file in the root directory of this source tree.
+
 
 /* Return set of species Uncertain/Valid/Invalid. Difference of votes rule. */
 CREATE OR REPLACE FUNCTION uncertain_valid_invalid_species(uncertain_valid_invalid TEXT)

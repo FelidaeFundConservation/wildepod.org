@@ -1,3 +1,8 @@
+-- Copyright (c) 2026 Felidae Conservation Fund info@felidaefund.org
+--
+-- This source code is licensed under the MIT license found in the
+-- LICENSE file in the root directory of this source tree.
+
 WITH
 -- Extract annotator details. Add staff/experts vote weights so that one vote from them is enough
 annotator AS (

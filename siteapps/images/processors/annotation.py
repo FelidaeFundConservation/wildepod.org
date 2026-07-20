@@ -7,6 +7,7 @@ import logging
 from typing import Any, Dict
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from django.db.models import Count, Q, Sum
 from images.models import Activity, ActivityType, Annotator, BoundingBox, Category, Image, Species, SpeciesName, Upload
@@ -24,6 +25,11 @@ UNKNOWN_CATEGORY = "unknown"
 PERSON_CATEGORY = "person"
 ANIMAL_CATEGORY = "animal"
 VEHICLE_CATEGORY = "vehicle"
+
+# Identity of the service account whose expert votes auto-complete single-human images.
+SERVICE_ACCOUNT_EMAIL = "megadetector-auto@wildepod.org"
+SERVICE_ACCOUNT_NAME = "MegaDetector Auto-Approval"
+SINGLE_HUMAN_RULE = "single_human"
 
 
 def flatten_annotorious_annotations(annotations: list) -> dict:
@@ -454,6 +460,87 @@ def process_activity(formatted_annotations, bbox_id, bbox_obj, annotator):
             vote(activity, annotator, accept=False)
     else:
         activity_obj = None
+
+
+def get_service_annotator() -> Annotator:
+    """Return the expert service-account Annotator used for automated approvals.
+
+    Lazily creates a dedicated expert `User` (email `SERVICE_ACCOUNT_EMAIL`, `is_expert=True`)
+    and its human `Annotator`. Because the account is an expert human, its accept votes trigger
+    the `is_staff_vote` short-circuit in the voting logic, validating annotations without
+    additional consensus.
+
+    TODO this is hardcoding for the single service account related to this issue. When there 
+    are more service account we will need an actual scalable solution. 
+
+    Returns:
+        The `Annotator` wrapping the service-account user.
+    """
+    user_model = get_user_model()
+    service_user, created = user_model.objects.get_or_create(
+        email=SERVICE_ACCOUNT_EMAIL,
+        defaults={"name": SERVICE_ACCOUNT_NAME, "is_expert": True, "is_active": False},
+    )
+    if created:
+        logging.info(f"Service-account user '{SERVICE_ACCOUNT_EMAIL}' created for automated approvals.")
+
+    annotator, created = Annotator.objects.get_or_create(type="human", human=service_user)
+    if created:
+        logging.info("Service-account annotator created.")
+
+    return annotator
+
+
+def auto_approve_single_human(image: Image) -> bool:
+    """Auto-complete an image if it contains exactly one high-confidence human bounding box.
+
+    When the image has a single bounding box whose category is `person` and whose confidence is
+    at least `settings.SINGLE_HUMAN_AUTO_APPROVE_CONFIDENCE`, the expert service account votes to
+    accept the box and its category (completing the category pipeline through the normal voting
+    logic), and the species pipeline is marked complete directly (a human-only image has no
+    wildlife to identify).
+
+    Args:
+        image: The processed image to evaluate. Must already have `processed=True`.
+
+    Returns:
+        True if the image qualified and was auto-approved, False otherwise.
+    """
+    ############### eligibility check ###############
+    bounding_boxes = list(BoundingBox.objects.filter(image=image))
+    if len(bounding_boxes) != 1:
+        return False
+
+    bbox = bounding_boxes[0]
+    cutoff = settings.SINGLE_HUMAN_AUTO_APPROVE_CONFIDENCE
+
+    category = Category.objects.filter(bounding_box=bbox, name=PERSON_CATEGORY).first()
+    if category is None or bbox.confidence < cutoff:
+        return False
+
+    logging.info(f"Auto-approving single-human image {image.id} (confidence {bbox.confidence} >= {cutoff}).")
+
+    ############### cast expert votes ###############
+    # Imported lazily to avoid a circular import (views.annotation imports from this module).
+    from images.views.annotation import calculateCategoryAnnotationFlags
+
+    annotator = get_service_annotator()
+    vote(bbox, annotator, accept=True)
+    vote(category, annotator, accept=True)
+
+    ############### complete pipelines ###############
+    # Category completes through the normal voting logic (the expert vote resolves the box + category).
+    calculateCategoryAnnotationFlags(image)
+
+    # Species has no annotation object to vote on for a human-only image, so set it directly.
+    image.species_pipeline_complete = True
+
+    # Re-set and re-save the image so it won't be caught in the queue query. This is initially set
+    # right when the bounding box is created and rather than touching that code we can do this. 
+    image.has_uncertain_bbox = image.boundingbox_set.filter(validity="UNCERTAIN").exists()
+    image.save()
+
+    return True
 
 
 # Refactoring of all three processor functions

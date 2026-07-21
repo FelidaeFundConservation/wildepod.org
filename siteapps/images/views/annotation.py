@@ -44,6 +44,7 @@ from images.processors import (
     process_species_annotations,
     run_model_inference,
 )
+from images.processors.annotation import SERVICE_ACCOUNT_EMAIL
 from PIL import Image as PILImage
 
 # TODO: There might be some duplicate constants between here and the settings. Should probably move these to the base settings file.
@@ -312,6 +313,14 @@ def activity_pipeline_query(images, annotator, activity_category, staff_review=F
     # Filter for animals or humans based on the category passed into the view
     if activity_category == CATEGORY_HUMAN:
         images = images.filter(has_humans=True)
+        # Exclude single-human images auto-approved by the service account. These deliberately keep
+        # activity_pipeline_complete=False (a human-only image can never satisfy the activity gate,
+        # which hard-requires has_wild_animals=True), so without this exclusion they would surface in
+        # the human-behavior queue forever. The service account's expert accept vote on the person
+        # category is the durable marker of an auto-approval.
+        images = images.exclude(
+            boundingbox__category__accepted_by__human__email=SERVICE_ACCOUNT_EMAIL
+        )
     else:
         images = images.filter(has_wild_animals=True)
 

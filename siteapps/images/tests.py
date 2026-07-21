@@ -113,6 +113,15 @@ def create_test_species_object(test_bounding_box_object, name, group, test_annot
     )
 
 
+def create_test_activity_object(test_bounding_box_object, name, category, test_annotator_object):
+    return Activity.objects.create(
+        bounding_box=test_bounding_box_object,
+        name=ActivityType.objects.get_or_create(name=name, category=category)[0],
+        created_by=test_annotator_object,
+        confidence=1,
+    )
+
+
 class LoggedInTestCase(TestCase):
     def setUp(self):
         self.user, email, password = create_test_user_object("Justin")
@@ -741,3 +750,46 @@ class ImageUniquenessTestCase(TestCase):
         with transaction.atomic(), self.assertRaises(IntegrityError):
             image.upload.deleted = False
             image.upload.save()
+
+
+class HumanActivityCompletionTestCase(AnnotationFlagsTestCase):
+    """Regression tests for human-only images completing the activity pipeline.
+
+    A human-only image (has_humans=True, has_wild_animals=False) must be able to complete the
+    activity pipeline once it has a valid, voted human-behavior annotation. Previously the
+    completion gate required has_wild_animals=True, so these images looped in the human-behavior
+    queue forever.
+    """
+
+    def test_human_only_image_completes_activity_via_expert_vote(self):
+        # A human-only image: category confirmed as person, no animals.
+        self.test_image.has_humans = True
+        self.test_image.has_wild_animals = False
+        self.test_image.save()
+
+        # Expert annotator creates and thereby validates a human-behavior activity.
+        self.user.is_expert = True
+        self.user.save()
+
+        bbox = create_test_bboxes(test_image_object=self.test_image, test_user_object=self.annotator, num_boxes=1)
+        create_test_activity_object(bbox, "Walking", "human", self.annotator)
+
+        debug_info = calculateActivityAnnotationFlags(self.test_image)
+        self.test_image.save()
+
+        self.assertTrue(debug_info["flag_checks"]["activity_has_valid"])
+        self.assertTrue(self.test_image.activity_pipeline_complete)
+
+    def test_human_only_image_without_annotation_stays_incomplete(self):
+        # A human-only image with no valid activity annotation is genuinely incomplete and must
+        # remain so (it should still be served, not falsely marked complete).
+        self.test_image.has_humans = True
+        self.test_image.has_wild_animals = False
+        self.test_image.save()
+
+        create_test_bboxes(test_image_object=self.test_image, test_user_object=self.annotator, num_boxes=1)
+
+        calculateActivityAnnotationFlags(self.test_image)
+        self.test_image.save()
+
+        self.assertFalse(self.test_image.activity_pipeline_complete)

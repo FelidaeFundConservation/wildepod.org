@@ -1894,7 +1894,10 @@ def calculateActivityAnnotationFlags(image):
     if (
         not activity_has_uncertain_annotation
         and activity_has_valid_annotation
-        and image.has_wild_animals
+        # Human-only images (has_wild_animals=False) must also be able to complete, otherwise
+        # they loop in the human-behavior queue forever. The human-behavior and animal-activity
+        # queues share this gate, so accept completion for either subject type.
+        and (image.has_wild_animals or image.has_humans)
         and (annotation_checked_by_gte or has_staff_or_expert_vote)
         and image.processed
     ):

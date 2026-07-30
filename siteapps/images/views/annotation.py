@@ -1941,7 +1941,7 @@ def calculateActivityAnnotationFlags(image):
     if (
         not activity_has_uncertain_annotation
         and activity_has_valid_annotation
-        and image.has_wild_animals
+        and (image.has_wild_animals or image.has_humans)
         and (annotation_checked_by_gte or has_staff_or_expert_vote)
         and image.processed
     ):

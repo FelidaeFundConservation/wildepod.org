@@ -2,7 +2,7 @@
 {% load humanize %}
 <nav id="nav-menu">
     <div class="tab-content">
-        {% if user.is_authenticated and user.is_staff %}
+        {% if user.is_authenticated and user.is_staff or user.is_expert %}
             <div class="tab-pane fade p-0 text-center"
                  id="nav-debug"
                  role="tabpanel"
@@ -11,10 +11,10 @@
                     <div class="col-12" id="annotations-details"></div>
                     <div>
                         <p>
-                            This session is for staff only, to debug.
+                            This session is for staff and expert users to debug.
                             <br>
-                            For visibility, we can include details for the pipeline of the image annotation here,
-                            like Bounding Boxes uncertainty, etc.
+                            Includes raw accept/reject counts, the weighted vote score (staff/expert = 5, normal = 1),
+                            and the resulting validity status.
                         </p>
                     </div>
                 </div>

@@ -15,6 +15,11 @@ on:
         required: true
         type: boolean
         default: true
+      dryrun:
+        description: "Dry run - validate pipeline steps without deploying or migrating"
+        required: false
+        type: boolean
+        default: false
 
 env:
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
@@ -22,7 +27,7 @@ env:
 
 jobs:
   deploy:
-    name: Deploy to ${{ inputs.environment }}
+    name: Deploy to ${{ inputs.environment }}${{ inputs.dryrun && ' (dry run)' || '' }}
     runs-on: ubuntu-latest
     env:
       DJANGO_SETTINGS_MODULE: config.settings.ci
@@ -62,16 +67,28 @@ jobs:
         run: uv run python manage.py collectstatic --noinput --settings=config.settings.ci
 
       - name: Deploy to App Engine
+        if: ${{ !inputs.dryrun }}
         run: gcloud app deploy ${{ inputs.environment }}.yaml --quiet --project=${{ env.GCP_PROJECT_ID }}
 
+      - name: Dry Run - Skip actual deployment
+        if: ${{ inputs.dryrun }}
+        run: |
+          echo "## Dry Run Summary" >> $GITHUB_STEP_SUMMARY
+          echo "DRY RUN enabled - skipping actual deployment." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Would have run: \`gcloud app deploy ${{ inputs.environment }}.yaml --quiet --project=${{ env.GCP_PROJECT_ID }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All pre-deployment steps (dependencies, SASS compilation, static files) completed successfully." >> $GITHUB_STEP_SUMMARY
+
   migrate:
-    name: Run Migrations (${{ inputs.environment }})
+    name: Run Migrations (${{ inputs.environment }})${{ inputs.dryrun && ' (dry run)' || '' }}
     needs: deploy
     if: ${{ inputs.run_migrations }}
     runs-on: ubuntu-latest
     env:
       GOOGLE_CLOUD_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
       USE_CLOUD_SQL_AUTH_PROXY: "True"
+      DB_PORT: 5440
     steps:
       - uses: actions/checkout@v4
 
@@ -118,15 +135,23 @@ jobs:
           sleep 3
 
       - name: Run migrations
+        if: ${{ !inputs.dryrun }}
         env:
           SETTINGS_NAME: ${{ steps.db-config.outputs.settings_name }}
         run: |
           uv run python manage.py migrate --settings=${{ steps.db-config.outputs.settings }} 2>&1 | tee migration_output.txt
 
+      - name: Dry Run - Show pending migrations
+        if: ${{ inputs.dryrun }}
+        env:
+          SETTINGS_NAME: ${{ steps.db-config.outputs.settings_name }}
+        run: |
+          uv run python manage.py migrate --plan --settings=${{ steps.db-config.outputs.settings }} 2>&1 | tee migration_output.txt
+
       - name: Write migration summary
         if: always()
         run: |
-          echo "## ${{ inputs.environment }} Migrations" >> $GITHUB_STEP_SUMMARY
+          echo "## ${{ inputs.environment }} Migrations${{ inputs.dryrun && ' (dry run plan)' || '' }}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          cat migration_output.txt >> $GITHUB_STEP_SUMMARY
+          cat migration_output.txt 2>/dev/null || echo "(no migration output available)" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY

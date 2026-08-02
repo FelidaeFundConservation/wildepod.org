@@ -313,6 +313,37 @@ class TestUploadStatusView:
         assert response.status_code == 200
         assert "application/json" in response["Content-Type"]
 
+    def test_status_view_returns_cached_upload_station_and_macro_counts(self, client, user, upload):
+        client.force_login(user)
+
+        upload.img_count = 10
+        upload.processed_img_count = 4
+        upload.save()
+
+        camera_station = upload.camera_station
+        camera_station.total_img_count = 25
+        camera_station.processed_img_count = 12
+        camera_station.save()
+
+        macro_site = camera_station.micro_site.macro_site
+        macro_site.total_img_count = 40
+        macro_site.processed_img_count = 20
+        macro_site.save()
+
+        response = client.post(
+            reverse("images:upload_status"),
+            data={"upload_ids": json.dumps([str(upload.id)])}
+        )
+
+        assert response.status_code == 200
+        payload = response.json()["upload_statuses"][str(upload.id)]
+        assert payload["total_images"] == 10
+        assert payload["processed_images"] == 4
+        assert payload["camera_station_total_images"] == 25
+        assert payload["camera_station_processed_images"] == 12
+        assert payload["macro_site_total_images"] == 40
+        assert payload["macro_site_processed_images"] == 20
+
 
 # UploadCompleteView Tests
 # ------------------------------------------------------------------------------

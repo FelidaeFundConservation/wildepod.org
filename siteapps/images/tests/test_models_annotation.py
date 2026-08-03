@@ -192,97 +192,51 @@ def species_name_dog(db):
 class TestBoundingBoxManager:
     """Test the BoundingBoxManager methods."""
 
-    def test_annotated_with_confidence_above_threshold(
-        self, image, ml_annotator
-    ):
-        """Test that boxes with confidence above threshold are marked correctly."""
-        # Create a bounding box with high confidence
+    def test_annotated_returns_queryset(self, image, ml_annotator):
+        """
+        annotated() is now a passthrough (no more keep/num_accepted/voted_valid
+        annotations); subclasses may layer on additional .annotate() calls.
+        Validity is stored on the model and queried via valid() / uncertain().
+        """
         bbox = BoundingBox.objects.create(
-            image=image,
-            x=0.1,
-            y=0.1,
-            w=0.5,
-            h=0.5,
-            confidence=0.95,
-            created_by=ml_annotator,
+            image=image, x=0.1, y=0.1, w=0.5, h=0.5, confidence=0.95, created_by=ml_annotator,
         )
-        Category.objects.create(
-            bounding_box=bbox,
-            name="animal",
-            confidence=0.95,
-            created_by=ml_annotator,
-        )
-
-        # Query with annotated
         annotated_boxes = BoundingBox.objects.annotated()
-        box = annotated_boxes.get(id=bbox.id)
+        assert annotated_boxes.filter(id=bbox.id).exists()
 
-        assert box.keep is True
-        assert box.num_accepted == 0
-        assert box.num_rejected == 0
-
-    def test_annotated_with_votes(
-        self, image, ml_annotator, human_annotator
-    ):
-        """Test vote counting in annotated boxes."""
+    def test_compute_validity_with_votes(self, image, ml_annotator, human_annotator):
+        """
+        Vote counting moved to compute_validity() which returns weighted score
+        and raw accept/reject counts.
+        """
+        from siteapps.images.processors.annotation import compute_validity
         bbox = BoundingBox.objects.create(
-            image=image,
-            x=0.1,
-            y=0.1,
-            w=0.5,
-            h=0.5,
-            confidence=0.95,
-            created_by=ml_annotator,
+            image=image, x=0.1, y=0.1, w=0.5, h=0.5, confidence=0.95, created_by=ml_annotator,
         )
-        Category.objects.create(
-            bounding_box=bbox,
-            name="animal",
-            confidence=0.95,
-            created_by=ml_annotator,
-        )
-
-        # Add acceptances
         bbox.accepted_by.add(human_annotator)
 
-        annotated_boxes = BoundingBox.objects.annotated()
-        box = annotated_boxes.get(id=bbox.id)
+        result = compute_validity(bbox)
+        assert result.accepted_count == 1
+        assert result.rejected_count == 0
+        # Bot creator (weight 1) + human accept (weight 1) = score 2 -> VALID
+        assert result.score == 2
+        assert result.validity == "VALID"
 
-        assert box.num_accepted == 1
-        assert box.num_rejected == 0
-        assert box.vote_diff == 1
-
-    def test_voted_valid(self, image, ml_annotator, human_annotator):
-        """Test that boxes with sufficient positive votes are marked as valid."""
+    def test_validity_valid_with_enough_accepts(self, image, ml_annotator, human_annotator):
+        """Bbox reaches VALID when weighted score >= 2."""
+        from siteapps.images.processors.annotation import compute_validity
         bbox = BoundingBox.objects.create(
-            image=image,
-            x=0.1,
-            y=0.1,
-            w=0.5,
-            h=0.5,
-            confidence=0.95,
-            created_by=ml_annotator,
-        )
-        Category.objects.create(
-            bounding_box=bbox,
-            name="animal",
-            confidence=0.95,
-            created_by=ml_annotator,
+            image=image, x=0.1, y=0.1, w=0.5, h=0.5, confidence=0.95, created_by=ml_annotator,
         )
 
-        # Add enough accepts to meet threshold
-        for _ in range(settings.NUM_ACCEPTS_OVER_REJECTS):
-            user = User.objects.create_user(
-                email=f"user{_}@example.com",
-                password="testpass",
-            )
+        # Add enough accepts to meet threshold (creator=1 + 1 more accept = score 2)
+        for i in range(settings.NUM_ACCEPTS_OVER_REJECTS):
+            user = User.objects.create_user(email=f"user{i}@example.com", password="testpass")
             annotator, _ = Annotator.objects.get_or_create(type="human", human=user)
             bbox.accepted_by.add(annotator)
 
-        annotated_boxes = BoundingBox.objects.annotated()
-        box = annotated_boxes.get(id=bbox.id)
-
-        assert box.voted_valid is True
-        assert box.voted_invalid is False
+        result = compute_validity(bbox)
+        assert result.validity == "VALID"
 
     def test_is_animal_filter(
         self, image, ml_annotator
@@ -443,97 +397,71 @@ class TestBoundingBoxManager:
 class TestCategoryManager:
     """Test the CategoryManager methods."""
 
-    @pytest.mark.skip(reason="CategoryManager.annotated() uses confidence_threshold field which doesn't exist on Category model in wildepod_main")
     def test_valid_ordering(self, image, ml_annotator, human_annotator):
-        """Test that valid categories are ordered correctly."""
+        """
+        Valid categories are ordered by -confidence, -created, -modified.
+        (Previously ordered by -vote_diff which is no longer materialized.)
+        """
+        from siteapps.images.processors.annotation import compute_validity
+
         bbox = BoundingBox.objects.create(
-            image=image,
-            x=0.1,
-            y=0.1,
-            w=0.5,
-            h=0.5,
-            confidence=0.95,
-            created_by=ml_annotator,
+            image=image, x=0.1, y=0.1, w=0.5, h=0.5, confidence=0.95, created_by=ml_annotator,
         )
 
-        # Create categories with different vote counts
         cat1 = Category.objects.create(
-            bounding_box=bbox,
-            name="animal",
-            confidence=0.9,
-            created_by=ml_annotator,
+            bounding_box=bbox, name="animal", confidence=0.9, created_by=ml_annotator,
         )
         cat1.accepted_by.add(human_annotator)
+        cat1.validity = compute_validity(cat1).validity
+        cat1.save()
 
         cat2 = Category.objects.create(
-            bounding_box=bbox,
-            name="animal",
-            confidence=0.95,
-            created_by=ml_annotator,
+            bounding_box=bbox, name="animal", confidence=0.95, created_by=ml_annotator,
         )
-
-        # Add enough accepts to make cat2 more valid
-        for _ in range(settings.NUM_ACCEPTS_OVER_REJECTS + 1):
-            user = User.objects.create_user(
-                email=f"user{_}@example.com",
-                password="testpass",
-            )
+        for i in range(settings.NUM_ACCEPTS_OVER_REJECTS + 1):
+            user = User.objects.create_user(email=f"user_co{i}@example.com", password="testpass")
             annotator, _ = Annotator.objects.get_or_create(type="human", human=user)
             cat2.accepted_by.add(annotator)
+        cat2.validity = compute_validity(cat2).validity
+        cat2.save()
 
         valid_cats = Category.objects.valid()
-        # cat2 should come first due to higher vote_diff
+        # Both are VALID; cat2 first due to higher confidence (0.95 vs 0.9)
         assert valid_cats.first().id == cat2.id
 
 
 class TestActivityManager:
     """Test the ActivityManager methods."""
 
-    @pytest.mark.skip(reason="ActivityManager.annotated() uses confidence_threshold field which doesn't exist on Activity model in wildepod_main")
     def test_valid_ordering(self, image, ml_annotator, human_annotator):
-        """Test that valid activities are ordered correctly."""
+        """ActivityManager.valid() now uses the stored validity field directly."""
         from images.models import ActivityType
-        
+        from siteapps.images.processors.annotation import compute_validity
+
         bbox = BoundingBox.objects.create(
-            image=image,
-            x=0.1,
-            y=0.1,
-            w=0.5,
-            h=0.5,
-            confidence=0.95,
-            created_by=ml_annotator,
+            image=image, x=0.1, y=0.1, w=0.5, h=0.5, confidence=0.95, created_by=ml_annotator,
         )
 
-        # Create activity types
-        activity_type1 = ActivityType.objects.create(name="Walking", category="MOVEMENT")
-        activity_type2 = ActivityType.objects.create(name="Running", category="MOVEMENT")
+        activity_type1 = ActivityType.objects.create(name="Walking", category="animal")
+        activity_type2 = ActivityType.objects.create(name="Running", category="animal")
 
-        # Create activities with different confidence levels
         act1 = Activity.objects.create(
-            bounding_box=bbox,
-            name=activity_type1,
-            confidence=0.85,
-            created_by=ml_annotator,
+            bounding_box=bbox, name=activity_type1, confidence=0.85, created_by=ml_annotator,
         )
-
         act2 = Activity.objects.create(
-            bounding_box=bbox,
-            name=activity_type2,
-            confidence=0.95,
-            created_by=ml_annotator,
+            bounding_box=bbox, name=activity_type2, confidence=0.95, created_by=ml_annotator,
         )
 
-        # Add more accepts to act2
-        for _ in range(settings.NUM_ACCEPTS_OVER_REJECTS + 1):
-            user = User.objects.create_user(
-                email=f"user{_}@example.com",
-                password="testpass",
-            )
+        for i in range(settings.NUM_ACCEPTS_OVER_REJECTS + 1):
+            user = User.objects.create_user(email=f"user_ao{i}@example.com", password="testpass")
             annotator, _ = Annotator.objects.get_or_create(type="human", human=user)
             act2.accepted_by.add(annotator)
+        act2.validity = compute_validity(act2).validity
+        act2.save()
 
         valid_activities = Activity.objects.valid()
         assert valid_activities.count() >= 1
+        assert valid_activities.first().id == act2.id
 
 
 class TestBaseAnnotationManager:
@@ -600,27 +528,29 @@ class TestBaseAnnotationManager:
         valid_or_uncertain = Category.objects.valid_or_uncertain()
         assert valid_or_uncertain.count() >= 1
 
-    def test_staff_vote_detection(
-        self, image, ml_annotator, staff_annotator
-    ):
-        """Test that staff votes are detected correctly."""
+    def test_staff_vote_detection(self, image, ml_annotator, staff_annotator):
+        """
+        Staff votes are detected via the staff_accept_count / staff_reject_count
+        fields on VoteResult. When called from vote() at vote time, staff_override
+        is also True (last-vote-wins). In display mode (no annotator), the count
+        suffices.
+        """
+        from siteapps.images.processors.annotation import compute_validity
         bbox = BoundingBox.objects.create(
-            image=image,
-            x=0.1,
-            y=0.1,
-            w=0.5,
-            h=0.5,
-            confidence=0.95,
-            created_by=ml_annotator,
+            image=image, x=0.1, y=0.1, w=0.5, h=0.5, confidence=0.95, created_by=ml_annotator,
         )
-
-        # Add staff acceptance
         bbox.accepted_by.add(staff_annotator)
 
-        annotated_boxes = BoundingBox.objects.annotated()
-        box = annotated_boxes.get(id=bbox.id)
+        # Display mode (no annotator) — staff is detected via the count
+        result = compute_validity(bbox)
+        assert result.staff_accept_count == 1
+        # Score: bot creator (1) + staff accept (5) = 6 -> VALID
+        assert result.validity == "VALID"
+        assert result.staff_override is False  # not vote-time
 
-        assert box.is_staff_vote is True
+        # Vote-time mode — staff_override fires
+        result_vote_time = compute_validity(bbox, annotator=staff_annotator, accept=True)
+        assert result_vote_time.staff_override is True
 
 
 @pytest.mark.django_db

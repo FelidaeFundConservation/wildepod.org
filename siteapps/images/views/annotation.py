@@ -38,13 +38,14 @@ from images.models import (
     SpeciesSubgroup,
 )
 from images.models.custom_fields import get_filter_params
+from images.models.annotation import Validity
 from images.processors import (
     has_bbox_above_confidence_threshold,
     process_activity_annotations,
     process_species_annotations,
     run_model_inference,
 )
-from images.processors.annotation import SERVICE_ACCOUNT_EMAIL
+from images.processors.annotation import SERVICE_ACCOUNT_EMAIL, _is_staff_or_expert, compute_validity
 from PIL import Image as PILImage
 
 # TODO: There might be some duplicate constants between here and the settings. Should probably move these to the base settings file.
@@ -62,8 +63,8 @@ ACTIVITY_ANIMAL_QUEUE_NAME = "AnnotateAnimalActivityQueue"
 
 UNKNOWN_CATEGORY = "unknown"
 
-STAFF_OR_EXPERT_CHECK = Q(human__is_staff=True) | Q(human__is_expert=True)
-STAFF_OR_EXPERT_VOTE_MULTIPLIER = 2
+# Vote weight model: see siteapps/images/processors/annotation.py compute_validity().
+# Staff/expert role check moved to processors._is_staff_or_expert().
 
 
 class BboxAnnotationInfo:
@@ -1630,66 +1631,97 @@ class ChangeAnnotationView(LoginRequiredMixin, View):
 # Pipeline flag calculations. (Was triple quoted)
 def annotate(zipped_querysets):
     """
-    Alternative to the ORM .annotate() to calculate object properties, which returns incorrect data due to multiple aggregations.
-    Takes a zip object containing a list of annotation objects to reference,
-    and its .value() list to append data to.
+    Populate per-annotation display data on each (obj, dict) pair.
 
-    Calculates the votes and validity of the given object (BoundingBox or Image),
-    and adds that data to the original field values list in the zipped tuples.
+    Delegates the validity decision to compute_validity() in processors/annotation.py
+    — the single source of truth. This function only mutates the dicts with the
+    keys that downstream consumers (calculate*AnnotationFlags, UI templates) expect:
+      - accepted_count / rejected_count: raw unweighted counts (creator included
+        if human, preserving prior behavior)
+      - vote_difference: raw accepted_count - rejected_count
+      - score: new — weighted score (staff/expert=5, normal=1)
+      - staff_or_expert_votes / has_staff_or_expert_vote: staff/expert metadata
+      - status: VALID / INVALID / UNCERTAIN (from compute_validity)
 
-    Arguments
-    ---
-        - zipped_querysets (iterator): An iterator object containing tuples of annotation objects and their respective values list.
+    Note: the prior bbox-cascade-into-category logic (correlated_obj_rejected) was
+    removed. Validity for each annotation reflects only its own M2M state.
+    BoundingBox.validity itself is now derived from its children by the cascade
+    in calculate*AnnotationFlags.
     """
-
     for obj, annotation in zipped_querysets:
-        annotation["accepted_count"] = obj.accepted_by.count() + (1 if obj.created_by.type == "human" else 0)
-        annotation["rejected_count"] = obj.rejected_by.count()
+        result = compute_validity(obj)
 
-        annotation["vote_difference"] = annotation.get("accepted_count") - annotation.get("rejected_count")
+        # Raw counts: the original behavior added 1 to accepted_count when the
+        # creator was a human. Preserve that for UI continuity.
+        creator_human_offset = 1 if obj.created_by.type == "human" else 0
+        accepted_count = result.accepted_count + creator_human_offset
+        rejected_count = result.rejected_count
 
-        annotation["staff_or_expert_votes"] = obj.accepted_by.filter(STAFF_OR_EXPERT_CHECK).count() + (
-            1 if (obj.created_by.human and (obj.created_by.human.is_staff or obj.created_by.human.is_expert)) else 0
-        )
+        annotation["accepted_count"] = accepted_count
+        annotation["rejected_count"] = rejected_count
+        annotation["vote_difference"] = accepted_count - rejected_count
+        annotation["score"] = result.score
+
+        # Staff/expert metadata. The original code also counted the creator
+        # if they were staff/expert, so keep that.
+        creator_is_staff_offset = 1 if _is_staff_or_expert(obj.created_by) else 0
+        annotation["staff_or_expert_votes"] = result.staff_accept_count + creator_is_staff_offset
         annotation["has_staff_or_expert_vote"] = annotation["staff_or_expert_votes"] > 0
 
-        staff_or_expert_rejection_count = obj.rejected_by.filter(STAFF_OR_EXPERT_CHECK).count()
-        staff_or_expert_rejection = staff_or_expert_rejection_count > 0
+        annotation["status"] = result.validity
 
-        correlated_obj_rejected = False
 
-        if hasattr(obj, "bounding_box"):
-            bbox_obj = BoundingBox.objects.filter(id=obj.bounding_box.id)
-            bbox_values = bbox_obj.values()
+def _save_annotation_validity(Model, zipped_querysets):
+    """
+    Persist the `validity` field on each annotation object from the status the
+    annotate() helper populated in the dict. Uses bulk_update so we don't bump
+    `modified` accidentally on every row — we set it explicitly here so the
+    timestamp behavior matches the pre-refactor save() pattern.
+    """
+    if not zipped_querysets:
+        return
+    now = timezone.now()
+    objs_to_save = []
+    for obj, data in zipped_querysets:
+        obj.validity = data.get("status")
+        obj.modified = now
+        objs_to_save.append(obj)
+    Model.objects.bulk_update(objs_to_save, ["validity", "modified"])
 
-            zipped_bbox_querysets = list(zip(bbox_obj, bbox_values))
-            annotate(zipped_bbox_querysets)
 
-            correlated_obj_rejected = zipped_bbox_querysets[0][1].get("status") == "INVALID"
+def _recompute_bbox_validity_for_image(image):
+    """
+    Single writer for BoundingBox.validity. Cascades from child Category/Species/
+    Activity validity values (which must already be persisted before calling this).
 
-        if (
-            annotation.get("vote_difference") > VOTE_THRESHOLD
-            and not staff_or_expert_rejection
-            and not correlated_obj_rejected
-            # Some annotations have incorrect staff/expert votes,
-            # Override acception for every two other staff/experts who concur on rejection
-        ) or (
-            annotation["staff_or_expert_votes"] > 0
-            and staff_or_expert_rejection_count <= annotation["staff_or_expert_votes"]
-        ):
-            annotation["status"] = "VALID"
-        elif (
-            annotation.get("vote_difference") < -VOTE_THRESHOLD
-            or (0 != staff_or_expert_rejection_count >= (annotation["staff_or_expert_votes"] * 2))
-            or correlated_obj_rejected
-        ):
-            if annotation["has_staff_or_expert_vote"]:
-                logging.info(
-                    f"Staff/expert accept votes for {type(obj)} {obj.id} was overriden because 2 or more staff/experts rejected it."
-                )
-            annotation["status"] = "INVALID"
+    Rule:
+      any child VALID                 -> VALID
+      any child UNCERTAIN or NULL     -> UNCERTAIN
+      all INVALID (and there is >=1)  -> INVALID
+      no children at all              -> NULL (UNSEEN)
+    """
+    bboxes = list(
+        image.boundingbox_set.prefetch_related("category_set", "species_set", "activity_set")
+    )
+    if not bboxes:
+        return
+    now = timezone.now()
+    for bbox in bboxes:
+        child_validities = set()
+        for collection in (bbox.category_set.all(), bbox.species_set.all(), bbox.activity_set.all()):
+            for child in collection:
+                child_validities.add(child.validity)
+
+        if not child_validities:
+            bbox.validity = None  # UNSEEN
+        elif Validity.VALID in child_validities:
+            bbox.validity = Validity.VALID
+        elif Validity.UNCERTAIN in child_validities or None in child_validities:
+            bbox.validity = Validity.UNCERTAIN
         else:
-            annotation["status"] = "UNCERTAIN"
+            bbox.validity = Validity.INVALID
+        bbox.modified = now
+    BoundingBox.objects.bulk_update(bboxes, ["validity", "modified"])
 
 
 # Category Flag Checks
@@ -1697,6 +1729,8 @@ def calculateCategoryAnnotationFlags(image):
     """
     Determines Category pipeline completion based on a number of criteria, and sets the respective flags in the image.
     Sets flags depending on what type of objects are in the image only if pipeline complete.
+
+    Single writer for Category.validity and (via the cascade helper) BoundingBox.validity.
 
     Arguments
     ---
@@ -1714,6 +1748,15 @@ def calculateCategoryAnnotationFlags(image):
     zipped_querysets = list(zip(category_objs, category_annotations))
     annotate(zipped_querysets)
 
+    # Persist Category.validity from the annotate() pass, then cascade to bbox.validity
+    _save_annotation_validity(Category, zipped_querysets)
+    _recompute_bbox_validity_for_image(image)
+
+    # Refresh bbox dicts so downstream checks below see the cascaded values
+    for bbox_obj, bbox_data in zipped_bbox_querysets:
+        bbox_obj.refresh_from_db(fields=["validity"])
+        bbox_data["status"] = bbox_obj.validity or "UNSEEN"
+
     category_has_uncertain_annotation = any(
         category[1].get("status") == "UNCERTAIN" for category in zipped_querysets
     ) or any(bbox[1].get("status") == "UNCERTAIN" for bbox in zipped_bbox_querysets)
@@ -1723,11 +1766,6 @@ def calculateCategoryAnnotationFlags(image):
     not_invalid_bbox_count_gt = len(zipped_bbox_querysets) > 0 and any(
         bbox[1].get("status") != "INVALID" for bbox in zipped_bbox_querysets
     )
-
-    # Save bbox validity status
-    for bbox in zipped_bbox_querysets:
-        bbox[0].validity = bbox[1].get("status")
-        bbox[0].save()
 
     if not category_has_uncertain_annotation and image.processed and not_invalid_bbox_count_gt:
         image.has_humans = category_annotations.filter(name="person").exists()
@@ -1807,6 +1845,10 @@ def calculateSpeciesAnnotationFlags(image):
 
     zipped_querysets = list(zip(species_objs, species_annotations))
     annotate(zipped_querysets)
+
+    # Persist Species.validity from the annotate() pass, then cascade to bbox.validity
+    _save_annotation_validity(Species, zipped_querysets)
+    _recompute_bbox_validity_for_image(image)
 
     species_has_uncertain_annotation = any(species[1].get("status") == "UNCERTAIN" for species in zipped_querysets)
 
@@ -1892,6 +1934,10 @@ def calculateActivityAnnotationFlags(image):
     zipped_querysets = list(zip(activity_objs, activity_annotations))
     annotate(zipped_querysets)
 
+    # Persist Activity.validity from the annotate() pass, then cascade to bbox.validity
+    _save_annotation_validity(Activity, zipped_querysets)
+    _recompute_bbox_validity_for_image(image)
+
     activity_has_uncertain_annotation = any(activity[1].get("status") == "UNCERTAIN" for activity in zipped_querysets)
 
     activity_has_valid_annotation = any(activity[1].get("status") == "VALID" for activity in zipped_querysets)
@@ -1903,7 +1949,7 @@ def calculateActivityAnnotationFlags(image):
     if (
         not activity_has_uncertain_annotation
         and activity_has_valid_annotation
-        and image.has_wild_animals
+        and (image.has_wild_animals or image.has_humans)
         and (annotation_checked_by_gte or has_staff_or_expert_vote)
         and image.processed
     ):

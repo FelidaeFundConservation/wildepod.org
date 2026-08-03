@@ -9,7 +9,7 @@ import pytest
 from django.core.management import call_command
 
 from images.models import Image
-from images.processors.annotation import SERVICE_ACCOUNT_EMAIL, get_service_annotator
+from images.processors.annotation import SINGLE_HUMAN_RULE, get_automation_annotator
 from siteapps.conftest_factories import BoundingBoxFactory, CategoryFactory, ImageFactory
 
 
@@ -35,16 +35,17 @@ def test_approves_high_confidence_single_human():
 
 
 @pytest.mark.django_db
-def test_records_service_account_vote():
-    """The approval is attributable: the service account holds an accept vote on the category."""
+def test_records_automation_bot_vote():
+    """The approval is attributable: the automation bot holds an accept vote on the category."""
     image = _make_single_human_image(confidence=0.95)
 
     call_command("auto_approve_single_human", "--confidence", "0.85")
 
-    service_annotator = get_service_annotator()
-    assert service_annotator.human.email == SERVICE_ACCOUNT_EMAIL
+    automation_annotator = get_automation_annotator()
+    assert automation_annotator.type == "bot"
+    assert automation_annotator.automation_criteria == SINGLE_HUMAN_RULE
     category = image.boundingbox_set.first().category_set.first()
-    assert service_annotator in category.accepted_by.all()
+    assert automation_annotator in category.accepted_by.all()
 
 
 @pytest.mark.django_db

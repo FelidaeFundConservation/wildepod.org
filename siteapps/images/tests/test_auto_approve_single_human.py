@@ -17,9 +17,9 @@ import pytest
 from images.models import Image
 from images.processors.annotation import (
     PERSON_CATEGORY,
-    SERVICE_ACCOUNT_EMAIL,
+    SINGLE_HUMAN_RULE,
     auto_approve_single_human,
-    get_service_annotator,
+    get_automation_annotator,
 )
 from images.views.annotation import (
     CATEGORY_ANIMAL,
@@ -72,16 +72,17 @@ class TestAutoApproveSingleHumanRoutine:
         assert image.has_animals is False
         assert image.has_uncertain_bbox is False
 
-    def test_approval_records_service_account_vote(self):
-        """The person category carries the expert service-account accept vote (audit trail)."""
+    def test_approval_records_automation_bot_vote(self):
+        """The person category carries the automation bot's accept vote (audit trail)."""
         image = _single_human_image()
 
         auto_approve_single_human(image)
 
-        service_annotator = get_service_annotator()
-        assert service_annotator.human.email == SERVICE_ACCOUNT_EMAIL
+        automation_annotator = get_automation_annotator()
+        assert automation_annotator.type == "bot"
+        assert automation_annotator.automation_criteria == SINGLE_HUMAN_RULE
         category = image.boundingbox_set.first().category_set.first()
-        assert service_annotator in category.accepted_by.all()
+        assert automation_annotator in category.accepted_by.all()
 
     def test_below_confidence_is_not_approved(self):
         """A person box below the cutoff does not qualify."""
@@ -154,13 +155,13 @@ class TestAutoApprovedImageExcludedFromQueues:
         assert image not in post
 
     def test_excluded_from_human_behavior_queue_after_approval(self):
-        """After approval, the image is excluded from the human-behavior queue by service vote."""
+        """After approval, the image is excluded from the human-behavior queue by the automation vote."""
         image = self._queue_eligible_single_human_image()
         annotator = AnnotatorFactory()
 
         auto_approve_single_human(image)
 
-        # has_humans=True now, but the service-account vote marker excludes it.
+        # has_humans=True now, but the automation annotator's vote marker excludes it.
         queue = activity_pipeline_query(Image.objects.all(), annotator, CATEGORY_HUMAN)
         assert image not in queue
 

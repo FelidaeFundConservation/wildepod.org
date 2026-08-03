@@ -8,10 +8,20 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from django.conf import settings
-from django.contrib.auth import get_user_model
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from django.db.models import Count, Q, Sum
-from images.models import Activity, ActivityType, Annotator, BoundingBox, Category, Image, Species, SpeciesName, Upload
+from images.models import (
+    Activity,
+    ActivityType,
+    Annotator,
+    Bot,
+    BoundingBox,
+    Category,
+    Image,
+    Species,
+    SpeciesName,
+    Upload,
+)
 from images.models.annotation import Validity
 
 # TODO: This entire module is very hacky and needs to be refactored
@@ -28,10 +38,13 @@ PERSON_CATEGORY = "person"
 ANIMAL_CATEGORY = "animal"
 VEHICLE_CATEGORY = "vehicle"
 
-# Identity of the service account whose expert votes auto-complete single-human images.
-SERVICE_ACCOUNT_EMAIL = "megadetector-auto@wildepod.org"
-SERVICE_ACCOUNT_NAME = "MegaDetector Auto-Approval"
+# The automation criterion applied to single high-confidence human images, and the identity
+# of the dedicated automation bot whose accept vote auto-completes them. This is a distinct
+# Bot from the detection MegaDetector so that ordinary detection votes keep normal (weight 1)
+# authority while only the automation annotator carries expert-equivalent (weight 5) authority.
 SINGLE_HUMAN_RULE = "single_human"
+AUTOMATION_BOT_NAME = "MegaDetector-Auto"
+AUTOMATION_BOT_VERSION = "v5a.0.0"
 
 # Vote weight model: normal=1, staff/expert=5, threshold>=2 for VALID, <=-2 for INVALID.
 # Future tier splits (expert vs staff) only require updating _weight() — the
@@ -69,12 +82,18 @@ class VoteResult:
 
 
 def _is_staff_or_expert(annotator: Optional[Annotator]) -> bool:
-    """Role check — kept independent of vote weight so future tier splits don't break it."""
-    return bool(
-        annotator
-        and annotator.human
-        and (annotator.human.is_staff or annotator.human.is_expert)
-    )
+    """Override-authority check — kept independent of vote weight so future tier splits don't break it.
+
+    True for staff/expert human annotators and for automation bot annotators (those carrying an
+    ``automation_criteria``). A criteria-bearing automation annotator's vote therefore wins outright
+    (last-vote-wins) and carries expert-equivalent weight, so a single automated accept completes the
+    annotation the same way an expert human's would.
+    """
+    if not annotator:
+        return False
+    if annotator.human and (annotator.human.is_staff or annotator.human.is_expert):
+        return True
+    return bool(annotator.automation_criteria)
 
 
 def _weight(annotator: Optional[Annotator]) -> int:
@@ -583,31 +602,41 @@ def process_activity(formatted_annotations, bbox_id, bbox_obj, annotator):
         activity_obj = None
 
 
-def get_service_annotator() -> Annotator:
-    """Return the expert service-account Annotator used for automated approvals.
+def get_automation_annotator() -> Annotator:
+    """Return the dedicated automation bot Annotator used for single-human auto-approvals.
 
-    Lazily creates a dedicated expert `User` (email `SERVICE_ACCOUNT_EMAIL`, `is_expert=True`)
-    and its human `Annotator`. Because the account is an expert human, its accept votes trigger
-    the `is_staff_vote` short-circuit in the voting logic, validating annotations without
-    additional consensus.
+    Lazily creates a distinct ``Bot`` (``AUTOMATION_BOT_NAME``) and a bot ``Annotator`` carrying
+    ``automation_criteria=SINGLE_HUMAN_RULE``. The criterion makes the annotator count as an
+    override authority in the voting logic (see ``_is_staff_or_expert``), so its single accept vote
+    completes the annotation without additional consensus. Using a Bot separate from the detection
+    MegaDetector keeps ordinary detection votes at normal weight while only this annotator carries
+    expert-equivalent weight.
 
-    TODO this is hardcoding for the single service account related to this issue. When there 
-    are more service account we will need an actual scalable solution. 
+    The ``automation_criteria`` field also serves as the durable, parsable audit marker of an
+    automated decision: which model (via the bot FK) under which criterion.
 
     Returns:
-        The `Annotator` wrapping the service-account user.
+        The bot ``Annotator`` used for automated single-human approvals.
     """
-    user_model = get_user_model()
-    service_user, created = user_model.objects.get_or_create(
-        email=SERVICE_ACCOUNT_EMAIL,
-        defaults={"name": SERVICE_ACCOUNT_NAME, "is_expert": True, "is_active": False},
+    bot, created = Bot.objects.get_or_create(
+        name=AUTOMATION_BOT_NAME,
+        version=AUTOMATION_BOT_VERSION,
+        defaults={"task_type": "object_detection"},
     )
     if created:
-        logging.info(f"Service-account user '{SERVICE_ACCOUNT_EMAIL}' created for automated approvals.")
+        logging.info(f"Automation bot '{AUTOMATION_BOT_NAME}' created for automated approvals.")
 
-    annotator, created = Annotator.objects.get_or_create(type="human", human=service_user)
+    annotator, created = Annotator.objects.get_or_create(
+        type="bot",
+        bot=bot,
+        defaults={"automation_criteria": SINGLE_HUMAN_RULE},
+    )
     if created:
-        logging.info("Service-account annotator created.")
+        logging.info("Automation bot annotator created.")
+    elif annotator.automation_criteria != SINGLE_HUMAN_RULE:
+        # Backfill the criterion if the annotator pre-existed without it.
+        annotator.automation_criteria = SINGLE_HUMAN_RULE
+        annotator.save(update_fields=["automation_criteria"])
 
     return annotator
 
@@ -616,10 +645,11 @@ def auto_approve_single_human(image: Image) -> bool:
     """Auto-complete an image if it contains exactly one high-confidence human bounding box.
 
     When the image has a single bounding box whose category is `person` and whose confidence is
-    at least `settings.SINGLE_HUMAN_AUTO_APPROVE_CONFIDENCE`, the expert service account votes to
+    at least `settings.SINGLE_HUMAN_AUTO_APPROVE_CONFIDENCE`, the automation bot annotator votes to
     accept the box and its category (completing the category pipeline through the normal voting
     logic), and the species pipeline is marked complete directly (a human-only image has no
-    wildlife to identify).
+    wildlife to identify). The automation annotator's ``automation_criteria`` is the audit marker
+    of the decision.
 
     Args:
         image: The processed image to evaluate. Must already have `processed=True`.
@@ -641,11 +671,11 @@ def auto_approve_single_human(image: Image) -> bool:
 
     logging.info(f"Auto-approving single-human image {image.id} (confidence {bbox.confidence} >= {cutoff}).")
 
-    ############### cast expert votes ###############
+    ############### cast automation votes ###############
     # Imported lazily to avoid a circular import (views.annotation imports from this module).
     from images.views.annotation import calculateCategoryAnnotationFlags
 
-    annotator = get_service_annotator()
+    annotator = get_automation_annotator()
     vote(bbox, annotator, accept=True)
     vote(category, annotator, accept=True)
 

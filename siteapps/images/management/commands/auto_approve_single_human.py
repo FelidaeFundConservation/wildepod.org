@@ -8,7 +8,7 @@
 Retroactively completes already-uploaded images that contain exactly one bounding box
 classified as a high-confidence person, so they leave the species (and human-behavior)
 annotation queues without ever being served to a human annotator. Each approval reuses the
-same service-account voting routine as the forward (upload-time) path, so an auto-annotated
+same automation-bot voting routine as the forward (upload-time) path, so an auto-annotated
 image carries the identical audit trail regardless of which path completed it.
 """
 
@@ -22,7 +22,7 @@ from images.models import BoundingBox, Image
 from images.processors.annotation import (
     PERSON_CATEGORY,
     auto_approve_single_human,
-    get_service_annotator,
+    get_automation_annotator,
 )
 
 
@@ -31,9 +31,9 @@ class Command(BaseCommand):
 
     help = (
         "Auto-approve backlog images that contain exactly one high-confidence human bounding box. "
-        "The expert service account votes to accept the box and category, completing the category "
-        "and species pipelines. Idempotent and resumable: images already voted on by the service "
-        "account are skipped."
+        "The automation bot annotator votes to accept the box and category, completing the category "
+        "and species pipelines. Idempotent and resumable: images already voted on by the automation "
+        "annotator are skipped."
     )
 
     def add_arguments(self, parser) -> None:
@@ -72,8 +72,8 @@ class Command(BaseCommand):
             confidence = settings.SINGLE_HUMAN_AUTO_APPROVE_CONFIDENCE
 
         ############### find qualifying images ###############
-        service_annotator = get_service_annotator()
-        qualifying_ids = self._get_qualifying_image_ids(confidence, service_annotator)
+        automation_annotator = get_automation_annotator()
+        qualifying_ids = self._get_qualifying_image_ids(confidence, automation_annotator)
         if limit is not None:
             qualifying_ids = qualifying_ids[:limit]
 
@@ -102,7 +102,7 @@ class Command(BaseCommand):
 
         self.stdout.write(f"Auto-approved {approved} images ({skipped} skipped).")
 
-    def _get_qualifying_image_ids(self, confidence: float, service_annotator) -> list[str]:
+    def _get_qualifying_image_ids(self, confidence: float, automation_annotator) -> list[str]:
         """Return ids of images with exactly one high-confidence, not-yet-approved person box.
 
         Queried in two steps to avoid the JOIN-inflated ``Count`` pitfall: the exact-one-box
@@ -111,7 +111,7 @@ class Command(BaseCommand):
 
         Args:
             confidence: Minimum bounding-box confidence for eligibility.
-            service_annotator: The expert service-account annotator whose prior accept vote marks
+            automation_annotator: The automation bot annotator whose prior accept vote marks
                 an image as already auto-approved (used to skip completed images on re-runs).
 
         Returns:
@@ -126,14 +126,14 @@ class Command(BaseCommand):
         )
 
         # Step 2: of those, the single box is a high-confidence person not already approved by the
-        # service account (the durable marker that keeps the command idempotent and resumable).
+        # automation annotator (the durable marker that keeps the command idempotent and resumable).
         qualifying_ids = (
             BoundingBox.objects.filter(
                 image_id__in=single_bbox_ids,
                 confidence__gte=confidence,
                 category__name=PERSON_CATEGORY,
             )
-            .exclude(category__accepted_by=service_annotator)
+            .exclude(category__accepted_by=automation_annotator)
             .values_list("image_id", flat=True)
         )
 

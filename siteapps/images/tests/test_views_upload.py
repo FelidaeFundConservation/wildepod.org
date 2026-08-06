@@ -351,6 +351,40 @@ class TestUploadCompleteView:
         # Should handle submission
         assert response.status_code in [200, 302]
 
+    def test_unfinalized_upload_renders_leave_warning_modal(self, client, user, upload):
+        """Volunteers leaving before finalizing should get the reminder modal"""
+        upload.upload_complete = False
+        upload.save()
+        client.force_login(user)
+        response = client.get(reverse("images:complete_upload", args=[upload.id]))
+
+        content = response.content.decode()
+        assert 'id="unfinalizedUploadModal"' in content
+        assert "One step left" in content
+        assert "leaveWithoutFinalizing" in content
+
+    def test_finalized_upload_omits_leave_warning_modal(self, client, user, upload):
+        """Once finalized there is nothing to warn about, so the modal is not rendered"""
+        upload.upload_complete = True
+        upload.save()
+        client.force_login(user)
+        response = client.get(reverse("images:complete_upload", args=[upload.id]))
+
+        assert 'id="unfinalizedUploadModal"' not in response.content.decode()
+
+    def test_complete_form_uses_plain_language_checkbox_label(self, client, user, upload):
+        """Checkbox label is overridden on the form, not the model, to avoid a migration"""
+        upload.upload_complete = False
+        upload.save()
+        client.force_login(user)
+        response = client.get(reverse("images:complete_upload", args=[upload.id]))
+
+        content = response.content.decode()
+        assert "I have uploaded all the media to Dropbox" in content
+        assert "Upload to Dropbox complete?" not in content
+        # Model verbose_name is untouched, so the admin keeps the original wording
+        assert Upload._meta.get_field("upload_complete").verbose_name == "Upload to Dropbox complete?"
+
 
 # UploadResumeProcessingView Tests
 # ------------------------------------------------------------------------------

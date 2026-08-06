@@ -11,7 +11,6 @@ from crispy_forms.helper import FormHelper
 from crispy_forms.layout import HTML, Button, Column, Layout, Row, Submit
 from django import forms
 from django.conf import settings
-
 from locations.models import CameraStation, MacroSite
 
 from .models import TimeCorrection, Upload
@@ -172,7 +171,7 @@ class UploadForm(forms.ModelForm):
         labels = {
             "date_retrieved": "Date & time retrieved",
         }
-        
+
         widgets = {
             "user_image_count": forms.NumberInput(attrs={"min": "1"}),
         }
@@ -261,6 +260,10 @@ class UploadCompleteForm(forms.ModelForm):
 
         labels = {
             "date_retrieved": "Date & time retrieved",
+            # Overridden here rather than on the model field so the wording change
+            # does not generate a migration. The admin console keeps the original
+            # "Upload to Dropbox complete?" label.
+            "upload_complete": "I have uploaded all the media to Dropbox",
         }
 
 

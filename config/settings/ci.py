@@ -28,6 +28,7 @@ EMAIL_2FA_PASSWORD = ""
 
 SECURE_SSL_REDIRECT = False
 ADMIN_URL_SUFFIX = ""
+EXPORT_URL_SUFFIX = "ci-placeholder"
 
 WSGI_APPLICATION = "config.wsgi.staging.application"
 

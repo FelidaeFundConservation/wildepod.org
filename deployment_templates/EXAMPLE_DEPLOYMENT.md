@@ -4,8 +4,8 @@ This example shows how to create a custom development environment called "alice-
 
 ## Prerequisites
 
-- GCP project: wildepod-339517
-- Existing Cloud SQL instance: wildepoddb (shared)
+- GCP project: <YOUR-PROJECT-ID>
+- Existing Cloud SQL instance: <YOUR-DB-INSTANCE> (shared)
 - Access to Secret Manager
 
 ## Step-by-Step Example
@@ -25,7 +25,7 @@ Use the deployment script to auto-generate all files:
 
 ```bash
 # Create custom environment with shared database
-./deploy_custom.sh alice-dev --use-existing-db --db-instance wildepoddb --full
+./deploy_custom.sh alice-dev --use-existing-db --db-instance <YOUR-DB-INSTANCE> --full
 
 # Run post-deployment setup
 ./post_deploy_setup.sh alice-dev
@@ -82,13 +82,13 @@ Create database connection string secret:
 # For new dedicated database
 gcloud secrets create ALICE_DEV_DATABASE_URL \
   --data-file=- <<EOF
-postgres://wildepod_user:PASSWORD@/wildepod_alice_dev?host=/cloudsql/wildepod-339517:us-west2:wildepoddb-alice-dev
+postgres://wildepod_user:PASSWORD@/wildepod_alice_dev?host=/cloudsql/<YOUR-PROJECT-ID>:us-west2:<YOUR-DB-INSTANCE>-alice-dev
 EOF
 
 # OR for shared database (recommended for dev)
 gcloud secrets create ALICE_DEV_DATABASE_URL \
   --data-file=- <<EOF
-postgres://wildepod_user:PASSWORD@/wildepod_alice_dev?host=/cloudsql/wildepod-339517:us-west2:wildepoddb
+postgres://wildepod_user:PASSWORD@/wildepod_alice_dev?host=/cloudsql/<YOUR-PROJECT-ID>:us-west2:<YOUR-DB-INSTANCE>
 EOF
 ```
 
@@ -112,7 +112,7 @@ Grant App Engine access to secrets:
 
 ```bash
 # Get App Engine service account
-PROJECT_ID="wildepod-339517"
+PROJECT_ID="<YOUR-PROJECT-ID>"
 SERVICE_ACCOUNT="${PROJECT_ID}@appspot.gserviceaccount.com"
 
 # Grant access to secrets
@@ -137,7 +137,7 @@ gcloud secrets add-iam-policy-binding DROPBOX_REFRESH_TOKEN_ALICE_DEV \
 
 ```bash
 # Connect to existing Cloud SQL instance
-gcloud sql connect wildepoddb --user=postgres --database=postgres
+gcloud sql connect <YOUR-DB-INSTANCE> --user=postgres --database=postgres
 
 # In psql, create database
 CREATE DATABASE wildepod_alice_dev;
@@ -174,7 +174,7 @@ gcloud app browse -s alice-dev
 gcloud app logs tail -s alice-dev
 
 # Test admin access
-# https://alice-dev-dot-wildepod-339517.appspot.com/admin/
+# https://alice-dev-dot-<YOUR-PROJECT-ID>.appspot.com/admin/
 ```
 
 ## Cost Estimate
@@ -194,10 +194,10 @@ When done with the environment:
 gcloud app services delete alice-dev
 
 # Delete the database (if dedicated)
-gcloud sql databases delete wildepod_alice_dev --instance=wildepoddb-alice-dev
+gcloud sql databases delete wildepod_alice_dev --instance=<YOUR-DB-INSTANCE>-alice-dev
 
 # Delete the Cloud SQL instance (if dedicated)
-gcloud sql instances delete wildepoddb-alice-dev
+gcloud sql instances delete <YOUR-DB-INSTANCE>-alice-dev
 
 # Delete secrets
 gcloud secrets delete ALICE_DEV_DATABASE_URL
@@ -221,7 +221,7 @@ rm -f alice-dev.py
 
 ### Database connection fails
 - Verify database URL secret is correct
-- Check database exists: `gcloud sql databases list --instance=wildepoddb`
+- Check database exists: `gcloud sql databases list --instance=<YOUR-DB-INSTANCE>`
 - Confirm App Engine has secretAccessor role
 
 ### Service not found after deployment

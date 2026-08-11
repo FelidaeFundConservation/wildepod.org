@@ -5,7 +5,7 @@
 ### Create New Environment
 ```bash
 # Using existing database (recommended)
-./deploy_custom.sh <your-name-env> --use-existing-db --db-instance wildepoddb --full
+./deploy_custom.sh <your-name-env> --use-existing-db --db-instance <YOUR-DB-INSTANCE> --full
 ./post_deploy_setup.sh <your-name-env>
 
 # With new database
@@ -20,8 +20,8 @@
 | Database | `wildepod_alice_dev` |
 | DB User | `wildepod_alice_dev_user` |
 | Settings | `config.settings.alice_dev` |
-| Bucket | `wildepod-339517-alice-dev-media` |
-| URL | `https://alice-dev-dot-wildepod-339517.appspot.com` |
+| Bucket | `<YOUR-PROJECT-ID>-alice-dev-media` |
+| URL | `https://alice-dev-dot-<YOUR-PROJECT-ID>.appspot.com` |
 
 ### Name Rules
 - ✅ Lowercase letters, numbers, hyphens only
@@ -66,19 +66,19 @@ python manage.py createsuperuser --settings=config.settings.<env_name>
 ### Database
 ```bash
 # Connect to database
-cloud-sql-proxy --port 5433 wildepod-339517:us-west2:wildepoddb
+cloud-sql-proxy --port 5433 <YOUR-PROJECT-ID>:us-west2:<YOUR-DB-INSTANCE>
 
 # In another terminal
 psql "host=127.0.0.1 port=5433 dbname=wildepod_<env> user=wildepod_<env>_user"
 
 # List databases
-gcloud sql databases list --instance=wildepoddb
+gcloud sql databases list --instance=<YOUR-DB-INSTANCE>
 
 # Create backup
-gcloud sql backups create --instance=wildepoddb
+gcloud sql backups create --instance=<YOUR-DB-INSTANCE>
 
 # List backups
-gcloud sql backups list --instance=wildepoddb
+gcloud sql backups list --instance=<YOUR-DB-INSTANCE>
 ```
 
 ### Monitoring
@@ -102,13 +102,13 @@ gcloud app logs read --service=<service-name> --severity=ERROR --limit=50
 gcloud app services delete <service-name>
 
 # Delete database
-gcloud sql databases delete wildepod_<env> --instance=wildepoddb
+gcloud sql databases delete wildepod_<env> --instance=<YOUR-DB-INSTANCE>
 
 # Delete user
-gcloud sql users delete wildepod_<env>_user --instance=wildepoddb
+gcloud sql users delete wildepod_<env>_user --instance=<YOUR-DB-INSTANCE>
 
 # Delete storage bucket
-gsutil -m rm -r gs://wildepod-339517-<env>-media/
+gsutil -m rm -r gs://<YOUR-PROJECT-ID>-<env>-media/
 
 # Delete secrets
 gcloud secrets delete <env>_db_password
@@ -124,14 +124,14 @@ rm -f <env>.yaml <env>.py config/settings/<env>.py config/wsgi/<env>.py
 ```bash
 export DJANGO_SETTINGS_MODULE=config.settings.<env>
 export <ENV>_DATABASE_URL="postgres://<user>:<password>@127.0.0.1:5433/<dbname>"
-export GOOGLE_CLOUD_PROJECT=wildepod-339517
+export GOOGLE_CLOUD_PROJECT=<YOUR-PROJECT-ID>
 ```
 
 ### Example (alice-dev)
 ```bash
 export DJANGO_SETTINGS_MODULE=config.settings.alice_dev
 export ALICE_DEV_DATABASE_URL="postgres://wildepod_alice_dev_user:password@127.0.0.1:5433/wildepod_alice_dev"
-export GOOGLE_CLOUD_PROJECT=wildepod-339517
+export GOOGLE_CLOUD_PROJECT=<YOUR-PROJECT-ID>
 ```
 
 ## Cost Estimates
@@ -150,16 +150,16 @@ export GOOGLE_CLOUD_PROJECT=wildepod-339517
 ```bash
 gcloud auth login
 gcloud auth application-default login
-gcloud config set project wildepod-339517
+gcloud config set project <YOUR-PROJECT-ID>
 ```
 
 ### Database Connection Error
 ```bash
 # Check instance exists
-gcloud sql instances describe wildepoddb
+gcloud sql instances describe <YOUR-DB-INSTANCE>
 
 # Test connection
-cloud-sql-proxy --port 5433 wildepod-339517:us-west2:wildepoddb
+cloud-sql-proxy --port 5433 <YOUR-PROJECT-ID>:us-west2:<YOUR-DB-INSTANCE>
 psql "host=127.0.0.1 port=5433 dbname=postgres user=postgres"
 ```
 

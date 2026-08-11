@@ -7,7 +7,7 @@ Complete guide for deploying WildePod Django application to Google Cloud Platfor
 ### Custom Deployment (Recommended for Development)
 ```bash
 # Create your personal environment
-./deploy_custom.sh <your-name>-dev --use-existing-db --db-instance wildepoddb --full
+./deploy_custom.sh <your-name>-dev --use-existing-db --db-instance <YOUR-DB-INSTANCE> --full
 ./post_deploy_setup.sh <your-name>-dev
 ```
 
@@ -56,7 +56,7 @@ Complete guide for deploying WildePod Django application to Google Cloud Platfor
 ```bash
 gcloud auth login
 gcloud auth application-default login
-gcloud config set project wildepod-339517
+gcloud config set project <YOUR-PROJECT-ID>
 ```
 
 ### Required APIs
@@ -91,7 +91,7 @@ WildePod supports two deployment approaches:
 
 **With Existing Database (Recommended)**
 ```bash
-./deploy_custom.sh alice-dev --use-existing-db --db-instance wildepoddb --full
+./deploy_custom.sh alice-dev --use-existing-db --db-instance <YOUR-DB-INSTANCE> --full
 ./post_deploy_setup.sh alice-dev
 ```
 
@@ -121,18 +121,18 @@ For prefix `alice-dev`:
 - Database: `wildepod_alice_dev`
 - DB User: `wildepod_alice_dev_user`
 - Settings: `config.settings.alice_dev`
-- Bucket: `wildepod-339517-alice-dev-media`
-- URL: `https://alice-dev-dot-wildepod-339517.appspot.com`
+- Bucket: `<YOUR-PROJECT-ID>-alice-dev-media`
+- URL: `https://alice-dev-dot-<YOUR-PROJECT-ID>.appspot.com`
 
 ### Custom Deployment Options
 ```bash
 --use-existing-db          Use existing Cloud SQL instance
---db-instance NAME         Existing instance name (e.g., wildepoddb)
+--db-instance NAME         Existing instance name (e.g., <YOUR-DB-INSTANCE>)
 --setup-db                 Create new Cloud SQL instance
 --deploy-only              Deploy app only (skip database)
 --full                     Complete deployment (database + app)
 --dry-run                  Show what would happen without changes
---project-id ID            GCP project (default: wildepod-339517)
+--project-id ID            GCP project (required: set via $GCP_PROJECT_ID or --project-id flag)
 --region REGION            GCP region (default: us-west2)
 --db-tier TIER             Database tier (default: db-f1-micro)
 ```
@@ -142,7 +142,7 @@ For prefix `alice-dev`:
 **View All Deployments**
 ```bash
 gcloud app services list
-gcloud sql databases list --instance=wildepoddb
+gcloud sql databases list --instance=<YOUR-DB-INSTANCE>
 ```
 
 **Update Deployment**
@@ -155,8 +155,8 @@ gcloud app deploy alice-dev.yaml
 ```bash
 NAME="alice-dev"
 gcloud app services delete ${NAME}
-gcloud sql databases delete wildepod_${NAME//-/_} --instance=wildepoddb
-gsutil -m rm -r gs://wildepod-339517-${NAME}-media/
+gcloud sql databases delete wildepod_${NAME//-/_} --instance=<YOUR-DB-INSTANCE>
+gsutil -m rm -r gs://<YOUR-PROJECT-ID>-${NAME}-media/
 gcloud secrets delete ${NAME//-/_}_db_password
 gcloud secrets delete ${NAME//-/_}_django_secret
 rm -f ${NAME}.yaml ${NAME//-/_}.py config/settings/${NAME//-/_}.py config/wsgi/${NAME//-/_}.py
@@ -178,7 +178,7 @@ rm -f ${NAME}.yaml ${NAME//-/_}.py config/settings/${NAME//-/_}.py config/wsgi/$
 
 **With Existing Database**
 ```bash
-./deploy_gcp.sh staging --use-existing-db wildepoddb
+./deploy_gcp.sh staging --use-existing-db <YOUR-DB-INSTANCE>
 ```
 
 **Deploy Only**
@@ -215,10 +215,10 @@ rm -f ${NAME}.yaml ${NAME//-/_}.py config/settings/${NAME//-/_}.py config/wsgi/$
 **Usage:**
 ```bash
 # Custom deployment
-./deploy_custom.sh myname-dev --use-existing-db --db-instance wildepoddb --full
+./deploy_custom.sh myname-dev --use-existing-db --db-instance <YOUR-DB-INSTANCE> --full
 
 # Standard deployment
-./deploy_gcp.sh staging --use-existing-db wildepoddb
+./deploy_gcp.sh staging --use-existing-db <YOUR-DB-INSTANCE>
 ```
 
 **How it works:**
@@ -295,7 +295,7 @@ Test deployments without making changes:
 
 ```bash
 # Custom deployment dry-run
-./deploy_custom.sh test-env --use-existing-db --db-instance wildepoddb --full --dry-run
+./deploy_custom.sh test-env --use-existing-db --db-instance <YOUR-DB-INSTANCE> --full --dry-run
 
 # Standard deployment dry-run
 ./deploy_gcp.sh staging --full --dry-run
@@ -331,15 +331,15 @@ The deployment script creates GitHub Actions workflows:
 gcloud iam service-accounts create github-deployer \
     --display-name="GitHub Actions Deployer"
 
-gcloud projects add-iam-policy-binding wildepod-339517 \
-    --member="serviceAccount:github-deployer@wildepod-339517.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding <YOUR-PROJECT-ID> \
+    --member="serviceAccount:github-deployer@<YOUR-PROJECT-ID>.iam.gserviceaccount.com" \
     --role="roles/appengine.deployer"
 ```
 
 2. **Create and Download Key:**
 ```bash
 gcloud iam service-accounts keys create key.json \
-    --iam-account=github-deployer@wildepod-339517.iam.gserviceaccount.com
+    --iam-account=github-deployer@<YOUR-PROJECT-ID>.iam.gserviceaccount.com
 ```
 
 3. **Add to GitHub Secrets:**
@@ -380,19 +380,19 @@ gcloud app instances list --service=<service-name>
 ### Database Management
 ```bash
 # Connect to database
-cloud-sql-proxy --port 5433 wildepod-339517:us-west2:wildepoddb
+cloud-sql-proxy --port 5433 <YOUR-PROJECT-ID>:us-west2:<YOUR-DB-INSTANCE>
 
 # In another terminal
 psql "host=127.0.0.1 port=5433 dbname=wildepod_<env> user=wildepod_<env>_user"
 
 # Create backup
-gcloud sql backups create --instance=wildepoddb
+gcloud sql backups create --instance=<YOUR-DB-INSTANCE>
 
 # List backups
-gcloud sql backups list --instance=wildepoddb
+gcloud sql backups list --instance=<YOUR-DB-INSTANCE>
 
 # Restore from backup
-gcloud sql backups restore BACKUP_ID --backup-instance=wildepoddb
+gcloud sql backups restore BACKUP_ID --backup-instance=<YOUR-DB-INSTANCE>
 ```
 
 ### Update Deployment
@@ -417,7 +417,7 @@ automatic_scaling:
 gcloud app deploy <environment>.yaml
 
 # Scale database (requires downtime)
-gcloud sql instances patch wildepoddb --tier=db-custom-4-15360
+gcloud sql instances patch <YOUR-DB-INSTANCE> --tier=db-custom-4-15360
 ```
 
 ## Troubleshooting
@@ -434,13 +434,13 @@ gcloud auth application-default login
 **Issue: Database Connection Failed**
 ```bash
 # Check instance exists and is running
-gcloud sql instances describe wildepoddb
+gcloud sql instances describe <YOUR-DB-INSTANCE>
 
 # Verify region matches
-gcloud sql instances describe wildepoddb --format="value(region)"
+gcloud sql instances describe <YOUR-DB-INSTANCE> --format="value(region)"
 
 # Test connection
-cloud-sql-proxy --port 5433 wildepod-339517:us-west2:wildepoddb
+cloud-sql-proxy --port 5433 <YOUR-PROJECT-ID>:us-west2:<YOUR-DB-INSTANCE>
 psql "host=127.0.0.1 port=5433 dbname=postgres user=postgres"
 ```
 
@@ -476,8 +476,8 @@ python manage.py migrate --fake <app> <migration> --settings=config.settings.<en
 
 # Or start fresh (WARNING: destroys data!)
 # Drop and recreate database
-gcloud sql databases delete wildepod_<env> --instance=wildepoddb
-gcloud sql databases create wildepod_<env> --instance=wildepoddb
+gcloud sql databases delete wildepod_<env> --instance=<YOUR-DB-INSTANCE>
+gcloud sql databases create wildepod_<env> --instance=<YOUR-DB-INSTANCE>
 ./post_deploy_setup.sh <environment>
 ```
 
@@ -512,7 +512,7 @@ class UsersConfig(AppConfig):
 gcloud app services list
 
 # List all databases
-gcloud sql databases list --instance=wildepoddb
+gcloud sql databases list --instance=<YOUR-DB-INSTANCE>
 
 # List all secrets
 gcloud secrets list
@@ -524,7 +524,7 @@ gsutil ls
 gcloud config list
 
 # View project info
-gcloud projects describe wildepod-339517
+gcloud projects describe <YOUR-PROJECT-ID>
 ```
 
 ## Best Practices
@@ -545,7 +545,7 @@ gcloud projects describe wildepod-339517
 ### Deploy Commands
 ```bash
 # Custom deployment (shared DB)
-./deploy_custom.sh <name> --use-existing-db --db-instance wildepoddb --full
+./deploy_custom.sh <name> --use-existing-db --db-instance <YOUR-DB-INSTANCE> --full
 
 # Custom deployment (new DB)
 ./deploy_custom.sh <name> --setup-db --full
@@ -569,7 +569,7 @@ gcloud app deploy <environment>.yaml
 gcloud app browse -s <service>
 
 # Connect to database
-cloud-sql-proxy --port 5433 wildepod-339517:us-west2:wildepoddb
+cloud-sql-proxy --port 5433 <YOUR-PROJECT-ID>:us-west2:<YOUR-DB-INSTANCE>
 ```
 
 ### Resource Locations

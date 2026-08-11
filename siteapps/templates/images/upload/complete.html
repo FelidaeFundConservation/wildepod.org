@@ -91,6 +91,31 @@
                             {% crispy form %}
                         </form>
                     </div>
+                    <!-- Shown when the volunteer navigates away before finalizing. Step 1 sends
+                         them to Dropbox in another tab, so it is easy to forget Step 2 and start
+                         a new upload instead, leaving these images sitting unimported. -->
+                    <div class="modal fade"
+                         id="unfinalizedUploadModal"
+                         tabindex="-1"
+                         aria-labelledby="unfinalizedUploadLabel"
+                         aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="unfinalizedUploadLabel">One step left</h5>
+                                </div>
+                                <div class="modal-body">
+                                    <p class="mb-0">Your photos won't reach WildePod until you finish this upload.</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button"
+                                            class="btn btn-outline-danger btn-sm"
+                                            id="leaveWithoutFinalizing">Leave without finalizing</button>
+                                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Stay on this page</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 {% else %}
                     <div class="alert alert-info" role="alert">
                         You don't have access to this upload since you are not the uploader.
@@ -153,5 +178,53 @@
 
         }, 30000);
     });
+
+    // Guardrail: warn before leaving an upload that has not been finalized.
+    (function () {
+        var modalEl = document.getElementById('unfinalizedUploadModal');
+        if (!modalEl) return;
+
+        var modal = new bootstrap.Modal(modalEl);
+        // The template nests the crispy-rendered <form> inside another one, so asking
+        // the checkbox for its owner is the only reliable handle on the real form.
+        var checkbox = document.getElementById('id_upload_complete');
+        var completeForm = checkbox ? checkbox.form : null;
+        var pendingHref = null;
+        var leaving = false;
+
+        // Let the real Submit button through without a second warning.
+        if (completeForm) {
+            completeForm.addEventListener('submit', function () { leaving = true; });
+        }
+
+        document.addEventListener('click', function (e) {
+            if (leaving) return;
+            var link = e.target.closest ? e.target.closest('a[href]') : null;
+            if (!link || modalEl.contains(link)) return;
+            // Links opening a new tab (Dropbox, the Uploads shortcut) leave this
+            // page intact, so they are deliberately not intercepted.
+            if (link.target === '_blank') return;
+            var href = link.getAttribute('href');
+            if (!href || href.charAt(0) === '#' || href.indexOf('javascript:') === 0 || href.indexOf('mailto:') === 0) return;
+
+            e.preventDefault();
+            pendingHref = link.href;
+            modal.show();
+        });
+
+        document.getElementById('leaveWithoutFinalizing').addEventListener('click', function () {
+            leaving = true;
+            modal.hide();
+            if (pendingHref) window.location.href = pendingHref;
+        });
+
+        // Backstop for closing the tab or typing a new URL, where browsers only
+        // allow their own generic dialog rather than the modal above.
+        window.addEventListener('beforeunload', function (e) {
+            if (leaving) return;
+            e.preventDefault();
+            e.returnValue = '';
+        });
+    })();
         </script>
     {% endblock footer_includes %}

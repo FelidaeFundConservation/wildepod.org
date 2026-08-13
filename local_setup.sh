@@ -264,7 +264,7 @@ if [ -n "$SUPERUSER_EMAIL" ]; then
         prompt_for_superuser_password
     fi
     # Create superuser using Python shell to handle existing users gracefully
-    uv run manage.py shell --settings=config.settings.local << EOF
+    SUPERUSER_PASSWORD="$SUPERUSER_PASSWORD" uv run manage.py shell --settings=config.settings.local << EOF
 import os
 from django.contrib.auth import get_user_model
 User = get_user_model()

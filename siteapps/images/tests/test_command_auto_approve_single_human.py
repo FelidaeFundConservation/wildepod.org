@@ -12,9 +12,9 @@ import pytest
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.utils import timezone
-
-from images.models import Image
+from images.models import Annotator, Bot, Image
 from images.processors.annotation import SINGLE_HUMAN_RULE, get_automation_annotator
+
 from siteapps.conftest_factories import BoundingBoxFactory, CategoryFactory, ImageFactory
 
 
@@ -93,13 +93,17 @@ def test_skips_non_person():
 
 @pytest.mark.django_db
 def test_dry_run_makes_no_changes():
-    """--dry-run reports qualifying images without modifying them."""
+    """--dry-run reports qualifying images without modifying data or provisioning its bot."""
     image = _make_single_human_image(confidence=0.95)
+    initial_bot_count = Bot.objects.count()
+    initial_annotator_count = Annotator.objects.count()
 
     call_command("auto_approve_single_human", "--confidence", "0.85", "--dry-run")
 
     image.refresh_from_db()
     assert image.species_pipeline_complete is False
+    assert Bot.objects.count() == initial_bot_count
+    assert Annotator.objects.count() == initial_annotator_count
 
 
 @pytest.mark.django_db

@@ -19,8 +19,10 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.db.models import Count
 from django.utils.dateparse import parse_date
-from images.models import BoundingBox, Image
+from images.models import Annotator, BoundingBox, Image
 from images.processors.annotation import (
+    AUTOMATION_BOT_NAME,
+    AUTOMATION_BOT_VERSION,
     PERSON_CATEGORY,
     auto_approve_single_human,
     get_automation_annotator,
@@ -109,7 +111,14 @@ class Command(BaseCommand):
         }
 
         ############### find qualifying images ###############
-        automation_annotator = get_automation_annotator()
+        if dry_run:
+            automation_annotator = Annotator.objects.filter(
+                type="bot",
+                bot__name=AUTOMATION_BOT_NAME,
+                bot__version=AUTOMATION_BOT_VERSION,
+            ).first()
+        else:
+            automation_annotator = get_automation_annotator()
         qualifying_ids = self._get_qualifying_image_ids(confidence, automation_annotator, **scope)
         if limit is not None:
             qualifying_ids = qualifying_ids[:limit]
@@ -189,17 +198,15 @@ class Command(BaseCommand):
 
         # Step 2: of those, the single box is a high-confidence person not already approved by the
         # automation annotator (the durable marker that keeps the command idempotent and resumable).
-        qualifying_ids = (
-            BoundingBox.objects.filter(
-                image_id__in=single_bbox_ids,
-                confidence__gte=confidence,
-                category__name=PERSON_CATEGORY,
-            )
-            .exclude(category__accepted_by=automation_annotator)
-            .values_list("image_id", flat=True)
+        qualifying_boxes = BoundingBox.objects.filter(
+            image_id__in=single_bbox_ids,
+            confidence__gte=confidence,
+            category__name=PERSON_CATEGORY,
         )
+        if automation_annotator is not None:
+            qualifying_boxes = qualifying_boxes.exclude(category__accepted_by=automation_annotator)
 
-        return list(qualifying_ids)
+        return list(qualifying_boxes.values_list("image_id", flat=True))
 
     @staticmethod
     def _parse_date_option(option_name: str, raw_value: str | None):

@@ -15,9 +15,10 @@ image carries the identical audit trail regardless of which path completed it.
 import logging
 
 from django.conf import settings
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.db.models import Count
+from django.utils.dateparse import parse_date
 from images.models import BoundingBox, Image
 from images.processors.annotation import (
     PERSON_CATEGORY,
@@ -61,6 +62,30 @@ class Command(BaseCommand):
             default=None,
             help="Confidence cutoff for the person box. Defaults to settings.SINGLE_HUMAN_AUTO_APPROVE_CONFIDENCE.",
         )
+        parser.add_argument(
+            "--start-date",
+            type=str,
+            default=None,
+            help="Include images captured on or after this date (YYYY-MM-DD).",
+        )
+        parser.add_argument(
+            "--end-date",
+            type=str,
+            default=None,
+            help="Include images captured on or before this date (YYYY-MM-DD).",
+        )
+        parser.add_argument(
+            "--camera-station",
+            type=str,
+            default=None,
+            help="Limit images to an exact camera station ID.",
+        )
+        parser.add_argument(
+            "--macro-site",
+            type=str,
+            default=None,
+            help="Limit images to an exact macro-site name.",
+        )
 
     def handle(self, *args, **options) -> None:
         """Query qualifying images and auto-approve them in batches."""
@@ -71,18 +96,34 @@ class Command(BaseCommand):
         if confidence is None:
             confidence = settings.SINGLE_HUMAN_AUTO_APPROVE_CONFIDENCE
 
+        start_date = self._parse_date_option("--start-date", options["start_date"])
+        end_date = self._parse_date_option("--end-date", options["end_date"])
+        if start_date and end_date and start_date > end_date:
+            raise CommandError("--start-date must be on or before --end-date.")
+
+        scope = {
+            "start_date": start_date,
+            "end_date": end_date,
+            "camera_station": options["camera_station"],
+            "macro_site": options["macro_site"],
+        }
+
         ############### find qualifying images ###############
         automation_annotator = get_automation_annotator()
-        qualifying_ids = self._get_qualifying_image_ids(confidence, automation_annotator)
+        qualifying_ids = self._get_qualifying_image_ids(confidence, automation_annotator, **scope)
         if limit is not None:
             qualifying_ids = qualifying_ids[:limit]
 
         total = len(qualifying_ids)
-        logging.info(f"Found {total} images with a single person bbox at confidence >= {confidence}.")
+        scope_description = self._format_scope(**scope)
+        logging.info(
+            f"Found {total} images with a single person bbox at confidence >= {confidence}; "
+            f"scope: {scope_description}."
+        )
 
         if dry_run:
             logging.info("Dry run: no images modified.")
-            self.stdout.write(f"[dry-run] {total} images would be auto-approved.")
+            self.stdout.write(f"[dry-run] {total} images would be auto-approved (scope: {scope_description}).")
             return
 
         ############### approve in batches ###############
@@ -93,17 +134,27 @@ class Command(BaseCommand):
             # One transaction per batch: an interruption leaves no image half-approved.
             with transaction.atomic():
                 for image in Image.objects.filter(id__in=batch):
-                    if auto_approve_single_human(image):
+                    if auto_approve_single_human(image, confidence_cutoff=confidence):
                         approved += 1
                     else:
                         # The box set changed between query and processing (e.g. re-inference).
                         skipped += 1
-            logging.info(f"Processed {min(start + batch_size, total)}/{total} (approved {approved}, skipped {skipped}).")
+            logging.info(
+                f"Processed {min(start + batch_size, total)}/{total} (approved {approved}, skipped {skipped})."
+            )
 
-        self.stdout.write(f"Auto-approved {approved} images ({skipped} skipped).")
+        self.stdout.write(f"Auto-approved {approved} images ({skipped} skipped; scope: {scope_description}).")
 
-    def _get_qualifying_image_ids(self, confidence: float, automation_annotator) -> list[str]:
-        """Return ids of images with exactly one high-confidence, not-yet-approved person box.
+    def _get_qualifying_image_ids(
+        self,
+        confidence: float,
+        automation_annotator,
+        start_date=None,
+        end_date=None,
+        camera_station: str | None = None,
+        macro_site: str | None = None,
+    ) -> list[str]:
+        """Return ids of scoped, high-confidence, not-yet-approved single-person images.
 
         Queried in two steps to avoid the JOIN-inflated ``Count`` pitfall: the exact-one-box
         count is computed on its own query, then the person/confidence/already-approved filter
@@ -113,16 +164,27 @@ class Command(BaseCommand):
             confidence: Minimum bounding-box confidence for eligibility.
             automation_annotator: The automation bot annotator whose prior accept vote marks
                 an image as already auto-approved (used to skip completed images on re-runs).
+            start_date: Earliest capture date to include, or None for no lower bound.
+            end_date: Latest capture date to include, or None for no upper bound.
+            camera_station: Exact camera station ID to include, or None for every station.
+            macro_site: Exact macro-site name to include, or None for every macro-site.
 
         Returns:
             A list of qualifying image ids.
         """
-        # Step 1: images with exactly one bounding box.
+        # Step 1: scoped images with exactly one bounding box.
+        images = Image.objects.filter(processed=True, upload__deleted=False)
+        if start_date:
+            images = images.filter(trigger_timestamp__date__gte=start_date)
+        if end_date:
+            images = images.filter(trigger_timestamp__date__lte=end_date)
+        if camera_station:
+            images = images.filter(upload__camera_station__station_id=camera_station)
+        if macro_site:
+            images = images.filter(upload__camera_station__micro_site__macro_site__name=macro_site)
+
         single_bbox_ids = (
-            Image.objects.filter(processed=True, upload__deleted=False)
-            .annotate(bbox_count=Count("boundingbox"))
-            .filter(bbox_count=1)
-            .values_list("id", flat=True)
+            images.annotate(bbox_count=Count("boundingbox")).filter(bbox_count=1).values_list("id", flat=True)
         )
 
         # Step 2: of those, the single box is a high-confidence person not already approved by the
@@ -138,3 +200,32 @@ class Command(BaseCommand):
         )
 
         return list(qualifying_ids)
+
+    @staticmethod
+    def _parse_date_option(option_name: str, raw_value: str | None):
+        """Parse one optional ISO date argument or raise a command-friendly error."""
+        if raw_value is None:
+            return None
+        parsed = parse_date(raw_value)
+        if parsed is None:
+            raise CommandError(f"{option_name} must use YYYY-MM-DD format; received '{raw_value}'.")
+        return parsed
+
+    @staticmethod
+    def _format_scope(
+        start_date=None,
+        end_date=None,
+        camera_station: str | None = None,
+        macro_site: str | None = None,
+    ) -> str:
+        """Return a readable description of the active backlog filters."""
+        filters = []
+        if start_date:
+            filters.append(f"start_date={start_date.isoformat()}")
+        if end_date:
+            filters.append(f"end_date={end_date.isoformat()}")
+        if camera_station:
+            filters.append(f"camera_station={camera_station}")
+        if macro_site:
+            filters.append(f"macro_site={macro_site}")
+        return ", ".join(filters) if filters else "all eligible images"

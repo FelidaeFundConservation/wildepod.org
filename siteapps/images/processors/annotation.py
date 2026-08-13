@@ -72,6 +72,7 @@ class VoteResult:
     - staff_override: True if validity was decided by a staff/expert overriding
       via last-vote-wins (set only when called from vote() at vote time)
     """
+
     validity: Optional[str]
     score: int
     accepted_count: int
@@ -140,8 +141,13 @@ def compute_validity(
             validity = Validity.INVALID
             score = -_weight(annotator)
         return VoteResult(
-            validity, score, accepted_count, rejected_count,
-            staff_accept_count, staff_reject_count, staff_override=True,
+            validity,
+            score,
+            accepted_count,
+            rejected_count,
+            staff_accept_count,
+            staff_reject_count,
+            staff_override=True,
         )
 
     # Weighted sum (creator's vote always counts)
@@ -156,8 +162,13 @@ def compute_validity(
     else:
         validity = Validity.UNCERTAIN
     return VoteResult(
-        validity, score, accepted_count, rejected_count,
-        staff_accept_count, staff_reject_count, staff_override=False,
+        validity,
+        score,
+        accepted_count,
+        rejected_count,
+        staff_accept_count,
+        staff_reject_count,
+        staff_override=False,
     )
 
 
@@ -641,18 +652,19 @@ def get_automation_annotator() -> Annotator:
     return annotator
 
 
-def auto_approve_single_human(image: Image) -> bool:
+def auto_approve_single_human(image: Image, confidence_cutoff: float | None = None) -> bool:
     """Auto-complete an image if it contains exactly one high-confidence human bounding box.
 
-    When the image has a single bounding box whose category is `person` and whose confidence is
-    at least `settings.SINGLE_HUMAN_AUTO_APPROVE_CONFIDENCE`, the automation bot annotator votes to
-    accept the box and its category (completing the category pipeline through the normal voting
-    logic), and the species pipeline is marked complete directly (a human-only image has no
-    wildlife to identify). The automation annotator's ``automation_criteria`` is the audit marker
-    of the decision.
+    When the image has a single bounding box whose category is `person` and whose confidence meets
+    the supplied cutoff (or `settings.SINGLE_HUMAN_AUTO_APPROVE_CONFIDENCE` by default), the
+    automation bot annotator votes to accept the box and its category. This completes the category
+    pipeline through the normal voting logic, while the species pipeline is marked complete
+    directly because a human-only image has no wildlife to identify. The automation annotator's
+    ``automation_criteria`` is the audit marker of the decision.
 
     Args:
         image: The processed image to evaluate. Must already have `processed=True`.
+        confidence_cutoff: Minimum bounding-box confidence. Uses the configured default when None.
 
     Returns:
         True if the image qualified and was auto-approved, False otherwise.
@@ -663,7 +675,7 @@ def auto_approve_single_human(image: Image) -> bool:
         return False
 
     bbox = bounding_boxes[0]
-    cutoff = settings.SINGLE_HUMAN_AUTO_APPROVE_CONFIDENCE
+    cutoff = settings.SINGLE_HUMAN_AUTO_APPROVE_CONFIDENCE if confidence_cutoff is None else confidence_cutoff
 
     category = Category.objects.filter(bounding_box=bbox, name=PERSON_CATEGORY).first()
     if category is None or bbox.confidence < cutoff:
@@ -687,7 +699,7 @@ def auto_approve_single_human(image: Image) -> bool:
     image.species_pipeline_complete = True
 
     # Re-set and re-save the image so it won't be caught in the queue query. This is initially set
-    # right when the bounding box is created and rather than touching that code we can do this. 
+    # right when the bounding box is created and rather than touching that code we can do this.
     image.has_uncertain_bbox = image.boundingbox_set.filter(validity="UNCERTAIN").exists()
     image.save()
 

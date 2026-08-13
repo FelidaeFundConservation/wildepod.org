@@ -5,17 +5,22 @@
 
 """Tests for the auto_approve_single_human backlog management command."""
 
+from datetime import datetime
+from io import StringIO
+
 import pytest
 from django.core.management import call_command
+from django.core.management.base import CommandError
+from django.utils import timezone
 
 from images.models import Image
 from images.processors.annotation import SINGLE_HUMAN_RULE, get_automation_annotator
 from siteapps.conftest_factories import BoundingBoxFactory, CategoryFactory, ImageFactory
 
 
-def _make_single_human_image(confidence: float) -> Image:
-    """Create a processed image with exactly one person bounding box at the given confidence."""
-    image = ImageFactory(processed=True)
+def _make_single_human_image(confidence: float, **image_kwargs) -> Image:
+    """Create a processed image with one person box and optional image attributes."""
+    image = ImageFactory(processed=True, **image_kwargs)
     bbox = BoundingBoxFactory(image=image, confidence=confidence)
     CategoryFactory(bounding_box=bbox, name="person")
     return image
@@ -118,3 +123,173 @@ def test_idempotent_rerun():
     call_command("auto_approve_single_human", "--confidence", "0.85")
 
     assert Image.objects.filter(species_pipeline_complete=True).count() == 1
+
+
+@pytest.mark.django_db
+def test_date_range_includes_both_boundary_dates():
+    """Start and end dates include every capture time on both boundary dates."""
+    before = _make_single_human_image(
+        confidence=0.95,
+        trigger_timestamp=timezone.make_aware(datetime(2025, 1, 9, 23, 59)),
+    )
+    start = _make_single_human_image(
+        confidence=0.95,
+        trigger_timestamp=timezone.make_aware(datetime(2025, 1, 10, 0, 0)),
+    )
+    end = _make_single_human_image(
+        confidence=0.95,
+        trigger_timestamp=timezone.make_aware(datetime(2025, 1, 20, 23, 59)),
+    )
+    after = _make_single_human_image(
+        confidence=0.95,
+        trigger_timestamp=timezone.make_aware(datetime(2025, 1, 21, 0, 0)),
+    )
+
+    call_command(
+        "auto_approve_single_human",
+        "--start-date",
+        "2025-01-10",
+        "--end-date",
+        "2025-01-20",
+    )
+
+    assert Image.objects.get(id=start.id).species_pipeline_complete is True
+    assert Image.objects.get(id=end.id).species_pipeline_complete is True
+    assert Image.objects.get(id=before.id).species_pipeline_complete is False
+    assert Image.objects.get(id=after.id).species_pipeline_complete is False
+
+
+@pytest.mark.django_db
+def test_camera_station_filter_is_exact():
+    """Only an exact camera station ID match is approved."""
+    matching = _make_single_human_image(
+        confidence=0.95,
+        upload__camera_station__station_id="TEST-STATION",
+    )
+    partial = _make_single_human_image(
+        confidence=0.95,
+        upload__camera_station__station_id="TEST-STATION-OTHER",
+    )
+
+    call_command("auto_approve_single_human", "--camera-station", "TEST-STATION")
+
+    assert Image.objects.get(id=matching.id).species_pipeline_complete is True
+    assert Image.objects.get(id=partial.id).species_pipeline_complete is False
+
+
+@pytest.mark.django_db
+def test_macro_site_filter_is_exact():
+    """Only images belonging to the exact macro-site name are approved."""
+    matching = _make_single_human_image(
+        confidence=0.95,
+        upload__camera_station__micro_site__macro_site__name="Test Macro",
+    )
+    partial = _make_single_human_image(
+        confidence=0.95,
+        upload__camera_station__micro_site__macro_site__name="Test Macro Other",
+    )
+
+    call_command("auto_approve_single_human", "--macro-site", "Test Macro")
+
+    assert Image.objects.get(id=matching.id).species_pipeline_complete is True
+    assert Image.objects.get(id=partial.id).species_pipeline_complete is False
+
+
+@pytest.mark.django_db
+def test_scope_filters_can_be_combined():
+    """An image must satisfy every supplied date and location filter."""
+    captured = timezone.make_aware(datetime(2025, 2, 15, 12, 0))
+    matching = _make_single_human_image(
+        confidence=0.95,
+        trigger_timestamp=captured,
+        upload__camera_station__station_id="COMBINED-STATION",
+        upload__camera_station__micro_site__macro_site__name="Combined Macro",
+    )
+    wrong_station = _make_single_human_image(
+        confidence=0.95,
+        trigger_timestamp=captured,
+        upload__camera_station__station_id="OTHER-STATION",
+        upload__camera_station__micro_site__macro_site__name="Combined Macro",
+    )
+
+    call_command(
+        "auto_approve_single_human",
+        "--start-date",
+        "2025-02-01",
+        "--end-date",
+        "2025-02-28",
+        "--camera-station",
+        "COMBINED-STATION",
+        "--macro-site",
+        "Combined Macro",
+    )
+
+    assert Image.objects.get(id=matching.id).species_pipeline_complete is True
+    assert Image.objects.get(id=wrong_station.id).species_pipeline_complete is False
+
+
+@pytest.mark.django_db
+def test_invalid_date_is_rejected():
+    """A malformed date fails before backlog images are changed."""
+    image = _make_single_human_image(confidence=0.95)
+
+    with pytest.raises(CommandError, match="YYYY-MM-DD"):
+        call_command("auto_approve_single_human", "--start-date", "01/10/2025")
+
+    assert Image.objects.get(id=image.id).species_pipeline_complete is False
+
+
+@pytest.mark.django_db
+def test_inverted_date_range_is_rejected():
+    """The start date cannot occur after the end date."""
+    with pytest.raises(CommandError, match="on or before"):
+        call_command(
+            "auto_approve_single_human",
+            "--start-date",
+            "2025-02-01",
+            "--end-date",
+            "2025-01-01",
+        )
+
+
+@pytest.mark.django_db
+def test_dry_run_output_describes_active_scope():
+    """Dry-run output identifies the exact test scope without modifying images."""
+    image = _make_single_human_image(
+        confidence=0.95,
+        trigger_timestamp=timezone.make_aware(datetime(2025, 3, 5, 12, 0)),
+        upload__camera_station__station_id="OUTPUT-STATION",
+        upload__camera_station__micro_site__macro_site__name="Output Macro",
+    )
+    stdout = StringIO()
+
+    call_command(
+        "auto_approve_single_human",
+        "--dry-run",
+        "--start-date",
+        "2025-03-01",
+        "--end-date",
+        "2025-03-31",
+        "--camera-station",
+        "OUTPUT-STATION",
+        "--macro-site",
+        "Output Macro",
+        stdout=stdout,
+    )
+
+    output = stdout.getvalue()
+    assert "start_date=2025-03-01" in output
+    assert "end_date=2025-03-31" in output
+    assert "camera_station=OUTPUT-STATION" in output
+    assert "macro_site=Output Macro" in output
+    assert Image.objects.get(id=image.id).species_pipeline_complete is False
+
+
+@pytest.mark.django_db
+def test_non_default_confidence_is_used_during_approval():
+    """The shared approval routine honors the command's non-default confidence cutoff."""
+    image = _make_single_human_image(confidence=0.80)
+
+    call_command("auto_approve_single_human", "--confidence", "0.75")
+
+    assert Image.objects.get(id=image.id).species_pipeline_complete is True

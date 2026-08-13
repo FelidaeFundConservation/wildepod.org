@@ -271,7 +271,7 @@ User = get_user_model()
 if not User.objects.filter(email="$SUPERUSER_EMAIL").exists():
     User.objects.create_superuser(
         email='$SUPERUSER_EMAIL',
-        ******'SUPERUSER_PASSWORD'],
+        password=os.environ['SUPERUSER_PASSWORD'],
     )
     print('✓ Superuser created')
 else:

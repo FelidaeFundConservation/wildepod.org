@@ -629,13 +629,28 @@ def get_automation_annotator() -> Annotator:
     Returns:
         The bot ``Annotator`` used for automated single-human approvals.
     """
+    detection_task_type = "Object Detection"
+    detection_model_api_url = f"{settings.MEGADETECTOR_URL}/annotate/" if settings.MEGADETECTOR_URL else None
+
     bot, created = Bot.objects.get_or_create(
         name=AUTOMATION_BOT_NAME,
         version=AUTOMATION_BOT_VERSION,
-        defaults={"task_type": "object_detection"},
+        defaults={"task_type": detection_task_type, "model_api_url": detection_model_api_url},
     )
     if created:
         logging.info(f"Automation bot '{AUTOMATION_BOT_NAME}' created for automated approvals.")
+    else:
+        # Backfill provenance fields on a pre-existing bot (e.g. one created before this change)
+        # so its row stays consistent with the other MegaDetector bot rows.
+        bot_updates = {}
+        if bot.task_type != detection_task_type:
+            bot_updates["task_type"] = detection_task_type
+        if detection_model_api_url and bot.model_api_url != detection_model_api_url:
+            bot_updates["model_api_url"] = detection_model_api_url
+        if bot_updates:
+            for field, value in bot_updates.items():
+                setattr(bot, field, value)
+            bot.save(update_fields=list(bot_updates))
 
     annotator, created = Annotator.objects.get_or_create(
         type="bot",

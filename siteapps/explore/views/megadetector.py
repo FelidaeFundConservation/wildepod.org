@@ -24,6 +24,11 @@ class ExploreMegadetectorView(LoginRequiredMixin, StaffuserRequiredMixin, Templa
     template_name = "explore/megadetector.html"
     success_url = reverse_lazy("explore:map")
 
+    def handle_no_permission(self, request=None):
+        from django.contrib.auth.mixins import AccessMixin
+
+        return AccessMixin.handle_no_permission(self)
+
     def get(self, request, *args, **kwargs):
         form = ExploreMegadetectorForm
         return render(request, self.template_name, {"form": form})

@@ -266,6 +266,11 @@ class TrackVolunteerEngagementView(LoginRequiredMixin, StaffuserRequiredMixin, L
     login_url = settings.LOGIN_URL
     template_name = "explore/track_volunteer_engagement.html"
 
+    def handle_no_permission(self, request=None):
+        from django.contrib.auth.mixins import AccessMixin
+
+        return AccessMixin.handle_no_permission(self)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 

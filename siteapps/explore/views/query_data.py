@@ -72,6 +72,11 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
     template_name = "explore/query_data.html"
     form_class = QueryDataForm
 
+    def handle_no_permission(self, request=None):
+        from django.contrib.auth.mixins import AccessMixin
+
+        return AccessMixin.handle_no_permission(self)
+
     def post(self, request, *args, **kwargs):
         form = QueryDataForm(request.POST)
         results = {}
@@ -109,10 +114,15 @@ class SearchDataView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             if species:
                 # Get species IDs from SpeciesName objects
                 species_ids = [s.species_id for s in species if s.species_id]
-                if species_ids:
+                if len(species_ids)>0:
                     # Filter images that have bounding boxes with these species
                     queryset = queryset.filter(
                         boundingbox__species__in=species_ids
+                    ).distinct()
+                else:
+                    # Filter images that have bounding boxes with these species
+                    queryset = queryset.filter(
+                        boundingbox__species__name__in=species
                     ).distinct()
             
             aggregate_column_name = "upload__camera_station__micro_site__macro_site__name"

@@ -629,6 +629,11 @@ class FixUploadSetsView(StaffuserRequiredMixin, ListView):
     login_url = settings.LOGIN_URL
     template_name = "images/upload/fix.html"
 
+    def handle_no_permission(self, request=None):
+        from braces.views._access import AccessMixin as BracesAccessMixin
+
+        return BracesAccessMixin.handle_no_permission(self, request)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
@@ -648,6 +653,12 @@ class FixUploadSetsView(StaffuserRequiredMixin, ListView):
 
 class ModifyUploadSetImagesView(StaffuserRequiredMixin, View):
     # Applies time error fixes according to specified selections.
+
+    def handle_no_permission(self, request=None):
+        from braces.views._access import AccessMixin as BracesAccessMixin
+
+        return BracesAccessMixin.handle_no_permission(self, request)
+
     def post(self, request, *args, **kwargs):
         success = True
 

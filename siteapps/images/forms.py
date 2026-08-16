@@ -18,7 +18,9 @@ from .models import TimeCorrection, Upload
 
 # User facing form to create an upload
 class UploadForm(forms.ModelForm):
-    data_sheet = forms.FileField(widget=forms.ClearableFileInput(attrs={"accept": ".png,.jpg,.jpeg,.pdf, .docx"}))
+    data_sheet = forms.FileField(
+        widget=forms.ClearableFileInput(attrs={"accept": ".png,.jpg,.jpeg,.pdf, .docx"}),
+    )
 
     date_retrieved = forms.SplitDateTimeField(
         widget=forms.widgets.SplitDateTimeWidget(date_attrs={"type": "date"}, time_attrs={"type": "time"}),

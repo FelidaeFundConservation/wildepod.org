@@ -179,3 +179,111 @@ class TestUserManager:
         )
         # Local should not send emails
         assert len(mailoutbox) == 0
+
+    def test_send_welcome_email_bhutan_branch(self, settings, mailoutbox):
+        """Test welcome email with bhutan settings to cover is_bhutan branch."""
+        settings.WSGI_APPLICATION = "config.wsgi.bhutan.application"
+        
+        user = User.objects.create_user(
+            email="bhutan@example.com",
+            password=None  # This triggers password generation and email
+        )
+        
+        assert len(mailoutbox) == 1
+        email = mailoutbox[0]
+        assert "Welcome to WildePod Bhutan!" in email.subject
+        assert "bhutan@example.com" in email.to
+        # Verify email contains user info
+        assert email.body or email.alternatives  # Either plain or HTML version exists
+
+    def test_send_welcome_email_smtp_exception(self, settings, monkeypatch):
+        """Test that SMTP exceptions are caught and logged."""
+        from smtplib import SMTPException
+        import logging
+        
+        settings.WSGI_APPLICATION = "config.wsgi.prod.application"
+        
+        # Create a mock for send_mail that raises SMTPException
+        def mock_send_mail(*args, **kwargs):
+            raise SMTPException("SMTP server error")
+        
+        # Create a list to capture log calls
+        logged_errors = []
+        original_error = logging.error
+        
+        def mock_logging_error(msg, *args, **kwargs):
+            logged_errors.append(msg)
+            return original_error(msg, *args, **kwargs)
+        
+        # Patch send_mail and logging.error
+        monkeypatch.setattr("users.managers.send_mail", mock_send_mail)
+        monkeypatch.setattr("users.managers.logging.error", mock_logging_error)
+        
+        # Create user with generated password (triggers email)
+        user = User.objects.create_user(
+            email="smtp_test@example.com",
+            password=None
+        )
+        
+        # Verify error was logged
+        assert len(logged_errors) >= 1
+        assert any("Error sending welcome email" in str(msg) for msg in logged_errors)
+
+    def test_send_welcome_email_prod_default_branch(self, settings, mailoutbox):
+        """Test welcome email with prod settings (default/else branch)."""
+        # Use an application name that's not staging or bhutan but contains "prod"
+        settings.WSGI_APPLICATION = "config.wsgi.prod.application"
+        
+        user = User.objects.create_user(
+            email="prod@example.com",
+            password=None
+        )
+        
+        assert len(mailoutbox) == 1
+        email = mailoutbox[0]
+        # Should use default "Welcome to WildePod!" (not staging, not bhutan)
+        assert email.subject == "Welcome to WildePod!"
+        assert "prod@example.com" in email.to
+
+    def test_create_user_with_explicit_password(self):
+        """Test creating user with explicit password doesn't generate one."""
+        user = User.objects.create_user(
+            email="explicit@example.com",
+            password="mypassword123"
+        )
+        
+        # User should be created with the provided password
+        assert user.check_password("mypassword123")
+        assert user.email == "explicit@example.com"
+
+    def test_create_superuser_sets_is_volunteer(self):
+        """Test that superuser automatically gets is_volunteer=True."""
+        user = User.objects.create_superuser(
+            email="superadmin@example.com",
+            password="superpass123"
+        )
+        
+        assert user.is_volunteer is True
+        assert user.is_staff is True
+        assert user.is_superuser is True
+        assert user.is_active is True
+
+    def test_send_welcome_email_explicitly_tests_bhutan_elif(self, settings, mailoutbox):
+        """Explicitly test the elif is_bhutan branch in send_welcome_email."""
+        # Set up bhutan WSGI application to specifically trigger elif branch
+        settings.WSGI_APPLICATION = "config.wsgi.bhutan.application"
+        
+        # Verify the setting
+        assert "bhutan" in settings.WSGI_APPLICATION
+        assert "staging" not in settings.WSGI_APPLICATION
+        
+        # Create user with no password to trigger email sending
+        user = User.objects.create_user(
+            email="bhutan_elif@example.com",
+            password=None
+        )
+        
+        # Verify email was sent with Bhutan subject (from elif branch)
+        assert len(mailoutbox) == 1
+        assert mailoutbox[0].subject == "Welcome to WildePod Bhutan!"
+        assert "bhutan_elif@example.com" in mailoutbox[0].to

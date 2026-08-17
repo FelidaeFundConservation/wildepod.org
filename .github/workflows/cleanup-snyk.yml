@@ -33,9 +33,7 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.dry_run == true || github.event_name == 'pull_request' }}
         run: |
           echo "Fetching open Snyk PRs..."
-          
-          # Fix: Snyk uses 'snyk-bot' as the author in the GitHub CLI tool, not 'app/snyk-bot'
-          prs=$(gh pr list --author "jdorapalli" --state open --json number,title --limit 100)
+          prs=$(gh pr list --author "snyk-bot" --state open --json number,title --limit 100)
           
           if [ "$(echo "$prs" | jq '. | length')" -eq 0 ]; then
             echo "No open Snyk PRs found."
@@ -44,26 +42,39 @@ jobs:
 
           echo "Evaluating duplicates..."
           
-          # Fix: Optimized jq extraction to handle semantic versions Safely
-          old_prs=$(echo "$prs" 
-            | jq -r '[.[] 
-            | .title as $t 
-            | .number as $n 
-            | ($t | capture("\\[Snyk\\] Upgrade (?<p>[^ ]+) from [^ ]+ to (?<v>[0-9A-Za-z.+-]+)")?) | select(. != null) 
-            | {number: $n, title: $t, package: .p, version: .v}] 
-            | group_by(.package) 
-            | .[] 
-            | if length > 1 then (sort_by(.version | split(".") | map(tonumber? // 0)) | .[:-1] | .[] 
-            | "\(.number)|\(.title)") 
-            else empty end')
+          # FIX: Pass the filter cleanly via a heredoc block to completely bypass Bash parser errors
+          old_prs=$(echo "$prs" | jq -r -f /dev/stdin << 'EOF'
+            [ .[] | 
+              .title as $title | 
+              .number as $number |
+              ($title | capture("\\[Snyk\\] Upgrade (?<package>[^ ]+) from [^ ]+ to (?<version>[0-9A-Za-z.+-]+)")?) |
+              select(. != null) |
+              {number: $number, title: $title, package: .package, version: .version}
+            ] | 
+            group_by(.package) | 
+            .[] | 
+            if length > 1 then 
+              sort_by(.version | split(".") | map(tonumber? // 0)) | 
+              .[:-1] | 
+              .[] | 
+              "\(.number)|\(.title)" 
+            else 
+              empty 
+            fi
+          EOF
+          )
 
+          # Guard clause to exit if no older duplicates are identified
           if [ -z "$old_prs" ]; then
             echo "All Snyk PRs are up to date. No older duplicates found."
             exit 0
           fi
 
-          # Process the identified old PRs
+          # Process the identified old PRs safely
+          echo "Processing stale duplicates..."
           echo "$old_prs" | while IFS="|" read -r pr_number pr_title; do
+            if [ -z "$pr_number" ]; then continue; fi
+            
             if [ "$DRY_RUN" = "true" ]; then
               echo "[DRY RUN] Would close PR #$pr_number: \"$pr_title\""
             else

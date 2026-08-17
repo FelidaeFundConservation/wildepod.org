@@ -50,7 +50,37 @@ jobs:
 
       - name: Install Python deps
         run: python -m pip install packaging
-
+        
+      - name: Fetch PR file diffs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json, subprocess, os
+      
+          with open("open_prs.json") as f:
+              prs = json.load(f)
+      
+          out = []
+          for pr in prs:
+              number = pr["number"]
+              cmd = [
+                  "gh", "api",
+                  f"repos/{os.environ['GITHUB_REPOSITORY']}/pulls/{number}/files",
+                  "--paginate"
+              ]
+              res = subprocess.run(cmd, capture_output=True, text=True, check=True)
+              files = json.loads(res.stdout or "[]")
+              out.append({
+                  "number": pr["number"],
+                  "title": pr["title"],
+                  "files": files
+              })
+      
+          with open("pr_files.json", "w") as f:
+              json.dump(out, f, indent=2)
+          PY
+          
       - name: Parse Snyk PR bodies
         run: python .github/scripts/triage_snyk_prs.py
 

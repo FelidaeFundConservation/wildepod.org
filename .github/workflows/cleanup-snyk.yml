@@ -15,8 +15,8 @@ on:
 jobs:
   cleanup:
     # Fix: Removed the multi-line pipe and stripped the fragile 'Bot' type check
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.user.login, 'snyk'))
-    
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.user.login, 'snyk'))
+
     runs-on: ubuntu-latest
     permissions:
       contents: read

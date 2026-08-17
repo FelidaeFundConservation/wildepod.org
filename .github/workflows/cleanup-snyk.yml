@@ -21,7 +21,7 @@ jobs:
 
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
 
     env:
@@ -141,9 +141,15 @@ jobs:
           for pr in prs:
               number = pr["number"]
               print(f"Closing PR #{number}: {pr.get('title')}")
-              subprocess.run(
+              result = subprocess.run(
                   ["gh", "pr", "close", str(number), "--delete-branch"],
-                  check=True,
+                  capture_output=True,
+                  text=True,
                   env={**os.environ, "GH_TOKEN": os.environ["GH_TOKEN"]},
               )
+              print(result.stdout, end="")
+              print(result.stderr, end="")
+              if result.returncode != 0:
+                  # Branch deletion can fail for forks or protected refs; the close itself is what matters.
+                  print(f"::warning::Could not fully clean up PR #{number} (exit {result.returncode}).")
           PY

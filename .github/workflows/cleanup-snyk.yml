@@ -1,0 +1,70 @@
+name: Cleanup Outdated Snyk PRs
+
+on:
+  pull_request:
+    types: [opened]
+  # Allows manual triggering from the GitHub Actions tab
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry Run (Log actions without closing PRs)"
+        type: boolean
+        required: true
+        default: true
+
+jobs:
+  cleanup:
+    # Run if opened by Snyk, OR if triggered manually via workflow_dispatch
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.actor == 'snyk-bot' || 
+      contains(github.event.pull_request.user.login, 'snyk')
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Close older duplicate PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Determine dry run state (automated triggers default to 'false')
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+        run: |
+          echo "Fetching open Snyk PRs..."
+          prs=$(gh pr list --author "app/snyk-bot" --state open --json number,title --limit 100)
+          
+          if [ "$(echo "$prs" | jq '. | length')" -eq 0 ]; then
+            echo "No open Snyk PRs found."
+            exit 0
+          fi
+
+          echo "Evaluating duplicates..."
+          # Extract package names/versions and isolate old PR numbers
+          old_prs=$(echo "$prs" | jq -r '
+            .[] | capture("\\[Snyk\\] Upgrade (?<package>[^ ]+) from [^ ]+ to (?<version>[0-9.]+)") + {number: .number, title: .title}
+          ' | jq -s '
+            group_by(.package) | .[] 
+            | if length > 1 then 
+                sort_by(.version | split(".") | map(tonumber)) | .[:-1] | .[] | "\(.number)|\(.title)" 
+              else 
+                empty 
+              fi
+          ')
+
+          if [ -z "$old_prs" ]; then
+            echo "All Snyk PRs are up to date. No older duplicates found."
+            exit 0
+          fi
+
+          # Process the identified old PRs
+          echo "$old_prs" | while IFS="|" read -r pr_number pr_title; do
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "[DRY RUN] Would close PR #$pr_number: \"$pr_title\""
+            else
+              echo "Closing older duplicate Snyk PR: #$pr_number"
+              gh pr close "$pr_number" --comment "Closing automatically: A newer Snyk update exists for this package."
+            fi
+          done

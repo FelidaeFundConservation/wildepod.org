@@ -10,7 +10,8 @@ on:
         type: boolean
         required: true
         default: true
-
+  push:
+  
 jobs:
   cleanup:
     # Fix: Removed the multi-line pipe and stripped the fragile 'Bot' type check

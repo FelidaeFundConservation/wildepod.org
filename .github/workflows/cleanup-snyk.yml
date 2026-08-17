@@ -45,25 +45,17 @@ jobs:
           echo "Evaluating duplicates..."
           
           # Fix: Optimized jq extraction to handle semantic versions Safely
-          old_prs=$(echo "$prs" | jq -r '
-            [ .[] | 
-              .title as $title | 
-              .number as $number |
-              ($title | capture("\\[Snyk\\] Upgrade (?<package>[^ ]+) from [^ ]+ to (?<version>[0-9A-Za-z.+-]+)")?) |
-              select(. != null) |
-              {number: $number, title: $title, package: .package, version: .version}
-            ] | 
-            group_by(.package) | 
-            .[] | 
-            if length > 1 then 
-              sort_by(.version | split(".") | map(tonumber? // 0)) | 
-              .[:-1] | 
-              .[] | 
-              "\(.number)|\(.title)" 
-            else 
-              empty 
-            fi
-          ')
+          old_prs=$(echo "$prs" 
+            | jq -r '[.[] 
+            | .title as $t 
+            | .number as $n 
+            | ($t | capture("\\[Snyk\\] Upgrade (?<p>[^ ]+) from [^ ]+ to (?<v>[0-9A-Za-z.+-]+)")?) | select(. != null) 
+            | {number: $n, title: $t, package: .p, version: .v}] 
+            | group_by(.package) 
+            | .[] 
+            | if length > 1 then (sort_by(.version | split(".") | map(tonumber? // 0)) | .[:-1] | .[] 
+            | "\(.number)|\(.title)") 
+            else empty end')
 
           if [ -z "$old_prs" ]; then
             echo "All Snyk PRs are up to date. No older duplicates found."

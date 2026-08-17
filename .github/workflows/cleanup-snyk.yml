@@ -35,7 +35,7 @@ jobs:
           echo "Fetching open Snyk PRs..."
           
           # Fix: Snyk uses 'snyk-bot' as the author in the GitHub CLI tool, not 'app/snyk-bot'
-          prs=$(gh pr list --author "snyk-bot" --state open --json number,title --limit 100)
+          prs=$(gh pr list --author "jdorapalli" --state open --json number,title --limit 100)
           
           if [ "$(echo "$prs" | jq '. | length')" -eq 0 ]; then
             echo "No open Snyk PRs found."

@@ -17,8 +17,11 @@ jobs:
     # Run if opened by Snyk, OR if triggered manually via workflow_dispatch
     if: |
       github.event_name == 'workflow_dispatch' ||
-      github.actor == 'snyk-bot' || 
-      contains(github.event.pull_request.user.login, 'snyk')
+      (
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.user.type == 'Bot' &&
+        contains(github.event.pull_request.user.login, 'snyk')
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: read

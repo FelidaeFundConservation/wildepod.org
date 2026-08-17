@@ -33,7 +33,7 @@ jobs:
           DRY_RUN: ${{ github.event.inputs.dry_run == true || github.event_name == 'pull_request' }}
         run: |
           echo "Fetching open Snyk PRs..."
-          prs=$(gh pr list --author "snyk-bot" --state open --json number,title --limit 100)
+          prs=$(gh pr list --author "jdorapalli" --state open --json number,title --limit 100)
           
           if [ "$(echo "$prs" | jq '. | length')" -eq 0 ]; then
             echo "No open Snyk PRs found."

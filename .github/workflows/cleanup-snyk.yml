@@ -28,56 +28,54 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # FIX: Write the filter safely into a real file. 
-      # The > operator preserves all structural formatting perfectly.
-      - name: Create JQ Filter Script
+      - name: 1. Fetch Open Snyk PRs
+        id: fetch_prs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cat > filter.jq << 'EOF'
-          [ .[] | 
-            .title as $title | 
-            .number as $number |
-            ($title | capture("\\[Snyk\\] Upgrade (?<package>[^ ]+) from [^ ]+ to (?<version>[0-9A-Za-z.+-]+)")?) |
-            select(. != null) |
-            {number: $number, title: $title, package: .package, version: .version}
-          ] | 
-          group_by(.package) | 
-          .[] | 
-          if length > 1 then 
-            sort_by(.version | split(".") | map(tonumber? // 0)) | 
-            .[:-1] | 
-            .[] | 
-            "\(.number)|\(.title)" 
-          else 
-            empty 
-          fi
-          EOF
+          echo "Querying GitHub API for open Snyk PRs..."
+          # Fetch PRs and write to a clean temporary JSON file
+          gh pr list --author "jdorapalli" --state open --json number,title > open_prs.json
+          
+          # Check if the list is empty using a very basic jq check
+          PR_COUNT=$(jq '. | length' open_prs.json)
+          echo "Found $PR_COUNT open Snyk PRs."
+          
+          # Save count to outputs so future steps can skip if 0
+          echo "count=$PR_COUNT" >> "$GITHUB_OUTPUT"
 
-      - name: Close older duplicate PRs
+      - name: 2. Extract Package Info & Detect Duplicates
+        id: detect_duplicates
+        if: steps.fetch_prs.outputs.count != '0'
+        run: |
+          echo "Filtering and sorting package versions..."
+          
+          # Use simple sequential jq operators to filter packages with multiple open PRs
+          # This writes the stale "number|title" strings line-by-line to a flat text file
+          jq -r '[.[] | .title as $t | .number as $n | ($t | capture("\\[Snyk\\] Upgrade (?<p>[^ ]+) from [^ ]+ to (?<v>[0-9A-Za-z.+-]+)")?) | select(. != null) | {number: $n, title: $t, package: .p, version: .v}] | group_by(.package) | .[] | select(length > 1) | sort_by(.version | split(".") | map(tonumber? // 0)) | .[:-1] | .[] | "\(.number)|\(.title)"' open_prs.json > stale_prs.txt
+          
+          # Check if we actually found stale duplicates
+          if [ ! -s stale_prs.txt ]; then
+            echo "No stale duplicate Snyk PRs found. Everything is up to date."
+            echo "found_duplicates=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Stale duplicate PRs identified!"
+            cat stale_prs.txt
+            echo "found_duplicates=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 3. Process and Close Outdated PRs
+        if: steps.fetch_prs.outputs.count != '0' && steps.detect_duplicates.outputs.found_duplicates == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DRY_RUN: ${{ github.event.inputs.dry_run == true || (github.event_name != 'workflow_dispatch' && github.event_name != 'pull_request') }}
         run: |
-          echo "Fetching open Snyk PRs..."
-          prs=$(gh pr list --author "jdorapalli" --state open --json number,title --limit 100)
+          echo "Beginning processing loop..."
           
-          if [ "$(echo "$prs" | jq '. | length')" -eq 0 ]; then
-            echo "No open Snyk PRs found."
-            exit 0
-          fi
-
-          echo "Evaluating duplicates..."
-          
-          # FIX: Execute the filter from the safely preserved file (-f filter.jq)
-          old_prs=$(echo "$prs" | jq -r -f filter.jq)
-
-          if [ -z "$old_prs" ]; then
-            echo "All Snyk PRs are up to date. No older duplicates found."
-            exit 0
-          fi
-
-          echo "Processing stale duplicates..."
-          echo "$old_prs" | while IFS="|" read -r pr_number pr_title; do
-            if [ -z "$pr_number" ]; then continue; fi
+          # Simple line-by-line loop reading from the flat text file we generated
+          while IFS="|" read -r pr_number pr_title; do
+            # Skip empty lines if any exist
+            [ -z "$pr_number" ] && continue
             
             if [ "$DRY_RUN" = "true" ]; then
               echo "[DRY RUN] Would close PR #$pr_number: \"$pr_title\""
@@ -85,4 +83,4 @@ jobs:
               echo "Closing older duplicate Snyk PR: #$pr_number"
               gh pr close "$pr_number" --comment "Closing automatically: A newer Snyk update exists for this package."
             fi
-          done
+          done < stale_prs.txt

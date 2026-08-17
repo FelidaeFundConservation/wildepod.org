@@ -86,7 +86,7 @@ jobs:
         run: uv run python manage.py collectstatic --noinput --settings=config.settings.ci
 
       - name: Deploy to App Engine
-        run: gcloud app deploy staging.yaml --quiet --project=${{ env.GCP_PROJECT_ID }}
+        run: gcloud app deploy staging.yaml --quiet --project=$CLOUDSDK_CORE_PROJECT
 
   migrate:
     name: Run Migrations

@@ -13,10 +13,8 @@ on:
 
 jobs:
   cleanup:
-    # Run if triggered manually OR if a Snyk bot opened the PR
-    if: |
-      github.event_name == 'workflow_dispatch' || 
-      (github.event_name == 'pull_request' && contains(github.event.pull_request.user.login, 'snyk'))
+    # Fix: Removed the multi-line pipe and stripped the fragile 'Bot' type check
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.user.login, 'snyk'))
     
     runs-on: ubuntu-latest
     permissions:

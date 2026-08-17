@@ -47,14 +47,18 @@ jobs:
           echo "Evaluating duplicates..."
           # Extract package names/versions and isolate old PR numbers
           old_prs=$(echo "$prs" | jq -r '
-            .[] | capture("\\[Snyk\\] Upgrade (?<package>[^ ]+) from [^ ]+ to (?<version>[0-9.]+)") + {number: .number, title: .title}
+            .[] as $pr
+            | ($pr.title | capture("\\[Snyk\\] Upgrade (?<package>[^ ]+) from [^ ]+ to (?<version>[0-9A-Za-z.+-]+)")?)
+            | select(. != null)
+            | . + {number: $pr.number, title: $pr.title}
           ' | jq -s '
-            group_by(.package) | .[] 
-            | if length > 1 then 
-                sort_by(.version | split(".") | map(tonumber)) | .[:-1] | .[] | "\(.number)|\(.title)" 
-              else 
-                empty 
-              fi
+            sort_by(.package)
+            | group_by(.package) | .[]
+            | if length > 1 then
+                sort_by(.version | split(".") | map(tonumber? // 0)) | .[:-1] | .[] | "\(.number)|\(.title)"
+              else
+                empty
+              end
           ')
 
           if [ -z "$old_prs" ]; then

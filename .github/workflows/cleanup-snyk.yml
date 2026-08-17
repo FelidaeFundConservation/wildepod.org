@@ -10,13 +10,15 @@ on:
         type: boolean
         required: true
         default: true
-  push:
-  
+  push: # <-- Keep your temporary test trigger here
+
 jobs:
   cleanup:
-    # Fix: Removed the multi-line pipe and stripped the fragile 'Bot' type check
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.user.login, 'snyk'))
-
+    if: |
+      github.event_name == 'workflow_dispatch' || 
+      github.event_name == 'push' || 
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.user.login, 'snyk'))
+    
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -26,11 +28,34 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # FIX: Write the filter safely into a real file. 
+      # The > operator preserves all structural formatting perfectly.
+      - name: Create JQ Filter Script
+        run: |
+          cat > filter.jq << 'EOF'
+          [ .[] | 
+            .title as $title | 
+            .number as $number |
+            ($title | capture("\\[Snyk\\] Upgrade (?<package>[^ ]+) from [^ ]+ to (?<version>[0-9A-Za-z.+-]+)")?) |
+            select(. != null) |
+            {number: $number, title: $title, package: .package, version: .version}
+          ] | 
+          group_by(.package) | 
+          .[] | 
+          if length > 1 then 
+            sort_by(.version | split(".") | map(tonumber? // 0)) | 
+            .[:-1] | 
+            .[] | 
+            "\(.number)|\(.title)" 
+          else 
+            empty 
+          fi
+          EOF
+
       - name: Close older duplicate PRs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Fix: Explicitly force the boolean into a string comparison
-          DRY_RUN: ${{ github.event.inputs.dry_run == true || github.event_name == 'pull_request' }}
+          DRY_RUN: ${{ github.event.inputs.dry_run == true || (github.event_name != 'workflow_dispatch' && github.event_name != 'pull_request') }}
         run: |
           echo "Fetching open Snyk PRs..."
           prs=$(gh pr list --author "jdorapalli" --state open --json number,title --limit 100)
@@ -42,35 +67,14 @@ jobs:
 
           echo "Evaluating duplicates..."
           
-          # FIX: Pass the filter cleanly via a heredoc block to completely bypass Bash parser errors
-          old_prs=$(echo "$prs" | jq -r -f /dev/stdin << 'EOF'
-            [ .[] | 
-              .title as $title | 
-              .number as $number |
-              ($title | capture("\\[Snyk\\] Upgrade (?<package>[^ ]+) from [^ ]+ to (?<version>[0-9A-Za-z.+-]+)")?) |
-              select(. != null) |
-              {number: $number, title: $title, package: .package, version: .version}
-            ] | 
-            group_by(.package) | 
-            .[] | 
-            if length > 1 then 
-              sort_by(.version | split(".") | map(tonumber? // 0)) | 
-              .[:-1] | 
-              .[] | 
-              "\(.number)|\(.title)" 
-            else 
-              empty 
-            fi
-          EOF
-          )
+          # FIX: Execute the filter from the safely preserved file (-f filter.jq)
+          old_prs=$(echo "$prs" | jq -r -f filter.jq)
 
-          # Guard clause to exit if no older duplicates are identified
           if [ -z "$old_prs" ]; then
             echo "All Snyk PRs are up to date. No older duplicates found."
             exit 0
           fi
 
-          # Process the identified old PRs safely
           echo "Processing stale duplicates..."
           echo "$old_prs" | while IFS="|" read -r pr_number pr_title; do
             if [ -z "$pr_number" ]; then continue; fi

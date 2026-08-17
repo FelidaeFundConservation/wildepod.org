@@ -3,7 +3,6 @@ name: Cleanup Outdated Snyk PRs
 on:
   pull_request:
     types: [opened]
-  # Allows manual triggering from the GitHub Actions tab
   workflow_dispatch:
     inputs:
       dry_run:
@@ -14,18 +13,16 @@ on:
 
 jobs:
   cleanup:
-    # Run if opened by Snyk, OR if triggered manually via workflow_dispatch
+    # Run if triggered manually OR if a Snyk bot opened the PR
     if: |
-      github.event_name == 'workflow_dispatch' ||
-      (
-        github.event_name == 'pull_request' &&
-        github.event.pull_request.user.type == 'Bot' &&
-        contains(github.event.pull_request.user.login, 'snyk')
-      )
+      github.event_name == 'workflow_dispatch' || 
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.user.login, 'snyk'))
+    
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -33,11 +30,13 @@ jobs:
       - name: Close older duplicate PRs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Determine dry run state (automated triggers default to 'false')
-          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          # Fix: Explicitly force the boolean into a string comparison
+          DRY_RUN: ${{ github.event.inputs.dry_run == true || github.event_name == 'pull_request' }}
         run: |
           echo "Fetching open Snyk PRs..."
-          prs=$(gh pr list --author "app/snyk-bot" --state open --json number,title --limit 100)
+          
+          # Fix: Snyk uses 'snyk-bot' as the author in the GitHub CLI tool, not 'app/snyk-bot'
+          prs=$(gh pr list --author "snyk-bot" --state open --json number,title --limit 100)
           
           if [ "$(echo "$prs" | jq '. | length')" -eq 0 ]; then
             echo "No open Snyk PRs found."
@@ -45,20 +44,26 @@ jobs:
           fi
 
           echo "Evaluating duplicates..."
-          # Extract package names/versions and isolate old PR numbers
+          
+          # Fix: Optimized jq extraction to handle semantic versions Safely
           old_prs=$(echo "$prs" | jq -r '
-            .[] as $pr
-            | ($pr.title | capture("\\[Snyk\\] Upgrade (?<package>[^ ]+) from [^ ]+ to (?<version>[0-9A-Za-z.+-]+)")?)
-            | select(. != null)
-            | . + {number: $pr.number, title: $pr.title}
-          ' | jq -s '
-            sort_by(.package)
-            | group_by(.package) | .[]
-            | if length > 1 then
-                sort_by(.version | split(".") | map(tonumber? // 0)) | .[:-1] | .[] | "\(.number)|\(.title)"
-              else
-                empty
-              end
+            [ .[] | 
+              .title as $title | 
+              .number as $number |
+              ($title | capture("\\[Snyk\\] Upgrade (?<package>[^ ]+) from [^ ]+ to (?<version>[0-9A-Za-z.+-]+)")?) |
+              select(. != null) |
+              {number: $number, title: $title, package: .package, version: .version}
+            ] | 
+            group_by(.package) | 
+            .[] | 
+            if length > 1 then 
+              sort_by(.version | split(".") | map(tonumber? // 0)) | 
+              .[:-1] | 
+              .[] | 
+              "\(.number)|\(.title)" 
+            else 
+              empty 
+            fi
           ')
 
           if [ -z "$old_prs" ]; then

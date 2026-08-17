@@ -35,7 +35,7 @@ jobs:
         run: |
           echo "Querying GitHub API for open Snyk PRs..."
           # Fetch PRs and write to a clean temporary JSON file
-          gh pr list --author "jdorapalli" --state open --json number,title > open_prs.json
+          gh pr list --author "jdorapalli" --state open --limit 1000 --json number,title > open_prs.json
           
           # Check if the list is empty using a very basic jq check
           PR_COUNT=$(jq '. | length' open_prs.json)

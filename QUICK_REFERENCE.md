@@ -191,7 +191,7 @@ from images.models import Image
 - [ ] Install Google Cloud SDK
 - [ ] Authenticate: `gcloud auth login`
 - [ ] Install Cloud SQL Proxy v2
-- [ ] Install Python 3.10+ with uv
+- [ ] Install Python 3.14+ with uv
 - [ ] Run `uv sync` to install dependencies
 - [ ] Choose deployment method (custom vs standard)
 - [ ] Run deployment script with `--dry-run` first

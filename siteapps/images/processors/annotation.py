@@ -10,7 +10,18 @@ from typing import Any, Dict, Optional
 from django.conf import settings
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from django.db.models import Count, Q, Sum
-from images.models import Activity, ActivityType, Annotator, BoundingBox, Category, Image, Species, SpeciesName, Upload
+from images.models import (
+    Activity,
+    ActivityType,
+    Annotator,
+    BoundingBox,
+    Category,
+    Image,
+    Species,
+    SpeciesName,
+    StaffReviewFlagSource,
+    Upload,
+)
 from images.models.annotation import Validity
 
 # TODO: This entire module is very hacky and needs to be refactored
@@ -586,7 +597,9 @@ def process_annotations(
     user: settings.AUTH_USER_MODEL,
     social_media_worthy_vote: int,
     batch_tag_images: list,
-    staff_review_needed: bool = False,
+    staff_review_needed: bool | None = None,
+    staff_review_reason: str = "",
+    staff_review_reason_detail: str = "",
     image_reported: bool | None = None,
     skip: bool = False,
 ):
@@ -602,7 +615,25 @@ def process_annotations(
     logging.info("Successfully retrieved image object")
 
     # Update the staff review flag
-    image.staff_review_needed = bool(staff_review_needed)
+    # - None: preserve current value (checkbox not present on the submitting page)
+    # - True: annotator deliberately flagged it, with a reason
+    # - False: annotator explicitly cleared it
+    if staff_review_needed is True:
+        image.flag_for_staff_review(
+            source=StaffReviewFlagSource.MANUAL,
+            annotator=annotator,
+            reason=staff_review_reason,
+            reason_detail=staff_review_reason_detail,
+            save=False,
+        )
+        logging.info(f"Image {image.id} flagged for staff review by '{user.name}' (reason: {staff_review_reason})")
+    elif staff_review_needed is False and _is_staff_or_expert(annotator):
+        # Only staff and experts can take an image out of the review queue. The flags are
+        # scoped per pipeline, so an image flagged for species review is still offered to
+        # volunteers for activity annotation -- and the review checkbox is on that page too.
+        # Without this role check, a volunteer unticking it there would clear a review that
+        # staff had not done, and the image would quietly leave their queue.
+        image.clear_staff_review_flag(save=False)
 
     # Update the image reported flag
     # - None: preserve current value (not sent from frontend)
@@ -647,8 +678,10 @@ def process_species_annotations(
     user: settings.AUTH_USER_MODEL,
     social_media_worthy_vote: int,
     batch_tag_images: list,
-    staff_review_needed: bool = False,
-    image_reported: bool = False,
+    staff_review_needed: bool | None = None,
+    staff_review_reason: str = "",
+    staff_review_reason_detail: str = "",
+    image_reported: bool | None = None,
     skip: bool = False,
 ) -> bool:
     """Function to process a list of annotations for MegaDetector's Object Detection model
@@ -663,6 +696,8 @@ def process_species_annotations(
         user=user,
         social_media_worthy_vote=social_media_worthy_vote,
         staff_review_needed=staff_review_needed,
+        staff_review_reason=staff_review_reason,
+        staff_review_reason_detail=staff_review_reason_detail,
         image_reported=image_reported,
         skip=skip,
         batch_tag_images=batch_tag_images,
@@ -678,8 +713,10 @@ def process_activity_annotations(
     user: settings.AUTH_USER_MODEL,
     social_media_worthy_vote: int,
     batch_tag_images: list,
-    staff_review_needed: bool = False,
-    image_reported: bool = False,
+    staff_review_needed: bool | None = None,
+    staff_review_reason: str = "",
+    staff_review_reason_detail: str = "",
+    image_reported: bool | None = None,
     skip: bool = False,
 ) -> bool:
     """Function to process a list of annotations for MegaDetector's Object Detection model
@@ -694,6 +731,8 @@ def process_activity_annotations(
         user=user,
         social_media_worthy_vote=social_media_worthy_vote,
         staff_review_needed=staff_review_needed,
+        staff_review_reason=staff_review_reason,
+        staff_review_reason_detail=staff_review_reason_detail,
         image_reported=image_reported,
         skip=skip,
         batch_tag_images=batch_tag_images,

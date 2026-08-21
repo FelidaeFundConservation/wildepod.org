@@ -25,7 +25,8 @@
         </button>
         <label style="font-size: 12px; margin-bottom: 8px">&nbsp;Social Media Worthy? ({{ image.social_media_worthy }})</label>
         <br>
-        {% if user.is_staff %}
+        {# Available to every annotator. Flagging requires a reason (see #reason block below) so
+           it stays a deliberate signal rather than a substitute for Skip. #}
         <input class="form-check-input"
                type="checkbox"
                {% if image.staff_review_needed %}checked="checked"{% endif %}
@@ -33,6 +34,44 @@
         <label class="form-check-label"
                for="staff-review-needed"
                style="font-size: 14px">&nbsp; Flag for Staff Review?</label>
+        <div id="staff-review-reason-wrapper"
+             class="mt-2 ms-1 {% if not image.staff_review_needed %}d-none{% endif %}">
+            <label for="staff-review-reason"
+                   class="form-label mb-1"
+                   style="font-size: 12px">Reason (required)</label>
+            <select class="form-select form-select-sm"
+                    id="staff-review-reason"
+                    style="font-size: 12px">
+                <option value="">Choose a reason&hellip;</option>
+                {% for value, label in staff_review_flag_reasons %}
+                    <option value="{{ value }}"
+                            {% if image.flag_reason == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            {# "Other" is where vague flags collect, so the first focus nudges the annotator #}
+            {# towards Slack, which answers faster than the staff review queue does.        #}
+            <input type="text"
+                   class="form-control form-control-sm mt-1 {% if image.flag_reason != 'other' %}d-none{% endif %}"
+                   id="staff-review-reason-detail"
+                   maxlength="250"
+                   placeholder="Briefly describe the issue"
+                   value="{{ image.flag_reason_detail|default_if_none:'' }}"
+                   data-bs-toggle="popover"
+                   data-bs-trigger="manual"
+                   data-bs-placement="top"
+                   data-bs-html="true"
+                   data-bs-title="Have you asked on Slack?"
+                   data-bs-content="Staff review can take a while. <strong>#wildepod_database_volunteers</strong> is usually faster &mdash; try there first, and flag only if nobody can help."
+                   style="font-size: 12px">
+            <div class="invalid-feedback d-none" id="staff-review-reason-error">
+                Please choose a reason, or untick the box and press Skip instead.
+            </div>
+        </div>
+        {% if image.staff_review_needed and image.flag_reason_display %}
+            <div class="mt-2 ms-1 text-muted" style="font-size: 11px">
+                <i class="bi bi-flag"></i>&nbsp;{{ image.flag_reason_display }}
+                {% if image.flagged_by %}&mdash; {{ image.flagged_by }}{% endif %}
+            </div>
         {% endif %}
         <br>
         {% if user.is_staff %}

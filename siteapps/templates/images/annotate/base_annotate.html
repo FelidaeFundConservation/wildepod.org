@@ -10,19 +10,10 @@
           rel="stylesheet" />
 {% endblock header_includes %}
 {% block content %}
+    {# Flag and report status render under Instructions in nav-menu/base.html, where they read #}
+    {# as context for the image rather than a page-wide alert. This block is kept so pages can #}
+    {# still put a genuine site-wide notice here.                                              #}
     {% block notice %}
-        {% if image.staff_review_needed %}
-            <div class="alert alert-warning" role="alert">
-                <i class="bi bi-info-circle"></i>&nbsp;&nbsp;
-                Staff review has been requested for this image.&nbsp;&nbsp;&nbsp;&nbsp;
-            </div>
-        {% endif %}
-        {% if image.image_reported %}
-            <div class="alert alert-danger" role="alert">
-                <i class="bi bi-exclamation-triangle"></i>&nbsp;&nbsp;
-                This image has been reported by a user.&nbsp;&nbsp;&nbsp;&nbsp;
-            </div>
-        {% endif %}
     {% endblock notice %}
     {% block missing_annotations_element %}
     {% endblock missing_annotations_element %}
@@ -163,8 +154,21 @@
                             data-bs-dismiss="modal"
                             aria-label="Close"></button>
                 </div>
+                {# "Inappropriate" was too narrow: most reports are not offensive images but #}
+                {# ones that should never have reached the pool -- somebody at the camera,   #}
+                {# a blank frame. Reporting and flagging read as the same gesture to a       #}
+                {# volunteer, so this spells out which one to reach for.                     #}
                 <div class="modal-body">
-                    <p>This will report this image as inappropriate and remove it from general annotation.</p>
+                    <p>
+                        This image will be taken out of the annotation pool for good and sent to staff.
+                        Use it for images that should not be annotated at all &mdash; somebody
+                        standing at the camera, a blank frame, anything not worth identifying.
+                    </p>
+                    <p>
+                        <strong>Not sure what the animal is?</strong> That is a different thing.
+                        Press <strong>Skip</strong> to pass it to another volunteer, or tick
+                        <strong>Flag for Staff Review</strong> to ask staff to identify it.
+                    </p>
                     <p class="mb-0">
                         <strong>Click OK to continue.</strong>
                     </p>
@@ -196,11 +200,76 @@
           href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.css" />
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.js"></script>
     <script>
-    let staffReviewLabel = document.querySelector('label[for="staff-review-needed"]');
-    if (staffReviewLabel) {
-        staffReviewLabel.addEventListener('click', function(event) {
-            event.preventDefault();
+    // Flag for Staff Review requires a reason, so the reason select is revealed on tick and
+    // hidden (and reset) on untick. The free-text box only appears for the "other" reason.
+    // NOTE: do not preventDefault() on the label click here -- that silently stops the label
+    // from toggling the checkbox, which made the flag look unsettable (see #510).
+    let staffReviewCheckbox = document.getElementById('staff-review-needed');
+    let staffReviewReasonWrapper = document.getElementById('staff-review-reason-wrapper');
+    let staffReviewReason = document.getElementById('staff-review-reason');
+    let staffReviewReasonDetail = document.getElementById('staff-review-reason-detail');
+    let staffReviewReasonError = document.getElementById('staff-review-reason-error');
+
+    function clearStaffReviewReasonError() {
+        staffReviewReasonError?.classList.add('d-none');
+        staffReviewReason?.classList.remove('is-invalid');
+    }
+
+    if (staffReviewCheckbox && staffReviewReasonWrapper) {
+        staffReviewCheckbox.addEventListener('change', function() {
+            staffReviewReasonWrapper.classList.toggle('d-none', !this.checked);
+
+            if (!this.checked) {
+                // Unticking abandons the flag, so drop any half-entered reason with it
+                if (staffReviewReason) staffReviewReason.value = '';
+                if (staffReviewReasonDetail) {
+                    staffReviewReasonDetail.value = '';
+                    staffReviewReasonDetail.classList.add('d-none');
+                }
+                clearStaffReviewReasonError();
+            }
         });
+    }
+
+    if (staffReviewReason) {
+        staffReviewReason.addEventListener('change', function() {
+            staffReviewReasonDetail?.classList.toggle('d-none', this.value !== 'other');
+            clearStaffReviewReasonError();
+        });
+    }
+
+    // Shown once per image, on the first focus of the "Other" detail box. Manual trigger so it
+    // does not reappear on every click and become something people learn to swat away.
+    if (staffReviewReasonDetail && window.bootstrap) {
+        const slackNudge = new bootstrap.Popover(staffReviewReasonDetail);
+        let nudged = false;
+
+        staffReviewReasonDetail.addEventListener('focus', function() {
+            if (!nudged) {
+                slackNudge.show();
+                nudged = true;
+            }
+        });
+
+        staffReviewReasonDetail.addEventListener('blur', () => slackNudge.hide());
+    }
+
+    // Returns true when the flag is either unticked or ticked with a reason chosen.
+    // Surfaces the inline error and returns false otherwise.
+    function staffReviewFlagIsValid() {
+        if (!staffReviewCheckbox?.checked) {
+            return true;
+        }
+
+        if (staffReviewReason && !staffReviewReason.value) {
+            staffReviewReasonError?.classList.remove('d-none');
+            staffReviewReason.classList.add('is-invalid');
+            staffReviewReasonWrapper?.classList.remove('d-none');
+            staffReviewReason.focus();
+            return false;
+        }
+
+        return true;
     }
 
     // Initialize popovers
@@ -411,6 +480,17 @@
             function submitAnnotations(skip=false, species=false, activity=false, imageReported=false) {
                 const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
+                // A staff review flag without a reason is rejected server-side, so stop here
+                // and show the annotator why instead of losing their submission. Callers may
+                // already have started their spinner, so wind it back before bailing out.
+                if (!staffReviewFlagIsValid()) {
+                    $("#skip-spinner").hide();
+                    $("#save-spinner").hide();
+                    const skipButton = document.getElementById("skip_annotations");
+                    if (skipButton) skipButton.disabled = false;
+                    return;
+                }
+
                 // Make sure every entry has a categorization if not single categorization
                 // This is for Species and Activity
                 {% block multiple_category_check %}
@@ -437,13 +517,28 @@
                     'initial_bboxes': JSON.stringify(bboxes),
                     'annotations': JSON.stringify(anno.getAnnotations()),
                     'social_media_worthy_vote': socialMediaWorthyVote,
-                    'staff_review_needed': document.getElementById('staff-review-needed')?.checked ?? false,
                     'custom_annotations': '{{custom_annotations}}',
                     'staff_review': '{{staff_review}}',
                     'reported_images': '{{reported_images}}',
                     'activity_category': '{{activity_category}}',
                     'is_reannotation': '{{ is_reannotation }}',
                     'batch_tag_images': JSON.stringify(selectedBatchTagImages),
+                }
+
+                // Handle staff_review_needed flag.
+                // Only send it when the checkbox is actually on the page, so that any submit
+                // path without the control leaves the existing flag untouched server-side
+                // rather than silently clearing it.
+                if (staffReviewCheckbox) {
+                    data['staff_review_needed'] = staffReviewCheckbox.checked;
+
+                    if (staffReviewCheckbox.checked) {
+                        data['staff_review_reason'] = staffReviewReason?.value ?? '';
+
+                        if (staffReviewReason?.value === 'other') {
+                            data['staff_review_reason_detail'] = staffReviewReasonDetail?.value ?? '';
+                        }
+                    }
                 }
 
                 // Handle image_reported flag

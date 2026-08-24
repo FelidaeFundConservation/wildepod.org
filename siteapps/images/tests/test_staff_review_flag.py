@@ -29,8 +29,13 @@ from images.views.annotation import auto_flag_for_staff
 
 @pytest.fixture
 def fake_datastore():
-    """The annotation processor writes queue state to Datastore, absent in tests."""
-    from config.settings._local_datastore import LocalDatastoreClient
+    """The annotation processor writes queue state to Datastore, absent in tests.
+
+    Kept so the tests below say what they depend on, but the stub now lives in the test
+    tree rather than in local settings, which are per developer and not committed -- so
+    importing it from there passed locally and failed for everyone else.
+    """
+    from images.tests.datastore_stub import LocalDatastoreClient
 
     with patch("django.conf.settings.DATASTORE_CLIENT", LocalDatastoreClient()):
         yield

@@ -1070,12 +1070,24 @@ def populate_view_context(
                 **pipeline_kwarg,
             ).exclude(exclusion_condition)
 
-        partitioned_queue_images = queue_images.filter(trigger_timestamp__gte=precomputed_queue.partition)
+        if searched and precomputed_queue.image_order:
+            # Search order, from wherever this queue has been worked to. Not the partition
+            # timestamp: that can only express a position in capture order, so it cannot say
+            # "the next one in the list I was looking at".
+            remaining = precomputed_queue.ordered_images()[precomputed_queue.position :]
 
-        first_image = partitioned_queue_images.first()
-        image_id = return_to_image_id if return_to_image_id else (first_image.id if first_image else None)
+            first_image = remaining[0] if remaining else None
+            image_id = return_to_image_id if return_to_image_id else (first_image.id if first_image else None)
 
-        upcoming = queue_images.exclude(exclusion_condition, id=image_id)
+            # "Upcoming Images" -- the rest of the search, still in search order
+            upcoming = [image_obj for image_obj in remaining if image_obj.id != image_id]
+        else:
+            partitioned_queue_images = queue_images.filter(trigger_timestamp__gte=precomputed_queue.partition)
+
+            first_image = partitioned_queue_images.first()
+            image_id = return_to_image_id if return_to_image_id else (first_image.id if first_image else None)
+
+            upcoming = queue_images.exclude(exclusion_condition, id=image_id)
 
         # View all images in the queue
         context["grid_images_w_boxes"] = [
@@ -1635,6 +1647,20 @@ def annotation_processor(queue_name, annotation_type, request):
 
             # Update the datastore
             settings.DATASTORE_CLIENT.put(queue)
+
+        # Move a searched queue on to the next image in search order. Nothing else does this:
+        # a searched queue deliberately skips the "already annotated by you" filter, so the
+        # image just dealt with would otherwise still be the first one in the queue and the
+        # annotator would be served it again, indefinitely.
+        #
+        # Keyed off the image just handled rather than incrementing blindly, so jumping around
+        # the queue with the grid leaves the cursor somewhere sensible.
+        if not is_reannotation:
+            annotator, _ = Annotator.objects.get_or_create(type="human", human=request.user)
+            searched_queue = ImageQueue.objects.filter(assigned_to=annotator).exclude(image_order=[]).first()
+
+            if searched_queue:
+                searched_queue.advance_past(image_id)
 
         if not skip:
             annotator, created = Annotator.objects.get_or_create(type="human", human=request.user)

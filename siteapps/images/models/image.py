@@ -487,6 +487,87 @@ class ImageQueue(TimeStampedModel):
     # Serves as a pseudo-index to exclude images before another
     partition = models.DateTimeField(default=datetime.min)
 
+    # The order the images were searched in, as a list of image id strings.
+    #
+    # A many to many has no order of its own, so reading images.all() falls back to
+    # Image.Meta.ordering -- trigger_timestamp. For a queue built from a search that is simply
+    # the wrong order: a staff member who sorted by flagger, or by newest first, was served
+    # their batch oldest-capture-first regardless.
+    #
+    # Empty for the automatically precomputed queues, which have no meaningful order of their
+    # own and are served by pipeline priority as before.
+    image_order = models.JSONField(default=list, blank=True)
+
+    # How far through image_order this queue has been worked, as an index into it. Used
+    # instead of `partition` for searched queues: partition is a timestamp, which can only
+    # express a position in capture order.
+    position = models.PositiveIntegerField(default=0)
+
+    def ordered_images(self):
+        """The queue's images in search order, skipping any that have since been deleted.
+
+        Falls back to the plain related manager for queues with no recorded order, which is
+        every automatically precomputed one.
+        """
+        if not self.image_order:
+            return list(self.images.all())
+
+        by_id = {str(image.id): image for image in self.images.all()}
+
+        return [by_id[image_id] for image_id in self.image_order if image_id in by_id]
+
+    def add_images(self, images):
+        """Adds images to the queue, keeping image_order in step with membership.
+
+        Use this rather than ``queue.images.add(...)`` on a queue that has a recorded order.
+        ordered_images() serves only what image_order lists, so anything added straight to the
+        many to many is in the queue but never shown -- which is how bulk-assigning work to an
+        expert who already had a search queue silently delivered them nothing.
+
+        Appending also puts the new images after whatever the queue has already been worked
+        through, so a queue that had been finished picks up again at the first new image.
+
+        Arguments
+        ---
+            - images (iterable[Image]): The images to add. Ones already present are ignored.
+        """
+        images = list(images)
+        self.images.add(*images)
+
+        if not self.image_order:
+            # No recorded order, so ordered_images() falls back to the related manager and
+            # already sees these. Recording an order here would only freeze an arbitrary one.
+            return
+
+        known = set(self.image_order)
+        self.image_order = list(self.image_order) + [
+            str(image.id) for image in images if str(image.id) not in known
+        ]
+        self.save(update_fields=["image_order"])
+
+    def advance_past(self, image_id):
+        """Moves the cursor to just after the given image, if it is in this queue's order.
+
+        Called with whatever was just annotated rather than simply incrementing, so the cursor
+        stays right even when someone jumps around the queue with the grid.
+
+        Arguments
+        ---
+            - image_id (str | UUID): The image that has just been dealt with.
+        """
+        if not self.image_order:
+            return False
+
+        try:
+            index = self.image_order.index(str(image_id))
+        except ValueError:
+            return False
+
+        self.position = index + 1
+        self.save(update_fields=["position"])
+
+        return True
+
     class Meta:
         # Newest first, because an annotator can hold more than one queue -- their own search
         # and one a staff member assigned to them -- and get_precomputed_queue() takes

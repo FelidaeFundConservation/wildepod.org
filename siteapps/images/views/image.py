@@ -4,11 +4,13 @@
 # LICENSE file in the root directory of this source tree.
 
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 
+from braces.views import StaffuserRequiredMixin
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.models import Q
 from django.http.response import JsonResponse
 from django.utils import timezone
@@ -134,12 +136,113 @@ class CreatePrecomputedQueueView(LoginRequiredMixin, View):
 
             ImageQueue.objects.filter(assigned_to=annotator).update(assigned_to=None)
 
-            queue = ImageQueue.objects.create(pipeline_name=SPECIES_PIPELINE_NAME, assigned_to=annotator)
+            # image_ids arrives in the order the results table was showing, so it is kept as
+            # the queue's order. A many to many has none of its own, and reading it back would
+            # otherwise fall through to Image.Meta.ordering and serve the batch by capture
+            # date whatever the staff member had sorted or filtered by.
+            queue = ImageQueue.objects.create(
+                pipeline_name=SPECIES_PIPELINE_NAME,
+                assigned_to=annotator,
+                image_order=[str(image_id) for image_id in image_ids],
+            )
             queue.images.add(*Image.objects.filter(id__in=image_ids))
         except ObjectDoesNotExist:
             success = False
 
         return JsonResponse({"success": success})
+
+
+class BulkImageActionView(LoginRequiredMixin, StaffuserRequiredMixin, View):
+    """Applies one action to the images a staff member ticked in the search results.
+
+    Everything here acts on an explicit list of image ids, never on the current filter. The
+    search page keeps those two apart on purpose: the filter decides what you are looking at,
+    the tick boxes decide what you are about to change.
+    """
+
+    CLEAR_FLAG = "clear_flag"
+    ASSIGN_EXPERT = "assign_expert"
+
+    def handle_no_permission(self, request=None):
+        """Override to handle braces compatibility with newer Django versions."""
+        # braces' StaffuserRequiredMixin passes request, Django's AccessMixin does not take it.
+        # Without this a non-staff user raises TypeError instead of being turned away, which
+        # would turn the permission check into a 500. Same shim as SearchImagesView.
+        from django.contrib.auth.mixins import AccessMixin
+
+        return AccessMixin.handle_no_permission(self)
+
+    def post(self, request, *args, **kwargs):
+        image_ids = request.POST.getlist("image_ids[]")
+        action = request.POST.get("action")
+
+        if not image_ids:
+            return JsonResponse({"success": False, "error": "No images selected."}, status=400)
+
+        images = Image.objects.filter(id__in=image_ids)
+
+        if action == self.CLEAR_FLAG:
+            return self._clear_flag(images)
+
+        if action == self.ASSIGN_EXPERT:
+            return self._assign_expert(request, images)
+
+        return JsonResponse({"success": False, "error": f"Unknown action: {action}"}, status=400)
+
+    def _clear_flag(self, images):
+        """Takes the selected images back out of the staff review queue."""
+        # One UPDATE rather than a save() per image: clearing a hundred rows is the normal
+        # case here, and Image keeps no history table, so nothing is lost by not going through
+        # clear_staff_review_flag() instance by instance. The values come from the model either
+        # way, including the review timestamp -- without it the automatic skip threshold would
+        # flag every one of these again as soon as a volunteer skipped it.
+        cleared = images.update(**Image.cleared_staff_review_values())
+
+        return JsonResponse({"success": True, "action": self.CLEAR_FLAG, "count": cleared})
+
+    def _assign_expert(self, request, images):
+        """Hands the selected images to an expert as annotation work."""
+        expert_id = request.POST.get("expert_id")
+
+        try:
+            expert = get_user_model().objects.get(id=expert_id, is_expert=True)
+        except (get_user_model().DoesNotExist, ValidationError, ValueError):
+            # ValidationError/ValueError cover a malformed UUID, which would otherwise 500
+            return JsonResponse({"success": False, "error": "Unknown expert."}, status=400)
+
+        annotator, _ = Annotator.objects.get_or_create(type="human", human=expert)
+
+        # Add to the queue the expert already holds rather than replacing it.
+        # CreatePrecomputedQueueView clears an annotator's existing assignment before building
+        # a new queue; reusing that here would mean two staff assigning work to the same expert
+        # in one afternoon silently destroy each other's batch. Appending makes a second
+        # assignment read as "here is some more", which is what the assigner meant.
+        queue = ImageQueue.objects.filter(assigned_to=annotator).first()
+
+        if queue is None:
+            queue = ImageQueue.objects.create(pipeline_name=SPECIES_PIPELINE_NAME, assigned_to=annotator)
+
+        # add_images() rather than images.add(): if the expert already had a queue from their
+        # own search it carries a recorded order, and images added straight to the many to many
+        # would never be served to them.
+        queue.add_images(images)
+
+        # partition excludes anything before it, and it advances as the expert works. Newly
+        # added images older than that mark would be invisible, so appending resets it. The
+        # cost is that the expert sees the whole queue from the start again; the pipeline
+        # filters drop whatever they have already annotated. Queues with a recorded order use
+        # `position` instead, which needs no reset -- appended images land after it.
+        queue.partition = datetime.min
+        queue.save()
+
+        return JsonResponse(
+            {
+                "success": True,
+                "action": self.ASSIGN_EXPERT,
+                "count": images.count(),
+                "expert": str(annotator),
+            }
+        )
 
 
 class PrecomputeImageQueuesView(LoginRequiredMixin, View):

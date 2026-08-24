@@ -9,6 +9,51 @@
 {% block header_includes %}
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
           rel="stylesheet" />
+    <style>
+        /* Kept out of the way until the row is pointed at, so a page of results reads as file
+           names rather than a column of buttons. The button keeps its space either way, so the
+           row height does not jump as the pointer moves down the table.
+
+           opacity rather than visibility or display: those two drop the button out of the tab
+           order and the accessibility tree, which would make the shortcut mouse-only. At zero
+           opacity it still takes focus, and the :focus rule below reveals it for keyboard use.
+           Reaching it with a mouse means hovering the row, which reveals it anyway. */
+        /* Chip variants, as modifiers on Bootstrap's .badge rather than a parallel component.
+           Bootstrap 5.1 has no bg-*-subtle, which is why these carry explicit values; when the
+           project moves to 5.3 they become bg-warning-subtle and bg-success-subtle and this
+           block goes away.
+
+           Defined here and applied by class name. They used to be JS colour constants written
+           into style="" on every row, which put the palette in two places and meant the row
+           builder had to know hex values to render a chip. */
+        .badge.chip-reason { background-color: #fff3cd; color: #664d03; }
+        .badge.chip-new { background-color: #d1e7dd; color: #0f5132; }
+
+        .annotate-from-here { opacity: 0; }
+        #results-table tbody tr:hover .annotate-from-here,
+        .annotate-from-here:focus { opacity: 1; }
+
+        /* A fixed height keeps every row the same size, so a page of results can be scanned
+           at a glance and roughly eight fit on screen. Left to fill the column the thumbnails
+           come out taller than the viewport allows for more than two rows, which defeats the
+           point of a bulk triage table.
+
+           Height with width auto rather than object-fit: cover -- cropping a camera trap
+           photo to a fixed box can cut out the animal, which is the one thing the reviewer
+           needs to see. */
+        #results-table tbody img {
+            height: 90px;
+            width: auto;
+            max-width: 100%;
+        }
+
+        /* Date and Location read as two short stacked lines each; without this they wrap
+           mid-value into four. Cells elsewhere are left to wrap, since a long volunteer name
+           should use a second line rather than widen the table. */
+        #results-table td:nth-child(5),
+        #results-table td:nth-child(6) { white-space: nowrap; }
+        #results-table th { white-space: nowrap; }
+    </style>
 {% endblock header_includes %}
 {% block content %}
     <div class="container">
@@ -30,22 +75,90 @@
                     <h5 class="modal-title"></h5>
                 </div>
                 <div class="modal-body">
-                    <div class="alert alert-info d-flex justify-content-between align-items-center"
-                         role="alert">
-                        <p class="my-0">
-                            <span id="result-count">0</span> result(s) were found for this query.
-                        </p>
-                        <button id="annotate-btn" class="btn btn-primary p-2 small" disabled>Annotate</button>
+                    <!-- Deliberately not an alert. A result count is page furniture, not
+                         something noteworthy, and alert-info made the least interesting
+                         thing on screen the loudest -- competing with the selection bar that
+                         appears directly beneath it. role="alert" was wrong for the same
+                         reason: screen readers announced a row count assertively. A plain
+                         heading row with a rule under it carries the same information. -->
+                    <div class="d-flex justify-content-between align-items-center pb-2 mb-3 border-bottom">
+                        <div>
+                            <span class="fs-5 fw-semibold" id="result-count">0</span>
+                            <span class="text-muted ms-1">result(s)</span>
+                            <span id="flag-split" class="d-none ms-2"></span>
+                        </div>
+                        <button id="annotate-btn" class="btn btn-primary btn-sm" disabled>Annotate all shown</button>
                     </div>
                     <div id='time-picker' class='form-group col-12 mb-2'></div>
+                    <div class="row g-2 align-items-end">
+                        <div class="col-auto">
+                            <label for="sort-order" class="form-label mb-1 small">Sort by date</label>
+                            <select id="sort-order" class="form-select form-select-sm">
+                                <option value="desc">Newest first</option>
+                                <option value="asc">Oldest first</option>
+                                <!-- A separate clock to the two above. Those order by when the
+                                     camera fired; this orders by when the image landed in the
+                                     review queue, which is what the NEW chip marks. -->
+                                <option value="flagged">Recently flagged</option>
+                                <!-- Selected, never chosen: shows that a column header has
+                                     taken over the sort so this control stops claiming a
+                                     date order it is no longer applying. -->
+                                <option value="other" disabled>Sorted by a column</option>
+                            </select>
+                        </div>
+                        <div class="col-12 mt-2">
+                            <label class="form-label mb-1 small">Filter</label>
+                            <div id="filter-buttons"></div>
+                        </div>
+                    </div>
                     <br>
+                    <!-- Appears on first selection. Sticks to the top of the scrolling modal
+                         body so the actions stay reachable part-way down a long result set. -->
+                    <div id="selection-bar"
+                         class="d-none align-items-center gap-2 mb-2 p-2 border rounded bg-light sticky-top">
+                        <span id="selection-count" class="fw-semibold"></span>
+                        <span id="selection-hidden" class="text-muted small"></span>
+                        <div id="selection-actions" class="ms-auto d-flex gap-2 align-items-center">
+                            {% if experts %}
+                                <select id="expert-select" class="form-select form-select-sm w-auto">
+                                    <option value="">Assign to expert&hellip;</option>
+                                    {% for expert in experts %}
+                                        <option value="{{ expert.id }}">{{ expert.name|default:expert.email }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="button" id="assign-expert" class="btn btn-sm btn-primary" disabled>
+                                    Assign
+                                </button>
+                            {% endif %}
+                            <button type="button" id="clear-flag" class="btn btn-sm btn-outline-danger">
+                                Clear staff review flag
+                            </button>
+                            <button type="button" id="clear-selection" class="btn btn-sm btn-outline-secondary">
+                                Clear selection
+                            </button>
+                        </div>
+                    </div>
                     <table id="results-table" class="table mt-2 mt-md-4 align-middle">
                         <thead>
                             <tr>
+                                <th scope="col">
+                                    <input type="checkbox"
+                                           id="select-all"
+                                           class="form-check-input"
+                                           title="Select everything the current filter is showing">
+                                </th>
+                                <!-- Ordered for triage: what the image is, then why it needs
+                                     attention, then who said so. Identifiers last -- staff
+                                     recognise these images by sight, not by file name. -->
+                                <th scope="col" style="width: 170px;">Image</th>
+                                <th scope="col">Flags</th>
+                                <th scope="col">Flagged by</th>
+                                <th scope="col">Date</th>
+                                <th scope="col">Location</th>
                                 <th scope="col">File Name</th>
-                                <th scope="col">Macrosite</th>
-                                <th scope="col">Camera Station</th>
-                                <th scope="col">Image</th>
+                                <!-- Hidden: holds flagged_at so "Recently flagged" has
+                                     something to sort on. Never rendered. -->
+                                <th scope="col"></th>
                             </tr>
                         </thead>
                         <tbody id="results-body">
@@ -84,6 +197,46 @@
 
     let lastDate;
     const visitedImages = new Set();
+    // Rows are added in result order, so a DataTables row index maps straight back to its
+    // result object. The sort/filter controls read the raw values from here rather than
+    // re-parsing the rendered cells.
+    // Column positions in the rendered table: checkbox, image, flags, flagged by, date,
+    // location, file name. The row arrays below are built in this same order.
+    const IMAGE_COLUMN = 1;
+    // When the camera fired. Not the same clock as FLAGGED_AT_COLUMN below, which is when the
+    // image landed in the review queue -- an old photo can be flagged today and a photo taken
+    // yesterday can have been flagged a fortnight ago.
+    const DATE_COLUMN = 4;
+    // Hidden, and only there to sort on
+    const FLAGGED_AT_COLUMN = 7;
+    let resultData = [];
+
+    // Image ids ticked for a bulk action, as strings. Kept here rather than read off the
+    // checkboxes because DataTables paginates: only the current page's rows exist in the DOM,
+    // so anything selected on another page would be invisible to a DOM scrape. The draw
+    // handler paints this back onto whichever rows are on screen.
+    const selectedImages = new Set();
+
+    // Which filter button is pressed. An empty kind means "All".
+    let activeFilter = { kind: '', value: '' };
+    // Only the staff-review workflow gets buttons. Reported / social media are separate
+    // workflows and stay on the form's checkboxes; their badges still show in the table.
+    //
+    // This deliberately counts deliberate flags only, so it matches the headline figure and
+    // the three reason buttons add up to it. Auto-flagged images get their own button.
+    const CATEGORIES = {
+        manual: {
+            label: 'Flagged by annotator',
+            test: r => r['staff_review_needed'] && r['flag_source'] !== 'auto_skips',
+        },
+        // Cuts across the reason buttons rather than subdividing them: a NEW image can carry
+        // any reason. Offered here because "what landed since I last looked" is usually the
+        // first question, and the button disappears when nothing is new.
+        new: {
+            label: 'New since last review',
+            test: r => r['is_new'],
+        },
+    };
 
      function addDateRangeButton(){
         const options = { year: 'numeric', month: 'short', day: 'numeric' };
@@ -142,9 +295,298 @@
         $('#time-picker').hide();
     }
 
+    // Keeps only rows matching both dropdowns. Returning true leaves a row visible.
+    $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
+        if (settings.nTable.id !== 'results-table') return true;
+
+        const result = resultData[dataIndex];
+        if (!result) return true;
+
+        if (activeFilter.kind === 'category') return CATEGORIES[activeFilter.value].test(result);
+        if (activeFilter.kind === 'reason') {
+            return result['staff_review_needed'] && flagKey(result) === activeFilter.value;
+        }
+        if (activeFilter.kind === 'flagger') {
+            return (result['flagged_by_name'] || '') === activeFilter.value;
+        }
+
+        return true;
+    });
+
+    // Auto-flags carry a source but no reason, so they key off the source instead.
+    function flagKey(result) {
+        return result['flag_reason'] || result['flag_source'] || '';
+    }
+
+    // Rows are built as HTML strings, so anything originating from user input goes through
+    // here first. Names and emails are the only such values in the table.
+    function escapeHtml(value) {
+        return $('<div>').text(value).html();
+    }
+
+    // Only the deliberate flags are counted here -- that is the work someone actually asked
+    // for. Auto-flagged images are reachable through the filter buttons instead, so the
+    // headline number stays a single unambiguous figure. Blank source counts as deliberate,
+    // matching the review queue: those flags predate provenance being recorded.
+    function showFlagSplit(results){
+        const manual = results.filter(r => r['staff_review_needed'] && r['flag_source'] !== 'auto_skips').length;
+
+        // Plain muted text, not a badge. The Show row below carries the same figure as a
+        // button you can actually click, so a solid yellow chip up here was both louder than
+        // the count it annotates and a second copy of something already on screen.
+        $('#flag-split')
+            .toggleClass('d-none', manual === 0)
+            .html(`<span class="text-muted">&middot; ${manual} flagged by an annotator</span>`);
+    }
+
+    // Builds an annotation queue from the given image ids and opens the queue flow in a new
+    // tab. Both entry points come through here: the header button, which takes everything the
+    // filter shows, and the per-row shortcut, which takes that row onwards.
+    //
+    // A new tab rather than navigating away, because the search is expensive to rebuild: the
+    // query, the filter, the sort and any selection are all gone the moment this page
+    // unloads, and staff annotate a batch and then come back for the next one.
+    function startAnnotating(imageIds){
+        if (!imageIds.length) return;
+
+        // Opened here, synchronously inside the click, because a window.open() from an ajax
+        // callback arrives too late to count as user-initiated and gets blocked.
+        const tab = window.open('', '_blank');
+
+        $.ajax({
+            url: '{% url 'images:create_precomputed_queue' %}',
+            method: 'POST',
+            data: {
+                'csrfmiddlewaretoken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'image_ids': imageIds,
+            },
+            dataType: 'json',
+            success: function() {
+                const url = "{% url 'images:searched_annotate_species' %}";
+
+                // Falls back to this tab if the blank one was blocked anyway, so the click
+                // still does something rather than appearing to fail silently.
+                if (tab) tab.location = url; else window.location.href = url;
+            },
+            error: function(xhr, status, error) {
+                console.error("AJAX Error:", status, error);
+                if (tab) tab.close();
+            }
+        });
+    }
+
+    // Applies one bulk action to the ticked images. Always the selection, never the filter:
+    // the table decides what you are looking at, the tick boxes decide what changes.
+    function runBulkAction(action, extra, confirmation){
+        const imageIds = [...selectedImages];
+
+        if (!imageIds.length || !window.confirm(confirmation)) return;
+
+        $('#selection-actions button').prop('disabled', true);
+
+        $.ajax({
+            url: '{% url 'images:bulk_image_action' %}',
+            method: 'POST',
+            data: {
+                'csrfmiddlewaretoken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'image_ids': imageIds,
+                'action': action,
+                ...extra,
+            },
+            dataType: 'json',
+            success: function(response) {
+                if (!response['success']) {
+                    window.alert(response['error'] || 'The action could not be completed.');
+                    $('#selection-actions button').prop('disabled', false);
+                    return;
+                }
+
+                // Re-run the search rather than patching rows in place: a cleared flag can
+                // drop an image out of the result set entirely, and a stale row that no
+                // longer matches the query is worse than a moment's wait.
+                selectedImages.clear();
+                queryImages(lastDate);
+            },
+            error: function(xhr, status, error) {
+                console.error("AJAX Error:", status, error);
+                window.alert('The action could not be completed.');
+                $('#selection-actions button').prop('disabled', false);
+            }
+        });
+    }
+
+    // Points the dropdown at whatever the table is actually ordered by. The dropdown is only
+    // a shortcut for three of the possible orderings, and the column headers sort
+    // independently of it, so without this it goes on claiming "Newest first" while the table
+    // is ordered by something else. Read from the table rather than set alongside each change,
+    // so there is one source of truth for what the order is.
+    function syncSortDropdown(){
+        const [column, direction] = $('#results-table').DataTable().order()[0] || [];
+
+        if (column === DATE_COLUMN) return $('#sort-order').val(direction);
+        if (column === FLAGGED_AT_COLUMN) return $('#sort-order').val('flagged');
+
+        // A column header the dropdown has no option for
+        $('#sort-order').val('other');
+    }
+
+    // Rows surviving the active filter, in the order the table is showing them.
+    function visibleIds(){
+        return $('#results-table').DataTable().rows({ search: 'applied' }).indexes().toArray()
+            .map(index => resultData[index])
+            .filter(Boolean)
+            .map(result => String(result['id']));
+    }
+
+    // Redraws the selection bar, the header checkbox and the on-screen row checkboxes from
+    // selectedImages. Called after every change to the set and on every table draw, so
+    // paging and filtering cannot leave the visible ticks out of step with the selection.
+    function refreshSelectionUi(){
+        const visible = visibleIds();
+        const selectedVisible = visible.filter(id => selectedImages.has(id));
+        // Selected but filtered out of view. Called out because a bulk action would still
+        // include these, and a count that disagrees with the rows on screen is alarming.
+        const hidden = selectedImages.size - selectedVisible.length;
+
+        $('#selection-bar').toggleClass('d-none', selectedImages.size === 0)
+                           .toggleClass('d-flex', selectedImages.size > 0);
+
+        // A bulk action disables these while it runs. Re-enable here so the bar is usable
+        // again the next time rows are ticked, rather than coming back inert.
+        $('#clear-flag, #clear-selection').prop('disabled', false);
+        $('#assign-expert').prop('disabled', !$('#expert-select').val());
+        $('#selection-count').text(`${selectedImages.size} selected`);
+        $('#selection-hidden').text(hidden ? `(${hidden} not shown by the current filter)` : '');
+
+        $('#results-table tbody input.row-select').each(function () {
+            $(this).prop('checked', selectedImages.has(String($(this).data('select-id'))));
+        });
+
+        // Indeterminate whenever the visible rows are only partly selected, so the header box
+        // never claims "all" for a page that is half ticked.
+        const allVisibleSelected = visible.length > 0 && selectedVisible.length === visible.length;
+        $('#select-all').prop('checked', allVisibleSelected)
+                        .prop('indeterminate', selectedVisible.length > 0 && !allVisibleSelected);
+    }
+
     $(document).ready(function () {
         addHourButtons();
-        $('#results-table').DataTable();
+        $('#results-table').DataTable({
+            order: [[DATE_COLUMN, 'desc']],
+            // Left on, DataTables measures the columns and pins an explicit width on the
+            // table. Hiding the flagged_at column makes it recompute to something narrower
+            // than the modal, so the table stops filling the dialog and the remaining columns
+            // squeeze until their contents wrap. Off, Bootstrap's width:100% governs and the
+            // th width hints above are honoured.
+            autoWidth: false,
+            columnDefs: [
+                // The checkbox column holds no text to sort or search on, and letting
+                // DataTables sort by it would scramble the rows against a half-made selection.
+                { targets: 0, orderable: false, searchable: false },
+                // The image cell is a thumbnail plus the hover shortcut. Neither is worth
+                // sorting on, and leaving it searchable would put "Annotate from here" in
+                // every row's search text, so searching "here" would match the whole table.
+                { targets: IMAGE_COLUMN, orderable: false, searchable: false },
+                // Carries flagged_at purely so "Recently flagged" has a column to order by.
+                // Not searchable: a raw ISO timestamp in every row's search text is noise.
+                { targets: FLAGGED_AT_COLUMN, visible: false, searchable: false },
+            ],
+        });
+
+        // Ticking a row. Bound on document because rows are added and destroyed by DataTables.
+        $(document).on('change', 'input.row-select', function () {
+            const id = String($(this).data('select-id'));
+
+            this.checked ? selectedImages.add(id) : selectedImages.delete(id);
+            refreshSelectionUi();
+        });
+
+        // Everything the current filter is showing, across every page -- not just the rows
+        // currently in the DOM. Untick clears only those same rows, leaving any selection
+        // hidden by the filter alone.
+        $(document).on('change', '#select-all', function () {
+            visibleIds().forEach(id => this.checked ? selectedImages.add(id) : selectedImages.delete(id));
+            refreshSelectionUi();
+        });
+
+        $(document).on('click', '#clear-selection', function () {
+            selectedImages.clear();
+            refreshSelectionUi();
+        });
+
+        // Nothing to assign to until someone is picked
+        $(document).on('change', '#expert-select', function () {
+            $('#assign-expert').prop('disabled', !this.value);
+        });
+
+        $(document).on('click', '#assign-expert', function () {
+            const expertId = $('#expert-select').val();
+            if (!expertId) return;
+
+            const expert = $('#expert-select option:selected').text();
+
+            runBulkAction('assign_expert', { 'expert_id': expertId },
+                `Assign ${selectedImages.size} image(s) to ${expert}?`);
+        });
+
+        $(document).on('click', '#clear-flag', function () {
+            // Spelled out because this is the one action here that destroys information: the
+            // reason and the flagger go with the flag, and nothing records that it was cleared.
+            runBulkAction('clear_flag', {},
+                `Clear the staff review flag on ${selectedImages.size} image(s)?\n\n` +
+                `They will leave the staff review queue, and the flag reason and flagger will ` +
+                `be discarded.`);
+        });
+
+        // Everything the filter is showing. Selection deliberately plays no part -- ticking
+        // rows is for the bulk actions, and annotation entry follows the table.
+        $(document).on('click', '#annotate-btn', function () {
+            startAnnotating(visibleIds());
+        });
+
+        // This row and every row after it, in the order the table is currently showing them.
+        // Slicing the visible ids means the shortcut follows whatever sort is applied rather
+        // than assuming the table is in date order.
+        $(document).on('click', '.annotate-from-here', function () {
+            const ids = visibleIds();
+            const at = ids.indexOf(String($(this).data('from-id')));
+
+            startAnnotating(at === -1 ? ids : ids.slice(at));
+        });
+
+        $('#results-table').on('order.dt', syncSortDropdown);
+
+        $('#sort-order').on('change', function () {
+            // "Recently flagged" orders by a different column entirely, not just a different
+            // direction, because it is a different clock to the two capture-date options.
+            const order = this.value === 'flagged'
+                ? [FLAGGED_AT_COLUMN, 'desc']
+                : [DATE_COLUMN, this.value];
+
+            $('#results-table').DataTable().order(order).draw();
+        });
+
+        $(document).on('click', '#filter-buttons button', function () {
+            activeFilter = { kind: $(this).data('kind'), value: String($(this).data('value')) };
+
+            $('#filter-buttons button').removeClass('btn-primary').addClass('btn-outline-secondary');
+            $(this).removeClass('btn-outline-secondary').addClass('btn-primary');
+
+            $('#results-table').DataTable().draw();
+        });
+
+        // Say how many images the button will take, so filtering first is an obvious move
+        $('#results-table').on('draw.dt', function() {
+            const count = visibleIds().length;
+
+            // Names its scope, so it reads as a different action to the per-row shortcut
+            $('#annotate-btn')
+                .prop('disabled', count === 0)
+                .text(count ? `Annotate all ${count} shown` : 'Annotate all shown');
+
+            // Paging and filtering both redraw, and the new rows come back unticked
+            refreshSelectionUi();
+        });
 
         $('#results-table').on('draw.dt', function() {
             visitedImages.forEach(id => {
@@ -260,6 +702,8 @@
             'camera_stations': JSON.stringify($('select[name="camera_stations"]').val()),
             'search_type': JSON.stringify($('select[name="search_type"]').val()),
             'staff_review_needed': $('input[name="staff_review_needed"]').is(':checked'),
+            'image_reported': $('input[name="image_reported"]').is(':checked'),
+            'social_media_worthy': $('input[name="social_media_worthy"]').is(':checked'),
         }
 
         $.ajax({
@@ -273,12 +717,106 @@
         });
     }
 
+    // Built from the results themselves, so the buttons never drift from the model's choices
+    // and nothing absent from this result set is offered. Counts are shown so an empty
+    // result after clicking is never a surprise.
+    function populateFilterButtons(results){
+        // Escaped because the flagger buttons carry names and emails, which are user input.
+        // The attribute is quoted with " so escapeHtml's &quot; is enough to keep it intact.
+        var button = (kind, value, label, count) =>
+            `<button type="button" class="btn btn-sm btn-outline-secondary me-1 mb-1"
+                     data-kind="${kind}" data-value="${escapeHtml(value)}">${escapeHtml(label)} (${count})</button>`;
+
+        // Each group filters on a different axis, so each gets its own labelled line. Run
+        // together they read as one list of alternatives, and "Other (2)" sitting beside a
+        // volunteer's name gives no clue that picking one excludes quite different things.
+        // An empty group is dropped rather than shown as a bare heading.
+        var group = (heading, buttons) => buttons.length
+            ? `<div class="d-flex mt-1">
+                   <span class="text-muted small me-2 pt-1" style="min-width: 5.5rem;">${heading}</span>
+                   <div>${buttons.join('')}</div>
+               </div>`
+            : '';
+
+        var showButtons = [button('', '', 'All', results.length)];
+
+        for (const [value, {label, test}] of Object.entries(CATEGORIES)) {
+            var count = results.filter(test).length;
+            if (count) showButtons.push(button('category', value, label, count));
+        }
+
+        // Label off flag_label, the same string the row chips use, so a filter button and the
+        // chip it selects always read identically.
+        var reasons = {};
+        results.filter(r => r['staff_review_needed']).forEach(r => {
+            var key = flagKey(r);
+            if (!key) return;
+
+            reasons[key] = reasons[key] || { label: r['flag_label'] || key.replace(/_/g, " "), count: 0 };
+            reasons[key].count++;
+        });
+
+        var reasonButtons = Object.values(reasons)
+            .map((reason, index) => ({ ...reason, key: Object.keys(reasons)[index] }))
+            .sort((a, b) => a.label.localeCompare(b.label))
+            .map(reason => button('reason', reason.key, reason.label, reason.count));
+
+        // One button per person who flagged something in this result set. Auto-flagged images
+        // have no flagger and are excluded -- they are already reachable through their own
+        // reason button. The free-text search box covers finding one person by name; these
+        // buttons are for seeing at a glance who the flags are coming from.
+        var flaggers = {};
+        results.forEach(r => {
+            var name = r['flagged_by_name'];
+            if (!name) return;
+
+            flaggers[name] = (flaggers[name] || 0) + 1;
+        });
+
+        var flaggerButtons = Object.keys(flaggers)
+            .sort((a, b) => a.localeCompare(b))
+            .map(name => button('flagger', name, name, flaggers[name]));
+
+        var html = [
+            group('Show', showButtons),
+            group('Flagged reason', reasonButtons),
+            group('Flagged by', flaggerButtons),
+        ];
+
+        $('#filter-buttons').html(html.join(''));
+        activeFilter = { kind: '', value: '' };
+        $('#filter-buttons button').first().removeClass('btn-outline-secondary').addClass('btn-primary');
+
+        // Searching for flagged images means the deliberate flags are the job, so start there
+        // rather than on everything the OR happened to match. Auto-flagged and the other
+        // categories are one click away. Falls back to All when there are no manual flags.
+        if ($('input[name="staff_review_needed"]').is(':checked')) {
+            $('#filter-buttons button[data-kind="category"][data-value="manual"]').trigger('click');
+        }
+
+        // Read the order back rather than assuming it: a new search re-renders the rows but
+        // leaves the ordering alone, so hardcoding "desc" here would leave the dropdown
+        // claiming a capture-date sort while the table was still ordered by flagged date.
+        syncSortDropdown();
+    }
+
     function displayResults(data){
         var resultsTable = $("#results-table").DataTable();
+        // Rows live in DataTables, not the DOM, so emptying the tbody alone would duplicate them
+        resultsTable.clear();
         $('#results-body').empty();
 
         var results = data["results"];
         $("#result-count").text(results.length);
+
+        // A new search replaces the rows entirely, so ids held over from the previous one
+        // would be a selection the user can no longer see or reason about.
+        selectedImages.clear();
+        refreshSelectionUi();
+
+        resultData = results;
+        populateFilterButtons(results);
+        showFlagSplit(results);
 
         if (results.length == 0){
             $('#results-body').append(`<h3 class="display-3">No results.</h3>`);
@@ -292,51 +830,75 @@
 
                 var thumbnail = result["thumbnail_gcloud_path"];
 
+                // "Staff review" says an image is flagged; the reason next to it says what for,
+                // in a lighter shade so the two read as headline and detail rather than as peers.
+                var flags = [];
+                // First in the row, because "arrived since I last looked" is the thing a
+                // reviewer scans for before they read what kind of flag it is.
+                if (result["is_new"]) flags.push(`<span class="badge chip-new">NEW</span>`);
+                if (result["staff_review_needed"]) {
+                    flags.push(`<span class="badge bg-warning text-dark">Staff review</span>`);
+
+                    if (result["flag_label"]) {
+                        flags.push(`<span class="badge chip-reason">${result["flag_label"]}</span>`);
+                    }
+                }
+                if (result["image_reported"]) flags.push(`<span class="badge bg-danger">Reported</span>`);
+                if (result["social_media_worthy"] > 0) flags.push(`<span class="badge bg-info text-dark">Social media</span>`);
+                if (result["skip_count"] > 0) flags.push(`<span class="badge bg-secondary">Skipped</span>`);
+
+                // Date over time, so the column stops wrapping mid-timestamp at this width.
+                // The cell's text stays "YYYY-MM-DDHH:MM", and because the date part is
+                // fixed-width ISO, sorting it as plain text is still chronological.
+                var stamp = (result["trigger_timestamp"] || "").split("T");
+                var triggered = stamp[0]
+                    ? `<div>${stamp[0]}</div>
+                       <div class="text-muted small">${(stamp[1] || "").slice(0, 5)}</div>`
+                    : "";
+
+                // Names come from user input, so they are escaped rather than interpolated raw
+                var flaggedBy = escapeHtml(result["flagged_by_name"] || "");
+
                 var newRow = [
-                    fileName,
-                    macrosite,
-                    cameraStation,
+                    // data-select-id rather than data-image-id: the latter is bound to the
+                    // visited-image highlight, which would fire on every tick.
+                    `<input type="checkbox" class="form-check-input row-select" data-select-id="${imageId}">`,
+                    // The shortcut sits under the thumbnail, where the eye already is. It is
+                    // outside the anchor on purpose: the anchor opens this one image in a new
+                    // tab, while the button starts a queue from here, and a click landing on
+                    // the wrong one of those is not a small mistake.
                     `
                     <a href="/images/image/${imageId}" target="_blank" data-image-id="${imageId}">
-                        <img class="w-100" src="{% get_media_prefix %}${thumbnail}" alt="Thumbnail" loading="lazy">
+                        <img class="rounded" src="{% get_media_prefix %}${thumbnail}" alt="Thumbnail" loading="lazy">
                     </a>
-                    `
+                    <button type="button"
+                            class="btn btn-link btn-sm p-0 text-start annotate-from-here"
+                            data-from-id="${imageId}">Annotate from here &rsaquo;</button>
+                    `,
+                    flags.join(" "),
+                    flaggedBy,
+                    triggered,
+                    // Macrosite over station: same place, coarse to fine, and one column of
+                    // location rather than two competing for width against the thumbnail.
+                    `<div>${escapeHtml(macrosite || "")}</div>
+                     <div class="text-muted small">${escapeHtml(cameraStation || "")}</div>`,
+                    // Muted and small: an identifier to confirm against, not something staff
+                    // scan by. It stays searchable so a file name from elsewhere still finds
+                    // its row.
+                    `<span class="text-muted small">${escapeHtml(fileName)}</span>`,
+                    // Hidden sort key. ISO text sorts chronologically, and images that were
+                    // never flagged carry "", which lands them last under "Recently flagged".
+                    result["flagged_at"] || "",
                 ];
 
                 // Add the new row to the DataTable and redraw
                 resultsTable.row.add(newRow);
             }
 
+            // The draw handler enables the button and labels it with the visible row count,
+            // so it must not be force-enabled here -- a filter matching nothing would leave
+            // an active button that queues zero images.
             resultsTable.draw();
-
-            // Enable annotation button
-            $("#annotate-btn").prop("disabled", false);
-
-            $("#annotate-btn").off("click").on("click", function() {
-                const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-                // Use map to extract the list of IDs
-                const imageIds = results.map((res) => res["id"]);
-
-                let data = {
-                    'csrfmiddlewaretoken': csrftoken,
-                    'image_ids': imageIds,
-                };
-
-                $.ajax({
-                    url: '{% url 'images:create_precomputed_queue' %}',
-                    method: 'POST',
-                    data: data,
-                    dataType: 'json',
-                    success: function(data) {
-                        const url = "{% url 'images:searched_annotate_species' %}";
-                        window.location.href = url;
-                    },
-                    error: function(xhr, status, error) {
-                        console.error("AJAX Error:", status, error);
-                    }
-                });
-            });
         }
     }
     </script>

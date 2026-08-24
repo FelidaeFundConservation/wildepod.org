@@ -10,6 +10,7 @@ from .views import (
     AnnotateActivityView,
     AnnotateSpeciesView,
     ApplyTimeCorrectionView,
+    BulkImageActionView,
     ChangeAnnotationView,
     CheckDropbox2FAEmailView,
     CreatePrecomputedQueueView,
@@ -106,6 +107,11 @@ urlpatterns = [
         "queue/create/",
         CreatePrecomputedQueueView.as_view(),
         name="create_precomputed_queue",
+    ),
+    path(
+        "bulk-action/",
+        BulkImageActionView.as_view(),
+        name="bulk_image_action",
     ),
     path(
         "queue/precompute/",

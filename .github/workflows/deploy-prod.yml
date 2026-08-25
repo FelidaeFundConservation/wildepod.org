@@ -124,7 +124,7 @@ jobs:
   migrate:
     name: Run Migrations (${{ inputs.environment }})${{ inputs.dryrun && ' (dry run)' || '' }}
     needs: deploy
-    if: ${{ inputs.run_migrations }}
+    if: ${{ inputs.run_migrations && !inputs.dryrun }}
     runs-on: ubuntu-latest
     env:
       GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
@@ -206,14 +206,38 @@ jobs:
 
       - name: Start Cloud SQL Proxy
         run: |
-          ./cloud-sql-proxy --port=${{ env.DB_PORT }} ${{ steps.db-config.outputs.instance }} &
-          sleep 3
+          set -euo pipefail
+          ./cloud-sql-proxy \
+            --address=127.0.0.1 \
+            --port=${{ env.DB_PORT }} \
+            "${{ steps.db-config.outputs.instance }}" > cloud-sql-proxy.log 2>&1 &
+          proxy_pid=$!
+
+          for attempt in {1..30}; do
+            if ! kill -0 "$proxy_pid" 2>/dev/null; then
+              echo "Cloud SQL Proxy exited before opening port ${{ env.DB_PORT }}"
+              cat cloud-sql-proxy.log
+              exit 1
+            fi
+
+            if nc -z 127.0.0.1 "${{ env.DB_PORT }}"; then
+              echo "Cloud SQL Proxy is listening on 127.0.0.1:${{ env.DB_PORT }}"
+              exit 0
+            fi
+
+            sleep 1
+          done
+
+          echo "Cloud SQL Proxy did not open port ${{ env.DB_PORT }}"
+          cat cloud-sql-proxy.log
+          exit 1
 
       - name: Run migrations
         if: ${{ !inputs.dryrun }}
         env:
           SETTINGS_NAME: ${{ steps.db-config.outputs.settings_name }}
         run: |
+          set -o pipefail
           uv run python manage.py migrate --settings=${{ steps.db-config.outputs.settings }} 2>&1 | tee migration_output.txt
 
       - name: Dry Run - Show pending migrations
@@ -221,6 +245,7 @@ jobs:
         env:
           SETTINGS_NAME: ${{ steps.db-config.outputs.settings_name }}
         run: |
+          set -o pipefail
           uv run python manage.py migrate --plan --settings=${{ steps.db-config.outputs.settings }} 2>&1 | tee migration_output.txt
 
       - name: Write migration summary

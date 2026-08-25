@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import json
+from datetime import datetime, time, timedelta
 
 from braces.views import StaffuserRequiredMixin
 from crispy_forms.helper import FormHelper
@@ -179,16 +180,27 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
         # Apply filters conditionally
         filterset = Q()
 
+        # Use explicit local-time datetime windows for trigger timestamp filters.
+        # This avoids UTC/local date boundary mismatches around midnight.
+        local_tz = timezone.get_current_timezone()
+
         if date:
             if time_filter_type == TRIGGER_TIMESTAMP_TYPE:
-                filterset &= Q(trigger_timestamp__date=date)
+                parsed_date = datetime.fromisoformat(str(date)).date()
+                start_dt = timezone.make_aware(datetime.combine(parsed_date, time.min), local_tz)
+                end_dt = start_dt + timedelta(days=1)
+                filterset &= Q(trigger_timestamp__gte=start_dt, trigger_timestamp__lt=end_dt)
             elif time_filter_type == LAST_ANNOTATED_TYPE:
                 filterset &= Q(boundingbox__species__created__date=date) | Q(boundingbox__species__modified__date=date)
         if start_date and end_date:
             if time_filter_type == TRIGGER_TIMESTAMP_TYPE:
+                parsed_start = datetime.fromisoformat(str(start_date)).date()
+                parsed_end = datetime.fromisoformat(str(end_date)).date()
+                start_dt = timezone.make_aware(datetime.combine(parsed_start, time.min), local_tz)
+                end_dt = timezone.make_aware(datetime.combine(parsed_end, time.min), local_tz)
                 filterset &= Q(
-                    trigger_timestamp__date__gte=start_date,
-                    trigger_timestamp__date__lt=end_date,
+                    trigger_timestamp__gte=start_dt,
+                    trigger_timestamp__lt=end_dt,
                 )
             elif time_filter_type == LAST_ANNOTATED_TYPE:
                 filterset &= Q(

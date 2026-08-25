@@ -40,6 +40,16 @@ jobs:
       - name: Run tests
         run: DJANGO_SETTINGS_MODULE=config.settings.ci DJANGO_CI_MODE=true uv run pytest
 
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            coverage.xml
+            htmlcov/
+          if-no-files-found: warn
+
       - name: Run flake8
         run: uv run flake8
         continue-on-error: true
@@ -86,7 +96,7 @@ jobs:
         run: uv run python manage.py collectstatic --noinput --settings=config.settings.ci
 
       - name: Deploy to App Engine
-        run: gcloud app deploy staging.yaml --quiet --project=${{ env.GCP_PROJECT_ID }}
+        run: gcloud app deploy staging.yaml --quiet --project=$CLOUDSDK_CORE_PROJECT
 
   migrate:
     name: Run Migrations

@@ -28,6 +28,19 @@
            builder had to know hex values to render a chip. */
         .badge.chip-reason { background-color: #fff3cd; color: #664d03; }
         .badge.chip-new { background-color: #d1e7dd; color: #0f5132; }
+        /* Outlined rather than filled: it marks work already finished, so it should be the
+           quietest thing in the cell. Filled green is chip-new, which is the opposite claim. */
+        .badge.chip-reviewed { background-color: transparent; color: #0f5132; border: 1px solid #a3cfbb; }
+
+        /* The Flags cell is two lines: what the row is asking of you, then what else is true
+           about the image. Both wrap, and gap spaces the chips rather than the whitespace
+           between tags, which a join(" ") loses the moment a line wraps.
+
+           The second line is dimmed a little so the split reads as headline and footnote
+           before either line is read. Kept slight on purpose: these chips still have to be
+           legible, so the hierarchy comes mostly from the break rather than the fade. */
+        .flag-line { display: flex; flex-wrap: wrap; gap: .25rem; }
+        .flag-line + .flag-line { margin-top: .25rem; opacity: .85; }
 
         .annotate-from-here { opacity: 0; }
         #results-table tbody tr:hover .annotate-from-here,
@@ -107,7 +120,9 @@
                             </select>
                         </div>
                         <div class="col-12 mt-2">
-                            <label class="form-label mb-1 small">Filter</label>
+                            <!-- Semibold so it reads as the heading over the group labels
+                                 rather than a fourth one of them -->
+                            <label class="form-label mb-2 small fw-semibold">Filter</label>
                             <div id="filter-buttons"></div>
                         </div>
                     </div>
@@ -217,8 +232,18 @@
     // handler paints this back onto whichever rows are on screen.
     const selectedImages = new Set();
 
-    // Which filter button is pressed. An empty kind means "All".
-    let activeFilter = { kind: '', value: '' };
+    // What each filter group is narrowing to. One set per group, because the groups are
+    // separate axes and the labelled rows have always implied they combine: picking a
+    // reason used to silently drop whichever category was pressed, leaving the Show row
+    // showing nothing and no way to tell what scope the results were in.
+    const activeFilters = { category: new Set(), reason: new Set(), flagger: new Set() };
+
+    // How many flagger chips stay on screen, and when that list gets its own name box.
+    // Flagging is open to every annotator, so "Flagged by" is the one group with no natural
+    // ceiling -- a busy month can put more names in it than there are rows in the table.
+    // Read by the renderer and by the expand/search handlers, so it lives out here.
+    const FLAGGER_LIMIT = 8;
+    const FLAGGER_SEARCH_AT = 20;
     // Only the staff-review workflow gets buttons. Reported / social media are separate
     // workflows and stay on the form's checkboxes; their badges still show in the table.
     //
@@ -229,12 +254,39 @@
             label: 'Flagged by annotator',
             test: r => r['staff_review_needed'] && r['flag_source'] !== 'auto_skips',
         },
+        // The other half of the review queue, and a sibling of the button above rather than a
+        // "Flagged reason", which is where it used to sit. Nobody asked for these reviews --
+        // the skip counter tripped -- so they have no reason to be listed under, and putting
+        // them in that row read as one kind of annotator request among several.
+        //
+        // Their own workflow is a batch one: look at what piled up, select it, hand it to an
+        // expert. That is one click from here, and off the default view, which is the point.
+        auto: {
+            label: 'Auto-flagged',
+            test: r => r['staff_review_needed'] && r['flag_source'] === 'auto_skips',
+        },
         // Cuts across the reason buttons rather than subdividing them: a NEW image can carry
         // any reason. Offered here because "what landed since I last looked" is usually the
         // first question, and the button disappears when nothing is new.
         new: {
             label: 'New since last review',
             test: r => r['is_new'],
+        },
+        // The closed half of the review queue. Clearing a flag is the only way out of it and
+        // leaves nothing on the image to see, so staff_reviewed_at is the only record that a
+        // review happened.
+        //
+        // A button rather than a checkbox on the search form: the form's boxes OR together,
+        // so an accidental tick there quietly widens the search to every image review has
+        // ever closed and the only sign is a bigger number. This narrows what already came
+        // back, says how many it will leave, and un-clicks.
+        //
+        // It follows that a search that did not return any resolved images has no button --
+        // "Flagged for Staff?" asks for open flags only, and resolved images no longer carry
+        // one. Finding them means searching without that box ticked.
+        reviewed: {
+            label: 'Reviewed by staff',
+            test: r => !r['staff_review_needed'] && r['staff_reviewed_at'],
         },
     };
 
@@ -295,6 +347,21 @@
         $('#time-picker').hide();
     }
 
+    // What one button in each group asks of a row. Keyed by the group's data-kind.
+    const GROUP_TESTS = {
+        category: (result, value) => CATEGORIES[value].test(result),
+        reason: (result, value) => result['staff_review_needed'] && flagKey(result) === value,
+        flagger: (result, value) => (result['flagged_by_name'] || '') === value,
+    };
+
+    // Groups AND together and values within a group OR, so "species ID or bounding box,
+    // flagged by Ana" is one pass. A group with nothing pressed constrains nothing, which
+    // is what leaves an untouched filter showing every row.
+    function matchesFilters(result, filters) {
+        return Object.entries(GROUP_TESTS).every(([kind, test]) =>
+            !filters[kind].size || [...filters[kind]].some(value => test(result, value)));
+    }
+
     // Keeps only rows matching both dropdowns. Returning true leaves a row visible.
     $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
         if (settings.nTable.id !== 'results-table') return true;
@@ -302,15 +369,7 @@
         const result = resultData[dataIndex];
         if (!result) return true;
 
-        if (activeFilter.kind === 'category') return CATEGORIES[activeFilter.value].test(result);
-        if (activeFilter.kind === 'reason') {
-            return result['staff_review_needed'] && flagKey(result) === activeFilter.value;
-        }
-        if (activeFilter.kind === 'flagger') {
-            return (result['flagged_by_name'] || '') === activeFilter.value;
-        }
-
-        return true;
+        return matchesFilters(result, activeFilters);
     });
 
     // Auto-flags carry a source but no reason, so they key off the source instead.
@@ -566,14 +625,45 @@
             $('#results-table').DataTable().order(order).draw();
         });
 
-        $(document).on('click', '#filter-buttons button', function () {
-            activeFilter = { kind: $(this).data('kind'), value: String($(this).data('value')) };
+        // [data-kind] rather than every button in here: the "more" toggle carries no kind, and
+        // an absent kind is how the All button announces itself -- so without this, expanding
+        // the flagger list cleared every filter on the page.
+        $(document).on('click', '#filter-buttons button[data-kind]', function () {
+            const kind = $(this).data('kind');
+            const value = String($(this).data('value'));
 
-            $('#filter-buttons button').removeClass('btn-primary').addClass('btn-outline-secondary');
-            $(this).removeClass('btn-outline-secondary').addClass('btn-primary');
+            // All carries no kind. It is the way back to an untouched result set, so it
+            // empties every group rather than toggling one of them.
+            if (!kind) {
+                Object.values(activeFilters).forEach(set => set.clear());
+            } else if (activeFilters[kind].has(value)) {
+                activeFilters[kind].delete(value);
+            } else {
+                activeFilters[kind].add(value);
+            }
 
+            refreshFilterButtons();
             $('#results-table').DataTable().draw();
         });
+
+        // Expanded in place rather than paged: the row exists to be glanced at, and a person
+        // who wants the tail is nearly always after one name, which the box answers faster
+        // than reading fifty chips. Collapsing clears the box so the two never disagree.
+        $(document).on('click', '.filter-more', function () {
+            const expanded = $(this).attr('aria-expanded') === 'true';
+            const group = $(this).closest('[role="group"]');
+            const hiddenCount = group.find('button[data-kind="flagger"]').length - FLAGGER_LIMIT;
+
+            if (expanded) group.find('.filter-name-search').val('');
+
+            group.find('.filter-name-search').toggleClass('d-none', expanded);
+            $(this).attr('aria-expanded', String(!expanded))
+                   .text(expanded ? `+${hiddenCount} more` : 'Show fewer');
+
+            applyFlaggerVisibility();
+        });
+
+        $(document).on('input', '.filter-name-search', applyFlaggerVisibility);
 
         // Say how many images the button will take, so filtering first is an obvious move
         $('#results-table').on('draw.dt', function() {
@@ -723,18 +813,26 @@
     function populateFilterButtons(results){
         // Escaped because the flagger buttons carry names and emails, which are user input.
         // The attribute is quoted with " so escapeHtml's &quot; is enough to keep it intact.
+        // The count sits in its own span so it can be dimmed against the label and rewritten
+        // in place as other groups narrow things, and aria-pressed carries the on/off state
+        // that until now lived only in the button's colour.
         var button = (kind, value, label, count) =>
-            `<button type="button" class="btn btn-sm btn-outline-secondary me-1 mb-1"
-                     data-kind="${kind}" data-value="${escapeHtml(value)}">${escapeHtml(label)} (${count})</button>`;
+            `<button type="button" class="btn btn-sm btn-outline-secondary" aria-pressed="false"
+                     data-kind="${kind}" data-value="${escapeHtml(value)}">${escapeHtml(label)} <span class="filter-count opacity-75">(${count})</span></button>`;
 
         // Each group filters on a different axis, so each gets its own labelled line. Run
         // together they read as one list of alternatives, and "Other (2)" sitting beside a
         // volunteer's name gives no clue that picking one excludes quite different things.
         // An empty group is dropped rather than shown as a bare heading.
-        var group = (heading, buttons) => buttons.length
-            ? `<div class="d-flex mt-1">
-                   <span class="text-muted small me-2 pt-1" style="min-width: 5.5rem;">${heading}</span>
-                   <div>${buttons.join('')}</div>
+        //
+        // The heading takes a fixed width rather than a minimum so the three button columns
+        // line up: "Flagged reason" is wider than the old 5.5rem minimum and was pushing its
+        // own row right of the other two. Its line-height sits it against the first row of
+        // buttons however many rows they wrap onto, which the old padding guess did not.
+        var group = (heading, buttons, extras) => buttons.length
+            ? `<div class="d-flex flex-wrap mb-2">
+                   <span class="text-muted small flex-shrink-0" style="width: 7rem; line-height: 1.9rem;">${heading}</span>
+                   <div class="d-flex flex-wrap gap-1 align-items-center" role="group" aria-label="${heading}">${buttons.join('')}${extras || ''}</div>
                </div>`
             : '';
 
@@ -747,8 +845,13 @@
 
         // Label off flag_label, the same string the row chips use, so a filter button and the
         // chip it selects always read identically.
+        //
+        // Deliberate flags only. An automatic one has no reason -- flagKey falls through to
+        // the source and produced an "Auto-flagged" button in this row, sitting among the
+        // things annotators actually asked for as though it were one of them. It has its own
+        // button in Show now.
         var reasons = {};
-        results.filter(r => r['staff_review_needed']).forEach(r => {
+        results.filter(r => r['staff_review_needed'] && r['flag_source'] !== 'auto_skips').forEach(r => {
             var key = flagKey(r);
             if (!key) return;
 
@@ -773,31 +876,127 @@
             flaggers[name] = (flaggers[name] || 0) + 1;
         });
 
-        var flaggerButtons = Object.keys(flaggers)
-            .sort((a, b) => a.localeCompare(b))
-            .map(name => button('flagger', name, name, flaggers[name]));
+        // Busiest first, not alphabetical. The question this row answers is where the flags
+        // are coming from, and with a volunteer base an A-Z list buries the four people
+        // responsible for most of them behind everyone who has flagged once. Name breaks
+        // ties so the order does not shuffle between two searches with the same counts.
+        var flaggerEntries = Object.keys(flaggers)
+            .map(name => ({ name: name, count: flaggers[name] }))
+            .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+
+        var flaggerButtons = flaggerEntries.map(entry => button('flagger', entry.name, entry.name, entry.count));
+
+        // Nothing is dropped -- the tail folds behind a toggle, and past FLAGGER_SEARCH_AT
+        // names a box appears, because by then reading the expanded list is worse than
+        // typing. The table's own search still finds a person by name either way.
+        var flaggerExtras = '';
+
+        if (flaggerEntries.length > FLAGGER_LIMIT) {
+            flaggerExtras += `<button type="button" class="btn btn-sm btn-link text-decoration-none px-1 filter-more"
+                                      aria-expanded="false">+${flaggerEntries.length - FLAGGER_LIMIT} more</button>`;
+        }
+
+        if (flaggerEntries.length > FLAGGER_SEARCH_AT) {
+            flaggerExtras += `<input type="search" class="form-control form-control-sm filter-name-search d-none"
+                                     style="width: 10rem" placeholder="Find a name&hellip;"
+                                     aria-label="Narrow the Flagged by list">`;
+        }
 
         var html = [
             group('Show', showButtons),
             group('Flagged reason', reasonButtons),
-            group('Flagged by', flaggerButtons),
+            group('Flagged by', flaggerButtons, flaggerExtras),
         ];
 
         $('#filter-buttons').html(html.join(''));
-        activeFilter = { kind: '', value: '' };
-        $('#filter-buttons button').first().removeClass('btn-outline-secondary').addClass('btn-primary');
+        Object.values(activeFilters).forEach(set => set.clear());
+        refreshFilterButtons();
 
-        // Searching for flagged images means the deliberate flags are the job, so start there
-        // rather than on everything the OR happened to match. Auto-flagged and the other
-        // categories are one click away. Falls back to All when there are no manual flags.
-        if ($('input[name="staff_review_needed"]').is(':checked')) {
-            $('#filter-buttons button[data-kind="category"][data-value="manual"]').trigger('click');
-        }
+        // Deliberate flags are the work, so the table opens on them whenever the results hold
+        // any -- not only when the search form's "Flagged for Staff?" box happened to be
+        // ticked, which is how an ordinary search still opened on a pile of auto-flagged
+        // images nobody had asked anyone to look at.
+        //
+        // Auto-flagged is then one click, which is the whole of its workflow: see what piled
+        // up, select it, hand it to an expert.
+        //
+        // Nothing is hidden to achieve this. The pressed button names what the table is
+        // showing and carries its count, and All sits next to it -- unlike a default that
+        // silently drops rows, which is the same trap as a search checkbox that quietly
+        // widens the query. The selector matches nothing when there are no manual flags, so
+        // that case falls back to All on its own.
+        $('#filter-buttons button[data-kind="category"][data-value="manual"]').trigger('click');
 
         // Read the order back rather than assuming it: a new search re-renders the rows but
         // leaves the ordering alone, so hardcoding "desc" here would leave the dropdown
         // claiming a capture-date sort while the table was still ordered by flagged date.
         syncSortDropdown();
+    }
+
+    // Paints each button's pressed state and re-counts it. A count answers "how many rows
+    // am I left with if I also press this", so it is measured against the groups that are
+    // already narrowing -- a flagger's 8 reasons drop to whatever survives the reason
+    // buttons beside it. Without that, combining groups would let a button advertise 8 and
+    // hand back nothing, which is the surprise the counts exist to prevent.
+    //
+    // Updated in place rather than re-rendered so the button just clicked keeps focus.
+    // One place decides which flagger chips are on screen, because two things can hide one --
+    // the list being collapsed and a name typed into the box -- and letting each write d-none
+    // on its own leaves chips stranded when they disagree.
+    function applyFlaggerVisibility(){
+        const group = $('#filter-buttons [aria-label="Flagged by"]');
+
+        if (!group.length) return;
+
+        const expanded = group.find('.filter-more').attr('aria-expanded') === 'true';
+        const needle = String(group.find('.filter-name-search').val() || '').trim().toLowerCase();
+
+        group.find('button[data-kind="flagger"]').each(function (index) {
+            const withinLimit = index < FLAGGER_LIMIT;
+            const matches = !needle || String($(this).data('value')).toLowerCase().includes(needle);
+            // A pressed chip is always on screen, wherever it sits in the order. Hiding the
+            // filter someone is currently using would leave the table narrowed with nothing
+            // to explain why, and nothing to click to undo it.
+            const pressed = $(this).attr('aria-pressed') === 'true';
+
+            $(this).toggleClass('d-none', !(pressed || ((expanded || withinLimit) && matches)));
+        });
+    }
+
+    function refreshFilterButtons(){
+        const untouched = Object.values(activeFilters).every(set => !set.size);
+
+        // [data-kind] rather than every button in here: the "more" toggle carries no kind, and
+        // the loop reads a missing one as the All button and paints it pressed.
+        $('#filter-buttons button[data-kind]').each(function () {
+            const kind = $(this).data('kind');
+            const value = String($(this).data('value'));
+
+            // All reads as pressed exactly when nothing else is, so the row never sits blank
+            const pressed = kind ? activeFilters[kind].has(value) : untouched;
+            $(this).toggleClass('btn-primary', pressed)
+                   .toggleClass('btn-outline-secondary', !pressed)
+                   .attr('aria-pressed', pressed);
+
+            // All's count is the whole result set, which is what clearing everything gives
+            if (!kind) return;
+
+            // This button's own group is set aside: it ORs with its siblings rather than
+            // narrowing against them, so counting inside the group would read as zero.
+            const others = { ...activeFilters, [kind]: new Set() };
+            const count = resultData.filter(r =>
+                matchesFilters(r, others) && GROUP_TESTS[kind](r, value)).length;
+
+            $(this).find('.filter-count').text(`(${count})`);
+
+            // A pressed button stays live even at zero, so a combination that filtered
+            // everything out can still be undone by clicking the thing that caused it.
+            $(this).prop('disabled', count === 0 && !pressed);
+        });
+
+        // Pressed state has just been repainted, and it decides whether a chip in the folded
+        // tail stays on screen, so visibility is settled after it rather than before.
+        applyFlaggerVisibility();
     }
 
     function displayResults(data){
@@ -830,22 +1029,51 @@
 
                 var thumbnail = result["thumbnail_gcloud_path"];
 
-                // "Staff review" says an image is flagged; the reason next to it says what for,
-                // in a lighter shade so the two read as headline and detail rather than as peers.
-                var flags = [];
-                // First in the row, because "arrived since I last looked" is the thing a
-                // reviewer scans for before they read what kind of flag it is.
-                if (result["is_new"]) flags.push(`<span class="badge chip-new">NEW</span>`);
+                // Two lines, split by what each chip is for rather than by colour. `asks` is
+                // why this row is in a queue at all -- the thing somebody is waiting on.
+                // `describes` is what else is true about the image, which explains a flag but
+                // never adds work of its own.
+                //
+                // Reported leads the first line despite being the redder chip: the queue
+                // routing gives image_reported precedence over the review flag, on the
+                // grounds that "this does not belong in the pool" outranks "someone should
+                // look at this". A row where the two disagree should read the same way.
+                var asks = [];
+                var describes = [];
+
+                if (result["image_reported"]) asks.push(`<span class="badge bg-danger">Reported</span>`);
+                // Before the flag it qualifies, because "arrived since I last looked" is the
+                // thing a reviewer scans for before they read what kind of flag it is.
+                if (result["is_new"]) asks.push(`<span class="badge chip-new">NEW</span>`);
+                // "Staff review" says an image is flagged; the reason next to it says what
+                // for, in a lighter shade so the two read as headline and detail rather than
+                // as peers. They stay adjacent, which is the whole reason for the pairing.
                 if (result["staff_review_needed"]) {
-                    flags.push(`<span class="badge bg-warning text-dark">Staff review</span>`);
+                    asks.push(`<span class="badge bg-warning text-dark">Staff review</span>`);
 
                     if (result["flag_label"]) {
-                        flags.push(`<span class="badge chip-reason">${result["flag_label"]}</span>`);
+                        asks.push(`<span class="badge chip-reason">${result["flag_label"]}</span>`);
                     }
                 }
-                if (result["image_reported"]) flags.push(`<span class="badge bg-danger">Reported</span>`);
-                if (result["social_media_worthy"] > 0) flags.push(`<span class="badge bg-info text-dark">Social media</span>`);
-                if (result["skip_count"] > 0) flags.push(`<span class="badge bg-secondary">Skipped</span>`);
+
+                // Only on images no longer flagged: while a flag is open the review that
+                // matters is the one still owed, and "Staff review / Reviewed" side by side
+                // reads as a contradiction rather than as history.
+                if (!result["staff_review_needed"] && result["staff_reviewed_at"]) {
+                    var reviewed = (result["staff_reviewed_at"] || "").split("T")[0];
+                    describes.push(`<span class="badge chip-reviewed">Reviewed ${reviewed}</span>`);
+                }
+                if (result["social_media_worthy"] > 0) describes.push(`<span class="badge bg-info text-dark">Social media</span>`);
+                if (result["skip_count"] > 0) describes.push(`<span class="badge bg-secondary">Skipped</span>`);
+
+                // An empty line is dropped rather than rendered, so a row carrying only a flag
+                // is the height it was before the column was split. The space in the join is
+                // invisible -- a flex container discards whitespace between items -- but it
+                // keeps the cell's text as separate words for the table's own Search box.
+                var flags = [asks, describes]
+                    .filter(line => line.length)
+                    .map(line => `<div class="flag-line">${line.join(" ")}</div>`)
+                    .join("");
 
                 // Date over time, so the column stops wrapping mid-timestamp at this width.
                 // The cell's text stays "YYYY-MM-DDHH:MM", and because the date part is
@@ -875,7 +1103,7 @@
                             class="btn btn-link btn-sm p-0 text-start annotate-from-here"
                             data-from-id="${imageId}">Annotate from here &rsaquo;</button>
                     `,
-                    flags.join(" "),
+                    flags,
                     flaggedBy,
                     triggered,
                     // Macrosite over station: same place, coarse to fine, and one column of

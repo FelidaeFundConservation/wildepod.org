@@ -840,8 +840,14 @@ def get_precomputed_queue(queue_name, annotator, searched):
         ).exclude(exclusion_condition)
     )
 
-    # If queue is from searching images, include all imgs regardless of eligibility
-    precomputed_queue = ImageQueue.objects.filter(assigned_to=annotator)
+    # If queue is from searching images, include all imgs regardless of eligibility.
+    #
+    # image_order separates a queue somebody built -- a search, or a staff member assigning
+    # work to an expert -- from one the system handed out automatically. Only the built ones
+    # belong to the searched flow; without this, an annotator holding both is served whichever
+    # .first() happens to return, so an expert who had also done ordinary annotation would be
+    # shown a precomputed queue in place of the batch assigned to them.
+    precomputed_queue = ImageQueue.objects.filter(assigned_to=annotator).exclude(image_order=[])
 
     if searched:
         return precomputed_queue.first()
@@ -865,8 +871,16 @@ def get_precomputed_queue(queue_name, annotator, searched):
     else:
         logging.info("No assigned precomputed queue. Attempting to assign...")
         try:
-            # Mark as checked by annotator so they don't get the same one
-            checked_queues = ImageQueue.objects.filter(assigned_to=annotator)
+            # Mark as checked by annotator so they don't get the same one.
+            #
+            # Automatically precomputed queues only -- image_order=[] is what identifies them.
+            # A queue with a recorded order was built for this person, by a search or by staff
+            # assigning work to an expert, and its images are usually flagged, which fails the
+            # pool filters above and makes the queue read as having nothing eligible. Sweeping
+            # those unassigned a batch staff had just handed to an expert, silently: the queue
+            # keeps its images and loses only its owner, so the work stops being reachable
+            # without anything appearing to have gone wrong on either side.
+            checked_queues = ImageQueue.objects.filter(assigned_to=annotator, image_order=[])
             for queue in checked_queues:
                 queue.checked_by.add(annotator)
                 queue.assigned_to = None
@@ -1081,6 +1095,31 @@ def populate_view_context(
 
             # "Upcoming Images" -- the rest of the search, still in search order
             upcoming = [image_obj for image_obj in remaining if image_obj.id != image_id]
+
+            # Where this image sits in the search, so the queue is visible as a queue. Read
+            # off the image actually being served rather than the cursor, which the grid and
+            # the annotation history can both leave pointing elsewhere.
+            #
+            # nav_* rather than names of this view's own: the single image page shows the same
+            # readout for the same queue, and while the two carried different context keys
+            # they drifted into putting it in different places on the screen.
+            try:
+                context["nav_position"] = precomputed_queue.image_order.index(str(image_id)) + 1
+            except ValueError:
+                context["nav_position"] = None
+
+            context["nav_total"] = len(precomputed_queue.image_order)
+            context["nav_scope"] = "queue"
+
+            # How the annotator moves on. "cursor" advances this queue's position and reloads;
+            # the single image page uses "links", which are plain hrefs and move nothing. Both
+            # render in the same slot beside Save.
+            #
+            # Only a queue with a recorded order can do this. Anything else reaching the
+            # searched flow -- a queue predating image_order, or an automatically precomputed
+            # one that happens to be assigned to this annotator -- keeps the older
+            # partition-based navigation and the Skip button that goes with it.
+            context["nav_mode"] = "cursor"
         else:
             partitioned_queue_images = queue_images.filter(trigger_timestamp__gte=precomputed_queue.partition)
 
@@ -1523,7 +1562,22 @@ def annotation_processor(queue_name, annotation_type, request):
     staff_review_reason = request.POST.get("staff_review_reason", "")
     staff_review_reason_detail = request.POST.get("staff_review_reason_detail", "")
 
-    if staff_review_needed and staff_review_reason not in StaffReviewFlagReason.values:
+    # An automatic flag has no reason to offer -- auto_flag_for_staff() records none -- so an
+    # auto-flagged image arrives with the checkbox ticked and the reason select empty, and
+    # this rule made it impossible to save at all. Leaving such a flag exactly as it is stays
+    # allowed; raising a new flag, or changing an existing reason, still has to say why.
+    existing_flag = Image.objects.filter(id=image_id).values("staff_review_needed", "flag_reason").first()
+    leaving_reasonless_flag_alone = (
+        staff_review_needed
+        and not staff_review_reason
+        and existing_flag is not None
+        and existing_flag["staff_review_needed"]
+        and not existing_flag["flag_reason"]
+    )
+
+    reason_missing = staff_review_reason not in StaffReviewFlagReason.values
+
+    if staff_review_needed and reason_missing and not leaving_reasonless_flag_alone:
         logging.warning(
             f"Rejected staff review flag for image '{image_id}' from user '{request.user.name}': "
             f"invalid or missing reason '{staff_review_reason}'"

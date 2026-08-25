@@ -52,23 +52,12 @@ class ImageDetailView(LoginRequiredMixin, DetailView):
         # rejected, the Flag for Staff Review checkbox on this page cannot be used at all.
         context["staff_review_flag_reasons"] = StaffReviewFlagReason.choices
 
-        # TODO: Depending on where this image page is loaded from, the Next, Previous buttons may not be needed.
-        try:
-            context["next_image"] = Image.objects.filter(
-                upload=img_obj.upload, trigger_timestamp__gt=img_obj.trigger_timestamp
-            ).first()
-        except ObjectDoesNotExist:
-            pass
-        except BaseException:
-            pass
-        try:
-            context["previous_image"] = Image.objects.filter(
-                upload=img_obj.upload, trigger_timestamp__lt=img_obj.trigger_timestamp
-            ).last()
-        except ObjectDoesNotExist:
-            pass
-        except BaseException:
-            pass
+        # Which sequence Previous/Next walk. Reaching this page from a search result is the
+        # obvious click -- the thumbnail is a link, the queue is a smaller button under it --
+        # and stepping through the upload's neighbours there is answering a question nobody
+        # asked. So when this image is part of the queue the annotator is working, walk that
+        # instead, and say which sequence it is either way.
+        context.update(self._queue_navigation(img_obj) or self._upload_navigation(img_obj))
 
         context["pipeline"] = "species"
         context["species_list"] = SpeciesName.objects.filter(~Q(name=UNKNOWN_CATEGORY), active=True)
@@ -106,6 +95,70 @@ class ImageDetailView(LoginRequiredMixin, DetailView):
 
         return context
 
+    def _queue_navigation(self, image):
+        """Previous/Next through the annotator's own queue, if this image is in it.
+
+        Returns None when it is not, so the caller falls back to the upload. Nothing here
+        creates, claims or advances a queue -- opening an image to look at it must not disturb
+        a batch someone is part way through.
+        """
+        annotator = Annotator.objects.filter(type="human", human=self.request.user).first()
+
+        if not annotator:
+            return None
+
+        queue = ImageQueue.objects.filter(assigned_to=annotator).exclude(image_order=[]).first()
+
+        if not queue or str(image.id) not in queue.image_order:
+            return None
+
+        order = queue.image_order
+        index = order.index(str(image.id))
+
+        # Nearest surviving neighbour rather than simply index +/- 1: image_order holds ids,
+        # and one being deleted must not sever the queue at that point.
+        by_id = {str(sibling.id): sibling for sibling in Image.objects.filter(id__in=order)}
+        after = [by_id[i] for i in order[index + 1 :] if i in by_id]
+        before = [by_id[i] for i in order[:index] if i in by_id]
+
+        return {
+            "nav_scope": "queue",
+            # Plain hrefs, not the queue cursor the annotate page moves: opening an image to
+            # look at it must not advance a batch someone is part way through.
+            "nav_mode": "links",
+            "next_image": after[0] if after else None,
+            "previous_image": before[-1] if before else None,
+            "nav_position": index + 1,
+            "nav_total": len(order),
+        }
+
+    def _upload_navigation(self, image):
+        """Previous/Next through the images either side of this one in its upload."""
+        timestamp = image.trigger_timestamp
+
+        if timestamp is None:
+            # Nothing to order by, and the comparisons below would raise. Previously this
+            # blew up into a bare `except BaseException: pass`, which disabled both buttons
+            # without ever saying why.
+            return {"nav_scope": "upload", "nav_mode": "links", "next_image": None, "previous_image": None}
+
+        siblings = Image.objects.filter(upload=image.upload)
+
+        # Tie-broken on `created` to match Image.Meta.ordering. A strict comparison on the
+        # timestamp alone skips every image sharing it, so a burst -- which is exactly what a
+        # camera trap produces, several frames stamped the same second -- was unreachable.
+        later = Q(trigger_timestamp__gt=timestamp) | Q(trigger_timestamp=timestamp, created__lt=image.created)
+        earlier = Q(trigger_timestamp__lt=timestamp) | Q(trigger_timestamp=timestamp, created__gt=image.created)
+
+        return {
+            "nav_scope": "upload",
+            "nav_mode": "links",
+            "next_image": siblings.filter(later).first(),
+            "previous_image": siblings.filter(earlier).last(),
+            "nav_position": siblings.filter(earlier).count() + 1,
+            "nav_total": siblings.count(),
+        }
+
 
 class SetImageQueuePartitionView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
@@ -122,6 +175,38 @@ class SetImageQueuePartitionView(LoginRequiredMixin, View):
             success = False
 
         return JsonResponse({"success": success, "newPartition": queue.partition})
+
+
+class MoveSearchedQueueCursorView(LoginRequiredMixin, View):
+    """Moves a searched queue's cursor without recording anything about the image.
+
+    A searched queue is navigated by `position`, not by the `partition` timestamp that
+    SetImageQueuePartitionView writes, so that view cannot move it -- clicking a grid
+    thumbnail in a searched queue reloaded onto the same image.
+
+    Deliberately not the annotation processor's skip path. Skipping adds the annotator to the
+    image's skipped list and can trip the automatic review flag, which is right for a
+    volunteer saying "I cannot do this one" and wrong for staff paging through a batch they
+    assembled to look at.
+    """
+
+    def post(self, request, *args, **kwargs):
+        image_id = request.POST.get("image_id")
+        # "past" for moving on from the image just looked at, "at" for jumping to one.
+        mode = request.POST.get("mode", "past")
+
+        annotator, _ = Annotator.objects.get_or_create(type="human", human=request.user)
+        queue = ImageQueue.objects.filter(assigned_to=annotator).exclude(image_order=[]).first()
+
+        if not queue:
+            return JsonResponse({"success": False, "error": "No searched queue is assigned to you."})
+
+        moved = queue.advance_past(image_id) if mode == "past" else queue.move_to(image_id)
+
+        if not moved:
+            return JsonResponse({"success": False, "error": "That image is not in your queue."})
+
+        return JsonResponse({"success": True, "position": queue.position, "total": len(queue.image_order)})
 
 
 class CreatePrecomputedQueueView(LoginRequiredMixin, View):
@@ -217,7 +302,14 @@ class BulkImageActionView(LoginRequiredMixin, StaffuserRequiredMixin, View):
         # a new queue; reusing that here would mean two staff assigning work to the same expert
         # in one afternoon silently destroy each other's batch. Appending makes a second
         # assignment read as "here is some more", which is what the assigner meant.
-        queue = ImageQueue.objects.filter(assigned_to=annotator).first()
+        #
+        # Built queues only. Annotating anything assigns the expert an automatically
+        # precomputed queue, and add_images() will not record an order on one of those -- so
+        # adopting it here dissolved the batch into whatever the system had already handed
+        # them: no order, so nothing to serve it by, no count in the nav, and a success
+        # response to the staff member either way. An expert who had ever annotated anything
+        # swallowed assignments silently.
+        queue = ImageQueue.objects.filter(assigned_to=annotator).exclude(image_order=[]).first()
 
         if queue is None:
             queue = ImageQueue.objects.create(pipeline_name=SPECIES_PIPELINE_NAME, assigned_to=annotator)

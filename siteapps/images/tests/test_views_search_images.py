@@ -99,6 +99,42 @@ def upload(db, camera_station, staff_user):
     return upload
 
 
+def make_search_image(upload, file_name, **fields):
+    """An image with only the columns the search view needs, plus whatever is under test."""
+    from django.utils import timezone
+
+    stem = file_name.removesuffix(".jpg")
+
+    return Image.objects.create(
+        upload=upload,
+        dropbox_file_name=file_name,
+        dropbox_file_path=f"/test/{file_name}",
+        dropbox_file_path_display=f"/test/{file_name}",
+        dropbox_content_hash=f"hash_{stem}",
+        dropbox_file_id=f"file_id_{stem}",
+        file_size=1024,
+        trigger_timestamp=timezone.now(),
+        thumbnail_gcloud_path=f"test/{stem}_thumb.jpg",
+        **fields,
+    )
+
+
+def post_search(client, **filters):
+    """A search with the multi-selects empty, so only the named filters are under test."""
+    return client.post(
+        reverse("images:search_images"),
+        {
+            "macrosites": json.dumps([]),
+            "camera_stations": json.dumps([]),
+            "volunteers": json.dumps([]),
+            "species": json.dumps([]),
+            "species_ai": json.dumps([]),
+            "search_type": json.dumps("OR"),
+            **{name: json.dumps(value) for name, value in filters.items()},
+        },
+    )
+
+
 @pytest.mark.django_db
 class TestSearchImagesForm:
     """Test SearchImagesForm."""
@@ -463,6 +499,61 @@ class TestSearchImagesView:
         assert "results" in data
         assert len(data["results"]) == 1
         assert data["results"][0]["dropbox_file_name"] == "needs_review.jpg"
+
+    def test_reviewed_images_are_not_a_search_checkbox(self, client_logged_in, upload):
+        """Deliberately absent from the form. Those boxes OR together, so a stray tick widens
+        the search to every image review has ever closed, with a bigger number as the only
+        sign. Resolved images are reached through the Reviewed button in the Filter row.
+        """
+        from django.utils import timezone
+
+        make_search_image(upload, "closed.jpg", staff_reviewed_at=timezone.now())
+        make_search_image(upload, "open.jpg", staff_review_needed=True)
+
+        assert "staff_reviewed" not in SearchImagesForm().fields
+
+        # An unrecognised key is ignored rather than widening the query behind the filter row
+        response = post_search(client_logged_in, staff_review_needed=True, staff_reviewed=True)
+
+        names = {row["dropbox_file_name"] for row in json.loads(response.content)["results"]}
+        assert names == {"open.jpg"}
+
+    def test_results_carry_what_the_reviewed_filter_reads(self, client_logged_in, upload):
+        """The Reviewed button and the row's "Reviewed" chip both live off staff_reviewed_at,
+        and it reaches them only by being selected here. Without it the button can never
+        appear and a resolved row is one with an empty Flags column.
+        """
+        from django.utils import timezone
+
+        make_search_image(upload, "closed.jpg", staff_reviewed_at=timezone.now())
+        make_search_image(upload, "untouched.jpg")
+
+        results = json.loads(post_search(client_logged_in).content)["results"]
+        by_name = {row["dropbox_file_name"]: row for row in results}
+
+        assert by_name["closed.jpg"]["staff_reviewed_at"] is not None
+        assert by_name["closed.jpg"]["staff_review_needed"] is False
+        assert by_name["untouched.jpg"]["staff_reviewed_at"] is None
+
+    def test_a_cleared_image_still_comes_back_in_a_plain_search(self, client_logged_in, upload):
+        """What a staff member does with the bulk Clear button, then goes looking for. The
+        Filter row can only narrow what the server sent, so this is the half that has to hold
+        server-side: a resolved image stays findable, carrying the timestamp the button reads.
+        """
+        image = make_search_image(upload, "cleared_by_bulk.jpg", staff_review_needed=True)
+
+        client_logged_in.post(
+            reverse("images:bulk_image_action"),
+            {"image_ids[]": [str(image.id)], "action": "clear_flag"},
+        )
+
+        # Gone from the open queue, which is what clearing the flag means
+        gone = json.loads(post_search(client_logged_in, staff_review_needed=True).content)["results"]
+        assert gone == []
+
+        found = json.loads(post_search(client_logged_in).content)["results"]
+        assert [row["dropbox_file_name"] for row in found] == ["cleared_by_bulk.jpg"]
+        assert found[0]["staff_reviewed_at"] is not None
 
     def test_post_with_image_reported_filter(self, client_logged_in, upload):
         """Test POST with image_reported filter."""

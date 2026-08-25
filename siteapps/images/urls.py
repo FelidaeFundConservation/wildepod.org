@@ -20,6 +20,7 @@ from .views import (
     GetRecentTagsView,
     ImageDetailView,
     ModifyUploadSetImagesView,
+    MoveSearchedQueueCursorView,
     PrecomputeImageQueuesView,
     PreviewTimeCorrectionsView,
     SavePreviousImageToReturnToView,
@@ -132,6 +133,11 @@ urlpatterns = [
         "set-queue-partition/",
         SetImageQueuePartitionView.as_view(),
         name="set_queue_partition",
+    ),
+    path(
+        "move-searched-queue-cursor/",
+        MoveSearchedQueueCursorView.as_view(),
+        name="move_searched_queue_cursor",
     ),
     path(
         "get-recent-tags/",

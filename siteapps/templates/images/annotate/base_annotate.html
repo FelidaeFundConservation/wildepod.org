@@ -62,23 +62,81 @@
                                          height: 12px;
                                          display: none"></span>
                         </button>
-                        <button type="submit"
-                                class="btn btn-secondary mx-2 w-50"
-                                id="skip_annotations"
-                                name="skip_annotations"
-                                value="Skip Image"
-                                disabled>
-                            <i class="bi bi-skip-end"></i>
-                            <span class="d-none d-lg-inline" style="font-size: 14px">
-                                &nbsp;&nbsp;&nbsp;Skip<span class="d-none d-xl-inline">&nbsp;Current&nbsp;&nbsp;</span>
+                        {# Moving on lives here, beside Save, whichever page this is and whatever moving  #}
+                        {# on means on it. The single image page grew its own Previous/Next inside the   #}
+                        {# Instructions card, so the two pages -- reached by two clicks a few pixels     #}
+                        {# apart in the search results -- put the same action in two different places    #}
+                        {# under two different names, and left a dead Skip in this slot besides.         #}
+                        {#                                                                               #}
+                        {# Skip is not one of the modes. It records the annotator on the image's skipped #}
+                        {# list and can trip the automatic review flag: right for a volunteer who cannot #}
+                        {# identify something, wrong for staff paging through a batch they assembled.    #}
+                        {% if nav_mode == "cursor" %}
+                            <button type="button"
+                                    class="btn btn-secondary mx-2 w-50"
+                                    id="next_image"
+                                    title="Move on without recording anything about this image">
+                                <i class="bi bi-skip-end"></i>
+                                <span class="d-none d-lg-inline" style="font-size: 14px">
+                                    &nbsp;&nbsp;&nbsp;Next<span class="d-none d-xl-inline">&nbsp;Image&nbsp;&nbsp;</span>
+                                </span>
+                                <div id="next-spinner"
+                                     class="spinner-border"
+                                     role="status"
+                                     style="width: 12px;
+                                            height: 12px;
+                                            display: none"></div>
+                            </button>
+                        {% elif nav_mode == "links" %}
+                            {# Paired as one control, because here they are two ends of one sequence #}
+                            <span class="btn-group mx-2 w-50" role="group" aria-label="Step through images">
+                                {% if previous_image %}
+                                    <a href="{% url 'images:image' previous_image.id %}"
+                                       class="btn btn-outline-secondary"
+                                       title="Previous image in {% if nav_scope == 'queue' %}your search queue{% else %}this upload{% endif %}">
+                                        <i class="bi bi-chevron-left"></i>
+                                    </a>
+                                {% else %}
+                                    <button type="button" class="btn btn-outline-secondary" disabled>
+                                        <i class="bi bi-chevron-left"></i>
+                                    </button>
+                                {% endif %}
+                                {% if next_image %}
+                                    <a href="{% url 'images:image' next_image.id %}"
+                                       class="btn btn-secondary"
+                                       title="Next image in {% if nav_scope == 'queue' %}your search queue{% else %}this upload{% endif %}">
+                                        <span class="d-none d-lg-inline" style="font-size: 14px">Next&nbsp;</span>
+                                        <i class="bi bi-chevron-right"></i>
+                                    </a>
+                                {% else %}
+                                    <button type="button"
+                                            class="btn btn-outline-secondary"
+                                            disabled
+                                            title="This is the last image in {% if nav_scope == 'queue' %}your search queue{% else %}this upload{% endif %}">
+                                        <span class="d-none d-lg-inline" style="font-size: 14px">Next&nbsp;</span>
+                                        <i class="bi bi-chevron-right"></i>
+                                    </button>
+                                {% endif %}
                             </span>
-                            <div id="skip-spinner"
-                                 class="spinner-border"
-                                 role="status"
-                                 style="width: 12px;
-                                        height: 12px;
-                                        display: none"></div>
-                        </button>
+                        {% else %}
+                            <button type="submit"
+                                    class="btn btn-secondary mx-2 w-50"
+                                    id="skip_annotations"
+                                    name="skip_annotations"
+                                    value="Skip Image"
+                                    disabled>
+                                <i class="bi bi-skip-end"></i>
+                                <span class="d-none d-lg-inline" style="font-size: 14px">
+                                    &nbsp;&nbsp;&nbsp;Skip<span class="d-none d-xl-inline">&nbsp;Current&nbsp;&nbsp;</span>
+                                </span>
+                                <div id="skip-spinner"
+                                     class="spinner-border"
+                                     role="status"
+                                     style="width: 12px;
+                                            height: 12px;
+                                            display: none"></div>
+                            </button>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="row justify-content-center p-0">
@@ -99,6 +157,24 @@
                                     {{ image.upload.camera_station.micro_site.macro_site }} |
                                     {{ image.upload.camera_station.micro_site.macro_site.county }}
                                 </button>
+                                {# Nothing else on the page says a sequence exists, let alone how far    #}
+                                {# through it you are, so a batch opened from a search reads as one     #}
+                                {# loose image and there is no way to tell it is nearly done.           #}
+                                {#                                                                      #}
+                                {# Beside the image on every page that has a sequence, rather than in   #}
+                                {# the Instructions card on one and here on the other: it describes     #}
+                                {# where this image sits, which is not an instruction.                  #}
+                                {% if nav_position and nav_total %}
+                                    <span class="text-muted small">
+                                        {% if nav_scope == "queue" %}
+                                            <i class="bi bi-search"></i>&nbsp;Search queue:
+                                            {{ nav_position }} of {{ nav_total }}
+                                        {% else %}
+                                            <i class="bi bi-images"></i>&nbsp;Image {{ nav_position }} of {{ nav_total }}
+                                            in this upload
+                                        {% endif %}
+                                    </span>
+                                {% endif %}
                             </div>
                             <div class="card-body">
                                 <img id="main-{{ image.id }}"
@@ -231,6 +307,26 @@
         });
     }
 
+    // "This still needs review", shown with the flag itself in the Instructions card, is the
+    // same flag as the Options tab checkbox rather than a second one. Kept in step in both
+    // directions so the two can never disagree about what Save is going to do.
+    let keepFlagCheckbox = document.getElementById('keep-staff-review-flag');
+
+    if (keepFlagCheckbox && staffReviewCheckbox) {
+        keepFlagCheckbox.checked = staffReviewCheckbox.checked;
+
+        keepFlagCheckbox.addEventListener('change', function() {
+            if (staffReviewCheckbox.checked === this.checked) return;
+
+            staffReviewCheckbox.checked = this.checked;
+            staffReviewCheckbox.dispatchEvent(new Event('change'));
+        });
+
+        staffReviewCheckbox.addEventListener('change', function() {
+            keepFlagCheckbox.checked = this.checked;
+        });
+    }
+
     if (staffReviewReason) {
         staffReviewReason.addEventListener('change', function() {
             staffReviewReasonDetail?.classList.toggle('d-none', this.value !== 'other');
@@ -262,6 +358,15 @@
         }
 
         if (staffReviewReason && !staffReviewReason.value) {
+            // An automatic flag records no reason, so an auto-flagged image arrives ticked
+            // with the select empty. Demanding a reason there blocked Save outright -- and on
+            // a searched queue, where Skip is not offered, that left no way off the image at
+            // all. Leaving such a flag alone is allowed; raising a new one still needs a why.
+            if (staffReviewCheckbox.dataset.arrivedFlagged === 'true'
+                && !staffReviewCheckbox.dataset.arrivedReason) {
+                return true;
+            }
+
             staffReviewReasonError?.classList.remove('d-none');
             staffReviewReason.classList.add('is-invalid');
             staffReviewReasonWrapper?.classList.remove('d-none');
@@ -682,6 +787,17 @@
                 $("#skip-spinner").show();
                 // Then, save the annotations
                 submitAnnotations(skip = true);
+            });
+
+            // Move on through a searched queue without touching the image. Deliberately not
+            // the skip path: nothing about this image should be recorded, including the flag
+            // and report checkboxes, which is why it does not go through submitAnnotations.
+            $("#next_image").click(function(e){
+                e.preventDefault();
+                $("#next-spinner").show();
+                $(this).prop("disabled", true);
+
+                moveSearchedQueueCursor('{{ image.id }}', 'past');
             });
 
             // Report image confirmation

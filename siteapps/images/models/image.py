@@ -532,12 +532,25 @@ class ImageQueue(TimeStampedModel):
             - images (iterable[Image]): The images to add. Ones already present are ignored.
         """
         images = list(images)
+        # Read before adding, so "did this queue already hold anything" is not answered by
+        # the images being added right now.
+        was_empty = not self.images.exists()
         self.images.add(*images)
 
-        if not self.image_order:
-            # No recorded order, so ordered_images() falls back to the related manager and
-            # already sees these. Recording an order here would only freeze an arbitrary one.
+        if not self.image_order and not was_empty:
+            # An existing queue with no recorded order is an automatically precomputed one,
+            # served by pipeline priority rather than any order of its own. ordered_images()
+            # falls back to the related manager and already sees these; freezing an order
+            # over the top would only be arbitrary.
             return
+
+        if not self.image_order:
+            # A queue that starts life empty is one a person is filling deliberately -- the
+            # order they assigned in is the order to serve. Recording it also means the queue
+            # navigates by `position` like every other queue reached through the searched
+            # flow, so Next and the grid can move its cursor.
+            self.position = 0
+            self.save(update_fields=["position"])
 
         known = set(self.image_order)
         self.image_order = list(self.image_order) + [
@@ -564,6 +577,36 @@ class ImageQueue(TimeStampedModel):
             return False
 
         self.position = index + 1
+        self.save(update_fields=["position"])
+
+        return True
+
+    def move_to(self, image_id):
+        """Moves the cursor onto the given image, if it is in this queue's order.
+
+        The counterpart to advance_past: that one means "done with this, what's next", this
+        one means "show me this one". Jumping to an image from the grid needs the latter --
+        `partition` cannot express it, being a timestamp, and advance_past would land on the
+        image after the one that was clicked.
+
+        Arguments
+        ---
+            - image_id (str | UUID): The image to serve next.
+
+        Returns
+        ---
+            - bool: Whether the cursor moved. False if this queue has no recorded order, or
+              the image is not part of it.
+        """
+        if not self.image_order:
+            return False
+
+        try:
+            index = self.image_order.index(str(image_id))
+        except ValueError:
+            return False
+
+        self.position = index
         self.save(update_fields=["position"])
 
         return True

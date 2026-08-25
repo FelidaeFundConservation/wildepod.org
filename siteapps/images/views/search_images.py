@@ -287,6 +287,11 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
         # Ticking a box means "show me these", so the three OR together -- ticking more widens
         # the results rather than narrowing them. An unticked box does not filter at all, so
         # match on the literal "true"; the string "false" is itself truthy.
+        # Reviewed images are deliberately not a box here. These boxes OR together, so an
+        # accidental tick silently widens the search to every image review has ever closed,
+        # and the only sign is a bigger number. Resolved images are reachable through the
+        # Reviewed button in the Filter row instead, which narrows what came back and is
+        # undone by clicking it again.
         flags = Q()
         if staff_review_needed == "true":
             flags |= Q(staff_review_needed=True)
@@ -348,6 +353,9 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                 "trigger_timestamp",
                 # Why each image matched, so the results double as a triage list
                 "staff_review_needed",
+                # Carries no flag of its own to show, so without a chip of its own a resolved
+                # image is a row with an empty Flags column and no reason to be in the results
+                "staff_reviewed_at",
                 "image_reported",
                 "social_media_worthy",
                 "flag_reason",

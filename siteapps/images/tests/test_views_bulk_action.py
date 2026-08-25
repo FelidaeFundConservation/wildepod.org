@@ -8,6 +8,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.test import Client
 from django.urls import reverse
+from images.views.image import SPECIES_PIPELINE_NAME
 from images.models import (
     Annotator,
     CameraStationAction,
@@ -218,6 +219,28 @@ class TestBulkAssignExpert:
         assert queues.count() == 1, "a second assignment should reuse the expert's queue"
         assert queues.first().images.count() == 5
 
+    def test_an_expert_who_has_annotated_before_still_receives_the_batch(
+        self, client_logged_in, upload, expert
+    ):
+        """Annotating anything assigns the expert an automatically precomputed queue, and
+        add_images() will not record an order on one of those. Adopting it dissolved the batch
+        into work nobody assigned: no order to serve it by, nothing in their nav, and a success
+        response to the staff member regardless."""
+        annotator, _ = Annotator.objects.get_or_create(type="human", human=expert)
+        automatic = ImageQueue.objects.create(pipeline_name=SPECIES_PIPELINE_NAME, assigned_to=annotator)
+        automatic.images.add(make_flagged_image(upload, "not_assigned_by_anyone"))
+
+        assigned = [make_flagged_image(upload, f"deliberate_{index}") for index in range(3)]
+        post_action(client_logged_in, "assign_expert", [i.id for i in assigned], expert_id=str(expert.id))
+
+        built = ImageQueue.objects.filter(assigned_to=annotator).exclude(image_order=[])
+
+        assert built.count() == 1, "the assignment needs a queue of its own, not the automatic one"
+        assert built.first().image_order == [str(image.id) for image in assigned]
+        # The automatic queue is left holding only what it always held
+        automatic.refresh_from_db()
+        assert automatic.images.count() == 1
+
     def test_appending_resets_the_partition(self, client_logged_in, upload, expert):
         """partition excludes images before it, so appended images would otherwise be invisible.
 
@@ -227,8 +250,13 @@ class TestBulkAssignExpert:
         """
         from django.utils import timezone
 
-        annotator = Annotator.objects.create(type="human", human=expert)
-        queue = ImageQueue.objects.create(pipeline_name="Species", assigned_to=annotator)
+        # Through a first assignment rather than by hand: a queue built here without an
+        # image_order is an automatically precomputed one, which assignment now declines to
+        # adopt, so the append under test would land somewhere else entirely.
+        first = make_flagged_image(upload, "already_assigned")
+        post_action(client_logged_in, "assign_expert", [first.id], expert_id=str(expert.id))
+
+        queue = ImageQueue.objects.get(assigned_to__human=expert)
         queue.partition = timezone.now()
         queue.save()
 
@@ -314,6 +342,85 @@ class TestBulkAssignExpert:
         assert response.status_code == 200
         assert response.context["image"] is not None, "the expert was served no image at all"
         assert response.context["image"].id in {i.id for i in images}
+
+    def test_the_page_offers_a_way_off_the_image(self, client_logged_in, upload, expert):
+        """Skip is not offered on a searched queue, and used to render disabled with nothing
+        to say why -- leaving Save, which writes annotations, as the only way forward."""
+        images = [make_flagged_image(upload, f"exit_{i}") for i in range(2)]
+        post_action(client_logged_in, "assign_expert", [i.id for i in images], expert_id=str(expert.id))
+
+        expert_client = Client()
+        expert_client.force_login(expert)
+        html = expert_client.get(reverse("images:searched_annotate_species")).content.decode()
+
+        assert 'id="next_image"' in html
+        assert 'id="skip_annotations"' not in html
+
+    def test_the_page_says_where_in_the_queue_you_are(self, client_logged_in, upload, expert):
+        images = [make_flagged_image(upload, f"pos_{i}") for i in range(3)]
+        post_action(client_logged_in, "assign_expert", [i.id for i in images], expert_id=str(expert.id))
+
+        expert_client = Client()
+        expert_client.force_login(expert)
+        response = expert_client.get(reverse("images:searched_annotate_species"))
+
+        assert response.context["nav_position"] == 1
+        assert response.context["nav_total"] == 3
+        assert "1 of 3" in response.content.decode()
+
+    def test_both_entry_points_from_a_search_agree(self, client_logged_in, upload, expert):
+        """The two ways into an image from the search results are a few pixels apart -- the
+        thumbnail, and the queue button under it -- so they must not be two interfaces.
+
+        They had drifted: the queue position rendered beside the image on one page and inside
+        the Instructions card on the other, moving on was "Next Image" top right on one and
+        "Next in queue" mid-card on the other, and the thumbnail page still carried the dead
+        Skip button the queue page had already dropped.
+        """
+        images = [make_flagged_image(upload, f"agree_{i}") for i in range(3)]
+        post_action(client_logged_in, "assign_expert", [i.id for i in images], expert_id=str(expert.id))
+
+        expert_client = Client()
+        expert_client.force_login(expert)
+
+        queue_page = expert_client.get(reverse("images:searched_annotate_species")).content.decode()
+        thumbnail_page = expert_client.get(reverse("images:image", args=[images[0].id])).content.decode()
+
+        for page in (queue_page, thumbnail_page):
+            # Same readout, and on both it sits in the image's card header rather than in the
+            # Instructions card. Anchored on the clipboard button, which opens that header --
+            # a plain "appears earlier in the document" check would pass on either page, since
+            # the whole side panel is rendered before the image.
+            assert "Search queue:" in page
+            image_card_header = page.index("bi-clipboard")
+            assert "Search queue:" in page[image_card_header : image_card_header + 1200]
+
+            # No dead Skip on either. It is a real control on the volunteer queue and was only
+            # ever scenery here, permanently disabled with nothing to say why.
+            assert 'id="skip_annotations"' not in page
+
+            # Moving on sits in the button bar beside Save, not in the side panel
+            button_bar = page.index('id="save_annotations"')
+            beside_save = page[button_bar : button_bar + 2500]
+            assert 'id="next_image"' in beside_save or 'aria-label="Step through images"' in beside_save
+
+    def test_the_flag_is_resolvable_from_where_it_is_read(self, client_logged_in, upload, expert):
+        """The control for clearing a flag used to be three tabs away under Image > Options,
+        so an image could be reviewed and saved and stay in the review queue for ever."""
+        image = make_flagged_image(upload, "resolve_me")
+        post_action(client_logged_in, "assign_expert", [image.id], expert_id=str(expert.id))
+
+        expert_client = Client()
+        expert_client.force_login(expert)
+        html = expert_client.get(reverse("images:searched_annotate_species")).content.decode()
+
+        assert 'id="keep-staff-review-flag"' in html
+        assert "Untick and Save to mark it reviewed." in html
+        # The reason leads, above the generic "what species is this?" prompt
+        assert html.index("Staff review requested") < html.index("What species does the image have?")
+        # Django's {# #} runs to end of line only, so a comment written across several lines
+        # leaks onto the page as text
+        assert "#}" not in html
 
     def test_assigning_leaves_the_staff_review_flag_alone(self, client_logged_in, upload, expert):
         """Handing work to an expert is not the same as resolving it -- the flag stays until

@@ -619,14 +619,26 @@ def process_annotations(
     # - True: annotator deliberately flagged it, with a reason
     # - False: annotator explicitly cleared it
     if staff_review_needed is True:
-        image.flag_for_staff_review(
-            source=StaffReviewFlagSource.MANUAL,
-            annotator=annotator,
-            reason=staff_review_reason,
-            reason_detail=staff_review_reason_detail,
-            save=False,
+        # The checkbox arrives already ticked on an image that is already flagged, so most
+        # submissions of staff_review_needed=True are "leave it as it is", not a new flag.
+        # Re-flagging those would rewrite flagged_by to whoever happened to save next, reset
+        # flagged_at, and turn an automatic flag into a manual one -- destroying the very
+        # provenance the annotate page shows above the instructions.
+        flag_unchanged = (
+            image.staff_review_needed
+            and image.flag_reason == (staff_review_reason or "")
+            and image.flag_reason_detail == (staff_review_reason_detail or "")
         )
-        logging.info(f"Image {image.id} flagged for staff review by '{user.name}' (reason: {staff_review_reason})")
+
+        if not flag_unchanged:
+            image.flag_for_staff_review(
+                source=StaffReviewFlagSource.MANUAL,
+                annotator=annotator,
+                reason=staff_review_reason,
+                reason_detail=staff_review_reason_detail,
+                save=False,
+            )
+            logging.info(f"Image {image.id} flagged for staff review by '{user.name}' (reason: {staff_review_reason})")
     elif staff_review_needed is False and _is_staff_or_expert(annotator):
         # Only staff and experts can take an image out of the review queue. The flags are
         # scoped per pipeline, so an image flagged for species review is still offered to

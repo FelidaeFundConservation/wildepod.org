@@ -23,6 +23,7 @@ from .image import (
     BulkImageActionView,
     CreatePrecomputedQueueView,
     ImageDetailView,
+    MoveSearchedQueueCursorView,
     PrecomputeImageQueuesView,
     SetImageQueuePartitionView,
 )

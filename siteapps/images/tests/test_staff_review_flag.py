@@ -160,6 +160,92 @@ class TestStaffFlagIsNotDiscarded:
 
 
 @pytest.mark.django_db
+class TestLeavingAnExistingFlagAlone:
+    """The checkbox arrives already ticked on a flagged image, so most submissions of
+    staff_review_needed=true mean "leave it as it is" rather than "flag this"."""
+
+    def test_auto_flagged_image_can_be_saved_without_a_reason(self, client, user, fake_datastore):
+        """An automatic flag records no reason, so requiring one made the image unsaveable.
+
+        Worse on a searched queue, which offers no Skip: Save rejected, Skip absent, and no
+        way off the image at all.
+        """
+        image = ImageFactory()
+        image.flag_for_staff_review(source=StaffReviewFlagSource.AUTO_SKIPS)
+        client.force_login(user)
+
+        response = post_annotation(client, image, staff_review_needed="true")
+
+        assert response.status_code == 200
+        image.refresh_from_db()
+        assert image.staff_review_needed is True
+        # Still the automatic flag it was -- saving past it is not a person asking for review
+        assert image.flag_source == StaffReviewFlagSource.AUTO_SKIPS
+        assert image.flagged_by is None
+
+    def test_resubmitting_an_unchanged_flag_keeps_its_provenance(self, client, user, fake_datastore):
+        """Regression: re-flagging on every save rewrote flagged_by to whoever saved next.
+
+        The annotate page shows "flagged by X on <date>" above the instructions; the second
+        person to save the image used to become X.
+        """
+        image = ImageFactory()
+        original_flagger = AnnotatorFactory()
+        image.flag_for_staff_review(
+            source=StaffReviewFlagSource.MANUAL,
+            annotator=original_flagger,
+            reason=StaffReviewFlagReason.BBOX_PROTOCOL,
+        )
+        image.refresh_from_db()
+        flagged_at = image.flagged_at
+
+        client.force_login(user)
+        response = post_annotation(
+            client,
+            image,
+            staff_review_needed="true",
+            staff_review_reason=StaffReviewFlagReason.BBOX_PROTOCOL,
+        )
+
+        assert response.status_code == 200
+        image.refresh_from_db()
+        assert image.flagged_by == original_flagger
+        assert image.flagged_at == flagged_at
+
+    def test_changing_the_reason_records_the_new_flagger(self, client, user, fake_datastore):
+        """Changing the reason is a fresh judgement, so it is attributed to whoever made it."""
+        image = ImageFactory()
+        image.flag_for_staff_review(
+            source=StaffReviewFlagSource.MANUAL,
+            annotator=AnnotatorFactory(),
+            reason=StaffReviewFlagReason.BBOX_PROTOCOL,
+        )
+
+        client.force_login(user)
+        response = post_annotation(
+            client,
+            image,
+            staff_review_needed="true",
+            staff_review_reason=StaffReviewFlagReason.SPECIES_ID,
+        )
+
+        assert response.status_code == 200
+        image.refresh_from_db()
+        assert image.flag_reason == StaffReviewFlagReason.SPECIES_ID
+        assert image.flagged_by.human == user
+
+    def test_unflagged_image_still_needs_a_reason(self, client, user, image, fake_datastore):
+        """The allowance is for existing flags only -- raising a new one still says why."""
+        client.force_login(user)
+
+        response = post_annotation(client, image, staff_review_needed="true")
+
+        assert response.status_code == 400
+        image.refresh_from_db()
+        assert image.staff_review_needed is False
+
+
+@pytest.mark.django_db
 class TestOmittedFieldPreservesFlag:
     def test_submission_without_the_field_leaves_the_flag_alone(self, client, user, fake_datastore):
         """A page that never rendered the checkbox must not silently clear the flag."""

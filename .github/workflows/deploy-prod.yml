@@ -24,9 +24,14 @@ on:
 env:
   # Real values are stored as GitHub Actions repository variables.
   # Set them under: Settings → Secrets and variables → Actions → Variables
-  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
   GCP_DB_INSTANCE: ${{ vars.GCP_DB_INSTANCE }}
-  GCP_REGION: ${{ vars.GCP_REGION }}
+  GCP_REGION: ${{ vars.GCP_REGION || secrets.GCP_REGION }}
+  # Optional per-environment overrides; fallback keeps existing behavior.
+  PROD_DB_INSTANCE: ${{ vars.PROD_DB_INSTANCE || vars.GCP_DB_INSTANCE }}
+  BHUTAN_DB_INSTANCE: ${{ vars.BHUTAN_DB_INSTANCE || vars.GCP_DB_INSTANCE }}
+  PROD_SETTINGS_NAME: ${{ vars.PROD_SETTINGS_NAME || 'django_settings' }}
+  BHUTAN_SETTINGS_NAME: ${{ vars.BHUTAN_SETTINGS_NAME || 'django_settings' }}
   DB_PORT: 5440
 
 jobs:
@@ -39,10 +44,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.10
+      - name: Set up Python 3.14
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.14"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -67,6 +72,38 @@ jobs:
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Validate deploy configuration
+        run: |
+          missing=0
+          project_id_source=""
+
+          if [ -n "${{ vars.GCP_PROJECT_ID }}" ]; then
+            project_id_source="vars.GCP_PROJECT_ID"
+          elif [ -n "${{ secrets.GCP_PROJECT_ID }}" ]; then
+            project_id_source="secrets.GCP_PROJECT_ID"
+          else
+            project_id_source="missing"
+          fi
+
+          if [ -z "${{ env.GCP_PROJECT_ID }}" ]; then
+            echo "Missing required setting: GCP_PROJECT_ID (set vars.GCP_PROJECT_ID or secrets.GCP_PROJECT_ID)"
+            missing=1
+          fi
+
+          if [ -z "${{ env.GCP_REGION }}" ]; then
+            echo "Missing required setting: GCP_REGION (set vars.GCP_REGION or secrets.GCP_REGION)"
+            missing=1
+          fi
+
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+          echo "Project ID source: ${project_id_source}"
+          echo "Deploy target environment: ${{ inputs.environment }}"
+          echo "Deploy project: ${{ env.GCP_PROJECT_ID }}"
+          echo "Deploy region: ${{ env.GCP_REGION }}"
+
       - name: Collect static files
         run: uv run python manage.py collectstatic --noinput --settings=config.settings.ci
 
@@ -90,16 +127,16 @@ jobs:
     if: ${{ inputs.run_migrations }}
     runs-on: ubuntu-latest
     env:
-      GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_PROJECT_ID }}
+      GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
       USE_CLOUD_SQL_AUTH_PROXY: "True"
       DB_PORT: 5440
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.10
+      - name: Set up Python 3.14
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.14"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -115,17 +152,51 @@ jobs:
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Validate migration configuration
+        run: |
+          missing=0
+          project_id_source=""
+
+          if [ -n "${{ vars.GCP_PROJECT_ID }}" ]; then
+            project_id_source="vars.GCP_PROJECT_ID"
+          elif [ -n "${{ secrets.GCP_PROJECT_ID }}" ]; then
+            project_id_source="secrets.GCP_PROJECT_ID"
+          else
+            project_id_source="missing"
+          fi
+
+          if [ -z "${{ env.GCP_PROJECT_ID }}" ]; then
+            echo "Missing required setting: GCP_PROJECT_ID (set vars.GCP_PROJECT_ID or secrets.GCP_PROJECT_ID)"
+            missing=1
+          fi
+
+          if [ -z "${{ env.GCP_REGION }}" ]; then
+            echo "Missing required setting: GCP_REGION (set vars.GCP_REGION or secrets.GCP_REGION)"
+            missing=1
+          fi
+
+          if [ -z "${{ env.DB_PORT }}" ]; then
+            echo "Missing required setting: DB_PORT"
+            missing=1
+          fi
+
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+          echo "Project ID source: ${project_id_source}"
+
       - name: Resolve DB config for ${{ inputs.environment }}
         id: db-config
         run: |
           if [ "${{ inputs.environment }}" = "prod" ]; then
-            echo "instance=${{ vars.GCP_PROJECT_ID }}:${{ vars.GCP_REGION }}:${{ vars.GCP_DB_INSTANCE }}" >> $GITHUB_OUTPUT
+            echo "instance=${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:${{ env.PROD_DB_INSTANCE }}" >> $GITHUB_OUTPUT
             echo "settings=config.settings.prod" >> $GITHUB_OUTPUT
-            echo "settings_name=django_settings" >> $GITHUB_OUTPUT
+            echo "settings_name=${{ env.PROD_SETTINGS_NAME }}" >> $GITHUB_OUTPUT
           else
-            echo "instance=${{ vars.GCP_PROJECT_ID }}:${{ vars.GCP_REGION }}:${{ vars.GCP_DB_INSTANCE }}" >> $GITHUB_OUTPUT
+            echo "instance=${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:${{ env.BHUTAN_DB_INSTANCE }}" >> $GITHUB_OUTPUT
             echo "settings=config.settings.bhutan" >> $GITHUB_OUTPUT
-            echo "settings_name=django_settings" >> $GITHUB_OUTPUT
+            echo "settings_name=${{ env.BHUTAN_SETTINGS_NAME }}" >> $GITHUB_OUTPUT
           fi
 
       - name: Download Cloud SQL Proxy

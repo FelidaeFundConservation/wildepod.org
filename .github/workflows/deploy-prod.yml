@@ -72,7 +72,7 @@ jobs:
 
       - name: Deploy to App Engine
         if: ${{ !inputs.dryrun }}
-        run: gcloud app deploy ${{ inputs.environment }}.yaml --quiet --project=${{ env.GCP_PROJECT_ID }}
+        run: gcloud app deploy ${{ inputs.environment }}.yaml --quiet --project=${{ secrets.GCP_PROJECT_ID }}
 
       - name: Dry Run - Skip actual deployment
         if: ${{ inputs.dryrun }}
@@ -80,7 +80,7 @@ jobs:
           echo "## Dry Run Summary" >> $GITHUB_STEP_SUMMARY
           echo "DRY RUN enabled - skipping actual deployment." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Would have run: \`gcloud app deploy ${{ inputs.environment }}.yaml --quiet --project=${{ env.GCP_PROJECT_ID }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "Would have run: \`gcloud app deploy ${{ inputs.environment }}.yaml --quiet --project=${{ secrets.GCP_PROJECT_ID }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "All pre-deployment steps (dependencies, SASS compilation, static files) completed successfully." >> $GITHUB_STEP_SUMMARY
 
@@ -90,7 +90,7 @@ jobs:
     if: ${{ inputs.run_migrations }}
     runs-on: ubuntu-latest
     env:
-      GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_PROJECT_ID }}
+      GOOGLE_CLOUD_PROJECT: ${{ secrets.GCP_PROJECT_ID }}
       USE_CLOUD_SQL_AUTH_PROXY: "True"
       DB_PORT: 5440
     steps:

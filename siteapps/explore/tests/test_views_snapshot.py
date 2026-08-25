@@ -125,8 +125,9 @@ class TestSnapshotCreateView:
         assert 'form' in response.context
         assert isinstance(response.context['form'], CreateSnapshotForm)
     
+    @patch('explore.views.snapshot.tasks_v2.CloudTasksClient')
     @patch('explore.views.snapshot.start_export')
-    def test_post_creates_snapshot(self, mock_start_export, client_logged_in):
+    def test_post_creates_snapshot(self, mock_start_export, mock_tasks_client, client_logged_in):
         """Test POST creates a snapshot."""
         url = reverse('explore:data_snapshot_create')
         response = client_logged_in.post(url, {})
@@ -136,8 +137,9 @@ class TestSnapshotCreateView:
         assert response.url == reverse('explore:data_snapshots')
         mock_start_export.assert_called_once()
     
+    @patch('explore.views.snapshot.tasks_v2.CloudTasksClient')
     @patch('explore.views.snapshot.start_export')
-    def test_post_with_dates(self, mock_start_export, client_logged_in):
+    def test_post_with_dates(self, mock_start_export, mock_tasks_client, client_logged_in):
         """Test POST with start and end dates."""
         url = reverse('explore:data_snapshot_create')
         response = client_logged_in.post(url, {
@@ -153,8 +155,9 @@ class TestSnapshotCreateView:
         assert 'start_date' in call_args
         assert 'end_date' in call_args
     
+    @patch('explore.views.snapshot.tasks_v2.CloudTasksClient')
     @patch('explore.views.snapshot.start_export')
-    def test_post_with_macrosites(self, mock_start_export, client_logged_in, macro_site):
+    def test_post_with_macrosites(self, mock_start_export, mock_tasks_client, client_logged_in, macro_site):
         """Test POST with macrosite selection."""
         url = reverse('explore:data_snapshot_create')
         response = client_logged_in.post(url, {

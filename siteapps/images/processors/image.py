@@ -14,6 +14,7 @@ import requests
 from django.conf import settings
 from django.db.models import F, Q
 from images.models import Annotator, Bot, BoundingBox, Category, Image
+from images.processors.annotation import auto_approve_single_human
 from images.utils.dropbox_client import create_dropbox_client
 from my_utils.storages import MediaRootGoogleCloudStorage
 from requests.adapters import HTTPAdapter
@@ -247,6 +248,10 @@ def process_image(image: Image, dbx=None):
             image.use_precomputed_flags = True
             image.has_cats = "Puma" in image.species_ai_detections or "Bobcat" in image.species_ai_detections
             image.save()
+
+            # Auto-complete images with a single high-confidence human bounding box so they are
+            # never served to annotators. Runs after processed=True (category completion requires it).
+            auto_approve_single_human(image)
         except Exception as e:
             logging.error(f"Error adding bounding boxes to image: {e}")
     else:

@@ -68,6 +68,22 @@ class Annotator(TimeStampedModel):
     # Preferences
     prioritize_tagging_animals = models.DateTimeField(null=True, blank=True)
 
+    # Automation criteria this annotator applies when auto-annotating images.
+    # Null for ordinary human/detection-bot annotators. Set (e.g. "single_human") on a
+    # dedicated automation bot annotator whose accept vote should auto-complete matching
+    # images: a criteria-bearing annotator is treated like an expert in the voting logic
+    # (see processors.annotation._is_staff_or_expert), so its single vote validates the
+    # annotation. It is also the durable, parsable audit marker of an automated decision
+    # (which model via the bot FK, which criterion via this field).
+    automation_criteria = models.CharField(
+        "Automation Criteria",
+        max_length=50,
+        choices=[("single_human", "Single Human")],
+        null=True,
+        blank=True,
+        default=None,
+    )
+
     def __str__(self):
         if self.type == "human":
             return self.human.name

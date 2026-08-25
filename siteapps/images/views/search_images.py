@@ -4,7 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import json
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from braces.views import StaffuserRequiredMixin
 from crispy_forms.helper import FormHelper
@@ -253,21 +253,36 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
         # Apply filters conditionally
         filterset = Q()
 
+        # Use explicit local-time datetime windows for trigger timestamp filters.
+        # This avoids UTC/local date boundary mismatches around midnight.
+        local_tz = timezone.get_current_timezone()
+
         if date:
             if time_filter_type == TRIGGER_TIMESTAMP_TYPE:
-                filterset &= Q(trigger_timestamp__date=date)
+                parsed_date = datetime.fromisoformat(str(date)).date()
+                start_dt = timezone.make_aware(datetime.combine(parsed_date, time.min), local_tz)
+                end_dt = start_dt + timedelta(days=1)
+                filterset &= Q(trigger_timestamp__gte=start_dt, trigger_timestamp__lt=end_dt)
             elif time_filter_type == LAST_ANNOTATED_TYPE:
                 filterset &= Q(boundingbox__species__created__date=date) | Q(boundingbox__species__modified__date=date)
         # Both ends inclusive. The field is labelled "End Of Date Range", which reads as "up to
-        # and including this day" -- but this compared __lt, so a search for the 1st to the
-        # 15th quietly returned the 1st to the 14th, and picking a single day returned nothing
-        # at all. Comparing on __date means the whole of the end day is covered, rather than
-        # only its midnight.
+        # and including this day" -- but this compared __lt against the end day's midnight, so
+        # a search for the 1st to the 15th quietly returned the 1st to the 14th, and picking a
+        # single day returned nothing at all.
+        #
+        # Fixed by advancing the end of the window a day rather than by comparing on __date:
+        # a __date lookup resolves in the current timezone while the value handed to it here
+        # is a plain date, which is the UTC/local mismatch the explicit windows above exist to
+        # avoid. This is the same half-open window the single-date branch already builds.
         if start_date and end_date:
             if time_filter_type == TRIGGER_TIMESTAMP_TYPE:
+                parsed_start = datetime.fromisoformat(str(start_date)).date()
+                parsed_end = datetime.fromisoformat(str(end_date)).date()
+                start_dt = timezone.make_aware(datetime.combine(parsed_start, time.min), local_tz)
+                end_dt = timezone.make_aware(datetime.combine(parsed_end, time.min), local_tz) + timedelta(days=1)
                 filterset &= Q(
-                    trigger_timestamp__date__gte=start_date,
-                    trigger_timestamp__date__lte=end_date,
+                    trigger_timestamp__gte=start_dt,
+                    trigger_timestamp__lt=end_dt,
                 )
             elif time_filter_type == LAST_ANNOTATED_TYPE:
                 filterset &= Q(

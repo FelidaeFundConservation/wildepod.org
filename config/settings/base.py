@@ -334,6 +334,10 @@ SPECIES_DETECTOR_URL = env("SPECIES_DETECTOR_URL", default=None)
 MODEL_STORAGE_BUCKET = env("GS_MODELS_BUCKET_NAME", default=None)
 MIN_MEGADETECTOR_CONFIDENCE = 0.25
 
+# Confidence cutoff for auto-approving images with a single high-confidence human bounding box.
+# Qualifying images are completed automatically and never served to annotators.
+SINGLE_HUMAN_AUTO_APPROVE_CONFIDENCE = 0.85
+
 # Initialize a Datastore client (only for non-local, non-CI environments)
 if not USING_LOCAL_SETTINGS and not RUNNING_IN_CI:
     DATASTORE_CLIENT = datastore.Client(env("GOOGLE_CLOUD_PROJECT"))

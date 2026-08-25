@@ -31,9 +31,9 @@ def make_user(db):
 
 @pytest.fixture
 def make_annotator(make_user):
-    def _make(name="user", staff=False, expert=False, is_bot=False):
+    def _make(name="user", staff=False, expert=False, is_bot=False, automation_criteria=None):
         if is_bot:
-            return Annotator.objects.get_or_create(type="bot")[0]
+            return Annotator.objects.create(type="bot", automation_criteria=automation_criteria)
         u = make_user(name=name, staff=staff, expert=expert)
         return Annotator.objects.get_or_create(type="human", human=u)[0]
 
@@ -66,6 +66,15 @@ class TestRoleHelpers:
     def test_is_staff_or_expert_expert(self, db, make_annotator):
         assert _is_staff_or_expert(make_annotator(expert=True)) is True
 
+    def test_is_staff_or_expert_plain_bot(self, db, make_annotator):
+        """A bot annotator without an automation criterion has no override authority."""
+        assert _is_staff_or_expert(make_annotator(is_bot=True)) is False
+
+    def test_is_staff_or_expert_automation_bot(self, db, make_annotator):
+        """A bot annotator carrying an automation criterion is treated like an expert."""
+        automation_bot = make_annotator(is_bot=True, automation_criteria="single_human")
+        assert _is_staff_or_expert(automation_bot) is True
+
     def test_weight_normal_is_one(self, db, make_annotator):
         assert _weight(make_annotator()) == 1
 
@@ -74,6 +83,14 @@ class TestRoleHelpers:
 
     def test_weight_expert_is_five(self, db, make_annotator):
         assert _weight(make_annotator(expert=True)) == 5
+
+    def test_weight_plain_bot_is_one(self, db, make_annotator):
+        """A criteria-less bot votes with normal weight."""
+        assert _weight(make_annotator(is_bot=True)) == 1
+
+    def test_weight_automation_bot_is_five(self, db, make_annotator):
+        """A criteria-bearing automation bot votes with expert-equivalent weight."""
+        assert _weight(make_annotator(is_bot=True, automation_criteria="single_human")) == 5
 
     def test_weight_none_is_one(self):
         assert _weight(None) == 1
@@ -159,3 +176,85 @@ class TestComputeValidityVoteTimeMode:
         # Falls through to weighted sum; staff_override stays False
         assert result.validity == "VALID"
         assert result.staff_override is False
+
+    def test_automation_bot_accept_at_vote_time_marks_valid_and_override(
+        self, category_with_creator, make_annotator
+    ):
+        """A single automation-bot accept wins outright, exactly like a staff/expert vote."""
+        cat, _ = category_with_creator
+        automation_bot = make_annotator(is_bot=True, automation_criteria="single_human")
+        result = compute_validity(cat, annotator=automation_bot, accept=True)
+        assert result.validity == "VALID"
+        assert result.staff_override is True
+
+    def test_plain_bot_accept_at_vote_time_does_not_trigger_override(
+        self, category_with_creator, make_annotator
+    ):
+        """A criteria-less bot has no override authority; it falls through to the weighted sum."""
+        cat, _ = category_with_creator  # creator(1) only -> below the +2 threshold
+        plain_bot = make_annotator(is_bot=True)
+        result = compute_validity(cat, annotator=plain_bot, accept=True)
+        # No override; weighted sum of current M2M (creator only) stays UNCERTAIN.
+        assert result.validity == "UNCERTAIN"
+        assert result.staff_override is False
+
+
+@pytest.mark.django_db
+class TestGetAutomationAnnotator:
+    """Provisioning of the dedicated automation bot annotator."""
+
+    def test_creates_distinct_automation_bot_with_criterion(self):
+        """The automation annotator is a bot carrying the single_human criterion on a dedicated Bot."""
+        from images.processors.annotation import (
+            AUTOMATION_BOT_NAME,
+            SINGLE_HUMAN_RULE,
+            get_automation_annotator,
+        )
+
+        annotator = get_automation_annotator()
+
+        assert annotator.type == "bot"
+        assert annotator.automation_criteria == SINGLE_HUMAN_RULE
+        assert annotator.bot.name == AUTOMATION_BOT_NAME
+
+    def test_is_idempotent(self):
+        """Repeated calls return the same annotator and bot (no duplicates)."""
+        from images.models import Annotator, Bot
+        from images.processors.annotation import AUTOMATION_BOT_NAME, get_automation_annotator
+
+        first = get_automation_annotator()
+        second = get_automation_annotator()
+
+        assert first.pk == second.pk
+        assert Annotator.objects.filter(automation_criteria="single_human").count() == 1
+        assert Bot.objects.filter(name=AUTOMATION_BOT_NAME).count() == 1
+
+    def test_backfills_criterion_on_preexisting_annotator(self):
+        """A pre-existing criteria-less annotator on the automation bot is upgraded in place."""
+        from images.models import Annotator, Bot
+        from images.processors.annotation import (
+            AUTOMATION_BOT_NAME,
+            AUTOMATION_BOT_VERSION,
+            SINGLE_HUMAN_RULE,
+            get_automation_annotator,
+        )
+
+        bot = Bot.objects.create(name=AUTOMATION_BOT_NAME, version=AUTOMATION_BOT_VERSION)
+        stale = Annotator.objects.create(type="bot", bot=bot, automation_criteria=None)
+
+        annotator = get_automation_annotator()
+
+        assert annotator.pk == stale.pk
+        annotator.refresh_from_db()
+        assert annotator.automation_criteria == SINGLE_HUMAN_RULE
+
+    def test_distinct_from_detection_megadetector_bot(self):
+        """The automation bot is a separate Bot from the detection MegaDetector, so detection
+        votes keep normal weight while only the automation annotator carries override authority."""
+        from images.models import Bot
+        from images.processors.annotation import AUTOMATION_BOT_NAME, get_automation_annotator
+
+        get_automation_annotator()
+
+        assert AUTOMATION_BOT_NAME != "MegaDetector"
+        assert Bot.objects.filter(name=AUTOMATION_BOT_NAME).exists()

@@ -6,15 +6,14 @@ on:
   workflow_dispatch:
 
 env:
-  # Real values are stored as GitHub Actions repository variables.
-  # Set them under: Settings → Secrets and variables → Actions → Variables
-  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
-  GCP_DB_INSTANCE: ${{ vars.GCP_DB_INSTANCE }}
-  GCP_REGION: ${{ vars.GCP_REGION }}
-  STAGING_DB_INSTANCE: ${{ vars.GCP_PROJECT_ID }}:${{ vars.GCP_REGION }}:${{ vars.GCP_DB_INSTANCE }}
+  # Real values are stored as GitHub Actions repository variables or secrets.
+  # Set them under: Settings → Secrets and variables → Actions
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+  GCP_DB_INSTANCE: ${{ vars.GCP_DB_INSTANCE || secrets.GCP_DB_INSTANCE || 'wildepoddb' }}
+  GCP_REGION: ${{ vars.GCP_REGION || secrets.GCP_REGION || 'us-west2' }}
   STAGING_DB_PORT: 5440
   # Name of the Django settings secret in GCP Secret Manager for staging
-  STAGING_SETTINGS_NAME: ${{ vars.STAGING_SETTINGS_NAME || 'django_settings' }}
+  STAGING_SETTINGS_NAME: ${{ vars.STAGING_SETTINGS_NAME || secrets.STAGING_SETTINGS_NAME || 'django_settings' }}
 
 jobs:
   test:
@@ -103,9 +102,9 @@ jobs:
     needs: deploy
     runs-on: ubuntu-latest
     env:
-      GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_PROJECT_ID }}
+      GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
       USE_CLOUD_SQL_AUTH_PROXY: "True"
-      SETTINGS_NAME: ${{ vars.STAGING_SETTINGS_NAME || 'django_settings' }}
+      SETTINGS_NAME: ${{ env.STAGING_SETTINGS_NAME }}
     steps:
       - uses: actions/checkout@v4
 
@@ -128,6 +127,27 @@ jobs:
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Validate migration configuration
+        run: |
+          missing=0
+          if [ -z "${{ env.GCP_PROJECT_ID }}" ]; then
+            echo "Missing required setting: GCP_PROJECT_ID"
+            missing=1
+          fi
+          if [ -z "${{ env.GCP_REGION }}" ]; then
+            echo "Missing required setting: GCP_REGION"
+            missing=1
+          fi
+          if [ -z "${{ env.GCP_DB_INSTANCE }}" ]; then
+            echo "Missing required setting: GCP_DB_INSTANCE"
+            missing=1
+          fi
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+          echo "Target Cloud SQL Instance Name: ${{ env.GCP_DB_INSTANCE }}"
+          echo "Full Cloud SQL Connection String: ${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:${{ env.GCP_DB_INSTANCE }}"
+
       - name: Download Cloud SQL Proxy
         run: |
           curl -o cloud-sql-proxy https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.1/cloud-sql-proxy.linux.amd64
@@ -135,17 +155,52 @@ jobs:
 
       - name: Start Cloud SQL Proxy
         run: |
-          ./cloud-sql-proxy --port=${{ env.STAGING_DB_PORT }} ${{ env.STAGING_DB_INSTANCE }} &
-          sleep 3
+          set -euo pipefail
+          ./cloud-sql-proxy \
+            --address=127.0.0.1 \
+            --port=${{ env.STAGING_DB_PORT }} \
+            "${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:${{ env.GCP_DB_INSTANCE }}" > cloud-sql-proxy.log 2>&1 &
+          proxy_pid=$!
+
+          for attempt in {1..30}; do
+            if ! kill -0 "$proxy_pid" 2>/devnull; then
+              echo "Cloud SQL Proxy exited before opening port ${{ env.STAGING_DB_PORT }}"
+              cat cloud-sql-proxy.log
+              exit 1
+            fi
+
+            if nc -z 127.0.0.1 "${{ env.STAGING_DB_PORT }}"; then
+              echo "Cloud SQL Proxy is listening on 127.0.0.1:${{ env.STAGING_DB_PORT }}"
+              exit 0
+            fi
+
+            sleep 1
+          done
+
+          echo "Cloud SQL Proxy did not open port ${{ env.STAGING_DB_PORT }}"
+          cat cloud-sql-proxy.log
+          exit 1
 
       - name: Run migrations
         run: |
-          uv run python manage.py migrate --settings=config.settings.staging 2>&1 | tee migration_output.txt
+          set -o pipefail
+          if ! uv run python manage.py migrate --settings=config.settings.staging 2>&1 | tee migration_output.txt; then
+            echo "::error::Staging database migration failed. Cloud SQL Proxy output log:"
+            cat cloud-sql-proxy.log 2>/dev/null || true
+            exit 1
+          fi
 
       - name: Write migration summary
         if: always()
         run: |
           echo "## Staging Migrations" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          cat migration_output.txt >> $GITHUB_STEP_SUMMARY
+          cat migration_output.txt 2>/dev/null || echo "(no migration output available)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          if [ -f cloud-sql-proxy.log ]; then
+            echo "### Cloud SQL Proxy Log" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat cloud-sql-proxy.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
           echo '```' >> $GITHUB_STEP_SUMMARY

@@ -10,6 +10,11 @@ on:
         options:
           - prod
           - bhutan
+      promote:
+        description: "Promote deployed version to receive traffic"
+        required: true
+        type: boolean
+        default: true
       run_migrations:
         description: "Run database migrations after deploy"
         required: true
@@ -103,6 +108,7 @@ jobs:
           echo "Deploy target environment: ${{ inputs.environment }}"
           echo "Deploy project: ${{ env.GCP_PROJECT_ID }}"
           echo "Deploy region: ${{ env.GCP_REGION }}"
+          echo "Promote version: ${{ inputs.promote }}"
 
       - name: Collect static files
         env:
@@ -122,15 +128,24 @@ jobs:
 
       - name: Deploy to App Engine
         if: ${{ !inputs.dryrun }}
-        run: gcloud app deploy ${{ inputs.environment }}.yaml --quiet --project=${{ env.GCP_PROJECT_ID }}
+        run: |
+          PROMOTE_FLAG="--promote"
+          if [ "${{ inputs.promote }}" = "false" ]; then
+            PROMOTE_FLAG="--no-promote"
+          fi
+          gcloud app deploy ${{ inputs.environment }}.yaml --quiet --project=${{ env.GCP_PROJECT_ID }} $PROMOTE_FLAG
 
       - name: Dry Run - Skip actual deployment
         if: ${{ inputs.dryrun }}
         run: |
+          PROMOTE_FLAG="--promote"
+          if [ "${{ inputs.promote }}" = "false" ]; then
+            PROMOTE_FLAG="--no-promote"
+          fi
           echo "## Dry Run Summary" >> $GITHUB_STEP_SUMMARY
           echo "DRY RUN enabled - skipping actual deployment." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Would have run: \`gcloud app deploy ${{ inputs.environment }}.yaml --quiet --project=${{ env.GCP_PROJECT_ID }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "Would have run: \`gcloud app deploy ${{ inputs.environment }}.yaml --quiet --project=${{ env.GCP_PROJECT_ID }} $PROMOTE_FLAG\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "All pre-deployment steps (dependencies, SASS compilation, static files) completed successfully." >> $GITHUB_STEP_SUMMARY
 

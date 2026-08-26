@@ -16,35 +16,21 @@
 {% block category_list %}
 {% endblock category_list %}
 {% block menu_buttons %}
-    <p class="p-1 mt-1 mb-0">
-        {% if previous_image %}
-            <a href="{% url 'images:image' previous_image.id %}"
-               class="text-decoration-none">
-                <button type="button" class="btn btn-primary">Previous</button>
-            </a>
-        {% else %}
-            <button type="button" class="btn btn-light" disabled>
-                <s>Previous</s>
-            </button>
-        {% endif %}
+    {# Previous/Next and the "n of m" readout are not here any more. They sit beside Save and   #}
+    {# beside the image, in the same places the queue annotate page puts them, so the two pages #}
+    {# -- reached by two clicks a few pixels apart in the search results -- no longer put the   #}
+    {# same two things in different corners under different names.                              #}
+    {#                                                                                          #}
+    {# What is left is what only this page has: the two ways out of it. Both leave for somewhere #}
+    {# else entirely, so neither competes with Save, which is the page's real primary action.    #}
+    <p class="p-1 mt-1 mb-0 d-flex flex-wrap justify-content-center gap-2">
         <a href="{% url 'images:view_upload' image.upload.id %}"
-           class="text-decoration-none">
-            <button type="button" class="btn btn-primary">Back to Upload</button>
-        </a>
+           class="btn btn-outline-secondary btn-sm">Back to Upload</a>
         <a href="{{ dropbox_prefix }}{{ object.dropbox_file_path }}"
            target="_blank"
-           class="text-decoration-none">
-            <button type="button" class="btn btn-primary">Dropbox</button>
+           rel="noopener"
+           class="btn btn-outline-secondary btn-sm">
+            Dropbox&nbsp;<i class="bi bi-box-arrow-up-right"></i>
         </a>
-        {% if next_image %}
-            <a href="{% url 'images:image' next_image.id %}"
-               class="text-decoration-none">
-                <button type="button" class="btn btn-primary">Next</button>
-            </a>
-        {% else %}
-            <button type="button" class="btn btn-light" disabled>
-                <s>Next</s>
-            </button>
-        {% endif %}
     </p>
 {% endblock menu_buttons %}

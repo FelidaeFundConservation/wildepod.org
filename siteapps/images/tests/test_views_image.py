@@ -13,6 +13,7 @@ from datetime import timedelta
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from conftest_factories import ImageFactory
 from django.contrib.auth.models import AnonymousUser
 from django.test import RequestFactory
 from django.urls import reverse
@@ -252,61 +253,27 @@ class TestImageDetailView:
         assert response.context_data["staff_review_needed"] is True
 
     @patch("images.views.annotation.get_pil_image")
-    @patch("images.models.Image.objects.filter")
-    def test_detail_view_handles_objectdoesnotexist_next(
-        self, mock_filter, mock_get_pil, request_factory, user, image_with_bboxes
+    def test_navigation_is_empty_for_an_image_with_no_timestamp(
+        self, mock_get_pil, request_factory, user, image_with_bboxes
     ):
-        """Test detail view handles ObjectDoesNotExist for next_image (lines 49-52)"""
-        from django.core.exceptions import ObjectDoesNotExist
+        """There is nothing to order by, so both buttons are simply off.
+
+        This case used to be handled by a bare ``except BaseException: pass`` around the
+        neighbour queries -- the buttons disabled themselves and never said why.
+        """
         from PIL import Image as PILImage
 
-        mock_image = PILImage.new("RGB", (100, 100), color=(128, 128, 128))
-        mock_get_pil.return_value = mock_image
+        mock_get_pil.return_value = PILImage.new("RGB", (100, 100), color=(128, 128, 128))
 
-        # Make .first() raise ObjectDoesNotExist for next_image query
-        mock_queryset = MagicMock()
-        mock_queryset.first.side_effect = ObjectDoesNotExist()
-        mock_filter.return_value = mock_queryset
+        Image.objects.filter(id=image_with_bboxes.id).update(trigger_timestamp=None)
 
         request = request_factory.get(reverse("images:image", args=[image_with_bboxes.id]))
         request.user = user
         response = ImageDetailView.as_view()(request, pk=image_with_bboxes.id)
 
         assert response.status_code == 200
-        # Should handle exception gracefully
-
-    @patch("images.views.annotation.get_pil_image")
-    @patch("images.models.Image.objects.filter")
-    def test_detail_view_handles_base_exception_previous(
-        self, mock_filter, mock_get_pil, request_factory, user, image_with_bboxes
-    ):
-        """Test detail view handles BaseException for previous_image (lines 57-60)"""
-        from PIL import Image as PILImage
-
-        mock_image = PILImage.new("RGB", (100, 100), color=(128, 128, 128))
-        mock_get_pil.return_value = mock_image
-
-        # Make .last() raise BaseException for previous_image query
-        def side_effect_func():
-            # First call is for next_image, second for previous_image
-            if not hasattr(side_effect_func, "called"):
-                side_effect_func.called = True
-                mock_qs = MagicMock()
-                mock_qs.first.return_value = None
-                return mock_qs
-            else:
-                mock_qs = MagicMock()
-                mock_qs.last.side_effect = Exception("Test exception")
-                return mock_qs
-
-        mock_filter.side_effect = side_effect_func
-
-        request = request_factory.get(reverse("images:image", args=[image_with_bboxes.id]))
-        request.user = user
-        response = ImageDetailView.as_view()(request, pk=image_with_bboxes.id)
-
-        assert response.status_code == 200
-        # Should handle exception gracefully
+        assert response.context_data["next_image"] is None
+        assert response.context_data["previous_image"] is None
 
     @patch("images.views.annotation.get_pil_image")
     @patch("images.models.BoundingBox.objects.filter")
@@ -577,3 +544,130 @@ class TestImageViewsIntegration:
 
         assert response.status_code == 200
         # Should handle missing pipeline parameter
+
+
+# ------------------------------------------------------------------------------
+# Previous/Next on the single image page
+# ------------------------------------------------------------------------------
+@pytest.mark.django_db
+class TestImageDetailNavigation:
+    """Which sequence Previous/Next walk, and how far through it you are.
+
+    Clicking a thumbnail in the search results opens this page -- it is the obvious click,
+    the queue button sits underneath it in smaller type. Stepping through the upload's
+    neighbours there answers a question nobody asked, so a queue the annotator holds wins.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _no_network(self):
+        from PIL import Image as PILImage
+
+        with patch("images.views.annotation.get_pil_image") as mock_get_pil:
+            mock_get_pil.return_value = PILImage.new("RGB", (100, 100), color=(128, 128, 128))
+            yield
+
+    def _render(self, request_factory, user, image):
+        request = request_factory.get(reverse("images:image", args=[image.id]))
+        request.user = user
+
+        return ImageDetailView.as_view()(request, pk=image.id).context_data
+
+    @pytest.fixture
+    def queue_images(self, db, user, upload_with_images):
+        """A search queue holding this upload's images in the reverse of capture order."""
+        images = list(upload_with_images.images.all().order_by("-trigger_timestamp"))
+        annotator = Annotator.objects.create(type="human", human=user)
+        queue = ImageQueue.objects.create(
+            pipeline_name="Species",
+            assigned_to=annotator,
+            image_order=[str(image.id) for image in images],
+        )
+        queue.images.add(*images)
+
+        return queue, images
+
+    def test_walks_the_queue_when_the_image_is_in_one(self, request_factory, user, queue_images):
+        _, images = queue_images
+
+        context = self._render(request_factory, user, images[1])
+
+        assert context["nav_scope"] == "queue"
+        assert context["next_image"] == images[2]
+        assert context["previous_image"] == images[0]
+
+    def test_reports_the_position_in_the_queue(self, request_factory, user, queue_images):
+        _, images = queue_images
+
+        context = self._render(request_factory, user, images[1])
+
+        assert (context["nav_position"], context["nav_total"]) == (2, 3)
+
+    def test_queue_order_wins_over_capture_order(self, request_factory, user, queue_images):
+        """The queue is in reverse capture order, so following the upload would go the other
+        way -- which is the bug: Next delivered a different sequence than the one you came in
+        on, with no sign that it had."""
+        _, images = queue_images
+
+        context = self._render(request_factory, user, images[0])
+
+        assert context["next_image"] == images[1]
+        assert context["next_image"].trigger_timestamp < images[0].trigger_timestamp
+
+    def test_opening_an_image_does_not_disturb_the_queue(self, request_factory, user, queue_images):
+        """Looking at an image is not working through the batch. Moving the cursor here would
+        silently skip whatever the annotator had not reached yet."""
+        queue, images = queue_images
+
+        self._render(request_factory, user, images[2])
+
+        queue.refresh_from_db()
+        assert queue.position == 0
+
+    def test_a_deleted_queue_image_does_not_sever_the_queue(self, request_factory, user, queue_images):
+        """image_order holds ids, so a gap must be stepped over rather than ending the run."""
+        _, images = queue_images
+        images[1].boundingbox_set.all().delete()
+        images[1].delete()
+
+        context = self._render(request_factory, user, images[0])
+
+        assert context["next_image"] == images[2]
+
+    def test_falls_back_to_the_upload_without_a_queue(self, request_factory, user, upload_with_images):
+        images = list(upload_with_images.images.all().order_by("trigger_timestamp"))
+
+        context = self._render(request_factory, user, images[1])
+
+        assert context["nav_scope"] == "upload"
+        assert context["next_image"] == images[2]
+        assert context["previous_image"] == images[0]
+
+    def test_falls_back_when_the_image_is_not_in_the_queue(self, request_factory, user, queue_images, upload):
+        """A queue the annotator holds says nothing about an image that is not part of it."""
+        queue, _ = queue_images
+        stranger = ImageFactory(upload=upload)
+
+        context = self._render(request_factory, user, stranger)
+
+        assert context["nav_scope"] == "upload"
+
+    def test_burst_frames_sharing_a_timestamp_are_reachable(self, request_factory, user, upload):
+        """A camera trap stamps a burst with the same second. A strict comparison on the
+        timestamp alone skipped every frame sharing it, so bursts could not be stepped through
+        at all -- invisible on evenly spaced sample data, routine on real uploads."""
+        shared = timezone.now()
+        burst = [ImageFactory(upload=upload, trigger_timestamp=shared) for _ in range(3)]
+        # Meta.ordering is (trigger_timestamp, -created), so newest-created comes first
+        burst.reverse()
+
+        context = self._render(request_factory, user, burst[1])
+
+        assert context["next_image"] == burst[2]
+        assert context["previous_image"] == burst[0]
+
+    def test_reports_the_position_in_the_upload(self, request_factory, user, upload_with_images):
+        images = list(upload_with_images.images.all().order_by("trigger_timestamp"))
+
+        context = self._render(request_factory, user, images[2])
+
+        assert (context["nav_position"], context["nav_total"]) == (3, 3)

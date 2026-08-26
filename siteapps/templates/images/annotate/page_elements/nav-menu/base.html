@@ -31,30 +31,44 @@
              aria-labelledby="nav-annotate-tab">
             <div class="card">
                 <div class="card-header">Instructions</div>
-                <div class="text-center p-3">
-                    {% block instruction_text %}
-                    {% endblock instruction_text %}
-                    {% block category_list %}
-                    {% endblock category_list %}
-                </div>
-                {# Flag status sits with the instructions rather than in a page-wide banner, so #}
-                {# it reads as context for the task instead of an alert.                        #}
+                {# Flag status sits with the instructions rather than in a page-wide banner, so it   #}
+                {# reads as context for the task instead of an alert -- and above them rather than   #}
+                {# below, because on a flagged image the reason IS the task. The generic "what       #}
+                {# species is this?" prompt underneath is the wrong brief for someone sent here to   #}
+                {# settle a question about the boxes.                                                #}
                 {% if image.staff_review_needed %}
-                    <div class="border-top px-3 py-2 small">
+                    <div class="border-bottom px-3 py-2 small">
                         <span class="badge bg-warning text-dark">
                             <i class="bi bi-flag"></i>&nbsp;Staff review requested
                         </span>
-                        {% if image.flag_reason_display %}
-                            <div class="mt-1 fw-semibold">{{ image.flag_reason_display }}</div>
-                        {% endif %}
+                        {% if image.flag_reason_display %}<div class="mt-1 fw-semibold">{{ image.flag_reason_display }}</div>{% endif %}
                         {% if image.flagged_by or image.flagged_at %}
                             <div class="text-muted">
                                 {% if image.flagged_by %}by {{ image.flagged_by }}{% endif %}
                                 {% if image.flagged_at %}on {{ image.flagged_at|date:"j M Y" }}{% endif %}
                             </div>
                         {% endif %}
+                        {# Resolving the flag is the point of the visit, so the control for it belongs #}
+                        {# here rather than three tabs away under Image > Options. Same checkbox, kept #}
+                        {# in step both ways so there is still one answer to "is this flagged".        #}
+                        {% if user.is_staff or user.is_expert %}
+                            <div class="mt-2 border-top pt-2">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       id="keep-staff-review-flag"
+                                       checked="checked">
+                                <label class="form-check-label" for="keep-staff-review-flag">&nbsp;This still needs review</label>
+                                <div class="text-muted mt-1">Untick and Save to mark it reviewed.</div>
+                            </div>
+                        {% endif %}
                     </div>
                 {% endif %}
+                <div class="text-center p-3">
+                    {% block instruction_text %}
+                    {% endblock instruction_text %}
+                    {% block category_list %}
+                    {% endblock category_list %}
+                </div>
                 {% if image.image_reported %}
                     <div class="border-top px-3 py-2 small">
                         <span class="badge bg-danger">
@@ -311,8 +325,12 @@
                         {% if grid_images_w_boxes|length > 0 %}
                             {% for queue_image, bounding_boxes in grid_images_w_boxes %}
                                 <div class="p-2 col-3">
+                                    {# A searched queue is navigated by position, not by the partition #}
+                                    {# timestamp, so setPartition() wrote a value that branch never    #}
+                                    {# reads and the page reloaded onto the same image -- the grid      #}
+                                    {# looked clickable and did nothing.                               #}
                                     <div class="card p-0 h-100"
-                                         onclick="setPartition('{{ queue_image.trigger_timestamp|date:"c" }}')">
+                                         {% if nav_mode == "cursor" %}onclick="moveSearchedQueueCursor('{{ queue_image.id }}', 'at')"{% else %}onclick="setPartition('{{ queue_image.trigger_timestamp|date:"c" }}')"{% endif %}>
                                         <div class="card card-header opacity-75">&nbsp;&nbsp;&nbsp;&nbsp;{{ bounding_boxes|length }} boxes</div>
                                         <div class="card card-body">
                                             <div style="position: relative; display: inline-block">
@@ -389,6 +407,41 @@
     </div>
 </nav>
 <script>
+    // Moves a searched queue's cursor and reloads. 'at' shows the given image, 'past' moves
+    // on from it -- the Next button's job. Nothing about the image is recorded either way,
+    // unlike Skip, which adds the annotator to its skipped list and can trip the automatic
+    // review flag.
+    function moveSearchedQueueCursor(imageId, mode){
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        $.ajax({
+            url: "{% url 'images:move_searched_queue_cursor' %}",
+            method: 'POST',
+            data: {
+                'csrfmiddlewaretoken': csrftoken,
+                'image_id': imageId,
+                'mode': mode,
+            },
+            dataType: 'json',
+            success: function (data){
+                if (data.success) {
+                    window.location.reload();
+                }
+                else {
+                    showStatusFailure();
+                    $("#next-spinner").hide();
+                    $("#next_image").prop("disabled", false);
+                }
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+                showStatusFailure();
+                $("#next-spinner").hide();
+                $("#next_image").prop("disabled", false);
+                console.error('HTTP Error:', jqXHR.status, textStatus, errorThrown);
+            }
+        })
+    }
+
     // Used to navigate to specific images in a precomputed queue without annotating them
     function setPartition(timestamp){
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;

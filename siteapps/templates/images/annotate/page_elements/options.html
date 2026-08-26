@@ -25,11 +25,16 @@
         </button>
         <label style="font-size: 12px; margin-bottom: 8px">&nbsp;Social Media Worthy? ({{ image.social_media_worthy }})</label>
         <br>
-        {# Available to every annotator. Flagging requires a reason (see #reason block below) so
-           it stays a deliberate signal rather than a substitute for Skip. #}
+        {# Available to every annotator. Flagging requires a reason (see the reason block  #}
+        {# below) so it stays a deliberate signal rather than a substitute for Skip.       #}
+        {# The two data attributes record the flag this image arrived carrying, so the reason #}
+        {# check can tell "leaving an existing flag alone" apart from "raising a new one". An #}
+        {# automatic flag has no reason to show, and demanding one for it blocked Save.       #}
         <input class="form-check-input"
                type="checkbox"
                {% if image.staff_review_needed %}checked="checked"{% endif %}
+               data-arrived-flagged="{% if image.staff_review_needed %}true{% else %}false{% endif %}"
+               data-arrived-reason="{{ image.flag_reason|default_if_none:'' }}"
                id="staff-review-needed">
         <label class="form-check-label"
                for="staff-review-needed"

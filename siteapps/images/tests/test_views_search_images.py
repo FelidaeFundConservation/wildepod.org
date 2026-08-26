@@ -10,8 +10,22 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.test import Client
 from django.urls import reverse
-from images.models import BoundingBox, CameraStationAction, Image, Upload
-from images.views.search_images import SearchImagesForm, SearchImagesView
+from images.models import (
+    Annotator,
+    BoundingBox,
+    CameraStationAction,
+    Image,
+    StaffReviewFlagReason,
+    StaffReviewFlagSource,
+    Upload,
+)
+from images.views.search_images import (
+    REVIEW_SESSION_GAP,
+    SearchImagesForm,
+    SearchImagesView,
+    flagged_by_display,
+    review_session_anchor,
+)
 from locations.models import Area, CameraStation, County, MacroSite, MicroSite
 
 User = get_user_model()
@@ -83,6 +97,42 @@ def upload(db, camera_station, staff_user):
         upload_method="E",
     )
     return upload
+
+
+def make_search_image(upload, file_name, **fields):
+    """An image with only the columns the search view needs, plus whatever is under test."""
+    from django.utils import timezone
+
+    stem = file_name.removesuffix(".jpg")
+
+    return Image.objects.create(
+        upload=upload,
+        dropbox_file_name=file_name,
+        dropbox_file_path=f"/test/{file_name}",
+        dropbox_file_path_display=f"/test/{file_name}",
+        dropbox_content_hash=f"hash_{stem}",
+        dropbox_file_id=f"file_id_{stem}",
+        file_size=1024,
+        trigger_timestamp=timezone.now(),
+        thumbnail_gcloud_path=f"test/{stem}_thumb.jpg",
+        **fields,
+    )
+
+
+def post_search(client, **filters):
+    """A search with the multi-selects empty, so only the named filters are under test."""
+    return client.post(
+        reverse("images:search_images"),
+        {
+            "macrosites": json.dumps([]),
+            "camera_stations": json.dumps([]),
+            "volunteers": json.dumps([]),
+            "species": json.dumps([]),
+            "species_ai": json.dumps([]),
+            "search_type": json.dumps("OR"),
+            **{name: json.dumps(value) for name, value in filters.items()},
+        },
+    )
 
 
 @pytest.mark.django_db
@@ -450,6 +500,61 @@ class TestSearchImagesView:
         assert len(data["results"]) == 1
         assert data["results"][0]["dropbox_file_name"] == "needs_review.jpg"
 
+    def test_reviewed_images_are_not_a_search_checkbox(self, client_logged_in, upload):
+        """Deliberately absent from the form. Those boxes OR together, so a stray tick widens
+        the search to every image review has ever closed, with a bigger number as the only
+        sign. Resolved images are reached through the Reviewed button in the Filter row.
+        """
+        from django.utils import timezone
+
+        make_search_image(upload, "closed.jpg", staff_reviewed_at=timezone.now())
+        make_search_image(upload, "open.jpg", staff_review_needed=True)
+
+        assert "staff_reviewed" not in SearchImagesForm().fields
+
+        # An unrecognised key is ignored rather than widening the query behind the filter row
+        response = post_search(client_logged_in, staff_review_needed=True, staff_reviewed=True)
+
+        names = {row["dropbox_file_name"] for row in json.loads(response.content)["results"]}
+        assert names == {"open.jpg"}
+
+    def test_results_carry_what_the_reviewed_filter_reads(self, client_logged_in, upload):
+        """The Reviewed button and the row's "Reviewed" chip both live off staff_reviewed_at,
+        and it reaches them only by being selected here. Without it the button can never
+        appear and a resolved row is one with an empty Flags column.
+        """
+        from django.utils import timezone
+
+        make_search_image(upload, "closed.jpg", staff_reviewed_at=timezone.now())
+        make_search_image(upload, "untouched.jpg")
+
+        results = json.loads(post_search(client_logged_in).content)["results"]
+        by_name = {row["dropbox_file_name"]: row for row in results}
+
+        assert by_name["closed.jpg"]["staff_reviewed_at"] is not None
+        assert by_name["closed.jpg"]["staff_review_needed"] is False
+        assert by_name["untouched.jpg"]["staff_reviewed_at"] is None
+
+    def test_a_cleared_image_still_comes_back_in_a_plain_search(self, client_logged_in, upload):
+        """What a staff member does with the bulk Clear button, then goes looking for. The
+        Filter row can only narrow what the server sent, so this is the half that has to hold
+        server-side: a resolved image stays findable, carrying the timestamp the button reads.
+        """
+        image = make_search_image(upload, "cleared_by_bulk.jpg", staff_review_needed=True)
+
+        client_logged_in.post(
+            reverse("images:bulk_image_action"),
+            {"image_ids[]": [str(image.id)], "action": "clear_flag"},
+        )
+
+        # Gone from the open queue, which is what clearing the flag means
+        gone = json.loads(post_search(client_logged_in, staff_review_needed=True).content)["results"]
+        assert gone == []
+
+        found = json.loads(post_search(client_logged_in).content)["results"]
+        assert [row["dropbox_file_name"] for row in found] == ["cleared_by_bulk.jpg"]
+        assert found[0]["staff_reviewed_at"] is not None
+
     def test_post_with_image_reported_filter(self, client_logged_in, upload):
         """Test POST with image_reported filter."""
         from django.utils import timezone
@@ -573,3 +678,266 @@ class TestSearchImagesView:
         data = json.loads(response.content)
         assert "results" in data
         assert len(data["results"]) == 0
+
+
+@pytest.mark.django_db
+class TestFlaggedByDisplay:
+    """The Flagged by column's server-side name assembly."""
+
+    def test_human_annotator_uses_name(self):
+        row = {
+            "flagged_by__type": "human",
+            "flagged_by__human__name": "Ada Lovelace",
+            "flagged_by__human__email": "ada@example.com",
+            "flagged_by__bot__name": None,
+        }
+        assert flagged_by_display(row) == "Ada Lovelace"
+
+    def test_human_annotator_falls_back_to_email(self):
+        """User.name is optional, so a blank one must not render an empty cell."""
+        row = {
+            "flagged_by__type": "human",
+            "flagged_by__human__name": "",
+            "flagged_by__human__email": "ada@example.com",
+            "flagged_by__bot__name": None,
+        }
+        assert flagged_by_display(row) == "ada@example.com"
+
+    def test_bot_annotator_uses_bot_name(self):
+        row = {
+            "flagged_by__type": "bot",
+            "flagged_by__human__name": None,
+            "flagged_by__human__email": None,
+            "flagged_by__bot__name": "MegaDetector",
+        }
+        assert flagged_by_display(row) == "MegaDetector"
+
+    def test_unflagged_image_is_blank_not_none(self):
+        """Auto-flagged and unflagged images have no annotator. The template joins this
+        straight into a cell, so it must be a string rather than None."""
+        row = {
+            "flagged_by__type": None,
+            "flagged_by__human__name": None,
+            "flagged_by__human__email": None,
+            "flagged_by__bot__name": None,
+        }
+        assert flagged_by_display(row) == ""
+
+
+@pytest.mark.django_db
+class TestReviewSessionAnchor:
+    """The NEW badge cutoff, and when a review session rolls over."""
+
+    def test_first_ever_visit_has_no_anchor(self, staff_user):
+        """Nothing is NEW on a first visit -- every image is equally unseen."""
+        assert review_session_anchor(staff_user) is None
+        assert staff_user.last_review_visit_at is not None
+
+    def test_anchor_holds_still_within_a_session(self, staff_user):
+        """Searching repeatedly while working the queue must not move the cutoff, or the
+        badges would clear themselves while they are being read."""
+        review_session_anchor(staff_user)
+        session_start = staff_user.last_review_visit_at
+
+        for _ in range(3):
+            assert review_session_anchor(staff_user) is None
+
+        assert staff_user.last_review_visit_at == session_start
+
+    def test_session_rolls_over_after_the_gap(self, staff_user):
+        """A search after the idle gap starts a new session, and the previous session's start
+        becomes the cutoff."""
+        from django.utils import timezone
+
+        review_session_anchor(staff_user)
+
+        # Backdate the session so the next search falls outside the gap
+        staff_user.last_review_visit_at = timezone.now() - (REVIEW_SESSION_GAP + timedelta(minutes=1))
+        staff_user.save()
+        first_session = staff_user.last_review_visit_at
+
+        anchor = review_session_anchor(staff_user)
+
+        assert anchor == first_session
+        assert staff_user.last_review_visit_at > first_session
+
+    def test_anchor_survives_a_reload_from_the_database(self, staff_user):
+        """The side effect must be persisted, not just set on the in-memory instance."""
+        from django.utils import timezone
+
+        review_session_anchor(staff_user)
+        staff_user.last_review_visit_at = timezone.now() - (REVIEW_SESSION_GAP + timedelta(minutes=1))
+        staff_user.save()
+
+        review_session_anchor(staff_user)
+        staff_user.refresh_from_db()
+
+        assert staff_user.previous_review_visit_at is not None
+
+
+@pytest.mark.django_db
+class TestSearchResultsNewBadge:
+    """The NEW badge end to end through the search view."""
+
+    def _flagged_image(self, upload, name, flagged_at):
+        from django.utils import timezone
+
+        return Image.objects.create(
+            upload=upload,
+            dropbox_file_name=f"{name}.jpg",
+            dropbox_file_path=f"/test/{name}.jpg",
+            dropbox_file_path_display=f"/test/{name}.jpg",
+            dropbox_content_hash=f"hash_{name}",
+            dropbox_file_id=f"file_id_{name}",
+            file_size=1024,
+            trigger_timestamp=timezone.now(),
+            thumbnail_gcloud_path=f"test/{name}_thumb.jpg",
+            staff_review_needed=True,
+            flag_source=StaffReviewFlagSource.MANUAL,
+            flag_reason=StaffReviewFlagReason.SPECIES_ID,
+            flagged_at=flagged_at,
+        )
+
+    def _search(self, client):
+        url = reverse("images:search_images")
+        response = client.post(
+            url,
+            {
+                "macrosites": json.dumps([]),
+                "camera_stations": json.dumps([]),
+                "volunteers": json.dumps([]),
+                "species": json.dumps([]),
+                "species_ai": json.dumps([]),
+                "search_type": json.dumps("OR"),
+                "staff_review_needed": json.dumps(True),
+            },
+        )
+        assert response.status_code == 200
+        return {r["dropbox_file_name"]: r for r in json.loads(response.content)["results"]}
+
+    def test_nothing_is_new_on_a_first_visit(self, client_logged_in, staff_user, upload):
+        from django.utils import timezone
+
+        self._flagged_image(upload, "fresh", timezone.now())
+
+        rows = self._search(client_logged_in)
+
+        assert rows["fresh.jpg"]["is_new"] is False
+
+    def test_image_flagged_since_the_last_session_is_new(self, client_logged_in, staff_user, upload):
+        """The reviewer worked the queue yesterday; this image arrived afterwards."""
+        from django.utils import timezone
+
+        staff_user.previous_review_visit_at = timezone.now() - timedelta(days=1)
+        staff_user.last_review_visit_at = timezone.now()
+        staff_user.save()
+
+        self._flagged_image(upload, "arrived_today", timezone.now())
+        self._flagged_image(upload, "arrived_last_week", timezone.now() - timedelta(days=7))
+
+        rows = self._search(client_logged_in)
+
+        assert rows["arrived_today.jpg"]["is_new"] is True
+        assert rows["arrived_last_week.jpg"]["is_new"] is False
+
+    def test_legacy_flag_without_a_timestamp_is_never_new(self, client_logged_in, staff_user, upload):
+        """Flags predating provenance have no flagged_at and must not be treated as recent."""
+        from django.utils import timezone
+
+        staff_user.previous_review_visit_at = timezone.now() - timedelta(days=1)
+        staff_user.last_review_visit_at = timezone.now()
+        staff_user.save()
+
+        self._flagged_image(upload, "legacy", None)
+
+        rows = self._search(client_logged_in)
+
+        assert rows["legacy.jpg"]["is_new"] is False
+
+    def test_badges_do_not_clear_on_a_second_search(self, client_logged_in, staff_user, upload):
+        """The reviewer searches twice while working. The second search must still show NEW."""
+        from django.utils import timezone
+
+        staff_user.previous_review_visit_at = timezone.now() - timedelta(days=1)
+        staff_user.last_review_visit_at = timezone.now()
+        staff_user.save()
+
+        self._flagged_image(upload, "arrived_today", timezone.now())
+
+        assert self._search(client_logged_in)["arrived_today.jpg"]["is_new"] is True
+        assert self._search(client_logged_in)["arrived_today.jpg"]["is_new"] is True
+
+
+@pytest.mark.django_db
+class TestSearchResultsFlaggedBy:
+    """The Flagged by column end to end through the search view."""
+
+    def _search_flagged(self, client):
+        url = reverse("images:search_images")
+        response = client.post(
+            url,
+            {
+                "macrosites": json.dumps([]),
+                "camera_stations": json.dumps([]),
+                "volunteers": json.dumps([]),
+                "species": json.dumps([]),
+                "species_ai": json.dumps([]),
+                "search_type": json.dumps("OR"),
+                "staff_review_needed": json.dumps(True),
+            },
+        )
+        assert response.status_code == 200
+        return json.loads(response.content)["results"]
+
+    def _flagged_image(self, upload, name, **kwargs):
+        from django.utils import timezone
+
+        return Image.objects.create(
+            upload=upload,
+            dropbox_file_name=f"{name}.jpg",
+            dropbox_file_path=f"/test/{name}.jpg",
+            dropbox_file_path_display=f"/test/{name}.jpg",
+            dropbox_content_hash=f"hash_{name}",
+            dropbox_file_id=f"file_id_{name}",
+            file_size=1024,
+            trigger_timestamp=timezone.now(),
+            thumbnail_gcloud_path=f"test/{name}_thumb.jpg",
+            staff_review_needed=True,
+            **kwargs,
+        )
+
+    def test_manual_flag_returns_flagger_name(self, client_logged_in, upload):
+        volunteer = User.objects.create_user(
+            email="volunteer@example.com", password="testpass123", name="Grace Hopper"
+        )
+        annotator = Annotator.objects.create(type="human", human=volunteer)
+        self._flagged_image(
+            upload,
+            "manual_flag",
+            flag_source=StaffReviewFlagSource.MANUAL,
+            flag_reason=StaffReviewFlagReason.SPECIES_ID,
+            flagged_by=annotator,
+        )
+
+        results = self._search_flagged(client_logged_in)
+
+        assert len(results) == 1
+        assert results[0]["flagged_by_name"] == "Grace Hopper"
+
+    def test_auto_flag_returns_blank_flagger(self, client_logged_in, upload):
+        """Auto-flagged images have no one to attribute the flag to."""
+        self._flagged_image(upload, "auto_flag", flag_source=StaffReviewFlagSource.AUTO_SKIPS)
+
+        results = self._search_flagged(client_logged_in)
+
+        assert len(results) == 1
+        assert results[0]["flagged_by_name"] == ""
+
+    def test_legacy_flag_without_provenance_returns_blank(self, client_logged_in, upload):
+        """Flags predating provenance have no source and no flagger, and must not 500."""
+        self._flagged_image(upload, "legacy_flag")
+
+        results = self._search_flagged(client_logged_in)
+
+        assert len(results) == 1
+        assert results[0]["flagged_by_name"] == ""

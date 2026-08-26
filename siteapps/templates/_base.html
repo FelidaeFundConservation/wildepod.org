@@ -131,6 +131,18 @@
                                        aria-expanded="false">Classify</a>
                                     <ul class="dropdown-menu nav-dropdown text-center text-md-start"
                                         aria-labelledby="navbarAnnotateDropdown">
+                                        {# Work staff handed to this expert, first because it is the only thing here #}
+                                        {# somebody is waiting on. Hidden at zero: with nothing assigned the same   #}
+                                        {# URL serves ordinary volunteer images. See expert_assignment().           #}
+                                        {% if assigned_image_count %}
+                                            <li>
+                                                <a class="dropdown-item"
+                                                   href="{% url 'images:searched_annotate_species' %}">
+                                                    Assigned to me
+                                                    <span class="badge rounded-pill bg-primary">{{ assigned_image_count }}</span>
+                                                </a>
+                                            </li>
+                                        {% endif %}
                                         {% if user.is_staff %}
                                             <li>
                                                 <a class="dropdown-item"

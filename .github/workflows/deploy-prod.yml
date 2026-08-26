@@ -44,10 +44,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.14
+      - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
-          python-version: "3.14"
+          python-version: "3.10"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
@@ -105,7 +105,20 @@ jobs:
           echo "Deploy region: ${{ env.GCP_REGION }}"
 
       - name: Collect static files
-        run: uv run python manage.py collectstatic --noinput --settings=config.settings.ci
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.prod
+          DJANGO_CI_MODE: ""
+          GOOGLE_CLOUD_PROJECT: ${{ env.GCP_PROJECT_ID }}
+          SETTINGS_NAME: ${{ env.PROD_SETTINGS_NAME }}
+        run: |
+          set -euo pipefail
+          while IFS= read -r css_file; do
+            map_file="${css_file%.css}.map"
+            if [[ ! -f "$map_file" ]]; then
+              sed -i '/sourceMappingURL=.*\.map/d' "$css_file"
+            fi
+          done < <(find .venv -type f -name '*.css')
+          uv run python manage.py collectstatic --noinput --settings=config.settings.prod
 
       - name: Deploy to App Engine
         if: ${{ !inputs.dryrun }}
@@ -133,10 +146,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.14
+      - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
-          python-version: "3.14"
+          python-version: "3.10"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4

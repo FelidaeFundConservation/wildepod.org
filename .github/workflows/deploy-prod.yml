@@ -42,6 +42,7 @@ env:
 jobs:
   deploy:
     name: Deploy to ${{ inputs.environment }}${{ inputs.dryrun && ' (dry run)' || '' }}
+    environment: ${{ inputs.environment }}
     runs-on: ubuntu-latest
     env:
       DJANGO_SETTINGS_MODULE: config.settings.ci
@@ -153,6 +154,7 @@ jobs:
     name: Run Migrations (${{ inputs.environment }})${{ inputs.dryrun && ' (dry run)' || '' }}
     needs: deploy
     if: ${{ inputs.run_migrations && !inputs.dryrun }}
+    environment: ${{ inputs.environment }}
     runs-on: ubuntu-latest
     env:
       GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}

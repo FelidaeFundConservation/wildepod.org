@@ -299,7 +299,7 @@ class TestSearchImagesView:
         """Test POST with date filter on trigger timestamp."""
         from django.utils import timezone
 
-        today = timezone.now().date()
+        today = timezone.localtime().date()
 
         # Create image with today's timestamp
         Image.objects.create(
@@ -353,7 +353,7 @@ class TestSearchImagesView:
         """Test POST with date range filter."""
         from django.utils import timezone
 
-        today = timezone.now().date()
+        today = timezone.localtime().date()
         start_date = today - timedelta(days=7)
         end_date = today + timedelta(days=1)
 
@@ -404,7 +404,7 @@ class TestSearchImagesView:
                 dropbox_file_id="file_id_end_day",
                 file_size=1024,
                 # Late in the day, so an end bound that only reaches midnight would miss it
-                trigger_timestamp=timezone.now().replace(hour=23, minute=30),
+                trigger_timestamp=timezone.localtime().replace(hour=23, minute=30),
                 thumbnail_gcloud_path="test/end_day_thumb.jpg",
             ),
         )
@@ -431,7 +431,7 @@ class TestSearchImagesView:
         An exclusive bound silently trimmed the last day off every search."""
         from django.utils import timezone
 
-        today = timezone.now().date()
+        today = timezone.localtime().date()
 
         results = self._search_range(client_logged_in, upload, today - timedelta(days=7), today)
 
@@ -442,7 +442,7 @@ class TestSearchImagesView:
         with an exclusive end bound it could only ever return nothing."""
         from django.utils import timezone
 
-        today = timezone.now().date()
+        today = timezone.localtime().date()
 
         results = self._search_range(client_logged_in, upload, today, today)
 

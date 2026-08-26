@@ -27,16 +27,16 @@ on:
         default: false
 
 env:
-  # Real values are stored as GitHub Actions repository variables.
-  # Set them under: Settings → Secrets and variables → Actions → Variables
+  # Real values are stored as GitHub Actions repository variables or secrets.
+  # Set them under: Settings → Secrets and variables → Actions
   GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
-  GCP_DB_INSTANCE: ${{ vars.GCP_DB_INSTANCE }}
-  GCP_REGION: ${{ vars.GCP_REGION || secrets.GCP_REGION }}
+  GCP_DB_INSTANCE: ${{ vars.GCP_DB_INSTANCE || secrets.GCP_DB_INSTANCE || 'wildepoddb' }}
+  GCP_REGION: ${{ vars.GCP_REGION || secrets.GCP_REGION || 'us-west2' }}
   # Optional per-environment overrides; fallback keeps existing behavior.
-  PROD_DB_INSTANCE: ${{ vars.PROD_DB_INSTANCE || vars.GCP_DB_INSTANCE }}
-  BHUTAN_DB_INSTANCE: ${{ vars.BHUTAN_DB_INSTANCE || vars.GCP_DB_INSTANCE }}
-  PROD_SETTINGS_NAME: ${{ vars.PROD_SETTINGS_NAME || 'django_settings' }}
-  BHUTAN_SETTINGS_NAME: ${{ vars.BHUTAN_SETTINGS_NAME || 'django_settings' }}
+  PROD_DB_INSTANCE: ${{ vars.PROD_DB_INSTANCE || secrets.PROD_DB_INSTANCE || vars.GCP_DB_INSTANCE || secrets.GCP_DB_INSTANCE || 'wildepoddb' }}
+  BHUTAN_DB_INSTANCE: ${{ vars.BHUTAN_DB_INSTANCE || secrets.BHUTAN_DB_INSTANCE || vars.GCP_DB_INSTANCE || secrets.GCP_DB_INSTANCE || 'wildepoddb' }}
+  PROD_SETTINGS_NAME: ${{ vars.PROD_SETTINGS_NAME || secrets.PROD_SETTINGS_NAME || 'django_settings' }}
+  BHUTAN_SETTINGS_NAME: ${{ vars.BHUTAN_SETTINGS_NAME || secrets.BHUTAN_SETTINGS_NAME || 'django_settings' }}
   DB_PORT: 5440
 
 jobs:
@@ -203,6 +203,18 @@ jobs:
             missing=1
           fi
 
+          target_db_instance=""
+          if [ "${{ inputs.environment }}" = "prod" ]; then
+            target_db_instance="${{ env.PROD_DB_INSTANCE }}"
+          else
+            target_db_instance="${{ env.BHUTAN_DB_INSTANCE }}"
+          fi
+
+          if [ -z "$target_db_instance" ]; then
+            echo "Missing required setting: DB Instance Name (set PROD_DB_INSTANCE, BHUTAN_DB_INSTANCE, or GCP_DB_INSTANCE in vars or secrets)"
+            missing=1
+          fi
+
           if [ -z "${{ env.DB_PORT }}" ]; then
             echo "Missing required setting: DB_PORT"
             missing=1
@@ -213,6 +225,9 @@ jobs:
           fi
 
           echo "Project ID source: ${project_id_source}"
+          echo "Target Environment: ${{ inputs.environment }}"
+          echo "Target Cloud SQL Instance Name: ${target_db_instance}"
+          echo "Full Cloud SQL Connection String: ${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:${target_db_instance}"
 
       - name: Resolve DB config for ${{ inputs.environment }}
         id: db-config
@@ -266,7 +281,11 @@ jobs:
           SETTINGS_NAME: ${{ steps.db-config.outputs.settings_name }}
         run: |
           set -o pipefail
-          uv run python manage.py migrate --settings=${{ steps.db-config.outputs.settings }} 2>&1 | tee migration_output.txt
+          if ! uv run python manage.py migrate --settings=${{ steps.db-config.outputs.settings }} 2>&1 | tee migration_output.txt; then
+            echo "::error::Database migration failed. Cloud SQL Proxy output log:"
+            cat cloud-sql-proxy.log 2>/dev/null || true
+            exit 1
+          fi
 
       - name: Dry Run - Show pending migrations
         if: ${{ inputs.dryrun }}
@@ -274,7 +293,11 @@ jobs:
           SETTINGS_NAME: ${{ steps.db-config.outputs.settings_name }}
         run: |
           set -o pipefail
-          uv run python manage.py migrate --plan --settings=${{ steps.db-config.outputs.settings }} 2>&1 | tee migration_output.txt
+          if ! uv run python manage.py migrate --plan --settings=${{ steps.db-config.outputs.settings }} 2>&1 | tee migration_output.txt; then
+            echo "::error::Database migration dry-run failed. Cloud SQL Proxy output log:"
+            cat cloud-sql-proxy.log 2>/dev/null || true
+            exit 1
+          fi
 
       - name: Write migration summary
         if: always()
@@ -283,3 +306,9 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat migration_output.txt 2>/dev/null || echo "(no migration output available)" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
+          if [ -f cloud-sql-proxy.log ]; then
+            echo "### Cloud SQL Proxy Log" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat cloud-sql-proxy.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi

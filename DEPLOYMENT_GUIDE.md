@@ -326,15 +326,28 @@ The deployment script creates GitHub Actions workflows:
 
 ### Manual Workflow Setup
 
-1. **Create Service Account:**
+1. **Create Service Account and Assign IAM Roles:**
 ```bash
 gcloud iam service-accounts create github-deployer \
     --display-name="GitHub Actions Deployer"
 
+# App Engine deployment permission:
 gcloud projects add-iam-policy-binding <YOUR-PROJECT-ID> \
     --member="serviceAccount:github-deployer@<YOUR-PROJECT-ID>.iam.gserviceaccount.com" \
     --role="roles/appengine.deployer"
+
+# Cloud SQL Auth Proxy permission (required for database migrations in workflows):
+gcloud projects add-iam-policy-binding <YOUR-PROJECT-ID> \
+    --member="serviceAccount:github-deployer@<YOUR-PROJECT-ID>.iam.gserviceaccount.com" \
+    --role="roles/cloudsql.client"
+
+# Secret Manager permission (required for accessing DB credentials secret during migrations):
+gcloud projects add-iam-policy-binding <YOUR-PROJECT-ID> \
+    --member="serviceAccount:github-deployer@<YOUR-PROJECT-ID>.iam.gserviceaccount.com" \
+    --role="roles/secretmanager.secretAccessor"
 ```
+
+> **Note on Networking & IP Addresses:** When GitHub Actions runs database migrations, it connects via **Cloud SQL Auth Proxy** using secure IAM authentication over HTTPS/TLS (port 443). GitHub Actions runner IP addresses do **not** need to be added to Authorized Networks in Cloud SQL. However, Public IP must be enabled on the Cloud SQL instance in the GCP Console.
 
 2. **Create and Download Key:**
 ```bash

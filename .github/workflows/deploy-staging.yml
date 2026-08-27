@@ -104,7 +104,7 @@ jobs:
     env:
       GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
       USE_CLOUD_SQL_AUTH_PROXY: "True"
-      SETTINGS_NAME: ${{ env.STAGING_SETTINGS_NAME }}
+      SETTINGS_NAME: ${{ vars.STAGING_SETTINGS_NAME || secrets.STAGING_SETTINGS_NAME || 'django_settings' }}
     steps:
       - uses: actions/checkout@v4
 

@@ -103,7 +103,11 @@ def run_model_inference(image: Image, species: bool = False):
         bot = Bot.objects.get(name="MegaDetector", version="v5a.0.0")
         logging.info("Megadetector v5a.0.0 object detection bot already exists. Successfully retrieved.")
     except Bot.DoesNotExist:
-        bot, created = Bot.objects.create(
+        # create() returns the object, not a (object, created) pair -- unpacking it raised
+        # "cannot unpack non-iterable Bot object", so this branch failed every time it ran.
+        # It only runs when the MegaDetector row is missing, which is why it survived: any
+        # environment that already had the row never reached it.
+        bot = Bot.objects.create(
             name="MegaDetector",
             version="v5a.0.0",
             task_type="Object Detection",

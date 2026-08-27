@@ -10,11 +10,12 @@ import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
+from pathlib import Path
 
 import requests
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 from django.db import connections
 from django.db.models import BooleanField, Case, CharField, Count, Exists, F, OuterRef, Q, Subquery, Value, When
 from django.http.response import JsonResponse
@@ -36,6 +37,8 @@ from images.models import (
     Species,
     SpeciesName,
     SpeciesSubgroup,
+    StaffReviewFlagReason,
+    StaffReviewFlagSource,
 )
 from images.models.custom_fields import get_filter_params
 from images.models.annotation import Validity
@@ -88,7 +91,20 @@ def get_pil_image(image):
         - PIL.Image: The image thumbnail data as a PIL image object.
     """
     image_file_path = f"{settings.MEDIA_URL}{image.thumbnail_gcloud_path}"
-    response = requests.get(image_file_path)
+
+    try:
+        response = requests.get(image_file_path)
+    except requests.exceptions.RequestException:
+        # The URL is not fetchable at all. This is the local development case: MEDIA_URL is
+        # a relative path ("/media/...") rather than the absolute GCS URL used in the cloud,
+        # so requests raises MissingSchema. Fall back to reading MEDIA_ROOT off disk.
+        local_path = Path(settings.MEDIA_ROOT) / str(image.thumbnail_gcloud_path or "")
+
+        if not local_path.is_file():
+            logging.warning(f"Thumbnail not fetchable and not on disk for image {image.id}: {local_path}")
+            return None
+
+        return PILImage.open(local_path).convert("RGB")
 
     pillow_image = None
 
@@ -210,6 +226,58 @@ def get_or_set_annotation_count(request, queue_name, annotator, annotation_num=0
     return count
 
 
+def pipeline_for_queue(queue_name):
+    """Maps a queue name onto the review pipeline it belongs to.
+
+    Arguments
+    ---
+        - queue_name (string): One of the queue name constants, or a prefixed variant of one.
+    """
+    if SPECIES_QUEUE_NAME in queue_name:
+        return "species"
+
+    if ACTIVITY_ANIMAL_QUEUE_NAME in queue_name or ACTIVITY_HUMAN_QUEUE_NAME in queue_name:
+        return "activity"
+
+    raise ValueError(f"No review pipeline for queue name: {queue_name}")
+
+
+def _apply_review_state_filters(images, pipeline, staff_review, reported_images):
+    """Narrows a pipeline queryset to one of the three queues an image can be waiting in.
+
+    Every image belongs to exactly one: the volunteer pool, the staff review queue, or the
+    reported images queue. Shared by both pipelines so the two cannot disagree about where an
+    image lives.
+
+    Reported takes precedence over flagged. Reporting says "this does not belong in the pool
+    at all" -- a passerby pulling a face at the camera -- which is a stronger and more final
+    statement than "someone should take a look at this", so it decides where the image is
+    triaged. These two conditions used to be applied independently, which meant an image that
+    was both flagged and reported matched none of the three queues and disappeared from the
+    site: staff review demanded image_reported=False, the reported queue demanded
+    staff_review_needed=False, and the pool demanded both.
+
+    Arguments
+    ---
+        - images (QuerySet<images.models.Image>): The pipeline-filtered queryset to narrow.
+        - pipeline (str): One of Image.REVIEW_PIPELINES. The volunteer pool consults only this
+          pipeline's review flag, so an image nobody could identify by species is still offered
+          for activity annotation.
+        - staff_review (bool): Restrict to images flagged for staff review.
+        - reported_images (bool): Restrict to images reported by an annotator.
+    """
+    if reported_images:
+        return images.filter(image_reported=True)
+
+    if staff_review:
+        # The staff review queue is one list across pipelines, so it asks the global flag --
+        # staff want everything awaiting review, not one pipeline's share of it.
+        return images.filter(image_reported=False, staff_review_needed=True)
+
+    # The volunteer pool, which an image leaves for good once staff have reviewed it
+    return images.filter(**Image.volunteer_pool_filters(pipeline))
+
+
 # Filter criteria for an image to appear in the Species pipeline
 def species_pipeline_query(images, annotator, staff_review=False, reported_images=False):
     """
@@ -254,17 +322,7 @@ def species_pipeline_query(images, annotator, staff_review=False, reported_image
         "-upload__priority", "-has_cats", "upload__camera_station", "trigger_timestamp"
     )
 
-    if staff_review:
-        images = images.filter(staff_review_needed=True)
-    else:
-        images = images.filter(staff_review_needed=False)
-
-    if reported_images:
-        images = images.filter(image_reported=True)
-    else:
-        images = images.filter(image_reported=False)
-
-    return images
+    return _apply_review_state_filters(images, "species", staff_review, reported_images)
 
 
 # Filter criteria for an image to appear in the Activity pipelines
@@ -299,17 +357,9 @@ def activity_pipeline_query(images, annotator, activity_category, staff_review=F
     if not staff_review and not reported_images:
         filter_conditions &= ~Q(activity_checked_by__in=[annotator]) & ~Q(activity_skipped_by__in=[annotator])
 
-    images = images.filter(filter_conditions)
-
-    if staff_review:
-        images = images.filter(staff_review_needed=True)
-    else:
-        images = images.filter(staff_review_needed=False)
-
-    if reported_images:
-        images = images.filter(image_reported=True)
-    else:
-        images = images.filter(image_reported=False)
+    images = _apply_review_state_filters(
+        images.filter(filter_conditions), "activity", staff_review, reported_images
+    )
 
     # Filter for animals or humans based on the category passed into the view
     if activity_category == CATEGORY_HUMAN:
@@ -787,8 +837,8 @@ def get_precomputed_queue(queue_name, annotator, searched):
     q_condition = (
         Q(annotator_check)
         & Q(has_bbox_above_confidence_threshold=True)
-        & Q(staff_review_needed=False)
-        & Q(image_reported=False)
+        # Same pool rules the pipeline queries use, from the one definition
+        & Q(**Image.volunteer_pool_filters(pipeline_for_queue(queue_name)))
     )
     queue_condition = Exists(
         Image.objects.filter(
@@ -1022,8 +1072,9 @@ def populate_view_context(
             queue_images = queue_images.filter(
                 annotator_check,
                 has_bbox_above_confidence_threshold=True,
-                staff_review_needed=False,
-                image_reported=False,
+                # Same pool rules as everywhere else. A searched queue skips this block
+                # entirely, which is how staff hand reviewed images to an expert.
+                **Image.volunteer_pool_filters(pipeline_for_queue(queue_name)),
                 **pipeline_kwarg,
             ).exclude(exclusion_condition)
 
@@ -1032,10 +1083,12 @@ def populate_view_context(
         first_image = partitioned_queue_images.first()
         image_id = return_to_image_id if return_to_image_id else (first_image.id if first_image else None)
 
+        upcoming = queue_images.exclude(exclusion_condition, id=image_id)
+
         # View all images in the queue
         context["grid_images_w_boxes"] = [
             [image_obj, BoundingBox.objects.filter(image=image_obj, validity__in=["VALID", "UNCERTAIN"])]
-            for image_obj in queue_images.exclude(exclusion_condition, id=image_id)
+            for image_obj in upcoming
         ]
 
     # Use old queue system as a fallback method if the precomputed queues run out
@@ -1129,6 +1182,8 @@ def populate_view_context(
     context["custom_annotations"] = custom_annotations
     context["staff_review"] = staff_review
     context["reported_images"] = reported_images
+    # Options for the required "Reason" select shown when an annotator flags for staff review
+    context["staff_review_flag_reasons"] = StaffReviewFlagReason.choices
 
     if SPECIES_QUEUE_NAME in queue_name:
         context["pipeline"] = "species"
@@ -1177,28 +1232,54 @@ def species_inference_current(image, context):
 
 def auto_flag_for_staff(image):
     """
-    Checks the current image to see how many annotators have skipped.
-    If that number is above AUTO_REVIEW_FLAG_THRESHOLD, flag the image for staff review,
-    thereby removing it from showing to regular users.
+    Checks how many annotators have skipped the image, per pipeline.
+    Any pipeline above AUTO_REVIEW_FLAG_THRESHOLD is flagged for staff review, which takes the
+    image out of that pipeline's volunteer pool.
+
+    Only the pipelines that actually ran out of volunteers are flagged. The threshold has
+    always been counted per pipeline, but used to set a single global flag, so three people
+    failing to identify a species also removed the image from the activity pool -- where it was
+    very likely still annotatable, since knowing what an animal is doing does not require
+    knowing what it is.
+
+    Staff having already dealt with the image stops it being flagged again. The skip counters
+    are totals that never reset, so past the threshold every later skip satisfies it: without
+    this check, clearing the flag would last only until the next volunteer skipped the image
+    and it would return to the review queue indefinitely. An annotator can still flag it by
+    hand -- that is a fresh request from a person, not the counter tripping a second time.
 
     Arguments
     ---
         - image (images.models.Image): The current image being annotated.
+
+    Returns
+    ---
+        - bool: Whether the image is now flagged for review in any pipeline.
     """
     AUTO_REVIEW_FLAG_THRESHOLD = 2
 
-    if (
-        image.bbox_skipped_by.count() > AUTO_REVIEW_FLAG_THRESHOLD
-        or image.species_skipped_by.count() > AUTO_REVIEW_FLAG_THRESHOLD
-        or image.activity_skipped_by.count() > AUTO_REVIEW_FLAG_THRESHOLD
-    ):
-        image.staff_review_needed = True
-        image.save()
-        logging.info(f"Image {image.id} autoflagged for staff review due to many annotators skipping.")
-
-        return True
-    else:
+    if image.staff_reviewed_at:
         return False
+
+    # bbox is not consulted: bbox_skipped_by has no writer anywhere in the project, so its
+    # count is always zero and the branch could never fire.
+    exhausted = [
+        pipeline
+        for pipeline in Image.REVIEW_PIPELINES
+        if getattr(image, f"{pipeline}_skipped_by").count() > AUTO_REVIEW_FLAG_THRESHOLD
+    ]
+
+    if not exhausted:
+        return False
+
+    # Do not overwrite a deliberate annotator flag (and its reason) with the automatic one
+    if image.staff_review_needed and image.flag_source == StaffReviewFlagSource.MANUAL:
+        return True
+
+    image.flag_for_staff_review(source=StaffReviewFlagSource.AUTO_SKIPS, pipelines=exhausted)
+    logging.info(f"Image {image.id} auto-flagged for staff review in {', '.join(exhausted)} after repeated skips.")
+
+    return True
 
 
 # Filter out the rejected bboxes
@@ -1288,6 +1369,13 @@ def set_view_filterset(self, staff_review=False, reported_images=False):
     end_date = self.request.GET.get("end_date")
     camera_id = None if self.request.GET.get("camera_id") == "None" else self.request.GET.get("camera_id")
     macrosite_name = self.request.GET.get("macrosite_name")
+    # Lets a reviewer work a staff review queue narrowed to one reason,
+    # e.g. /annotate/species/staff_review?flag_reason=bbox_protocol
+    flag_reason = self.request.GET.get("flag_reason")
+    # The routine queue is deliberate flags only. Auto-flagged images still leave the volunteer
+    # pool, but they are swept in bulk from Search Images rather than interrupting review work.
+    # Pass ?flag_source=auto_skips to work them here instead, or anything else for both.
+    flag_source = self.request.GET.get("flag_source", StaffReviewFlagSource.MANUAL)
 
     self.filterset = get_filter_params(
         start_date,
@@ -1296,10 +1384,39 @@ def set_view_filterset(self, staff_review=False, reported_images=False):
         camera_id,
         staff_review_needed=staff_review,
         image_reported=reported_images,
+        flag_reason=flag_reason,
+        flag_source=flag_source,
     )
 
 
-class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
+class StaffQueueAccessMixin:
+    """Refuses the privileged annotation queues to anyone who is neither staff nor expert.
+
+    The same view serves the ordinary volunteer queue and the staff ones, told apart by the
+    URL kwargs, so the check has to be per-request rather than a mixin on the whole class.
+
+    The nav links to these queues were already hidden behind is_staff / is_expert, but a
+    hidden link is not a permission check -- the URLs can simply be typed, and doing so served
+    a volunteer flagged images, complete with the name of the volunteer who flagged them.
+
+    List this after LoginRequiredMixin in the bases so an anonymous visitor is redirected to
+    log in by that mixin before reaching this one, rather than being told 403.
+    """
+
+    # Any of these in the URL kwargs makes the request a privileged one
+    PRIVILEGED_KWARGS = ("staff_review", "reported_images", "searched")
+
+    def dispatch(self, request, *args, **kwargs):
+        if any(kwargs.get(name) for name in self.PRIVILEGED_KWARGS):
+            user = request.user
+
+            if not (user.is_authenticated and (user.is_staff or user.is_expert)):
+                raise PermissionDenied
+
+        return super().dispatch(request, *args, **kwargs)
+
+
+class AnnotateSpeciesView(LoginRequiredMixin, StaffQueueAccessMixin, TemplateView):
     login_url = settings.LOGIN_URL
     template_name = "images/annotate/species.html"
 
@@ -1319,7 +1436,14 @@ class AnnotateSpeciesView(LoginRequiredMixin, TemplateView):
             self,
             staff_review=kwargs.get("staff_review", False),
             reported_images=kwargs.get("reported_images", False),
-            searched=kwargs.get("searched", False) and self.request.user.is_staff,
+            # Experts as well as staff: a searched queue is one a person assembled by hand, so
+            # it skips the automatic eligibility filters. An expert who has been assigned work
+            # in bulk is in exactly that case, and without this the filters drop every image
+            # they were given -- assigned images are flagged, and the filters exclude flagged.
+            # Not a widening of access: a searched queue only ever returns the queue assigned
+            # to the requesting annotator.
+            searched=kwargs.get("searched", False)
+            and (self.request.user.is_staff or self.request.user.is_expert),
         )
 
         return context
@@ -1382,9 +1506,28 @@ def annotation_processor(queue_name, annotation_type, request):
     # Apply the social media worthy vote
     social_media_worthy_vote = int(request.POST.get("social_media_worthy_vote"))
 
-    # Check if the image was tagged as needing staff review
-    staff_review_needed = request.POST.get("staff_review_needed")
-    staff_review_needed = bool(staff_review_needed and staff_review_needed == "true")
+    # Check if the image was tagged as needing staff review.
+    # Return None if not sent, True/False if explicitly sent, so that a submit path without the
+    # checkbox preserves the existing flag instead of silently clearing it.
+    staff_review_needed_raw = request.POST.get("staff_review_needed")
+    if staff_review_needed_raw is None:
+        staff_review_needed = None  # Not sent - preserve current value
+    else:
+        staff_review_needed = staff_review_needed_raw == "true"
+
+    # A deliberate flag must say why. Reject rather than silently record a reasonless flag.
+    staff_review_reason = request.POST.get("staff_review_reason", "")
+    staff_review_reason_detail = request.POST.get("staff_review_reason_detail", "")
+
+    if staff_review_needed and staff_review_reason not in StaffReviewFlagReason.values:
+        logging.warning(
+            f"Rejected staff review flag for image '{image_id}' from user '{request.user.name}': "
+            f"invalid or missing reason '{staff_review_reason}'"
+        )
+        return JsonResponse(
+            {"success": False, "error": "A reason is required when flagging an image for staff review."},
+            status=400,
+        )
 
     # Check if the image was reported
     # Return None if not sent, True/False if explicitly sent
@@ -1417,6 +1560,8 @@ def annotation_processor(queue_name, annotation_type, request):
             user=request.user,
             social_media_worthy_vote=social_media_worthy_vote,
             staff_review_needed=staff_review_needed,
+            staff_review_reason=staff_review_reason,
+            staff_review_reason_detail=staff_review_reason_detail,
             image_reported=image_reported,
             batch_tag_images=batch_tag_images,
             skip=skip,
@@ -1431,6 +1576,8 @@ def annotation_processor(queue_name, annotation_type, request):
             user=request.user,
             social_media_worthy_vote=social_media_worthy_vote,
             staff_review_needed=staff_review_needed,
+            staff_review_reason=staff_review_reason,
+            staff_review_reason_detail=staff_review_reason_detail,
             image_reported=image_reported,
             batch_tag_images=batch_tag_images,
             skip=skip,
@@ -1445,6 +1592,8 @@ def annotation_processor(queue_name, annotation_type, request):
             user=request.user,
             social_media_worthy_vote=social_media_worthy_vote,
             staff_review_needed=staff_review_needed,
+            staff_review_reason=staff_review_reason,
+            staff_review_reason_detail=staff_review_reason_detail,
             image_reported=image_reported,
             batch_tag_images=batch_tag_images,
             skip=skip,
@@ -1498,11 +1647,12 @@ def annotation_processor(queue_name, annotation_type, request):
         if not skip:
             annotator, created = Annotator.objects.get_or_create(type="human", human=request.user)
 
-            # Unflag if checked by staff
-            if annotator.human.is_staff:
+            # Staff saving annotations counts as having reviewed the image, so the flag is
+            # cleared. Only do this when they did not deliberately (re)flag it in this same
+            # submission -- otherwise we would throw away the flag they just asked for.
+            if annotator.human.is_staff and not staff_review_needed:
                 logging.info(f"Image {image.id} checked by staff. Resetting review flag.")
-                image.staff_review_needed = False
-                image.save()
+                image.clear_staff_review_flag()
 
             # Update the cached annotation count
             annotation_count = len(annotations) + batch_bbox_count

@@ -37,6 +37,41 @@
                     {% block category_list %}
                     {% endblock category_list %}
                 </div>
+                {# Flag status sits with the instructions rather than in a page-wide banner, so #}
+                {# it reads as context for the task instead of an alert.                        #}
+                {% if image.staff_review_needed %}
+                    <div class="border-top px-3 py-2 small">
+                        <span class="badge bg-warning text-dark">
+                            <i class="bi bi-flag"></i>&nbsp;Staff review requested
+                        </span>
+                        {% if image.flag_reason_display %}
+                            <div class="mt-1 fw-semibold">{{ image.flag_reason_display }}</div>
+                        {% endif %}
+                        {% if image.flagged_by or image.flagged_at %}
+                            <div class="text-muted">
+                                {% if image.flagged_by %}by {{ image.flagged_by }}{% endif %}
+                                {% if image.flagged_at %}on {{ image.flagged_at|date:"j M Y" }}{% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+                {% if image.image_reported %}
+                    <div class="border-top px-3 py-2 small">
+                        <span class="badge bg-danger">
+                            <i class="bi bi-exclamation-triangle"></i>&nbsp;Reported by a user
+                        </span>
+                    </div>
+                {% endif %}
+                {# Same wording as the Flags column in Search Images, so an image carries the #}
+                {# same labels wherever you meet it.                                          #}
+                {% if image.social_media_worthy > 0 %}
+                    <div class="border-top px-3 py-2 small">
+                        <span class="badge bg-info text-dark">
+                            <i class="bi bi-hand-thumbs-up"></i>&nbsp;Social media
+                        </span>
+                        <span class="text-muted">&nbsp;{{ image.social_media_worthy }} vote{{ image.social_media_worthy|pluralize }}</span>
+                    </div>
+                {% endif %}
                 <div class="card-footer text-center p-2">
                     <form method="POST">
                         {% csrf_token %}

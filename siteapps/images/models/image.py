@@ -9,6 +9,7 @@ from datetime import datetime
 from django.conf import settings
 from django.db import models
 from django.db.models import Count, Q
+from django.utils import timezone
 from locations.models import CameraStation
 from model_utils.models import TimeStampedModel
 from simple_history.models import HistoricalRecords
@@ -16,6 +17,29 @@ from simple_history.models import HistoricalRecords
 from .annotator import Annotator
 from .raw_sql import *
 from .upload import Upload
+
+
+class StaffReviewFlagSource(models.TextChoices):
+    """How an image came to be flagged for staff review."""
+
+    # An annotator deliberately ticked "Flag for Staff Review" and gave a reason
+    MANUAL = "manual", "Flagged by annotator"
+    # auto_flag_for_staff() tripped the skip threshold; no one asked for review
+    AUTO_SKIPS = "auto_skips", "Auto-flagged"
+
+
+class StaffReviewFlagReason(models.TextChoices):
+    """Why an annotator asked for staff review.
+
+    Required whenever an annotator flags an image, so the review queue can be triaged and
+    so deliberate flags can be told apart from auto-flagged noise.
+    """
+
+    # Named for the work that is needed rather than how unsure the annotator feels. "I cannot
+    # tell what this is" is a Skip, not a flag, so it deliberately has no option here.
+    SPECIES_ID = "species_id", "Species ID needs review"
+    BBOX_PROTOCOL = "bbox_protocol", "Bounding box protocol needs review"
+    OTHER = "other", "Other"
 
 
 # Bounding Box manager. For now, this simply returns "valid" bounding boxes as determined
@@ -119,8 +143,55 @@ class Image(TimeStampedModel):
     # Save the detections from the cloud run for re-use. This is a list in string form that should be converted back to a list.
     species_ai_detections = models.CharField(max_length=1024, null=True)
 
-    # Flag for Staff Review. This field is used to indicate images that should be reviewed later by staff users.
+    # Flag for Staff Review. True when any pipeline below needs review, so the staff review
+    # queue and the search page can ask "is this image in review at all" in one column.
     staff_review_needed = models.BooleanField(default=False)
+
+    # Which pipelines the review applies to. The skip threshold is counted per pipeline but
+    # used to set one global flag, so three volunteers failing to identify the species also
+    # pulled the image out of the activity pool -- where it was very likely still annotatable,
+    # since knowing what an animal is doing does not require knowing what it is.
+    #
+    # A deliberate flag from an annotator sets both: they are asking staff to look at the
+    # image, not at one pipeline's worth of it. An automatic flag sets only the pipeline whose
+    # threshold was crossed.
+    species_review_needed = models.BooleanField(default=False)
+    activity_review_needed = models.BooleanField(default=False)
+
+    # Provenance for staff_review_needed, so staff can triage the review queue and so the
+    # volume of deliberate flags can be told apart from images flagged automatically.
+    # All three are cleared whenever staff_review_needed goes back to False.
+    flag_source = models.CharField(
+        max_length=16,
+        choices=StaffReviewFlagSource.choices,
+        blank=True,
+        default="",
+        help_text="Whether this image was flagged deliberately by an annotator or automatically.",
+    )
+    flag_reason = models.CharField(
+        max_length=32,
+        choices=StaffReviewFlagReason.choices,
+        blank=True,
+        default="",
+        help_text="Why the annotator flagged this image for staff review.",
+    )
+    # Free text, only used alongside StaffReviewFlagReason.OTHER
+    flag_reason_detail = models.CharField(max_length=250, blank=True, default="")
+    flagged_by = models.ForeignKey(
+        Annotator,
+        on_delete=models.SET_NULL,
+        related_name="flagged_images",
+        null=True,
+        blank=True,
+    )
+    flagged_at = models.DateTimeField(null=True, blank=True)
+    # When staff last dealt with this image, by annotating it or clearing the flag in bulk.
+    # The skip counters never reset, so once an image is past the automatic threshold every
+    # later skip satisfies it again -- without this, clearing the flag would last only until
+    # the next volunteer skipped it, and the image would bounce back to staff for ever.
+    # Deliberate flagging by an annotator is unaffected: a person asking for help is a fresh
+    # request, not the counter tripping a second time.
+    staff_reviewed_at = models.DateTimeField(null=True, blank=True)
 
     # Flag for Reported Images. This field is used to indicate images that have been reported by users for review.
     image_reported = models.BooleanField(default=False)
@@ -153,6 +224,129 @@ class Image(TimeStampedModel):
 
     def __str__(self):
         return self.dropbox_file_name
+
+    def flag_for_staff_review(
+        self, source, annotator=None, reason="", reason_detail="", pipelines=None, save=True
+    ):
+        """Flags this image for staff review, recording where the flag came from.
+
+        Use this rather than assigning ``staff_review_needed`` directly so provenance and
+        the flag itself can never drift apart.
+
+        Arguments
+        ---
+            - source (StaffReviewFlagSource): MANUAL for a deliberate annotator flag,
+              AUTO_SKIPS when the skip threshold tripped.
+            - annotator (Annotator | None): Who flagged it. None for automatic flags.
+            - reason (str): A StaffReviewFlagReason value. Required for MANUAL flags.
+            - reason_detail (str): Free text, only meaningful with reason OTHER.
+            - pipelines (iterable[str] | None): Which pipelines the review applies to. None
+              means all of them, which is right for a deliberate flag -- the annotator is
+              asking staff to look at the image, not at one pipeline's worth of it. The
+              automatic threshold passes only the pipeline it tripped on, so an image nobody
+              could name the species of stays available for activity annotation.
+        """
+        self.staff_review_needed = True
+
+        for pipeline in pipelines if pipelines is not None else self.REVIEW_PIPELINES:
+            setattr(self, f"{pipeline}_review_needed", True)
+
+        self.flag_source = source
+        self.flag_reason = reason or ""
+        self.flag_reason_detail = reason_detail or ""
+        self.flagged_by = annotator
+        self.flagged_at = timezone.now()
+
+        if save:
+            self.save()
+
+    # The pipelines a volunteer can be asked to work on. bbox is deliberately absent: the
+    # bbox_skipped_by counter has no writer anywhere in the project, so its threshold can
+    # never be crossed and a bbox review flag would never be set.
+    REVIEW_PIPELINES = ("species", "activity")
+
+    @classmethod
+    def volunteer_pool_filters(cls, pipeline):
+        """What an image must look like to be offered to a volunteer in one pipeline.
+
+        Kept here because three separate queries need it -- the pipeline queries, precomputed
+        queue eligibility, and the queue's own image list -- and an image slipping back into
+        the pool through whichever one was missed is not something anybody would notice.
+
+        staff_reviewed_at is the "never again" part: once an image has been through staff
+        review, however it got there, it does not go back to volunteers. Staff can still hand
+        it to an expert, which goes through an assigned ImageQueue and skips these filters.
+
+        Arguments
+        ---
+            - pipeline (str): One of REVIEW_PIPELINES. Only that pipeline's review flag is
+              consulted, so an image nobody could identify by species stays available for
+              activity annotation.
+        """
+        if pipeline not in cls.REVIEW_PIPELINES:
+            raise ValueError(f"Unknown review pipeline: {pipeline}")
+
+        return {
+            f"{pipeline}_review_needed": False,
+            "image_reported": False,
+            "staff_reviewed_at__isnull": True,
+        }
+
+    # What "not flagged" looks like, as field values. Shared with the bulk clear in
+    # BulkImageActionView, which applies it through queryset.update() rather than instance by
+    # instance -- keeping the two in one place means a provenance field added later cannot be
+    # cleared by one path and left behind by the other.
+    CLEARED_STAFF_REVIEW_FIELDS = {
+        "staff_review_needed": False,
+        "species_review_needed": False,
+        "activity_review_needed": False,
+        "flag_source": "",
+        "flag_reason": "",
+        "flag_reason_detail": "",
+        "flagged_by": None,
+        "flagged_at": None,
+    }
+
+    @classmethod
+    def cleared_staff_review_values(cls):
+        """CLEARED_STAFF_REVIEW_FIELDS plus a review timestamp of now.
+
+        Separate from the constant because the timestamp has to be read at the moment of
+        clearing, not at import. Use this rather than the constant wherever staff are actually
+        resolving an image, so the automatic threshold knows not to re-flag it.
+        """
+        return {**cls.CLEARED_STAFF_REVIEW_FIELDS, "staff_reviewed_at": timezone.now()}
+
+    def clear_staff_review_flag(self, save=True):
+        """Clears the staff review flag and its provenance, and records the review."""
+        for field, value in self.cleared_staff_review_values().items():
+            setattr(self, field, value)
+
+        if save:
+            self.save()
+
+    @property
+    def flag_reason_display(self):
+        """Human readable flag reason for the staff review queue, or "" if unflagged."""
+        if not self.staff_review_needed:
+            return ""
+
+        if self.flag_source == StaffReviewFlagSource.AUTO_SKIPS:
+            return StaffReviewFlagSource.AUTO_SKIPS.label
+
+        if self.flag_reason == StaffReviewFlagReason.OTHER and self.flag_reason_detail:
+            return f"{StaffReviewFlagReason.OTHER.label}: {self.flag_reason_detail}"
+
+        if self.flag_reason:
+            try:
+                return StaffReviewFlagReason(self.flag_reason).label
+            except ValueError:
+                # A reason that has since been retired from the taxonomy. Show it rather than
+                # raising, so old rows never take down the page they appear on.
+                return self.flag_reason.replace("_", " ").capitalize()
+
+        # Flagged before this field existed, or flagged without a reason
+        return "Reason not recorded"
 
     @staticmethod
     def get_total_images():
@@ -292,3 +486,11 @@ class ImageQueue(TimeStampedModel):
     images = models.ManyToManyField(Image, related_name="queue", blank=True)
     # Serves as a pseudo-index to exclude images before another
     partition = models.DateTimeField(default=datetime.min)
+
+    class Meta:
+        # Newest first, because an annotator can hold more than one queue -- their own search
+        # and one a staff member assigned to them -- and get_precomputed_queue() takes
+        # .first(). With no ordering that pick is whatever the database happens to return, so
+        # which batch someone is handed comes down to luck. Newest wins: the most recent
+        # assignment is the one that was just made for them.
+        ordering = ("-created",)

@@ -249,7 +249,7 @@ class TestSearchImagesView:
         """Test POST with date filter on trigger timestamp."""
         from django.utils import timezone
 
-        today = timezone.now().date()
+        today = timezone.localtime().date()
 
         # Create image with today's timestamp
         Image.objects.create(
@@ -303,7 +303,7 @@ class TestSearchImagesView:
         """Test POST with date range filter."""
         from django.utils import timezone
 
-        today = timezone.now().date()
+        today = timezone.localtime().date()
         start_date = today - timedelta(days=7)
         end_date = today + timedelta(days=1)
 
@@ -340,6 +340,63 @@ class TestSearchImagesView:
         data = json.loads(response.content)
         assert "results" in data
         assert len(data["results"]) == 1
+
+    def _search_range(self, client, upload, start, end):
+        from django.utils import timezone
+
+        Image.objects.get_or_create(
+            upload=upload,
+            dropbox_file_name="on_the_end_day.jpg",
+            defaults=dict(
+                dropbox_file_path="/test/on_the_end_day.jpg",
+                dropbox_file_path_display="/test/on_the_end_day.jpg",
+                dropbox_content_hash="hash_end_day",
+                dropbox_file_id="file_id_end_day",
+                file_size=1024,
+                # Late in the day, so an end bound that only reaches midnight would miss it
+                trigger_timestamp=timezone.localtime().replace(hour=23, minute=30),
+                thumbnail_gcloud_path="test/end_day_thumb.jpg",
+            ),
+        )
+
+        response = client.post(
+            reverse("images:search_images"),
+            {
+                "macrosites": json.dumps([]),
+                "camera_stations": json.dumps([]),
+                "volunteers": json.dumps([]),
+                "species": json.dumps([]),
+                "species_ai": json.dumps([]),
+                "search_type": json.dumps("OR"),
+                "time_filter_type": "TT",
+                "start_date": str(start),
+                "end_date": str(end),
+            },
+        )
+        assert response.status_code == 200
+        return json.loads(response.content)["results"]
+
+    def test_date_range_includes_the_end_day(self, client_logged_in, upload):
+        """The field is labelled "End Of Date Range", so it must cover the whole of that day.
+        An exclusive bound silently trimmed the last day off every search."""
+        from django.utils import timezone
+
+        today = timezone.localtime().date()
+
+        results = self._search_range(client_logged_in, upload, today - timedelta(days=7), today)
+
+        assert any(r["dropbox_file_name"] == "on_the_end_day.jpg" for r in results)
+
+    def test_a_single_day_range_finds_that_day(self, client_logged_in, upload):
+        """Start and end on the same day is the natural way to ask for one day's images, and
+        with an exclusive end bound it could only ever return nothing."""
+        from django.utils import timezone
+
+        today = timezone.localtime().date()
+
+        results = self._search_range(client_logged_in, upload, today, today)
+
+        assert any(r["dropbox_file_name"] == "on_the_end_day.jpg" for r in results)
 
     def test_post_with_staff_review_needed_filter(self, client_logged_in, upload):
         """Test POST with staff_review_needed filter."""

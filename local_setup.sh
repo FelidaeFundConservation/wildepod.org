@@ -17,6 +17,31 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+prompt_for_superuser_password() {
+    local password=""
+    local confirmation=""
+
+    while true; do
+        read -rsp "Enter a password for ${SUPERUSER_EMAIL}: " password
+        echo ""
+        read -rsp "Confirm password: " confirmation
+        echo ""
+
+        if [ -z "$password" ]; then
+            echo -e "${RED}Error: Password cannot be empty${NC}"
+            continue
+        fi
+
+        if [ "$password" != "$confirmation" ]; then
+            echo -e "${RED}Error: Passwords do not match${NC}"
+            continue
+        fi
+
+        SUPERUSER_PASSWORD="$password"
+        return
+    done
+}
+
 # Parse command-line arguments
 SUPERUSER_EMAIL=""
 while [[ $# -gt 0 ]]; do
@@ -38,6 +63,9 @@ echo "WildePod Local Setup Script"
 echo "================================"
 if [ -n "$SUPERUSER_EMAIL" ]; then
     echo "Superuser email: $SUPERUSER_EMAIL"
+fi
+if [ -n "$SUPERUSER_PASSWORD" ]; then
+    echo "Superuser password: provided via environment variable"
 fi
 echo ""
 
@@ -232,12 +260,19 @@ echo ""
 echo -e "${YELLOW}→${NC} Creating superuser account..."
 if [ -n "$SUPERUSER_EMAIL" ]; then
     echo "  Using provided email: $SUPERUSER_EMAIL"
+    if [ -z "$SUPERUSER_PASSWORD" ]; then
+        prompt_for_superuser_password
+    fi
     # Create superuser using Python shell to handle existing users gracefully
-    uv run manage.py shell --settings=config.settings.local << EOF
+    SUPERUSER_PASSWORD="$SUPERUSER_PASSWORD" uv run manage.py shell --settings=config.settings.local << EOF
+import os
 from django.contrib.auth import get_user_model
 User = get_user_model()
 if not User.objects.filter(email="$SUPERUSER_EMAIL").exists():
-    User.objects.create_superuser(email='$SUPERUSER_EMAIL', password='admin123')
+    User.objects.create_superuser(
+        email='$SUPERUSER_EMAIL',
+        password=os.environ['SUPERUSER_PASSWORD'],
+    )
     print('✓ Superuser created')
 else:
     print('⚠ Superuser with email $SUPERUSER_EMAIL already exists')

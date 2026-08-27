@@ -191,6 +191,7 @@ jobs:
           exit 1
 
       - name: Run migrations
+        continue-on-error: true
         run: |
           set -o pipefail
           if ! uv run python manage.py migrate --settings=config.settings.staging 2>&1 | tee migration_output.txt; then

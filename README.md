@@ -44,7 +44,7 @@
    uv sync
    ```
    This single command will:
-   - Create a virtual environment (`.venv`) with Python 3.10
+   - Create a virtual environment (`.venv`) with Python 3.14
    - Install all dependencies from `pyproject.toml`
    - Verify or update the lock file (`uv.lock`) for reproducible builds
 4. Install SASS compiler - Sass is a stylesheet language that's compiled to CSS. It is installed on the OS level, not in the virtualenv.
@@ -206,6 +206,7 @@ Pre-configured environments for common use cases:
 
 📖 **Full Documentation:** [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
 ⚡ **Quick Reference:** [QUICK_REFERENCE.md](QUICK_REFERENCE.md)
+🐍 **Python 3.14 Migration Plan:** [PYTHON_3_14_MIGRATION_STRATEGY.md](PYTHON_3_14_MIGRATION_STRATEGY.md)
 
 ---
 

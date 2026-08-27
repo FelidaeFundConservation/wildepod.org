@@ -417,7 +417,7 @@ EOF
     # Create App Engine YAML file
     if [ "$DRY_RUN" = false ]; then
         cat > "$APP_YAML" <<EOF
-runtime: python310
+runtime: python314
 instance_class: F1
 service: ${SERVICE_NAME}
 entrypoint: gunicorn -t 2400 -b :\$PORT ${NAME_PREFIX//-/_}:app

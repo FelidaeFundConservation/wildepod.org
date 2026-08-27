@@ -93,7 +93,15 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Collect static files
-        run: uv run python manage.py collectstatic --noinput --settings=config.settings.ci
+        run: |
+          set -euo pipefail
+          while IFS= read -r css_file; do
+            map_file="${css_file%.css}.map"
+            if [[ ! -f "$map_file" ]]; then
+              sed -i '/sourceMappingURL=.*\.map/d' "$css_file"
+            fi
+          done < <(find .venv -type f -name '*.css')
+          uv run python manage.py collectstatic --noinput --settings=config.settings.ci
 
       - name: Deploy to App Engine
         run: gcloud app deploy staging.yaml --quiet --project=$CLOUDSDK_CORE_PROJECT

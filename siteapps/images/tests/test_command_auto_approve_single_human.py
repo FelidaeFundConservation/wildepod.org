@@ -7,15 +7,20 @@
 
 from datetime import datetime
 from io import StringIO
+from unittest.mock import patch
+from uuid import UUID
 
 import pytest
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
-from images.models import Annotator, Bot, Image
+from images.management.commands.auto_approve_single_human import Command
+from images.models import Annotator, Bot, BoundingBox, Category, Image
 from images.processors.annotation import SINGLE_HUMAN_RULE, get_automation_annotator
 
-from siteapps.conftest_factories import BoundingBoxFactory, CategoryFactory, ImageFactory
+from siteapps.conftest_factories import AnnotatorFactory, BoundingBoxFactory, CategoryFactory, ImageFactory
 
 
 def _make_single_human_image(confidence: float, **image_kwargs) -> Image:
@@ -115,6 +120,21 @@ def test_limit_caps_approvals():
 
     completed = [img for img in images if Image.objects.get(id=img.id).species_pipeline_complete]
     assert len(completed) == 1
+
+
+@pytest.mark.django_db
+def test_limit_is_applied_inside_candidate_count_query():
+    """A limited run must not count the entire eligible backlog before processing."""
+    for _ in range(3):
+        _make_single_human_image(confidence=0.95)
+    stdout = StringIO()
+
+    call_command("auto_approve_single_human", "--dry-run", "--limit", "1", "--timing", stdout=stdout)
+
+    output = stdout.getvalue()
+    assert "section=candidate_count" in output
+    assert "candidates=1" in output
+    assert "mode=limited" in output
 
 
 @pytest.mark.django_db
@@ -290,6 +310,23 @@ def test_dry_run_output_describes_active_scope():
 
 
 @pytest.mark.django_db
+def test_timing_flag_prints_section_diagnostics():
+    """Opt-in diagnostics identify candidate, batch, and total command timings."""
+    _make_single_human_image(confidence=0.95)
+    stdout = StringIO()
+
+    call_command("auto_approve_single_human", "--timing", stdout=stdout)
+
+    output = stdout.getvalue()
+    assert "[timing] section=candidate_count" in output
+    assert "[timing] section=batch_load" in output
+    assert "[timing] section=batch_votes" in output
+    assert "[timing] section=batch_state_updates" in output
+    assert "[timing] section=batch_transaction" in output
+    assert "[timing] section=command_total" in output
+
+
+@pytest.mark.django_db
 def test_non_default_confidence_is_used_during_approval():
     """The shared approval routine honors the command's non-default confidence cutoff."""
     image = _make_single_human_image(confidence=0.80)
@@ -297,3 +334,172 @@ def test_non_default_confidence_is_used_during_approval():
     call_command("auto_approve_single_human", "--confidence", "0.75")
 
     assert Image.objects.get(id=image.id).species_pipeline_complete is True
+
+
+@pytest.mark.django_db
+def test_bulk_fast_path_removes_contradictory_automation_rejects():
+    """Bulk acceptance preserves vote() semantics by removing prior reject votes."""
+    image = _make_single_human_image(confidence=0.95)
+    bbox = image.boundingbox_set.get()
+    category = bbox.category_set.get()
+    automation_annotator = get_automation_annotator()
+    bbox.rejected_by.add(automation_annotator)
+    category.rejected_by.add(automation_annotator)
+
+    call_command("auto_approve_single_human", "--confidence", "0.85")
+
+    assert bbox.accepted_by.filter(id=automation_annotator.id).exists()
+    assert category.accepted_by.filter(id=automation_annotator.id).exists()
+    assert not bbox.rejected_by.filter(id=automation_annotator.id).exists()
+    assert not category.rejected_by.filter(id=automation_annotator.id).exists()
+
+
+@pytest.mark.django_db
+def test_unusual_extra_category_uses_existing_fallback_behavior():
+    """A legacy multi-category box is handled by the general per-image validity cascade."""
+    image = _make_single_human_image(confidence=0.95)
+    bbox = image.boundingbox_set.get()
+    CategoryFactory(bounding_box=bbox, name="animal")
+
+    call_command("auto_approve_single_human", "--confidence", "0.85")
+
+    image.refresh_from_db()
+    person = bbox.category_set.get(name="person")
+    automation_annotator = get_automation_annotator()
+    assert person.accepted_by.filter(id=automation_annotator.id).exists()
+    assert image.species_pipeline_complete is True
+    assert image.category_pipeline_complete is False
+
+
+@pytest.mark.django_db
+def test_bulk_work_has_near_constant_query_count_within_one_batch():
+    """Adding images to one batch must not restore per-image query growth."""
+    get_automation_annotator()
+    _make_single_human_image(confidence=0.95)
+    with CaptureQueriesContext(connection) as single_queries:
+        call_command("auto_approve_single_human", "--confidence", "0.85", "--batch-size", "100")
+
+    for _ in range(25):
+        _make_single_human_image(confidence=0.95)
+    with CaptureQueriesContext(connection) as batch_queries:
+        call_command("auto_approve_single_human", "--confidence", "0.85", "--batch-size", "100")
+
+    # A few extra statements are allowed for backend-specific bulk-insert chunking. The old
+    # implementation added roughly 25-35 statements for every additional image.
+    assert len(batch_queries) <= len(single_queries) + 8
+
+
+class _FakeCandidatePage:
+    """Minimal queryset-shaped object for exercising million-scale paging orchestration."""
+
+    def __init__(self, image_ids):
+        self.image_ids = image_ids
+        self.iterator_calls = 0
+
+    def count(self):
+        return len(self.image_ids)
+
+    def filter(self, *, image_id__gt):
+        return _FakeCandidatePage([image_id for image_id in self.image_ids if image_id > image_id__gt])
+
+    def values_list(self, *args, **kwargs):
+        return self
+
+    def iterator(self, *, chunk_size):
+        self.iterator_calls += 1
+        return iter(self.image_ids)
+
+    def __getitem__(self, item):
+        return self.image_ids[item]
+
+
+@pytest.mark.django_db
+def test_pages_more_than_two_thousand_candidates_without_materializing_backlog():
+    """The command visits 5,001 candidates as 2,000/2,000/1,001 pages."""
+    image_ids = [UUID(int=value) for value in range(1, 5002)]
+    candidates = _FakeCandidatePage(image_ids)
+    batch_lengths = []
+
+    def approve_batch(_command, batch, **kwargs):
+        batch_lengths.append(len(batch))
+        return len(batch), 0
+
+    with (
+        patch.object(Command, "_get_qualifying_image_ids", return_value=candidates),
+        patch.object(Command, "_approve_batch", autospec=True, side_effect=approve_batch),
+        patch(
+            "images.management.commands.auto_approve_single_human.get_automation_annotator",
+            return_value=object(),
+        ),
+    ):
+        call_command("auto_approve_single_human", "--batch-size", "2000")
+
+    assert batch_lengths == [2000, 2000, 1001]
+    assert candidates.iterator_calls == 1
+
+
+@pytest.mark.django_db(transaction=True)
+def test_bulk_approval_crosses_multiple_real_database_batches():
+    """Approve 10,001 real candidates across six batches using bulk-built fixtures."""
+    image_count = 10001
+    upload = ImageFactory().upload
+    creator = AnnotatorFactory(bot_annotator=True)
+    images = [
+        Image(
+            upload=upload,
+            dropbox_file_name=f"bulk-{index}.jpg",
+            dropbox_file_path=f"/bulk/{index}.jpg",
+            dropbox_file_path_display=f"/bulk/{index}.jpg",
+            dropbox_content_hash=f"{index:064x}",
+            dropbox_file_id=f"bulk:{index}",
+            file_size=1,
+            processed=True,
+        )
+        for index in range(image_count)
+    ]
+    Image.objects.bulk_create(images, batch_size=1000)
+    boxes = [
+        BoundingBox(
+            image=image,
+            x=0.1,
+            y=0.1,
+            w=0.2,
+            h=0.2,
+            confidence=0.95,
+            created_by=creator,
+        )
+        for image in images
+    ]
+    BoundingBox.objects.bulk_create(boxes, batch_size=1000)
+    categories = [
+        Category(
+            bounding_box=box,
+            name="person",
+            confidence=0.95,
+            created_by=creator,
+        )
+        for box in boxes
+    ]
+    Category.objects.bulk_create(categories, batch_size=1000)
+
+    call_command("auto_approve_single_human", "--confidence", "0.85", "--batch-size", "2000")
+
+    approved_images = Image.objects.filter(id__in=[image.id for image in images])
+    assert approved_images.filter(category_pipeline_complete=True).count() == image_count
+    assert approved_images.filter(species_pipeline_complete=True).count() == image_count
+    automation_annotator = get_automation_annotator()
+    assert BoundingBox.accepted_by.through.objects.filter(annotator_id=automation_annotator.id).count() == image_count
+    assert Category.accepted_by.through.objects.filter(annotator_id=automation_annotator.id).count() == image_count
+
+
+@pytest.mark.parametrize(
+    ("option", "value", "message"),
+    [
+        ("--batch-size", "0", "greater than zero"),
+        ("--limit", "-1", "zero or greater"),
+    ],
+)
+def test_rejects_invalid_batch_controls(option, value, message):
+    """Invalid controls fail before candidate discovery or database writes."""
+    with pytest.raises(CommandError, match=message):
+        call_command("auto_approve_single_human", option, value)

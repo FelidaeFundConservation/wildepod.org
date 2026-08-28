@@ -667,7 +667,12 @@ def get_automation_annotator() -> Annotator:
     return annotator
 
 
-def auto_approve_single_human(image: Image, confidence_cutoff: float | None = None) -> bool:
+def auto_approve_single_human(
+    image: Image,
+    confidence_cutoff: float | None = None,
+    *,
+    automation_annotator: Annotator | None = None,
+) -> bool:
     """Auto-complete an image if it contains exactly one high-confidence human bounding box.
 
     When the image has a single bounding box whose category is `person` and whose confidence meets
@@ -680,6 +685,8 @@ def auto_approve_single_human(image: Image, confidence_cutoff: float | None = No
     Args:
         image: The processed image to evaluate. Must already have `processed=True`.
         confidence_cutoff: Minimum bounding-box confidence. Uses the configured default when None.
+        automation_annotator: An already-resolved automation annotator. Backlog callers should
+            pass this to avoid repeating the bot and annotator lookups for every image.
 
     Returns:
         True if the image qualified and was auto-approved, False otherwise.
@@ -702,7 +709,7 @@ def auto_approve_single_human(image: Image, confidence_cutoff: float | None = No
     # Imported lazily to avoid a circular import (views.annotation imports from this module).
     from images.views.annotation import calculateCategoryAnnotationFlags
 
-    annotator = get_automation_annotator()
+    annotator = automation_annotator or get_automation_annotator()
     vote(bbox, annotator, accept=True)
     vote(category, annotator, accept=True)
 

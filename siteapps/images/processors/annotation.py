@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 
 from django.conf import settings
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, F, Q, Sum
 from images.models import (
     Activity,
     ActivityType,
@@ -703,13 +703,20 @@ def auto_approve_single_human(
     if category is None or bbox.confidence < cutoff:
         return False
 
+    annotator = automation_annotator or get_automation_annotator()
+
+    # The upload processor can be retried. The automation accept vote is the
+    # durable idempotency marker, so an already-approved image must not increase
+    # the counter again.
+    if category.accepted_by.filter(pk=annotator.pk).exists():
+        return False
+
     logging.info(f"Auto-approving single-human image {image.id} (confidence {bbox.confidence} >= {cutoff}).")
 
     ############### cast automation votes ###############
     # Imported lazily to avoid a circular import (views.annotation imports from this module).
     from images.views.annotation import calculateCategoryAnnotationFlags
 
-    annotator = automation_annotator or get_automation_annotator()
     vote(bbox, annotator, accept=True)
     vote(category, annotator, accept=True)
 
@@ -724,6 +731,13 @@ def auto_approve_single_human(
     # right when the bounding box is created and rather than touching that code we can do this.
     image.has_uncertain_bbox = image.boundingbox_set.filter(validity="UNCERTAIN").exists()
     image.save()
+
+    # Use an F expression so concurrent image-processing workers cannot lose
+    # increments. The command's bulk path performs the equivalent update once
+    # per batch.
+    Annotator.objects.filter(pk=annotator.pk).update(
+        total_auto_approved_images=F("total_auto_approved_images") + 1
+    )
 
     return True
 

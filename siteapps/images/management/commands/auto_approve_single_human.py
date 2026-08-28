@@ -20,7 +20,7 @@ from itertools import islice
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
-from django.db.models import Count, Prefetch
+from django.db.models import Count, F, Prefetch
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from images.models import Annotator, BoundingBox, Category, Image
@@ -355,6 +355,9 @@ class Command(BaseCommand):
                 has_vehicles=False,
                 has_uncertain_bbox=False,
                 modified=now,
+            )
+            Annotator.objects.filter(id=automation_annotator.id).update(
+                total_auto_approved_images=F("total_auto_approved_images") + len(fast_path)
             )
             self._write_timing(timing, "batch_state_updates", updates_started, rows=len(fast_path))
 

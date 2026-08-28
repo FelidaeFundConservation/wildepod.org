@@ -42,6 +42,9 @@ def test_approves_high_confidence_single_human():
     assert image.category_pipeline_complete is True
     assert image.species_pipeline_complete is True
     assert image.has_uncertain_bbox is False
+    automation_annotator = get_automation_annotator()
+    automation_annotator.refresh_from_db()
+    assert automation_annotator.total_auto_approved_images == 1
 
 
 @pytest.mark.django_db
@@ -147,6 +150,9 @@ def test_idempotent_rerun():
     call_command("auto_approve_single_human", "--confidence", "0.85")
 
     assert Image.objects.filter(species_pipeline_complete=True).count() == 1
+    automation_annotator = get_automation_annotator()
+    automation_annotator.refresh_from_db()
+    assert automation_annotator.total_auto_approved_images == 1
 
 
 @pytest.mark.django_db

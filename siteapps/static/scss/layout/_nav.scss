@@ -8,10 +8,21 @@
 @use '../core';
 
 
+header {
+    // The home hero uses filter: blur(), making it a stacking context painted at
+    // effective z-index 0. Without this, anything overflowing the bar is painted
+    // over by it. 1030 matches Bootstrap's own navbar layer.
+    position: relative;
+    z-index: 1030;
+}
+
 .navbar {
     background-color: core.$color-nav-bg;
     box-shadow: 0px 3px 10px rgba(core.$color-base, 0.1);
-    text-shadow: 1px 1px rgb(0, 0, 0, 0.15);
+    // NB: do not add backdrop-filter here. It makes .navbar a containing block
+    // and backdrop root for its descendants, which clips the absolutely
+    // positioned .dropdown-menu to the one-row-tall bar, so the menus vanish.
+    // Legibility over the hero photo comes from background opacity instead.
 }
 
 .nav-link {
@@ -43,6 +54,10 @@
     border: none;
     box-shadow: 0px 4px 6px rgba(117, 117, 117, 0.15);
     padding: 0em;
+    // Bootstrap's default 10rem was set for 1rem menu text; these items render at
+    // 1.1em, so longer labels broke across three lines. Widening the menu is the
+    // fix rather than shortening the wording.
+    min-width: 14rem;
 
     @media (min-width: core.$lg) {
         box-shadow: 0px 5px 10px rgba(117, 117, 117, 0.2);
@@ -70,5 +85,101 @@
 .navbar-toggler {
     &:focus {
         box-shadow: 0px 0px 0px 0.05em rgba(core.$color-nav, 0.4);
+    }
+}
+
+// The one dropdown item with a badge in front of it, which costs it enough
+// width to wrap where its siblings do not. Nowrap lets the Upload menu size
+// itself to this item instead; scoped to this link so the other three menus
+// keep the shared 14rem and do not grow to fit their own longest label.
+.nav-pending-uploads {
+    white-space: nowrap;
+}
+
+// Count of the signed-in user's uploads still waiting to be finalized. Rides on
+// the existing "Upload" tab rather than claiming a nav slot of its own, so the
+// bar gains no width and nothing wraps.
+.nav-pending-badge {
+    background-color: core.$color-pending;
+    color: core.$color-nav-active;
+    font-family: core.$font-family-nav;
+    font-size: 0.7em;
+    font-weight: 600;
+    vertical-align: middle;
+    padding: 0.3em 0.6em;
+}
+
+// The nav sits at 1.1-1.2em, wide enough that a full-size button pushes the
+// account icon onto a second line. Hold the CTA to one line.
+.nav-cta {
+    white-space: nowrap;
+    font-family: core.$font-family-nav;
+    font-size: 0.95em;
+    font-weight: 500;
+    padding: 0.35em 0.9em;
+}
+
+// Visual break between the work tabs and the action cluster. A fixed margin
+// rather than a flex spacer, so the gap stays put instead of yawning open on a
+// wide screen. Collapses away in the stacked mobile menu.
+.nav-group-start {
+    @media (min-width: core.$lg) {
+        margin-left: 1.75rem !important;
+    }
+}
+
+// Instructions and Feedback are external reference links, not destinations in
+// the app. Icon-only on desktop to give the width back to the working tabs;
+// the label reappears in the collapsed menu.
+.nav-icon-link {
+    // Deliberately no display:flex and no vertical-align override here. The link
+    // keeps its normal text line box, the same one its lettered neighbours use,
+    // and Bootstrap Icons' own -0.125em nudge — tuned for exactly this — sits the
+    // glyph on the text's optical line. Centring the icon in a box of its own
+    // height instead makes it float free of the row.
+    i {
+        font-size: 1.15em;
+    }
+
+    @media (min-width: core.$lg) {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+}
+
+// Hover labels for the icon-only links. Native title= needs a ~1s hold before
+// the browser shows anything, long enough that people conclude there is no
+// label at all. This appears immediately, and only on the wide layout where the
+// icons stand alone.
+@media (min-width: 992px) {
+    .nav-icon-link {
+        position: relative;
+
+        &::after {
+            content: attr(data-label);
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-top: 0.15rem;
+            padding: 0.25em 0.6em;
+            border-radius: 0.25rem;
+            background-color: rgba(8, 40, 54, 0.92);
+            color: #fff;
+            font-family: core.$font-family-nav;
+            font-size: 0.72rem;
+            font-weight: 500;
+            line-height: 1.4;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 2;
+            transition: opacity 0.12s ease-in;
+        }
+
+        &:hover::after,
+        &:focus-visible::after {
+            opacity: 1;
+        }
     }
 }

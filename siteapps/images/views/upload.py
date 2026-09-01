@@ -262,6 +262,11 @@ class UploadListView(LoginRequiredMixin, ListView):
         context["num_pending"] = context["pending"].count()
         context["num_processing"] = context["processing"].count()
 
+        # Which tab opens on load. The nav-bar pending badge links here with
+        # ?tab=pending; Bootstrap will not open a tab from a URL hash alone.
+        requested_tab = self.request.GET.get("tab")
+        context["active_tab"] = requested_tab if requested_tab in ("pending", "processing", "complete") else "complete"
+
         paginator = Paginator(context["object_list"], 99)
         page_number = self.request.GET.get("page")
         context["object_list"] = paginator.get_page(page_number)

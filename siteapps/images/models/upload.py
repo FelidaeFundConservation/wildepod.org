@@ -166,6 +166,15 @@ class Upload(TimeStampedModel):
         ordering = ("-created",)
         unique_together = [["camera_station", "date_retrieved"]]
 
+        indexes = [
+            # Backs the nav-bar pending-upload badge, which runs on every page.
+            models.Index(
+                fields=["volunteer", "upload_complete"],
+                condition=Q(deleted=False),
+                name="upload_pending_by_volunteer",
+            ),
+        ]
+
         # Keep commented while testing to check effect on performance
         # indexes = [
         #     models.Index(fields=['camera_station',]),

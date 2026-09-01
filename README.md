@@ -5,8 +5,13 @@
 - [Quick Setup](#quick-setup)
   - [Setting up the environment for the first time](#setting-up-the-environment-for-the-first-time)
   - [Strictly Local: Run the Django server locally for the first time](#strictly-local-run-the-django-server-locally-for-the-first-time)
-    - [Initialize some data - hacky version (Might be outdated)](#initalize-some-data---hacky-version-might-be-outdated)
+    - [What each command does](#what-each-command-does)
+    - [Seeded logins](#seeded-logins)
+    - [Adjusting the seed data](#adjusting-the-seed-data)
+    - [Tips](#tips)
+    - [Loading real spreadsheet data (optional, may be outdated)](#loading-real-spreadsheet-data-optional-may-be-outdated)
   - [Local with Cloud: Local development environment with GCloud connectivity](#local-with-cloud-local-development-environment-with-gcloud-connectivity)
+    - [Benchmarking the detection pipeline](#benchmarking-the-detection-pipeline)
 - [Deployment Options](#deployment-options)
   - [Custom Deployment (NEW)](#custom-deployment-new)
   - [Standard Environments](#standard-environments)
@@ -60,7 +65,9 @@
 
 - **Strictly Local :** Run a bare-bones Django server locally connecting to a local database: `config.settings.local`
 
-  This lets you work with a local SQLite (or even PostgreSQL) database but will not let you access the annotation images, dropbox uploads, cloud tasks, model processing etc. This is still useful for quick testing and also experimenting in a completely sandboxed, local environment.
+  Everything runs on your machine against a local SQLite database, with no GCP access and no risk of touching real data. One command seeds sample camera stations, uploads, images and bounding boxes, so the explore pages and search screens all have something to render. This is the right choice for UI work, template and styling changes, and getting oriented in the codebase.
+
+  Not available locally: Dropbox uploads, cloud tasks, and model processing (MegaDetector / species detection). Those need the cloud environment below.
 
 - **Local with Cloud :** Run the Django server locally but connect to Wildepod cloud services: `config.settings.staging`
 
@@ -70,41 +77,72 @@
 
 ### Strictly Local: Run the Django server locally for the first time
 
-1. By default Django uses a sqlite database locally. Verify this by checking DATABASES variable in: `/config/settings/local.py`
-
-2. Make migrations
+After `uv sync`, three commands take you from a fresh clone to a working site with sample data:
 
 ```
-uv run manage.py makemigrations --settings=config.settings.local
+uv run manage.py migrate         --settings=config.settings.local
+uv run manage.py seed_local_data --settings=config.settings.local
+uv run manage.py runserver       --settings=config.settings.local
 ```
 
-(Note: This may not work since `migrations` folder is gitignored for now and Django requires the folder's existence.
-To fix that for now, simply create python packages named `migrations` in each of the app packages.
-This has to be a package so the `migrations` folder must have a `__init__.py` file or django can't see it.)
+Open http://127.0.0.1:8000 and log in as one of the seeded volunteers, for example
+`ana@wildepod.local` / `wildepod-local-dev`. Explore, search and the upload screens
+are all populated with the seeded data.
 
-3. Apply migrations
+> **Annotation pages need one more piece.** `base.py` sets `DATASTORE_CLIENT = None`
+> outside GCP, and the annotation views call into it, so **Images → Annotate Species**
+> raises `AttributeError` on a strictly-local run. The in-memory stand-in that fixes
+> this lands with the staff-review work in #548.
+
+That's the whole setup. The rest of this section explains what those commands do and how to adjust things.
+
+#### What each command does
+
+- **`migrate`** creates the SQLite database (`db.sqlite3` in the repo root) and all the tables. Migrations are committed to the repo, so you do *not* need to run `makemigrations` first — only run that when you have changed a model. Never run migrations against Staging or Prod unless you know exactly what you're doing.
+
+- **`seed_local_data`** fills the empty database with a small, realistic slice of WildePod data: a location hierarchy under Mount Tamalpais, camera stations, uploads, images with generated placeholder photos, MegaDetector-style bounding boxes, and four volunteer accounts. It refuses to run against anything other than SQLite, so it cannot be pointed at a real database by mistake.
+
+- **`runserver`** starts the site on port 8000.
+
+Optional: `uv run manage.py createsuperuser --settings=config.settings.local` if you want a Django admin account at `/admin/`.
+
+#### Seeded logins
+
+All seeded accounts use the password `wildepod-local-dev`:
+
+| Email | Role |
+| --- | --- |
+| `ana@wildepod.local` | volunteer |
+| `ben@wildepod.local` | volunteer |
+| `chris@wildepod.local` | staff |
+| `dana@wildepod.local` | expert |
+
+#### Adjusting the seed data
 
 ```
-uv run manage.py migrate --settings=config.settings.local
+# more images to page through
+uv run manage.py seed_local_data --images 100 --settings=config.settings.local
+
+# wipe the sample data and start over
+uv run manage.py seed_local_data --flush --settings=config.settings.local
 ```
 
-These two commands check and update the DB models as necessary for our Django project. The very first time you run it, it will create all the DB models. Afterwords, it will only do the required updates. Do not run this command on Staging or Prod unless you're sure of what you're doing.
+`--flush` deletes seeded images, uploads, locations and `@wildepod.local` users, then reseeds. It leaves superusers alone. To reset completely, delete `db.sqlite3` and the `media/` folder and run `migrate` and `seed_local_data` again.
 
-4. Create superuser
+#### Tips
 
-```
-uv run manage.py createsuperuser --settings=config.settings.local
-```
-
-5. Run server
+**Skip the `--settings` flag.** Export it once per shell instead of typing it on every command:
 
 ```
-uv run manage.py runserver --settings=config.settings.local
+export DJANGO_SETTINGS_MODULE=config.settings.local
+uv run manage.py runserver
 ```
 
-This should have things running on `localhost:8000` and use a local sqlite db
+**Seeded images are placeholders.** The seed generates simple synthetic frames rather than real camera-trap photos, so layout and page structure are exercisable without any cloud access. Real imagery requires the Local with Cloud setup below.
 
-#### Initalize some data - hacky version (Might be outdated)
+#### Loading real spreadsheet data (optional, may be outdated)
+
+If you specifically need the real camera inventory rather than sample data:
 
 1. Download the "active camera data" & "Camera inventory" sheets from the Slack channel
 2. Alter lines 7-10 of `scratch/load.py` file accordingly depending on where the downloaded files are saved
@@ -165,6 +203,40 @@ gcloud config set project <YOUR-PROJECT-ID>
 ```
 uv run manage.py runserver --settings=config.settings.staging
 ```
+
+#### Benchmarking the detection pipeline
+
+`benchmark_species_pipeline` times the real MegaDetector and Species Detector Cloud Run calls, so a
+latency change (e.g. moving detection off the sync request path) can be measured instead of guessed at.
+
+It needs the cloud-connected setup above plus an identity token. Fetching that token from the metadata
+server is unreliable (see [Gotchas](#gotchas)), so use the `DEBUG` workaround — and since staging
+defaults to `DEBUG=False`, opt in explicitly:
+
+```
+export DJANGO_DEBUG=True
+export ID_TOKEN="$(gcloud auth print-identity-token -q)"
+```
+
+Both are local exports for this run; deployed staging is unaffected. The token expires after about an
+hour, so re-export it if a long session starts failing auth.
+
+```
+# Time 10 random already-thumbnailed images and label the run
+uv run manage.py benchmark_species_pipeline --limit 10 --label baseline-sync --settings=config.settings.staging
+
+# After a code change, re-run against the same images to compare directly
+uv run manage.py benchmark_species_pipeline --image-ids <uuid1> <uuid2> --label after-fix --settings=config.settings.staging
+```
+
+Each run writes `benchmarks/<label>-<timestamp>.json` (gitignored). Open `scratch/benchmark_dashboard.html`
+in a browser and drop those files in for per-stage timings, plus a comparison table once you load two or
+more runs.
+
+**Use staging with disposable images.** Production settings are refused outright, because the MegaDetector
+call writes real data: `BoundingBox`/`Category` rows (reused via `get_or_create`), the `Bot`/`Annotator`
+rows if missing, and the image's `has_bbox_above_confidence_threshold` and `has_uncertain_bbox` flags.
+`--skip-species` times MegaDetector alone; the species call only reads.
 
 ---
 

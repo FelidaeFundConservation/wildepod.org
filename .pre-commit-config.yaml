@@ -132,6 +132,8 @@ repos:
     rev: v1.36.4
     hooks:
       - id: djlint-reformat-django
+        exclude: ^scratch/
       - id: djlint-django
+        exclude: ^scratch/
         args:
           - "--ignore=T002,H013,H021,H029"

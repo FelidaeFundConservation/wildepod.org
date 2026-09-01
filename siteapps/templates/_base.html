@@ -71,57 +71,6 @@
                     <div class="navbar-collapse collapse w-100" id="collapsingNavbar">
                         <ul class="navbar-nav ms-auto w-100 justify-content-end text-center">
                             {% if user.is_authenticated and user.is_active %}
-                                <li class="nav-item mx-1 {% block nav_home %}{% endblock nav_home %}">
-                                    <a class="nav-link" aria-current="page" href="{% url 'home:index' %}">Home</a>
-                                </li>
-                                <li class="nav-item dropdown mx-1 {% block nav_explore %}{% endblock nav_explore %}">
-                                    <a class="nav-link"
-                                       href="#"
-                                       id="navbarExploreDropdown"
-                                       role="button"
-                                       data-bs-toggle="dropdown"
-                                       aria-expanded="false">Explore</a>
-                                    <ul class="dropdown-menu nav-dropdown text-center text-md-start"
-                                        aria-labelledby="navbarExploreDropdown">
-                                        {% if user.is_staff %}
-                                            <li>
-                                                <a class="dropdown-item" href="{% url 'explore:data_snapshots' %}">Export Data</a>
-                                            </li>
-                                            <li>
-                                                <a class="dropdown-item" href="{% url 'explore:query_data' %}">Query Data</a>
-                                            </li>
-                                            <li>
-                                                <a class="dropdown-item" href="{% url 'images:search_images' %}">Search Images</a>
-                                            </li>
-                                        {% endif %}
-                                        <li>
-                                            <a class="dropdown-item" href="{% url 'explore:map' %}">Camera Stations</a>
-                                        </li>
-                                        <li>
-                                            <a class="dropdown-item" href="{% url 'explore:popular_images' %}">Social Media Worthy Images</a>
-                                        </li>
-                                        <li>
-                                            <a class="dropdown-item"
-                                               href="{% url 'explore:species_sighting_timeserie_list' species='Puma' %}">Species Sightings</a>
-                                        </li>
-                                        {% if not is_bhutan %}
-                                            <li>
-                                                <a class="dropdown-item" href="{% url 'explore:workflow_state' %}">Workflow State</a>
-                                            </li>
-                                        {% endif %}
-                                        {% if user.is_staff %}
-                                            <li>
-                                                <a class="dropdown-item" href="{% url 'explore:set_priority' %}">Set Priority</a>
-                                            </li>
-                                            {% if not is_bhutan %}
-                                                <li>
-                                                    <a class="dropdown-item"
-                                                    href="{% url 'explore:track_volunteer_engagement' %}">Track Volunteer Engagement</a>
-                                                </li>
-                                            {% endif %}
-                                        {% endif %}
-                                    </ul>
-                                </li>
                                 <li class="nav-item dropdown mx-1 {% block nav_tag %}{% endblock nav_tag %}">
                                     <a class="nav-link"
                                        href="#"
@@ -178,30 +127,69 @@
                                         </li>
                                     </ul>
                                 </li>
-                                <li class="nav-item mx-1">
+                                <li class="nav-item dropdown mx-1 {% block nav_explore %}{% endblock nav_explore %}">
                                     <a class="nav-link"
-                                        {% if not is_bhutan %}
-                                           href="https://docs.google.com/document/d/1IIzjK1bq3Z4NDz7gYWGa0r4fW2SKjV-kLj2aA_m56Zc/edit?usp=sharing"
-                                        {% else %}
-                                           href="https://docs.google.com/document/d/1O-YXx63zzxfNyW0Njy_rDZKHjNSIb7iWqIdJOnfiEMU/edit?tab=t.0"
+                                       href="#"
+                                       id="navbarExploreDropdown"
+                                       role="button"
+                                       data-bs-toggle="dropdown"
+                                       aria-expanded="false">Explore</a>
+                                    <ul class="dropdown-menu nav-dropdown text-center text-md-start"
+                                        aria-labelledby="navbarExploreDropdown">
+                                        {% if user.is_staff %}
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'explore:data_snapshots' %}">Export Data</a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'explore:query_data' %}">Query Data</a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'images:search_images' %}">Search Images</a>
+                                            </li>
                                         {% endif %}
-                                       target="_blank">Instructions</a>
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'explore:map' %}">Camera Stations</a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="{% url 'explore:popular_images' %}">Social Media Worthy Images</a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item"
+                                               href="{% url 'explore:species_sighting_timeserie_list' species='Puma' %}">Species Sightings</a>
+                                        </li>
+                                        {% if not is_bhutan %}
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'explore:workflow_state' %}">Workflow State</a>
+                                            </li>
+                                        {% endif %}
+                                        {% if user.is_staff %}
+                                            <li>
+                                                <a class="dropdown-item" href="{% url 'explore:set_priority' %}">Set Priority</a>
+                                            </li>
+                                            {% if not is_bhutan %}
+                                                <li>
+                                                    <a class="dropdown-item"
+                                                    href="{% url 'explore:track_volunteer_engagement' %}">Track Volunteer Engagement</a>
+                                                </li>
+                                            {% endif %}
+                                        {% endif %}
+                                    </ul>
                                 </li>
-                                {% if not is_bhutan %}
-                                    <li class="nav-item mx-1">
-                                        <a class="nav-link"
-                                        href="https://docs.google.com/document/d/11QqbthtvRm6DnAGILqiUxhMhRr-fNp2y8R1nT1IMcpo/edit?usp=sharing"
-                                        target="_blank">Feedback</a>
-                                    </li>
-                                {% endif %}
+                                <li class="nav-item mx-1 nav-group-start d-flex align-items-center justify-content-center">
+                                    <a class="btn btn-primary nav-cta"
+                                       href="{% url 'images:annotate_species' %}">Start annotating</a>
+                                </li>
                                 <li class="nav-item dropdown mx-1">
-                                    <a class="nav-link"
+                                    <a class="nav-link nav-icon-link"
                                        href="#"
                                        id="navbarSettingsDropdown"
                                        role="button"
                                        data-bs-toggle="dropdown"
+                                       data-label="Profile"
+                                       aria-label="Profile"
                                        aria-expanded="false">
                                         <i class="bi bi-person-lines-fill"></i>
+                                        <span class="d-lg-none ms-1">Profile</span>
                                     </a>
                                     <ul class="dropdown-menu nav-dropdown text-center text-md-start"
                                         aria-labelledby="navbarSettingsDropdown">
@@ -221,6 +209,32 @@
                                         </li>
                                     </ul>
                                 </li>
+                                <li class="nav-item mx-1">
+                                    <a class="nav-link nav-icon-link"
+                                        {% if not is_bhutan %}
+                                           href="https://docs.google.com/document/d/1IIzjK1bq3Z4NDz7gYWGa0r4fW2SKjV-kLj2aA_m56Zc/edit?usp=sharing"
+                                        {% else %}
+                                           href="https://docs.google.com/document/d/1O-YXx63zzxfNyW0Njy_rDZKHjNSIb7iWqIdJOnfiEMU/edit?tab=t.0"
+                                        {% endif %}
+                                       target="_blank"
+                                       data-label="Instructions"
+                                       aria-label="Instructions">
+                                        <i class="bi bi-question-circle"></i>
+                                        <span class="d-lg-none ms-1">Instructions</span>
+                                    </a>
+                                </li>
+                                {% if not is_bhutan %}
+                                    <li class="nav-item mx-1">
+                                        <a class="nav-link nav-icon-link"
+                                           href="https://docs.google.com/document/d/11QqbthtvRm6DnAGILqiUxhMhRr-fNp2y8R1nT1IMcpo/edit?usp=sharing"
+                                           target="_blank"
+                                           data-label="Feedback"
+                                           aria-label="Feedback">
+                                            <i class="bi bi-pencil-square"></i>
+                                            <span class="d-lg-none ms-1">Feedback</span>
+                                        </a>
+                                    </li>
+                                {% endif %}
                             {% else %}
                                 <li class="nav-item mx-1">
                                     <a class="nav-link" href="{% url 'account_login' %}">Sign In</a>

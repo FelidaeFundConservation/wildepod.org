@@ -11,7 +11,6 @@
     - [Tips](#tips)
     - [Loading real spreadsheet data (optional, may be outdated)](#loading-real-spreadsheet-data-optional-may-be-outdated)
   - [Local with Cloud: Local development environment with GCloud connectivity](#local-with-cloud-local-development-environment-with-gcloud-connectivity)
-    - [Benchmarking the detection pipeline](#benchmarking-the-detection-pipeline)
 - [Deployment Options](#deployment-options)
   - [Custom Deployment (NEW)](#custom-deployment-new)
   - [Standard Environments](#standard-environments)
@@ -127,7 +126,7 @@ uv run manage.py seed_local_data --images 100 --settings=config.settings.local
 uv run manage.py seed_local_data --flush --settings=config.settings.local
 ```
 
-`--flush` deletes seeded images, uploads, locations and `@wildepod.local` users, then reseeds. It leaves superusers alone. To reset completely, delete `db.sqlite3` and the `media/` folder and run `migrate` and `seed_local_data` again.
+`--flush` deletes **all** images, uploads, bounding boxes and locations in the local database -- not only ones a previous seed created -- then reseeds. If you have hand-made local test data, it goes too. Volunteer accounts are scoped to `@wildepod.local` and superusers are never touched. To reset completely, delete `db.sqlite3` and the `media/` folder and run `migrate` and `seed_local_data` again.
 
 #### Tips
 
@@ -203,40 +202,6 @@ gcloud config set project <YOUR-PROJECT-ID>
 ```
 uv run manage.py runserver --settings=config.settings.staging
 ```
-
-#### Benchmarking the detection pipeline
-
-`benchmark_species_pipeline` times the real MegaDetector and Species Detector Cloud Run calls, so a
-latency change (e.g. moving detection off the sync request path) can be measured instead of guessed at.
-
-It needs the cloud-connected setup above plus an identity token. Fetching that token from the metadata
-server is unreliable (see [Gotchas](#gotchas)), so use the `DEBUG` workaround — and since staging
-defaults to `DEBUG=False`, opt in explicitly:
-
-```
-export DJANGO_DEBUG=True
-export ID_TOKEN="$(gcloud auth print-identity-token -q)"
-```
-
-Both are local exports for this run; deployed staging is unaffected. The token expires after about an
-hour, so re-export it if a long session starts failing auth.
-
-```
-# Time 10 random already-thumbnailed images and label the run
-uv run manage.py benchmark_species_pipeline --limit 10 --label baseline-sync --settings=config.settings.staging
-
-# After a code change, re-run against the same images to compare directly
-uv run manage.py benchmark_species_pipeline --image-ids <uuid1> <uuid2> --label after-fix --settings=config.settings.staging
-```
-
-Each run writes `benchmarks/<label>-<timestamp>.json` (gitignored). Open `scratch/benchmark_dashboard.html`
-in a browser and drop those files in for per-stage timings, plus a comparison table once you load two or
-more runs.
-
-**Use staging with disposable images.** Production settings are refused outright, because the MegaDetector
-call writes real data: `BoundingBox`/`Category` rows (reused via `get_or_create`), the `Bot`/`Annotator`
-rows if missing, and the image's `has_bbox_above_confidence_threshold` and `has_uncertain_bbox` flags.
-`--skip-species` times MegaDetector alone; the species call only reads.
 
 ---
 

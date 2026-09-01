@@ -58,7 +58,11 @@ class Command(BaseCommand):
         parser.add_argument(
             "--flush",
             action="store_true",
-            help="Delete existing seeded images, uploads and locations before seeding.",
+            help=(
+                "Before seeding, delete ALL images, uploads, bounding boxes and locations "
+                "in the local database -- not just previously seeded ones. Volunteer accounts "
+                "are scoped to @wildepod.local and superusers are never touched."
+            ),
         )
 
     def handle(self, *args, **options):
@@ -98,7 +102,7 @@ class Command(BaseCommand):
     # ------------------------------------------------------------------ helpers
 
     def _flush(self):
-        self.stdout.write("Flushing existing sample data...")
+        self.stdout.write("Flushing ALL images, uploads, bounding boxes and locations from the local database...")
         BoundingBox.objects.all().delete()
         Image.objects.all().delete()
         Upload.objects.all().delete()
@@ -154,6 +158,13 @@ class Command(BaseCommand):
                 },
             )
             if created:
+                # A shared, committed password is deliberate here, and is not the pattern
+                # #534 removes. That change concerns a *superuser* password baked into
+                # local_setup.sh. These are throwaway volunteer accounts, created only on
+                # a SQLite database (handle() refuses any other backend) and holding only
+                # synthetic data. The README documents this value so a new developer can
+                # log in; randomising or env-gating it would add setup friction without
+                # protecting anything.
                 user.set_password("wildepod-local-dev")
                 user.save()
             volunteers.append(user)
@@ -231,10 +242,7 @@ class Command(BaseCommand):
                 dropbox_request_id=f"seed-req-{i}",
                 dropbox_request_url=f"https://example.invalid/request/{i}",
                 dropbox_direct_url=(
-                    f"https://www.dropbox.com/work/WildePod%20Cloud%20DB/Apps/wildepod_prod/"
-                    f"seed-{station.station_id}"
-                    if method == "D"
-                    else None
+                    f"https://example.invalid/dropbox/seed-{station.station_id}" if method == "D" else None
                 ),
             )
             uploads.append(upload)

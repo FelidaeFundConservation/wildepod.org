@@ -1,8 +1,6 @@
 # Custom ignore
 local/
 media/
-# Output of `manage.py benchmark_species_pipeline`
-benchmarks/
 staticfiles/
 siteapps/static/css/main.css.map
 .ipynb_checkpoints/

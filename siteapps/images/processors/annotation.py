@@ -235,6 +235,19 @@ def vote(obj, annotator: Annotator, accept: bool):
             obj.save()  # persist created_by reassignment
 
 
+def bbox_children(bbox_obj):
+    """
+    Every Category / Species / Activity row hanging off a bounding box, as one
+    flat list. Kept in a single place so the reject-vote propagation here and
+    the child->bbox validity cascade in views/annotation.py always agree on
+    what "this bbox's children" means — if a fourth annotation type is ever
+    added, both sides pick it up from this one edit.
+
+    Reads through prefetch_related caches when the caller set them up.
+    """
+    return list(bbox_obj.category_set.all()) + list(bbox_obj.species_set.all()) + list(bbox_obj.activity_set.all())
+
+
 def reject_children(children, annotators):
     """
     Cast a reject vote from each of `annotators` onto each object in
@@ -390,12 +403,7 @@ def handle_bbox_deletions(initial_bboxes, formatted_annotations, user, annotator
                     # edge case if `annotator` happens to be a child's own
                     # creator), and the existing cascade rule takes it from
                     # there.
-                    children = (
-                        list(bbox_obj.category_set.all())
-                        + list(bbox_obj.species_set.all())
-                        + list(bbox_obj.activity_set.all())
-                    )
-                    reject_children(children, [annotator])
+                    reject_children(bbox_children(bbox_obj), [annotator])
 
                     logging.info(f"Rejected bounding box with id {bbox_id}. Object still exists in rejected state.")
             except ObjectDoesNotExist:
@@ -434,6 +442,18 @@ def edit_bbox_coordinates(user, bbox_obj, formatted_annotations, annotator, imag
     else:
         # Original bounding box was modified significantly by the annotator. Cast a reject vote on the original.
         vote(bbox_obj, annotator, accept=False)
+
+        # Same reasoning as handle_bbox_deletions(): redrawing a box this far
+        # is a rejection of the original, and the annotator never votes on the
+        # original's Category/Species/Activity children separately — the tags
+        # they submit land on the replacement box created below. Without this,
+        # those children keep only their creator's implicit vote, sit at
+        # UNCERTAIN forever, and hold the superseded box (and so the whole
+        # image's category pipeline) UNCERTAIN no matter how many volunteers
+        # redraw it. Propagating the vote lets them resolve through the normal
+        # compute_validity() path and the child->bbox cascade.
+        reject_children(bbox_children(bbox_obj), [annotator])
+
         # Create a new bounding box
         bbox_obj = create_bbox(
             annotation_type=OBJECT_ANNOTATION_TYPE,

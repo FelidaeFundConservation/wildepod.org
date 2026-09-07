@@ -34,7 +34,7 @@ from images.views.annotation import (
     get_pil_image,
     calculateCategoryAnnotationFlags,
 )
-from images.processors.annotation import vote, handle_bbox_deletions
+from images.processors.annotation import vote, handle_bbox_deletions, edit_bbox_coordinates
 from images.models import (
     Image,
     BoundingBox,
@@ -773,3 +773,66 @@ class TestOrphanedRejectedBboxDoesNotBlockPipeline:
         assert bad_category.validity == "INVALID"
         assert bad_bbox.validity == "INVALID"
         assert image.category_pipeline_complete is True
+
+
+@pytest.mark.django_db
+class TestRedrawnBboxDoesNotOrphanItsChildren:
+    """
+    Same orphaned-child failure mode as TestOrphanedRejectedBboxDoesNotBlockPipeline,
+    but reached through edit_bbox_coordinates() instead of handle_bbox_deletions():
+    when a volunteer redraws an existing box far enough to exceed the 2% tolerance,
+    the original box is reject-voted and a replacement box is created. The original's
+    Category/Species/Activity children must receive that reject vote too — otherwise
+    they sit at UNCERTAIN forever (only their creator's implicit vote), which keeps
+    the superseded box UNCERTAIN and blocks the image's category pipeline no matter
+    how many volunteers redraw it.
+    """
+
+    def _redraw(self, bbox, user, annotator, image):
+        edit_bbox_coordinates(
+            user=user,
+            bbox_obj=bbox,
+            formatted_annotations={
+                str(bbox.id): {
+                    # far outside the 2% in-place-edit tolerance
+                    "x": 0.60,
+                    "y": 0.60,
+                    "w": 0.20,
+                    "h": 0.20,
+                    "category": "vehicle",
+                    "confidence": 1.0,
+                }
+            },
+            annotator=annotator,
+            image=image,
+        )
+
+    def test_superseded_bbox_children_receive_the_reject_vote(self, image, user):
+        image.processed = True
+        image.save()
+        creator, _ = Annotator.objects.get_or_create(type="human", human=user)
+
+        original_bbox = BoundingBox.objects.create(image=image, x=0.10, y=0.10, w=0.30, h=0.30, created_by=creator)
+        original_category = Category.objects.create(bounding_box=original_bbox, name="vehicle", created_by=creator)
+
+        # 3 volunteers each redraw the box significantly. None is the creator,
+        # none is staff/expert, so each takes the reject-and-replace path.
+        for i in range(3):
+            redrawer_user = User.objects.create_user(email=f"redrawer{i}@test.com", password="pass")
+            redrawer, _ = Annotator.objects.get_or_create(type="human", human=redrawer_user)
+            self._redraw(original_bbox, redrawer_user, redrawer, image)
+
+        original_bbox.refresh_from_db()
+        assert original_bbox.rejected_by.count() == 3
+
+        # The superseded box's child must have collected those same 3 rejects
+        # (creator weight 1 - 3 rejects = -2, the INVALID threshold).
+        original_category.refresh_from_db()
+        assert original_category.rejected_by.count() == 3
+
+        calculateCategoryAnnotationFlags(image)
+
+        original_category.refresh_from_db()
+        original_bbox.refresh_from_db()
+        assert original_category.validity == "INVALID"
+        assert original_bbox.validity == "INVALID"

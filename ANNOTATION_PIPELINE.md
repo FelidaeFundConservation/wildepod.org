@@ -44,7 +44,7 @@ def vote(obj, annotator, accept):
 
 Never touches `validity` — that's owned exclusively by the flag-calculation pass (§5). Any one-off caller (scripts, tests) must call `calculate*AnnotationFlags(image)` afterward.
 
-[`reject_children()`](https://github.com/FelidaeFundConservation/wildepod.org/blob/cb367b4042c491994501da6461fdc9f02881cad2/siteapps/images/processors/annotation.py#L238-L257) wraps `vote()` to reject-vote a list of Category/Species/Activity rows from a list of annotators, stopping on a child once it's self-deleted so it doesn't operate on a dangling pk.
+`reject_children()` wraps `vote()` to reject-vote a list of Category/Species/Activity rows from a list of annotators, stopping on a child once it's self-deleted so it doesn't operate on a dangling pk. `bbox_children()` is the one place a bbox's children get enumerated, shared by the two rejection paths (`handle_bbox_deletions()`, `edit_bbox_coordinates()`) and the validity cascade in §5, so they can't drift on what counts as a child. Both live in `processors/annotation.py` next to `vote()`.
 
 ## 4. Request flow: turning a submission into votes
 
@@ -53,12 +53,12 @@ Entry point: [`annotation_processor()`](https://github.com/FelidaeFundConservati
 ```
 handle_bbox_deletions()   bbox in initial but not in submission → delete (if creator/staff) or reject_children (§3)
 handle_bbox_additions()   bbox in submission but not in initial → create_bbox() (+ its first Category/Species/Activity)
-handle_bbox_updates()     bbox in both → edit_bbox_coordinates(), then process_species()/process_activity()
+handle_bbox_updates()     bbox in both → edit_bbox_coordinates() (redraw = reject + replace, §3), then process_species()/process_activity()
 ```
 
 - [`handle_bbox_deletions()`](https://github.com/FelidaeFundConservation/wildepod.org/blob/cb367b4042c491994501da6461fdc9f02881cad2/siteapps/images/processors/annotation.py#L361-L404)
 - [`handle_bbox_additions()`](https://github.com/FelidaeFundConservation/wildepod.org/blob/cb367b4042c491994501da6461fdc9f02881cad2/siteapps/images/processors/annotation.py#L346-L358) / [`create_bbox()`](https://github.com/FelidaeFundConservation/wildepod.org/blob/cb367b4042c491994501da6461fdc9f02881cad2/siteapps/images/processors/annotation.py#L316-L343)
-- [`edit_bbox_coordinates()`](https://github.com/FelidaeFundConservation/wildepod.org/blob/cb367b4042c491994501da6461fdc9f02881cad2/siteapps/images/processors/annotation.py#L407-L445) — small coordinate drift (<2% on all of x/y/w/h) or staff/creator → edit in place. Bigger drift from a non-creator → reject-vote the old box, spawn a brand-new one via `create_bbox()`.
+- [`edit_bbox_coordinates()`](https://github.com/FelidaeFundConservation/wildepod.org/blob/cb367b4042c491994501da6461fdc9f02881cad2/siteapps/images/processors/annotation.py#L407-L445) — small coordinate drift (<2% on all of x/y/w/h) or staff/creator → edit in place. Bigger drift from a non-creator → reject-vote the old box *and its children* (via `reject_children()`, since the annotator's tags land on the replacement instead), then spawn a brand-new box via `create_bbox()`.
 - [`handle_bbox_updates()`](https://github.com/FelidaeFundConservation/wildepod.org/blob/cb367b4042c491994501da6461fdc9f02881cad2/siteapps/images/processors/annotation.py#L448-L495)
 - [`process_species()`](https://github.com/FelidaeFundConservation/wildepod.org/blob/cb367b4042c491994501da6461fdc9f02881cad2/siteapps/images/processors/annotation.py#L609-L634) / [`process_activity()`](https://github.com/FelidaeFundConservation/wildepod.org/blob/cb367b4042c491994501da6461fdc9f02881cad2/siteapps/images/processors/annotation.py#L637-L657) — get-or-create the tag for this bbox, accept-vote it if not the caller's own, reject-vote every *other* sibling tag on the same bbox (so switching your species pick effectively demotes your old pick). `process_species` also calls [`infer_category()`](https://github.com/FelidaeFundConservation/wildepod.org/blob/cb367b4042c491994501da6461fdc9f02881cad2/siteapps/images/processors/annotation.py#L593-L606) → [`handle_inference()`](https://github.com/FelidaeFundConservation/wildepod.org/blob/cb367b4042c491994501da6461fdc9f02881cad2/siteapps/images/processors/annotation.py#L565-L589) to derive/accept the Category (person/animal/vehicle/unknown) from the species group, and reject-votes conflicting Category rows.
 

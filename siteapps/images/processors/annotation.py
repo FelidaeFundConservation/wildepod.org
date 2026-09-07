@@ -235,6 +235,28 @@ def vote(obj, annotator: Annotator, accept: bool):
             obj.save()  # persist created_by reassignment
 
 
+def reject_children(children, annotators):
+    """
+    Cast a reject vote from each of `annotators` onto each object in
+    `children` (Category / Species / Activity rows) via vote(). Mirrors
+    vote()'s normal semantics, including its edge case: if one of the
+    annotators is the child's own creator and it has no other accepts,
+    vote() deletes the child outright rather than leaving it INVALID (the
+    same as directly self-rejecting any other annotation would). Once a
+    child is deleted mid-loop (obj.delete() clears its pk), this stops
+    voting on it for the remaining annotators instead of operating on a
+    deleted row, which would raise a ValueError from the M2M manager.
+
+    `children` is taken as a plain list (not re-queried here) so callers
+    that already fetched it via prefetch_related keep that efficiency.
+    """
+    for child in children:
+        for annotator in annotators:
+            if child.pk is None:
+                break
+            vote(child, annotator, accept=False)
+
+
 def set_image_checked_by(annotation_type, image, annotator):
     """Add an annotator to the annotation checked_by"""
     # Set image to "checked" by the annotator
@@ -363,14 +385,17 @@ def handle_bbox_deletions(initial_bboxes, formatted_annotations, user, annotator
                     # would then read as "UNCERTAIN" and never resolve the bbox
                     # (or the image) at all. Casting the same reject vote on
                     # each child routes it through the normal single source of
-                    # truth (compute_validity) so it can reach INVALID on its
-                    # own, and the existing cascade rule take it from there.
-                    for child in (
+                    # truth (compute_validity), the same way any other reject
+                    # vote would (including vote()'s usual self-reject-deletes
+                    # edge case if `annotator` happens to be a child's own
+                    # creator), and the existing cascade rule takes it from
+                    # there.
+                    children = (
                         list(bbox_obj.category_set.all())
                         + list(bbox_obj.species_set.all())
                         + list(bbox_obj.activity_set.all())
-                    ):
-                        vote(child, annotator, accept=False)
+                    )
+                    reject_children(children, [annotator])
 
                     logging.info(f"Rejected bounding box with id {bbox_id}. Object still exists in rejected state.")
             except ObjectDoesNotExist:

@@ -36,7 +36,7 @@ import time
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from images.models import Image
-from images.processors.annotation import vote
+from images.processors.annotation import reject_children
 from images.views.annotation import (
     calculateActivityAnnotationFlags,
     calculateCategoryAnnotationFlags,
@@ -108,9 +108,7 @@ class Command(BaseCommand):
                             f"vote(s) onto {len(orphaned_children)} orphaned child annotation(s)"
                         )
                     if not dry_run:
-                        for child in orphaned_children:
-                            for annotator in rejecters:
-                                vote(child, annotator, accept=False)
+                        reject_children(orphaned_children, rejecters)
 
                 if image_changed:
                     touched_images += 1

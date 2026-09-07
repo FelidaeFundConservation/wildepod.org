@@ -86,6 +86,45 @@ class TestBackfillOrphanedBboxRejections:
         bad_category.refresh_from_db()
         assert bad_category.rejected_by.count() == 3  # not double-voted
 
+    def test_sweep_survives_orphaned_child_created_by_a_mid_list_rejecter(self, image, creator):
+        """
+        Regression test: if one of a bbox's several historical rejecters is
+        also the creator of an orphaned child (e.g. they tagged a species on
+        this bbox in an earlier round, then rejected the bbox itself in a
+        later round), vote()'s self-reject-with-no-accepts edge case deletes
+        that child mid-loop. Voting the *next* rejecter onto the now-deleted
+        (pk=None) object used to raise a ValueError from the M2M manager and
+        crash the whole sweep. The fix stops voting on a child once it's
+        deleted instead of continuing to the remaining rejecters.
+        """
+        image.processed = True
+        image.save()
+
+        bad_bbox = BoundingBox.objects.create(image=image, x=0.6, y=0.6, w=0.2, h=0.2, created_by=creator)
+
+        tagger_user = User.objects.create_user(email="tagger@test.com", password="pass")
+        tagger, _ = Annotator.objects.get_or_create(type="human", human=tagger_user)
+        bad_category = Category.objects.create(bounding_box=bad_bbox, name="vehicle", created_by=tagger)
+
+        rejecter0_user = User.objects.create_user(email="rejecter0@test.com", password="pass")
+        rejecter0, _ = Annotator.objects.get_or_create(type="human", human=rejecter0_user)
+        rejecter2_user = User.objects.create_user(email="rejecter2@test.com", password="pass")
+        rejecter2, _ = Annotator.objects.get_or_create(type="human", human=rejecter2_user)
+
+        # tagger (the orphaned category's own creator) rejects the bbox
+        # *between* two other rejecters -- this ordering is what triggers
+        # the crash if the child isn't deleted-and-stopped-on cleanly.
+        for rejecter in (rejecter0, tagger, rejecter2):
+            vote(bad_bbox, rejecter, accept=False)
+
+        call_command("backfill_orphaned_bbox_rejections", "--image-id", str(image.id))  # must not raise
+
+        assert not Category.objects.filter(id=bad_category.id).exists()
+        bad_bbox.refresh_from_db()
+        image.refresh_from_db()
+        assert bad_bbox.validity in (None, "UNSEEN")  # no children left -> UNSEEN
+        assert image.category_pipeline_complete is True
+
     def test_sweep_leaves_healthy_images_alone(self, image, creator):
         image.processed = True
         image.save()

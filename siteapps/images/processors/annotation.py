@@ -353,6 +353,25 @@ def handle_bbox_deletions(initial_bboxes, formatted_annotations, user, annotator
                     # vote() updates M2M only; bbox.validity is owned by
                     # calculate*AnnotationFlags which runs later in the request.
                     vote(bbox_obj, annotator, accept=False)
+
+                    # Rejecting the bbox is how a volunteer says "this box
+                    # shouldn't exist" — they don't separately vote on its
+                    # Category/Species/Activity children. Without this, a
+                    # child that nobody directly votes on sits at UNCERTAIN
+                    # forever (only its creator's implicit vote), which the
+                    # child->bbox cascade in _recompute_bbox_validity_for_image
+                    # would then read as "UNCERTAIN" and never resolve the bbox
+                    # (or the image) at all. Casting the same reject vote on
+                    # each child routes it through the normal single source of
+                    # truth (compute_validity) so it can reach INVALID on its
+                    # own, and the existing cascade rule take it from there.
+                    for child in (
+                        list(bbox_obj.category_set.all())
+                        + list(bbox_obj.species_set.all())
+                        + list(bbox_obj.activity_set.all())
+                    ):
+                        vote(child, annotator, accept=False)
+
                     logging.info(f"Rejected bounding box with id {bbox_id}. Object still exists in rejected state.")
             except ObjectDoesNotExist:
                 logging.info(f"Bounding box with id {bbox_id} doesn't exist in image {image.id}. Skipping deletion.")

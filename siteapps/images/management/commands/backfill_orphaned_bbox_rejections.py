@@ -31,6 +31,8 @@ Usage:
     python manage.py backfill_orphaned_bbox_rejections --image-id=<uuid>
 """
 
+import time
+
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from images.models import Image
@@ -49,8 +51,11 @@ class Command(BaseCommand):
         parser.add_argument("--dry-run", action="store_true", help="Report what would change without writing.")
         parser.add_argument("--batch-size", type=int, default=200, help="Images per batch. Default 200.")
         parser.add_argument("--image-id", type=str, help="Limit to a single image (for spot-checking).")
+        parser.add_argument(
+            "--verbose-bboxes", action="store_true", help="Log every fixed bbox, not just per-batch progress."
+        )
 
-    def handle(self, *args, dry_run=False, batch_size=200, image_id=None, **opts):
+    def handle(self, *args, dry_run=False, batch_size=200, image_id=None, verbose_bboxes=False, **opts):
         if image_id:
             image_ids = [image_id]
         else:
@@ -61,6 +66,8 @@ class Command(BaseCommand):
 
         fixed_bboxes = 0
         touched_images = 0
+        scanned_images = 0
+        start_time = time.monotonic()
 
         for i in range(0, len(image_ids), batch_size):
             batch_image_ids = image_ids[i : i + batch_size]
@@ -80,21 +87,26 @@ class Command(BaseCommand):
                     if not rejecters:
                         continue
 
+                    # len(child.accepted_by.all()) (not .count()) so this reads from the
+                    # prefetch cache instead of issuing a fresh query per child -- at prod
+                    # scale (hundreds of thousands of rejected bboxes) .count() here turns
+                    # into millions of extra round trips.
                     orphaned_children = [
                         child
                         for children in (bbox.category_set.all(), bbox.species_set.all(), bbox.activity_set.all())
                         for child in children
-                        if child.accepted_by.count() == 0 and child.rejected_by.count() == 0
+                        if len(child.accepted_by.all()) == 0 and len(child.rejected_by.all()) == 0
                     ]
                     if not orphaned_children:
                         continue
 
                     fixed_bboxes += 1
                     image_changed = True
-                    self.stdout.write(
-                        f"  bbox {bbox.id} (image {image.id}): propagating {len(rejecters)} reject "
-                        f"vote(s) onto {len(orphaned_children)} orphaned child annotation(s)"
-                    )
+                    if verbose_bboxes:
+                        self.stdout.write(
+                            f"  bbox {bbox.id} (image {image.id}): propagating {len(rejecters)} reject "
+                            f"vote(s) onto {len(orphaned_children)} orphaned child annotation(s)"
+                        )
                     if not dry_run:
                         for child in orphaned_children:
                             for annotator in rejecters:
@@ -108,6 +120,16 @@ class Command(BaseCommand):
                             calculateSpeciesAnnotationFlags(image)
                             calculateActivityAnnotationFlags(image)
                             image.save()
+
+            scanned_images += len(batch_image_ids)
+            elapsed = time.monotonic() - start_time
+            rate = scanned_images / elapsed if elapsed > 0 else 0
+            self.stdout.write(
+                f"  progress: {scanned_images:,}/{len(image_ids):,} images scanned "
+                f"({rate:.0f}/sec, elapsed {elapsed:.0f}s) -- "
+                f"{fixed_bboxes:,} bboxes / {touched_images:,} images fixed so far"
+            )
+            self.stdout.flush()
 
         verb = "Would touch" if dry_run else "Touched"
         self.stdout.write(

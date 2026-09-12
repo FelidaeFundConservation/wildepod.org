@@ -45,7 +45,7 @@ from images.processors import (
     process_species_annotations,
     run_model_inference,
 )
-from images.processors.annotation import SINGLE_HUMAN_RULE, _is_staff_or_expert, compute_validity
+from images.processors.annotation import SINGLE_HUMAN_RULE, _is_staff_or_expert, bbox_children, compute_validity
 from PIL import Image as PILImage
 
 # TODO: There might be some duplicate constants between here and the settings. Should probably move these to the base settings file.
@@ -1707,10 +1707,7 @@ def _recompute_bbox_validity_for_image(image):
         return
     now = timezone.now()
     for bbox in bboxes:
-        child_validities = set()
-        for collection in (bbox.category_set.all(), bbox.species_set.all(), bbox.activity_set.all()):
-            for child in collection:
-                child_validities.add(child.validity)
+        child_validities = {child.validity for child in bbox_children(bbox)}
 
         if not child_validities:
             bbox.validity = None  # UNSEEN

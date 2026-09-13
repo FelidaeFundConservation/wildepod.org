@@ -809,8 +809,9 @@ def process_annotations(
     image = Image.objects.get(id=image_id)
     logging.info("Successfully retrieved image object")
 
-    # Update the staff review flag
-    image.staff_review_needed = bool(staff_review_needed)
+    # Preserve existing staff review state.
+    # Staff review flagging is controlled by dedicated flows (e.g. auto-flagging),
+    # not by general annotation submission payloads.
 
     # Update the image reported flag
     # - None: preserve current value (not sent from frontend)

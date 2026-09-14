@@ -1,5 +1,5 @@
 default_language_version:
-  python: python3.10
+  python: python3.14
 default_stages: [pre-commit]
 exclude: ^siteapps/.*/migrations/.|^siteapps/templates/images/annotate/activity.html|^siteapps/templates/images/annotate/species.html|^siteapps/templates/images/annotate/objects.html
 
@@ -42,7 +42,7 @@ repos:
         description: "A formatter for finding and removing unused import statements."
         entry: pycln
         language: python
-        language_version: python3.10
+        language_version: python3.14
         types: [python]
         files: ^siteapps/
 

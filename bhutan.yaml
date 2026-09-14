@@ -1,7 +1,7 @@
 runtime: python310
 instance_class: F2
 labels:
-  app_name: wildepod
+  app_name: bhutan
   environment: production
 service: bhutan
 entrypoint: gunicorn -t 2400 -b :$PORT bhutan:app

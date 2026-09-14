@@ -10,17 +10,17 @@ def _read_repo_file(*parts: str) -> str:
 
 def test_predefined_app_engine_configs_include_cost_labels():
     expected_configs = {
-        "prod.yaml": "production",
-        "staging.yaml": "staging",
-        "bhutan.yaml": "production",
+        "prod.yaml": {"app_name": "wildepod", "environment": "production"},
+        "staging.yaml": {"app_name": "wildepod", "environment": "staging"},
+        "bhutan.yaml": {"app_name": "bhutan", "environment": "production"},
     }
 
-    for config_name, environment in expected_configs.items():
+    for config_name, labels in expected_configs.items():
         config = _read_repo_file(config_name)
 
         assert "labels:" in config
-        assert "  app_name: wildepod" in config
-        assert f"  environment: {environment}" in config
+        assert f"  app_name: {labels['app_name']}" in config
+        assert f"  environment: {labels['environment']}" in config
 
 
 def test_custom_deployment_config_generation_includes_cost_labels():

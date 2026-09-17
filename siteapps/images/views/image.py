@@ -11,6 +11,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.db import transaction
 from django.db.models import Q
 from django.http.response import JsonResponse
 from django.utils import timezone
@@ -309,23 +310,36 @@ class BulkImageActionView(LoginRequiredMixin, StaffuserRequiredMixin, View):
         # them: no order, so nothing to serve it by, no count in the nav, and a success
         # response to the staff member either way. An expert who had ever annotated anything
         # swallowed assignments silently.
-        queue = ImageQueue.objects.filter(assigned_to=annotator).exclude(image_order=[]).first()
+        #
+        # Locked for the whole read-modify-write. Two staff assigning to the same expert at
+        # once would otherwise both find no built queue and make one each, or both read the
+        # same image_order and have one append overwrite the other -- and .first() then serves
+        # only one of the two batches. select_for_update() is a no-op on SQLite, which is what
+        # the tests run on; the deployments that matter are Postgres.
+        with transaction.atomic():
+            queue = (
+                ImageQueue.objects.select_for_update()
+                .filter(assigned_to=annotator)
+                .exclude(image_order=[])
+                .first()
+            )
 
-        if queue is None:
-            queue = ImageQueue.objects.create(pipeline_name=SPECIES_PIPELINE_NAME, assigned_to=annotator)
+            if queue is None:
+                queue = ImageQueue.objects.create(pipeline_name=SPECIES_PIPELINE_NAME, assigned_to=annotator)
 
-        # add_images() rather than images.add(): if the expert already had a queue from their
-        # own search it carries a recorded order, and images added straight to the many to many
-        # would never be served to them.
-        queue.add_images(images)
+            # add_images() rather than images.add(): if the expert already had a queue from their
+            # own search it carries a recorded order, and images added straight to the many to many
+            # would never be served to them.
+            queue.add_images(images)
 
-        # partition excludes anything before it, and it advances as the expert works. Newly
-        # added images older than that mark would be invisible, so appending resets it. The
-        # cost is that the expert sees the whole queue from the start again; the pipeline
-        # filters drop whatever they have already annotated. Queues with a recorded order use
-        # `position` instead, which needs no reset -- appended images land after it.
-        queue.partition = datetime.min
-        queue.save()
+            # partition excludes anything before it, and it advances as the expert works.
+            # Newly added images older than that mark would be invisible, so appending resets
+            # it. The cost is that the expert sees the whole queue from the start again; the
+            # pipeline filters drop whatever they have already annotated. Queues with a
+            # recorded order use `position` instead, which needs no reset -- appended images
+            # land after it.
+            queue.partition = datetime.min
+            queue.save()
 
         return JsonResponse(
             {

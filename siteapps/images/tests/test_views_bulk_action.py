@@ -188,6 +188,26 @@ class TestBulkClearFlag:
         assert untouched.staff_review_needed is True
 
 
+    def test_an_unflagged_image_in_the_selection_is_left_alone(self, client_logged_in, upload):
+        """Clearing must not mark unflagged images as reviewed.
+
+        staff_reviewed_at is what stops the automatic skip threshold flagging an image ever
+        again. Stamping it on rows that were never flagged -- easy to do from the All filter,
+        where flagged and ordinary images sit together -- would quietly take them out of
+        automatic review for good.
+        """
+        flagged = make_flagged_image(upload, "flagged")
+        ordinary = make_flagged_image(upload, "ordinary")
+        Image.objects.filter(id=ordinary.id).update(staff_review_needed=False, flag_source="", flag_reason="")
+
+        response = post_action(client_logged_in, "clear_flag", [flagged.id, ordinary.id])
+
+        assert json.loads(response.content)["count"] == 1
+
+        ordinary.refresh_from_db()
+        assert ordinary.staff_reviewed_at is None
+
+
 @pytest.mark.django_db
 class TestBulkAssignExpert:
     def test_assigns_images_to_the_expert_queue(self, client_logged_in, upload, expert):

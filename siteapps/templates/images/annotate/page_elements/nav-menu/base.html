@@ -47,11 +47,8 @@
                         {% if image.flag_reason_display %}
                             <div class="mt-1 fw-semibold">{{ image.flag_reason_display }}</div>
                         {% endif %}
-                        {% if image.flagged_by or image.flagged_at %}
-                            <div class="text-muted">
-                                {% if image.flagged_by %}by {{ image.flagged_by }}{% endif %}
-                                {% if image.flagged_at %}on {{ image.flagged_at|date:"j M Y" }}{% endif %}
-                            </div>
+                        {% if image.flagged_at %}
+                            <div class="text-muted">on {{ image.flagged_at|date:"j M Y" }}</div>
                         {% endif %}
                     </div>
                 {% endif %}

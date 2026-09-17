@@ -326,15 +326,38 @@ The deployment script creates GitHub Actions workflows:
 
 ### Manual Workflow Setup
 
-1. **Create Service Account:**
+1. **Create Service Account and Assign IAM Roles:**
 ```bash
 gcloud iam service-accounts create github-deployer \
     --display-name="GitHub Actions Deployer"
 
+# App Engine deployment permission:
 gcloud projects add-iam-policy-binding <YOUR-PROJECT-ID> \
     --member="serviceAccount:github-deployer@<YOUR-PROJECT-ID>.iam.gserviceaccount.com" \
     --role="roles/appengine.deployer"
+
+# Cloud SQL Auth Proxy permission (required for database migrations in workflows):
+gcloud projects add-iam-policy-binding <YOUR-PROJECT-ID> \
+    --member="serviceAccount:github-deployer@<YOUR-PROJECT-ID>.iam.gserviceaccount.com" \
+    --role="roles/cloudsql.client"
+
+# Secret Manager permission (required for accessing DB credentials secret during migrations):
+gcloud projects add-iam-policy-binding <YOUR-PROJECT-ID> \
+    --member="serviceAccount:github-deployer@<YOUR-PROJECT-ID>.iam.gserviceaccount.com" \
+    --role="roles/secretmanager.secretAccessor"
+
+# Cloud Run Developer permission (required if running migrations via Cloud Run Jobs on Private IP Cloud SQL):
+gcloud projects add-iam-policy-binding <YOUR-PROJECT-ID> \
+    --member="serviceAccount:github-deployer@<YOUR-PROJECT-ID>.iam.gserviceaccount.com" \
+    --role="roles/run.developer"
+
+# Service Account User permission (allows GitHub deployer to execute Cloud Run jobs as the runtime service account):
+gcloud iam service-accounts add-iam-policy-binding <YOUR-PROJECT-ID>@appspot.gserviceaccount.com \
+    --member="serviceAccount:github-deployer@<YOUR-PROJECT-ID>.iam.gserviceaccount.com" \
+    --role="roles/iam.serviceAccountUser"
 ```
+
+> **Note on Networking & Private IP Cloud SQL:** If Public IP is disabled on your Cloud SQL instance, GitHub Actions runners (`ubuntu-latest`) cannot connect directly via Cloud SQL Auth Proxy. Instead, use a **Cloud Run Job** connected to your VPC Access Connector to run `python manage.py migrate` inside your GCP VPC network. See the detailed Cloud Run Job setup guide below.
 
 2. **Create and Download Key:**
 ```bash
@@ -403,6 +426,95 @@ gcloud app deploy <environment>.yaml
 
 # Or use deployment script
 ./deploy_gcp.sh staging --deploy-only
+```
+
+---
+
+## Private IP Cloud SQL Migration Guide (Cloud Run Jobs)
+
+When Cloud SQL is configured with **Private IP only**, GitHub Actions cannot execute `manage.py migrate` directly over the public internet. Instead, database migrations are run via a **Cloud Run Job** attached to your GCP VPC Connector.
+
+### Overview Architecture
+```
+GitHub Actions Workflow ──(gcloud run jobs execute)──> Cloud Run Job (in GCP)
+                                                             │
+                                                    [Serverless VPC Connector]
+                                                             │
+                                                             ▼
+                                                Cloud SQL Instance (Private IP 10.x.x.x)
+```
+
+### Step 1: Enable GCP APIs
+Ensure Cloud Run and Artifact Registry (or Container Registry) APIs are enabled:
+```bash
+gcloud services enable run.googleapis.com artifactregistry.googleapis.com vpcaccess.googleapis.com --project=<YOUR-PROJECT-ID>
+```
+
+### Step 2: Create Artifact Registry Repository for Migration Container Images
+```bash
+gcloud artifacts repositories create wildepod-containers \
+    --repository-format=docker \
+    --location=us-west2 \
+    --description="WildePod application container images" \
+    --project=<YOUR-PROJECT-ID>
+```
+
+### Step 3: Build & Push Container Image to Artifact Registry
+Build your application container image (which contains the Django codebase and dependencies) and push it to GCP:
+```bash
+# Configure Docker authentication
+gcloud auth configure-docker us-west2-docker.pkg.dev --quiet
+
+# Build container image
+docker build -t us-west2-docker.pkg.dev/<YOUR-PROJECT-ID>/wildepod-containers/wildepod-app:latest .
+
+# Push image
+docker push us-west2-docker.pkg.dev/<YOUR-PROJECT-ID>/wildepod-containers/wildepod-app:latest
+```
+
+### Step 4: Create the Cloud Run Job
+Create the Cloud Run Migration Job for your target environment (e.g. `prod` or `staging`), attaching it to your VPC Access Connector and Cloud SQL instance:
+
+```bash
+gcloud run jobs create migrate-prod-job \
+    --image=us-west2-docker.pkg.dev/<YOUR-PROJECT-ID>/wildepod-containers/wildepod-app:latest \
+    --command=python \
+    --args="manage.py,migrate,--settings=config.settings.prod" \
+    --region=us-west2 \
+    --vpc-connector=simple \
+    --set-cloudsql-instances=<YOUR-PROJECT-ID>:us-west2:<YOUR-DB-INSTANCE> \
+    --set-env-vars="GOOGLE_CLOUD_PROJECT=<YOUR-PROJECT-ID>,SETTINGS_NAME=django_settings" \
+    --project=<YOUR-PROJECT-ID>
+```
+
+### Step 5: Update GitHub Actions Workflow
+In `.github/workflows/deploy-prod.yml`, replace the Cloud SQL Auth Proxy migration steps in the `migrate` job with a direct Cloud Run Job invocation:
+
+```yaml
+  migrate:
+    name: Run Migrations (${{ inputs.environment }})${{ inputs.dryrun && ' (dry run)' || '' }}
+    needs: deploy
+    if: ${{ inputs.run_migrations && !inputs.dryrun }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Execute Cloud Run Migration Job
+        run: |
+          JOB_NAME="migrate-${{ inputs.environment }}-job"
+          echo "Triggering Cloud Run Migration Job: ${JOB_NAME}"
+          gcloud run jobs execute "${JOB_NAME}" \
+            --region=${{ env.GCP_REGION }} \
+            --project=${{ env.GCP_PROJECT_ID }} \
+            --wait
 ```
 
 ### Scale Resources

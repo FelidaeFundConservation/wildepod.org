@@ -80,7 +80,7 @@ def make_image(upload, name, *, flagged=False, reported=False):
     )
 
     if flagged:
-        image.flag_for_staff_review(source=StaffReviewFlagSource.MANUAL, reason="species_id")
+        image.flag_for_staff_review(source=StaffReviewFlagSource.MANUAL)
 
     return image
 

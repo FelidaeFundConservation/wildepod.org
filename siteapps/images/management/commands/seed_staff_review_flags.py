@@ -6,8 +6,9 @@
 """Seeds local images with a spread of staff-review / reported / social flags.
 
 Local development only. Gives the Search Images "Flags" column something to render:
-every flag reason, auto-flags, reported images, social votes, and plain images to
-contrast against. Re-running resets all flags first, so it is safe to repeat.
+automatic flags, flags with no recorded source (as production rows flagged before
+provenance existed look), reported images, social votes, and plain images to contrast
+against. Re-running resets all flags first, so it is safe to repeat.
 
     python manage.py seed_staff_review_flags
 """
@@ -17,19 +18,17 @@ import random
 
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
-from images.models import Annotator, BoundingBox, Image, StaffReviewFlagReason, StaffReviewFlagSource, Upload
+from images.models import Annotator, BoundingBox, Image, StaffReviewFlagSource, Upload
 
 TARGET_IMAGE_COUNT = 40
 THUMBNAIL_COUNT = 40
 
-# (reason, how many). None means an automatic flag, which carries no reason.
+# (flag source, how many). "" is how rows flagged before provenance existed look, and the
+# review queue still has to tell them apart from the automatic ones.
 FLAG_SPREAD = [
-    (StaffReviewFlagReason.SPECIES_ID, 8),
-    (StaffReviewFlagReason.BBOX_PROTOCOL, 5),
-    (StaffReviewFlagReason.OTHER, 2),
-    (None, 5),
+    (StaffReviewFlagSource.AUTO_SKIPS, 10),
+    ("", 5),
 ]
-OTHER_DETAILS = ["Two cameras triggered at once", "Timestamp looks wrong"]
 
 
 class Command(BaseCommand):
@@ -49,7 +48,7 @@ class Command(BaseCommand):
         # Reset through the model's own definition of "not flagged", so a re-run cannot leave
         # the per-pipeline review flags set while the global one says the image is clear.
         Image.objects.update(**Image.CLEARED_STAFF_REVIEW_FIELDS)
-        Image.objects.update(flagged_by=None, flagged_at=None, image_reported=False, social_media_worthy=0)
+        Image.objects.update(flagged_at=None, image_reported=False, social_media_worthy=0)
 
         volunteers = list(Annotator.objects.filter(type="human", human__is_staff=False))
         cursor = self._apply_flags(images, volunteers, rng)
@@ -126,20 +125,10 @@ class Command(BaseCommand):
     def _apply_flags(self, images, volunteers, rng):
         """Flags a slice of images per FLAG_SPREAD. Returns the index it stopped at."""
         cursor = 0
-        details = iter(OTHER_DETAILS * 5)
 
-        for reason, count in FLAG_SPREAD:
+        for source, count in FLAG_SPREAD:
             for image in images[cursor : cursor + count]:
-                if reason is None:
-                    image.flag_for_staff_review(source=StaffReviewFlagSource.AUTO_SKIPS)
-                    continue
-
-                image.flag_for_staff_review(
-                    source=StaffReviewFlagSource.MANUAL,
-                    annotator=rng.choice(volunteers) if volunteers else None,
-                    reason=reason,
-                    reason_detail=next(details) if reason == StaffReviewFlagReason.OTHER else "",
-                )
+                image.flag_for_staff_review(source=source)
             cursor += count
 
         return cursor

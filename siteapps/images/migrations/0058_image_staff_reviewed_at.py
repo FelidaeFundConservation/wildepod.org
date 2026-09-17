@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("images", "0057_image_flag_reason_image_flag_reason_detail_and_more"),
+        ("images", "0057_image_flag_source_image_flagged_at"),
     ]
 
     operations = [

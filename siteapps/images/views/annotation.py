@@ -37,7 +37,6 @@ from images.models import (
     Species,
     SpeciesName,
     SpeciesSubgroup,
-    StaffReviewFlagReason,
     StaffReviewFlagSource,
 )
 from images.models.custom_fields import get_filter_params
@@ -48,7 +47,7 @@ from images.processors import (
     process_species_annotations,
     run_model_inference,
 )
-from images.processors.annotation import SINGLE_HUMAN_RULE, _is_staff_or_expert, compute_validity
+from images.processors.annotation import SINGLE_HUMAN_RULE, _is_staff_or_expert, bbox_children, compute_validity
 from PIL import Image as PILImage
 
 # TODO: There might be some duplicate constants between here and the settings. Should probably move these to the base settings file.
@@ -1185,8 +1184,6 @@ def populate_view_context(
     context["custom_annotations"] = custom_annotations
     context["staff_review"] = staff_review
     context["reported_images"] = reported_images
-    # Options for the required "Reason" select shown when an annotator flags for staff review
-    context["staff_review_flag_reasons"] = StaffReviewFlagReason.choices
 
     if SPECIES_QUEUE_NAME in queue_name:
         context["pipeline"] = "species"
@@ -1275,7 +1272,8 @@ def auto_flag_for_staff(image):
     if not exhausted:
         return False
 
-    # Do not overwrite a deliberate annotator flag (and its reason) with the automatic one
+    # Do not overwrite a flag an annotator asked for with the automatic one. Nothing sets
+    # MANUAL now that the checkbox is disabled, but flags recorded while it was live remain.
     if image.staff_review_needed and image.flag_source == StaffReviewFlagSource.MANUAL:
         return True
 
@@ -1372,13 +1370,11 @@ def set_view_filterset(self, staff_review=False, reported_images=False):
     end_date = self.request.GET.get("end_date")
     camera_id = None if self.request.GET.get("camera_id") == "None" else self.request.GET.get("camera_id")
     macrosite_name = self.request.GET.get("macrosite_name")
-    # Lets a reviewer work a staff review queue narrowed to one reason,
-    # e.g. /annotate/species/staff_review?flag_reason=bbox_protocol
-    flag_reason = self.request.GET.get("flag_reason")
-    # The routine queue is deliberate flags only. Auto-flagged images still leave the volunteer
-    # pool, but they are swept in bulk from Search Images rather than interrupting review work.
-    # Pass ?flag_source=auto_skips to work them here instead, or anything else for both.
-    flag_source = self.request.GET.get("flag_source", StaffReviewFlagSource.MANUAL)
+    # Every flagged image by default. Narrowing to deliberate flags was right while annotators
+    # could raise them; with the checkbox disabled the automatic threshold is what fills this
+    # queue, so defaulting to MANUAL would leave staff looking at an almost empty page.
+    # Pass ?flag_source=auto_skips or ?flag_source=manual to work one kind at a time.
+    flag_source = self.request.GET.get("flag_source")
 
     self.filterset = get_filter_params(
         start_date,
@@ -1387,7 +1383,6 @@ def set_view_filterset(self, staff_review=False, reported_images=False):
         camera_id,
         staff_review_needed=staff_review,
         image_reported=reported_images,
-        flag_reason=flag_reason,
         flag_source=flag_source,
     )
 
@@ -1509,28 +1504,8 @@ def annotation_processor(queue_name, annotation_type, request):
     # Apply the social media worthy vote
     social_media_worthy_vote = int(request.POST.get("social_media_worthy_vote"))
 
-    # Check if the image was tagged as needing staff review.
-    # Return None if not sent, True/False if explicitly sent, so that a submit path without the
-    # checkbox preserves the existing flag instead of silently clearing it.
-    staff_review_needed_raw = request.POST.get("staff_review_needed")
-    if staff_review_needed_raw is None:
-        staff_review_needed = None  # Not sent - preserve current value
-    else:
-        staff_review_needed = staff_review_needed_raw == "true"
-
-    # A deliberate flag must say why. Reject rather than silently record a reasonless flag.
-    staff_review_reason = request.POST.get("staff_review_reason", "")
-    staff_review_reason_detail = request.POST.get("staff_review_reason_detail", "")
-
-    if staff_review_needed and staff_review_reason not in StaffReviewFlagReason.values:
-        logging.warning(
-            f"Rejected staff review flag for image '{image_id}' from user '{request.user.name}': "
-            f"invalid or missing reason '{staff_review_reason}'"
-        )
-        return JsonResponse(
-            {"success": False, "error": "A reason is required when flagging an image for staff review."},
-            status=400,
-        )
+    # Check if the image was tagged as needing staff review
+    staff_review_needed = request.POST.get("staff_review_needed") == "true"
 
     # Check if the image was reported
     # Return None if not sent, True/False if explicitly sent
@@ -1563,8 +1538,6 @@ def annotation_processor(queue_name, annotation_type, request):
             user=request.user,
             social_media_worthy_vote=social_media_worthy_vote,
             staff_review_needed=staff_review_needed,
-            staff_review_reason=staff_review_reason,
-            staff_review_reason_detail=staff_review_reason_detail,
             image_reported=image_reported,
             batch_tag_images=batch_tag_images,
             skip=skip,
@@ -1579,8 +1552,6 @@ def annotation_processor(queue_name, annotation_type, request):
             user=request.user,
             social_media_worthy_vote=social_media_worthy_vote,
             staff_review_needed=staff_review_needed,
-            staff_review_reason=staff_review_reason,
-            staff_review_reason_detail=staff_review_reason_detail,
             image_reported=image_reported,
             batch_tag_images=batch_tag_images,
             skip=skip,
@@ -1595,8 +1566,6 @@ def annotation_processor(queue_name, annotation_type, request):
             user=request.user,
             social_media_worthy_vote=social_media_worthy_vote,
             staff_review_needed=staff_review_needed,
-            staff_review_reason=staff_review_reason,
-            staff_review_reason_detail=staff_review_reason_detail,
             image_reported=image_reported,
             batch_tag_images=batch_tag_images,
             skip=skip,
@@ -1651,9 +1620,12 @@ def annotation_processor(queue_name, annotation_type, request):
             annotator, created = Annotator.objects.get_or_create(type="human", human=request.user)
 
             # Staff saving annotations counts as having reviewed the image, so the flag is
-            # cleared. Only do this when they did not deliberately (re)flag it in this same
-            # submission -- otherwise we would throw away the flag they just asked for.
-            if annotator.human.is_staff and not staff_review_needed:
+            # cleared -- through the helper, so the provenance fields go with it.
+            #
+            # Experts too: bulk assignment hands flagged work to them and they are not staff,
+            # so without this an expert does the review and the image stays in the queue for
+            # ever, waiting for someone who has already dealt with it.
+            if annotator.human.is_staff or annotator.human.is_expert:
                 logging.info(f"Image {image.id} checked by staff. Resetting review flag.")
                 image.clear_staff_review_flag()
 
@@ -1860,10 +1832,7 @@ def _recompute_bbox_validity_for_image(image):
         return
     now = timezone.now()
     for bbox in bboxes:
-        child_validities = set()
-        for collection in (bbox.category_set.all(), bbox.species_set.all(), bbox.activity_set.all()):
-            for child in collection:
-                child_validities.add(child.validity)
+        child_validities = {child.validity for child in bbox_children(bbox)}
 
         if not child_validities:
             bbox.validity = None  # UNSEEN

@@ -28,20 +28,6 @@ class StaffReviewFlagSource(models.TextChoices):
     AUTO_SKIPS = "auto_skips", "Auto-flagged"
 
 
-class StaffReviewFlagReason(models.TextChoices):
-    """Why an annotator asked for staff review.
-
-    Required whenever an annotator flags an image, so the review queue can be triaged and
-    so deliberate flags can be told apart from auto-flagged noise.
-    """
-
-    # Named for the work that is needed rather than how unsure the annotator feels. "I cannot
-    # tell what this is" is a Skip, not a flag, so it deliberately has no option here.
-    SPECIES_ID = "species_id", "Species ID needs review"
-    BBOX_PROTOCOL = "bbox_protocol", "Bounding box protocol needs review"
-    OTHER = "other", "Other"
-
-
 # Bounding Box manager. For now, this simply returns "valid" bounding boxes as determined
 # by the accept/reject ratio
 class ImageManager(models.Manager):
@@ -168,22 +154,6 @@ class Image(TimeStampedModel):
         default="",
         help_text="Whether this image was flagged deliberately by an annotator or automatically.",
     )
-    flag_reason = models.CharField(
-        max_length=32,
-        choices=StaffReviewFlagReason.choices,
-        blank=True,
-        default="",
-        help_text="Why the annotator flagged this image for staff review.",
-    )
-    # Free text, only used alongside StaffReviewFlagReason.OTHER
-    flag_reason_detail = models.CharField(max_length=250, blank=True, default="")
-    flagged_by = models.ForeignKey(
-        Annotator,
-        on_delete=models.SET_NULL,
-        related_name="flagged_images",
-        null=True,
-        blank=True,
-    )
     flagged_at = models.DateTimeField(null=True, blank=True)
     # When staff last dealt with this image, by annotating it or clearing the flag in bulk.
     # The skip counters never reset, so once an image is past the automatic threshold every
@@ -225,9 +195,7 @@ class Image(TimeStampedModel):
     def __str__(self):
         return self.dropbox_file_name
 
-    def flag_for_staff_review(
-        self, source, annotator=None, reason="", reason_detail="", pipelines=None, save=True
-    ):
+    def flag_for_staff_review(self, source, pipelines=None, save=True):
         """Flags this image for staff review, recording where the flag came from.
 
         Use this rather than assigning ``staff_review_needed`` directly so provenance and
@@ -235,11 +203,8 @@ class Image(TimeStampedModel):
 
         Arguments
         ---
-            - source (StaffReviewFlagSource): MANUAL for a deliberate annotator flag,
-              AUTO_SKIPS when the skip threshold tripped.
-            - annotator (Annotator | None): Who flagged it. None for automatic flags.
-            - reason (str): A StaffReviewFlagReason value. Required for MANUAL flags.
-            - reason_detail (str): Free text, only meaningful with reason OTHER.
+            - source (StaffReviewFlagSource): AUTO_SKIPS when the skip threshold tripped.
+              MANUAL is kept for flags recorded before the annotator checkbox was disabled.
             - pipelines (iterable[str] | None): Which pipelines the review applies to. None
               means all of them, which is right for a deliberate flag -- the annotator is
               asking staff to look at the image, not at one pipeline's worth of it. The
@@ -252,9 +217,6 @@ class Image(TimeStampedModel):
             setattr(self, f"{pipeline}_review_needed", True)
 
         self.flag_source = source
-        self.flag_reason = reason or ""
-        self.flag_reason_detail = reason_detail or ""
-        self.flagged_by = annotator
         self.flagged_at = timezone.now()
 
         if save:
@@ -301,9 +263,6 @@ class Image(TimeStampedModel):
         "species_review_needed": False,
         "activity_review_needed": False,
         "flag_source": "",
-        "flag_reason": "",
-        "flag_reason_detail": "",
-        "flagged_by": None,
         "flagged_at": None,
     }
 
@@ -327,25 +286,14 @@ class Image(TimeStampedModel):
 
     @property
     def flag_reason_display(self):
-        """Human readable flag reason for the staff review queue, or "" if unflagged."""
+        """Human readable flag description for the staff review queue, or "" if unflagged."""
         if not self.staff_review_needed:
             return ""
 
         if self.flag_source == StaffReviewFlagSource.AUTO_SKIPS:
             return StaffReviewFlagSource.AUTO_SKIPS.label
 
-        if self.flag_reason == StaffReviewFlagReason.OTHER and self.flag_reason_detail:
-            return f"{StaffReviewFlagReason.OTHER.label}: {self.flag_reason_detail}"
-
-        if self.flag_reason:
-            try:
-                return StaffReviewFlagReason(self.flag_reason).label
-            except ValueError:
-                # A reason that has since been retired from the taxonomy. Show it rather than
-                # raising, so old rows never take down the page they appear on.
-                return self.flag_reason.replace("_", " ").capitalize()
-
-        # Flagged before this field existed, or flagged without a reason
+        # Flagged before provenance was recorded, i.e. before this field existed
         return "Reason not recorded"
 
     @staticmethod

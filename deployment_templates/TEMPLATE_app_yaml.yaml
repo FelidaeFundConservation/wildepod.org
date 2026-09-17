@@ -21,6 +21,11 @@ runtime: python310
 # F4_1G = 1024MB RAM, 2.4GHz CPU
 instance_class: F1
 
+# Billing labels
+labels:
+  app_name: wildepod
+  environment: development
+
 # Service name (each custom deployment is a separate service)
 # This will appear as: https://<env-name>-dot-<project-id>.appspot.com
 service: <env-name>

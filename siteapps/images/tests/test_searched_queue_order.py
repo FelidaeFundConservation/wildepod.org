@@ -131,6 +131,30 @@ class TestABuiltQueueSurvivesOrdinaryAnnotation:
 
         assert served == queue
 
+    def test_ordinary_annotation_is_not_served_the_assigned_batch(self, db, upload, annotator):
+        """A built queue holding annotatable images is still not ordinary work.
+
+        The flagged case above is caught by the pool filters by accident. Staff can assign
+        anything, so a batch of perfectly annotatable images passes those filters and was
+        handed out through Classify -> Category & Species, spending the assignment before the
+        expert ever opened their own link.
+        """
+        images = [make_image(upload, f"assignable_{index}", days_old=index + 1) for index in range(3)]
+        # What the volunteer pool filters ask for, so the queue reads as having work in it
+        Image.objects.filter(id__in=[image.id for image in images]).update(
+            has_bbox_above_confidence_threshold=True
+        )
+        built = ImageQueue.objects.create(
+            pipeline_name="Species",
+            assigned_to=annotator,
+            image_order=[str(image.id) for image in images],
+        )
+        built.images.add(*images)
+
+        served = get_precomputed_queue(queue_name=SPECIES_QUEUE_NAME, annotator=annotator, searched=False)
+
+        assert served != built
+
     def test_an_automatic_queue_is_still_reclaimed(self, db, upload, annotator):
         """The sweep is exempting built queues, not switching itself off -- a precomputed queue
         with nothing left in it for this annotator still has to be released."""

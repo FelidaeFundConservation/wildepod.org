@@ -160,6 +160,7 @@
                                     <input type="checkbox"
                                            id="select-all"
                                            class="form-check-input"
+                                           aria-label="Select everything the current filter is showing"
                                            title="Select everything the current filter is showing">
                                 </th>
                                 <!-- Ordered for triage: what the image is, then why it needs
@@ -1090,7 +1091,10 @@
                 var newRow = [
                     // data-select-id rather than data-image-id: the latter is bound to the
                     // visited-image highlight, which would fire on every tick.
-                    `<input type="checkbox" class="form-check-input row-select" data-select-id="${imageId}">`,
+                    // aria-label carries the image id rather than the filename: escapeHtml() renders
+                    // text, so it leaves double quotes alone, and a filename holding one would
+                    // close this attribute. Ids are uuids.
+                    `<input type="checkbox" class="form-check-input row-select" data-select-id="${imageId}" aria-label="Select image ${imageId}">`,
                     // The shortcut sits under the thumbnail, where the eye already is. It is
                     // outside the anchor on purpose: the anchor opens this one image in a new
                     // tab, while the button starts a queue from here, and a click landing on

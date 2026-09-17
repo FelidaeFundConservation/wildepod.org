@@ -860,9 +860,14 @@ def get_precomputed_queue(queue_name, annotator, searched):
     if searched:
         return precomputed_queue.first()
     else:
+        # Automatically precomputed queues only, for the same reason the searched branch takes
+        # only the built ones: without image_order=[] here, ordinary annotation serves whatever
+        # .first() returns, and an expert holding a batch staff assigned to them has it handed
+        # out as ordinary volunteer work.
         precomputed_queue = ImageQueue.objects.annotate(has_eligible_image=queue_condition).filter(
             assigned_to=annotator,
             has_eligible_image=True,
+            image_order=[],
         )
 
     precomputed_queue = precomputed_queue.first()

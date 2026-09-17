@@ -243,13 +243,13 @@ class UploadListView(LoginRequiredMixin, ListView):
         filter_uploads(context, self)
 
         if self.request.user.is_staff or self.request.user.is_superuser:
-            context["pending"] = Upload.objects.filter(upload_complete=False).order_by("-created")
+            context["pending"] = Upload.objects.filter(upload_complete=False, deleted=False).order_by("-created")
             context["processing"] = Upload.objects.filter(upload_complete=True, processed=False).order_by("-created")
 
         else:
-            context["pending"] = Upload.objects.filter(upload_complete=False, volunteer=self.request.user).order_by(
-                "-created"
-            )
+            context["pending"] = Upload.objects.filter(
+                upload_complete=False, deleted=False, volunteer=self.request.user
+            ).order_by("-created")
             context["processing"] = Upload.objects.filter(
                 upload_complete=True, processed=False, volunteer=self.request.user
             ).order_by("-created")

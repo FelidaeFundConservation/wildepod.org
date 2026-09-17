@@ -583,7 +583,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.14'
       
       - name: Install dependencies
         run: |
@@ -816,4 +816,3 @@ main() {
 
 # Run main function
 main
-

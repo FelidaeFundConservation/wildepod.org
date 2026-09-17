@@ -339,19 +339,29 @@ class UploadStatusView(LoginRequiredMixin, View):
         upload_statuses = {}
         for upload_id in upload_ids:
             try:
-                upload = Upload.objects.get(id=upload_id)
-                total_images = get_dropbox_item_count(upload_id)
-                processed_images = upload.images.filter(processed=True).count()
+                upload = Upload.objects.select_related("camera_station__micro_site__macro_site").get(id=upload_id)
+                total_images = upload.img_count
+                transient_total_images = get_dropbox_item_count(upload_id)
+                if isinstance(transient_total_images, int):
+                    total_images = max(total_images, transient_total_images)
                 upload_statuses[upload_id] = {
                     "valid": True,
                     "total_images": total_images,
-                    "processed_images": processed_images,
+                    "processed_images": upload.processed_img_count,
+                    "camera_station_total_images": upload.camera_station.total_img_count,
+                    "camera_station_processed_images": upload.camera_station.processed_img_count,
+                    "macro_site_total_images": upload.camera_station.micro_site.macro_site.total_img_count,
+                    "macro_site_processed_images": upload.camera_station.micro_site.macro_site.processed_img_count,
                 }
             except ObjectDoesNotExist:
                 upload_statuses[upload_id] = {
                     "valid": False,
                     "total_images": 0,
                     "processed_images": 0,
+                    "camera_station_total_images": 0,
+                    "camera_station_processed_images": 0,
+                    "macro_site_total_images": 0,
+                    "macro_site_processed_images": 0,
                 }
         return JsonResponse({"success": True, "upload_statuses": upload_statuses})
 

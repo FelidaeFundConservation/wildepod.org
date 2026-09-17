@@ -50,7 +50,14 @@ class TestImageSignals:
         """Test that creating an Image increments Upload.img_count."""
         # Initial count should be 0
         upload.refresh_from_db()
+        upload.camera_station.refresh_from_db()
+        upload.camera_station.micro_site.macro_site.refresh_from_db()
         assert upload.img_count == 0
+        assert upload.processed_img_count == 0
+        assert upload.camera_station.total_img_count == 0
+        assert upload.camera_station.processed_img_count == 0
+        assert upload.camera_station.micro_site.macro_site.total_img_count == 0
+        assert upload.camera_station.micro_site.macro_site.processed_img_count == 0
         
         # Create first image
         Image.objects.create(
@@ -64,7 +71,14 @@ class TestImageSignals:
         )
         
         upload.refresh_from_db()
+        upload.camera_station.refresh_from_db()
+        upload.camera_station.micro_site.macro_site.refresh_from_db()
         assert upload.img_count == 1
+        assert upload.processed_img_count == 0
+        assert upload.camera_station.total_img_count == 1
+        assert upload.camera_station.processed_img_count == 0
+        assert upload.camera_station.micro_site.macro_site.total_img_count == 1
+        assert upload.camera_station.micro_site.macro_site.processed_img_count == 0
         
         # Create second image
         Image.objects.create(
@@ -78,7 +92,12 @@ class TestImageSignals:
         )
         
         upload.refresh_from_db()
+        upload.camera_station.refresh_from_db()
+        upload.camera_station.micro_site.macro_site.refresh_from_db()
         assert upload.img_count == 2
+        assert upload.processed_img_count == 0
+        assert upload.camera_station.total_img_count == 2
+        assert upload.camera_station.micro_site.macro_site.total_img_count == 2
 
     def test_image_deletion_decrements_upload_img_count(self, upload):
         """Test that deleting an Image decrements Upload.img_count."""
@@ -112,22 +131,60 @@ class TestImageSignals:
         )
         
         upload.refresh_from_db()
+        upload.camera_station.refresh_from_db()
+        upload.camera_station.micro_site.macro_site.refresh_from_db()
         assert upload.img_count == 3
+        assert upload.camera_station.total_img_count == 3
+        assert upload.camera_station.micro_site.macro_site.total_img_count == 3
         
         # Delete one image
         img1.delete()
         upload.refresh_from_db()
+        upload.camera_station.refresh_from_db()
+        upload.camera_station.micro_site.macro_site.refresh_from_db()
         assert upload.img_count == 2
+        assert upload.camera_station.total_img_count == 2
+        assert upload.camera_station.micro_site.macro_site.total_img_count == 2
         
         # Delete another image
         img2.delete()
         upload.refresh_from_db()
+        upload.camera_station.refresh_from_db()
+        upload.camera_station.micro_site.macro_site.refresh_from_db()
         assert upload.img_count == 1
+        assert upload.camera_station.total_img_count == 1
+        assert upload.camera_station.micro_site.macro_site.total_img_count == 1
         
         # Delete last image
         img3.delete()
         upload.refresh_from_db()
+        upload.camera_station.refresh_from_db()
+        upload.camera_station.micro_site.macro_site.refresh_from_db()
         assert upload.img_count == 0
+        assert upload.camera_station.total_img_count == 0
+        assert upload.camera_station.micro_site.macro_site.total_img_count == 0
+
+    def test_processed_updates_increment_cached_processed_counts(self, upload):
+        image = Image.objects.create(
+            upload=upload,
+            dropbox_file_name="IMG_001.JPG",
+            dropbox_file_path="/test/IMG_001.JPG",
+            dropbox_file_path_display="/test/IMG_001.JPG",
+            dropbox_content_hash="ppp111" * 10,
+            dropbox_file_id="id:ppp111",
+            file_size=2048000,
+        )
+
+        image.processed = True
+        image.save()
+
+        upload.refresh_from_db()
+        upload.camera_station.refresh_from_db()
+        upload.camera_station.micro_site.macro_site.refresh_from_db()
+
+        assert upload.processed_img_count == 1
+        assert upload.camera_station.processed_img_count == 1
+        assert upload.camera_station.micro_site.macro_site.processed_img_count == 1
 
     def test_upload_deleted_flag_syncs_to_images(self, upload):
         """Test that Upload.deleted flag syncs to related Images."""

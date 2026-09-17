@@ -16,7 +16,6 @@ from images.models import (
     BoundingBox,
     CameraStationAction,
     Image,
-    StaffReviewFlagReason,
     StaffReviewFlagSource,
     Upload,
 )
@@ -24,7 +23,6 @@ from images.views.search_images import (
     REVIEW_SESSION_GAP,
     SearchImagesForm,
     SearchImagesView,
-    flagged_by_display,
     review_session_anchor,
 )
 from locations.models import Area, CameraStation, County, MacroSite, MicroSite
@@ -703,50 +701,6 @@ class TestSearchImagesView:
 
 
 @pytest.mark.django_db
-class TestFlaggedByDisplay:
-    """The Flagged by column's server-side name assembly."""
-
-    def test_human_annotator_uses_name(self):
-        row = {
-            "flagged_by__type": "human",
-            "flagged_by__human__name": "Ada Lovelace",
-            "flagged_by__human__email": "ada@example.com",
-            "flagged_by__bot__name": None,
-        }
-        assert flagged_by_display(row) == "Ada Lovelace"
-
-    def test_human_annotator_falls_back_to_email(self):
-        """User.name is optional, so a blank one must not render an empty cell."""
-        row = {
-            "flagged_by__type": "human",
-            "flagged_by__human__name": "",
-            "flagged_by__human__email": "ada@example.com",
-            "flagged_by__bot__name": None,
-        }
-        assert flagged_by_display(row) == "ada@example.com"
-
-    def test_bot_annotator_uses_bot_name(self):
-        row = {
-            "flagged_by__type": "bot",
-            "flagged_by__human__name": None,
-            "flagged_by__human__email": None,
-            "flagged_by__bot__name": "MegaDetector",
-        }
-        assert flagged_by_display(row) == "MegaDetector"
-
-    def test_unflagged_image_is_blank_not_none(self):
-        """Auto-flagged and unflagged images have no annotator. The template joins this
-        straight into a cell, so it must be a string rather than None."""
-        row = {
-            "flagged_by__type": None,
-            "flagged_by__human__name": None,
-            "flagged_by__human__email": None,
-            "flagged_by__bot__name": None,
-        }
-        assert flagged_by_display(row) == ""
-
-
-@pytest.mark.django_db
 class TestReviewSessionAnchor:
     """The NEW badge cutoff, and when a review session rolls over."""
 
@@ -816,7 +770,6 @@ class TestSearchResultsNewBadge:
             thumbnail_gcloud_path=f"test/{name}_thumb.jpg",
             staff_review_needed=True,
             flag_source=StaffReviewFlagSource.MANUAL,
-            flag_reason=StaffReviewFlagReason.SPECIES_ID,
             flagged_at=flagged_at,
         )
 
@@ -928,38 +881,19 @@ class TestSearchResultsFlaggedBy:
             **kwargs,
         )
 
-    def test_manual_flag_returns_flagger_name(self, client_logged_in, upload):
-        volunteer = User.objects.create_user(
-            email="volunteer@example.com", password="testpass123", name="Grace Hopper"
-        )
-        annotator = Annotator.objects.create(type="human", human=volunteer)
-        self._flagged_image(
-            upload,
-            "manual_flag",
-            flag_source=StaffReviewFlagSource.MANUAL,
-            flag_reason=StaffReviewFlagReason.SPECIES_ID,
-            flagged_by=annotator,
-        )
-
-        results = self._search_flagged(client_logged_in)
-
-        assert len(results) == 1
-        assert results[0]["flagged_by_name"] == "Grace Hopper"
-
-    def test_auto_flag_returns_blank_flagger(self, client_logged_in, upload):
-        """Auto-flagged images have no one to attribute the flag to."""
+    def test_auto_flag_is_labelled(self, client_logged_in, upload):
         self._flagged_image(upload, "auto_flag", flag_source=StaffReviewFlagSource.AUTO_SKIPS)
 
         results = self._search_flagged(client_logged_in)
 
         assert len(results) == 1
-        assert results[0]["flagged_by_name"] == ""
+        assert results[0]["flag_label"] == "Auto-flagged"
 
-    def test_legacy_flag_without_provenance_returns_blank(self, client_logged_in, upload):
-        """Flags predating provenance have no source and no flagger, and must not 500."""
+    def test_legacy_flag_without_provenance_is_blank_not_a_crash(self, client_logged_in, upload):
+        """Flags predating provenance have no source recorded, and must not 500."""
         self._flagged_image(upload, "legacy_flag")
 
         results = self._search_flagged(client_logged_in)
 
         assert len(results) == 1
-        assert results[0]["flagged_by_name"] == ""
+        assert results[0]["flag_label"] == ""

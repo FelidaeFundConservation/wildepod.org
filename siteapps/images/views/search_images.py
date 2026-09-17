@@ -26,7 +26,6 @@ from images.models import (
     Image,
     Species,
     SpeciesName,
-    StaffReviewFlagReason,
     StaffReviewFlagSource,
 )
 from locations.models import CameraStation, MacroSite
@@ -67,25 +66,6 @@ def review_session_anchor(user):
         user.save(update_fields=["previous_review_visit_at", "last_review_visit_at"])
 
     return user.previous_review_visit_at
-
-
-def flagged_by_display(row):
-    """Returns a display name for whoever flagged an image, or "" if no one did.
-
-    Mirrors Annotator.__str__, but reads the joined columns already present on a .values()
-    row so the results table costs no extra queries. Auto-flagged images have no annotator
-    and come back blank rather than as a placeholder -- the Flags column already says they
-    were auto-flagged, so a name here would be repeating it.
-
-    Arguments
-    ---
-        - row (dict): One .values() row, carrying the flagged_by__* columns selected below.
-    """
-    if row.get("flagged_by__type") == "bot":
-        return row.get("flagged_by__bot__name") or ""
-
-    # User.name is optional, so fall back to the email, which is the login and always set.
-    return row.get("flagged_by__human__name") or row.get("flagged_by__human__email") or ""
 
 
 class SearchImagesForm(forms.Form):
@@ -373,32 +353,23 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                 "staff_reviewed_at",
                 "image_reported",
                 "social_media_worthy",
-                "flag_reason",
                 "flag_source",
-                # Who flagged it, so staff can see and search on it in the results table.
-                # Read as separate columns rather than through Annotator.__str__ to keep this
-                # a single query -- see flagged_by_display() for how they are assembled.
-                "flagged_by__type",
-                "flagged_by__human__name",
-                "flagged_by__human__email",
-                "flagged_by__bot__name",
                 # Compared against the review session anchor to mark rows NEW
                 "flagged_at",
             )
             .distinct()
         )
 
-        # Label the reason chip server-side so the wording stays tied to the model's choices
+        # Label the flag chip server-side so the wording stays tied to the model's choices
         # rather than being duplicated (and drifting) in the template's JavaScript.
-        labels = {**dict(StaffReviewFlagReason.choices), **dict(StaffReviewFlagSource.choices)}
+        labels = dict(StaffReviewFlagSource.choices)
         rows = list(results)
 
         # Read once for the whole result set, so every row is judged against the same cutoff
         anchor = review_session_anchor(request.user)
 
         for row in rows:
-            row["flag_label"] = labels.get(row["flag_reason"] or row["flag_source"], "")
-            row["flagged_by_name"] = flagged_by_display(row)
+            row["flag_label"] = labels.get(row["flag_source"], "")
             # Flags predating provenance have no flagged_at and are never new. Neither is
             # anything at all on a reviewer's first visit, when there is no anchor.
             row["is_new"] = bool(anchor and row["flagged_at"] and row["flagged_at"] > anchor)

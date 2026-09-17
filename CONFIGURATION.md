@@ -148,3 +148,50 @@ as a shared secret so that the endpoint is not discoverable by outside parties.
 **It must be stored in Secret Manager** (included in the `django_settings`
 secret) and never hardcoded in source code. Rotate it by updating the secret
 and redeploying.
+
+---
+
+## 6 · Repository secret audit and cleanup
+
+During the repository review for issue #533, no credible live credentials were
+found in the tracked source tree or git history. The only password-like value
+in committed source was a local-only default superuser password in
+`local_setup.sh`, which has been removed.
+
+### Quick audit commands
+
+Use these commands before pushing changes:
+
+```bash
+# Current working tree
+grep -RInE 'AKIA[0-9A-Z]{16}|ghp_|github_pat_|xox[baprs]-|-----BEGIN (RSA|OPENSSH|DSA|EC|PGP) PRIVATE KEY-----' .
+
+# Existing repo safety checks
+./pre_deploy_check.sh local
+
+# Git history for high-signal secret patterns
+git log --all --oneline -G 'AKIA[0-9A-Z]{16}|ghp_|github_pat_|xox[baprs]-|-----BEGIN (RSA|OPENSSH|DSA|EC|PGP) PRIVATE KEY-----'
+```
+
+### If a real secret is found
+
+1. **Revoke or rotate it immediately** in the upstream system:
+   - GitHub token → revoke it in GitHub
+   - GCP service-account key or Secret Manager value → disable/rotate it in GCP
+   - Dropbox/Mailgun/database credentials → rotate them with that provider
+2. **Remove it from the current tree** and replace it with a placeholder or a
+   Secret Manager / GitHub Actions secret reference.
+3. **Rewrite git history** if the secret was ever committed:
+
+   ```bash
+   pipx run git-filter-repo --path path/to/file --invert-paths
+   ```
+
+   Or, for a string replacement across history, use a replacements file with
+   `git-filter-repo --replace-text`.
+4. **Force-push the rewritten branch** and ask other collaborators to rebase or
+   re-clone, because old commits will still contain the secret locally.
+5. **Invalidate any cached copies** (CI logs, deployment artifacts, copied
+   `.env` files, screenshots, shared snippets).
+6. **Confirm the cleanup** by re-running the working tree and history scans
+   above after the rotation is complete.

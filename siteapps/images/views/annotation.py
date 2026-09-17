@@ -94,10 +94,10 @@ def get_pil_image(image):
 
     try:
         response = requests.get(image_file_path)
-    except requests.exceptions.RequestException:
+    except (requests.exceptions.MissingSchema, requests.exceptions.InvalidSchema):
         # The URL is not fetchable at all. This is the local development case: MEDIA_URL is
         # a relative path ("/media/...") rather than the absolute GCS URL used in the cloud,
-        # so requests raises MissingSchema. Fall back to reading MEDIA_ROOT off disk.
+        # so requests raises MissingSchema/InvalidSchema. Fall back to reading MEDIA_ROOT off disk.
         local_path = Path(settings.MEDIA_ROOT) / str(image.thumbnail_gcloud_path or "")
 
         if not local_path.is_file():
@@ -105,6 +105,9 @@ def get_pil_image(image):
             return None
 
         return PILImage.open(local_path).convert("RGB")
+    except requests.exceptions.RequestException as exc:
+        logging.warning(f"Thumbnail request failed for image {image.id}: {image_file_path}", exc_info=exc)
+        return None
 
     pillow_image = None
 

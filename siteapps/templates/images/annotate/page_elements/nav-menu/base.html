@@ -41,12 +41,11 @@
                         <span class="badge bg-warning text-dark">
                             <i class="bi bi-flag"></i>&nbsp;Staff review requested
                         </span>
-                        {% if image.flag_reason_display %}<div class="mt-1 fw-semibold">{{ image.flag_reason_display }}</div>{% endif %}
-                        {% if image.flagged_by or image.flagged_at %}
-                            <div class="text-muted">
-                                {% if image.flagged_by %}by {{ image.flagged_by }}{% endif %}
-                                {% if image.flagged_at %}on {{ image.flagged_at|date:"j M Y" }}{% endif %}
-                            </div>
+                        {% if image.flag_reason_display %}
+                            <div class="mt-1 fw-semibold">{{ image.flag_reason_display }}</div>
+                        {% endif %}
+                        {% if image.flagged_at %}
+                            <div class="text-muted">on {{ image.flagged_at|date:"j M Y" }}</div>
                         {% endif %}
                         {# Resolving the flag is the point of the visit, so the control for it belongs #}
                         {# here rather than three tabs away under Image > Options. Same checkbox, kept #}

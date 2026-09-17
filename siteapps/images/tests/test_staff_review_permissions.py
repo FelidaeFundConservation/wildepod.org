@@ -75,7 +75,7 @@ def flagged_image(db, upload):
         has_uncertain_bbox=True,
     )
     image.flag_for_staff_review(
-        source=StaffReviewFlagSource.MANUAL, annotator=annotator, reason="species_id"
+        source=StaffReviewFlagSource.MANUAL
     )
 
     return image

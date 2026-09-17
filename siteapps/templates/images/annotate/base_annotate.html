@@ -242,8 +242,8 @@
                     </p>
                     <p>
                         <strong>Not sure what the animal is?</strong> That is a different thing.
-                        Press <strong>Skip</strong> to pass it to another volunteer, or tick
-                        <strong>Flag for Staff Review</strong> to ask staff to identify it.
+                        Press <strong>Skip</strong> to pass it to another volunteer &mdash; an
+                        image enough people skip goes to staff on its own.
                     </p>
                     <p class="mb-0">
                         <strong>Click OK to continue.</strong>
@@ -276,105 +276,13 @@
           href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.css" />
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.js"></script>
     <script>
-    // Flag for Staff Review requires a reason, so the reason select is revealed on tick and
-    // hidden (and reset) on untick. The free-text box only appears for the "other" reason.
     // NOTE: do not preventDefault() on the label click here -- that silently stops the label
     // from toggling the checkbox, which made the flag look unsettable (see #510).
-    let staffReviewCheckbox = document.getElementById('staff-review-needed');
-    let staffReviewReasonWrapper = document.getElementById('staff-review-reason-wrapper');
-    let staffReviewReason = document.getElementById('staff-review-reason');
-    let staffReviewReasonDetail = document.getElementById('staff-review-reason-detail');
-    let staffReviewReasonError = document.getElementById('staff-review-reason-error');
-
-    function clearStaffReviewReasonError() {
-        staffReviewReasonError?.classList.add('d-none');
-        staffReviewReason?.classList.remove('is-invalid');
-    }
-
-    if (staffReviewCheckbox && staffReviewReasonWrapper) {
-        staffReviewCheckbox.addEventListener('change', function() {
-            staffReviewReasonWrapper.classList.toggle('d-none', !this.checked);
-
-            if (!this.checked) {
-                // Unticking abandons the flag, so drop any half-entered reason with it
-                if (staffReviewReason) staffReviewReason.value = '';
-                if (staffReviewReasonDetail) {
-                    staffReviewReasonDetail.value = '';
-                    staffReviewReasonDetail.classList.add('d-none');
-                }
-                clearStaffReviewReasonError();
-            }
+    let staffReviewLabel = document.querySelector('label[for="staff-review-needed"]');
+    if (staffReviewLabel) {
+        staffReviewLabel.addEventListener('click', function(event) {
+            event.preventDefault();
         });
-    }
-
-    // "This still needs review", shown with the flag itself in the Instructions card, is the
-    // same flag as the Options tab checkbox rather than a second one. Kept in step in both
-    // directions so the two can never disagree about what Save is going to do.
-    let keepFlagCheckbox = document.getElementById('keep-staff-review-flag');
-
-    if (keepFlagCheckbox && staffReviewCheckbox) {
-        keepFlagCheckbox.checked = staffReviewCheckbox.checked;
-
-        keepFlagCheckbox.addEventListener('change', function() {
-            if (staffReviewCheckbox.checked === this.checked) return;
-
-            staffReviewCheckbox.checked = this.checked;
-            staffReviewCheckbox.dispatchEvent(new Event('change'));
-        });
-
-        staffReviewCheckbox.addEventListener('change', function() {
-            keepFlagCheckbox.checked = this.checked;
-        });
-    }
-
-    if (staffReviewReason) {
-        staffReviewReason.addEventListener('change', function() {
-            staffReviewReasonDetail?.classList.toggle('d-none', this.value !== 'other');
-            clearStaffReviewReasonError();
-        });
-    }
-
-    // Shown once per image, on the first focus of the "Other" detail box. Manual trigger so it
-    // does not reappear on every click and become something people learn to swat away.
-    if (staffReviewReasonDetail && window.bootstrap) {
-        const slackNudge = new bootstrap.Popover(staffReviewReasonDetail);
-        let nudged = false;
-
-        staffReviewReasonDetail.addEventListener('focus', function() {
-            if (!nudged) {
-                slackNudge.show();
-                nudged = true;
-            }
-        });
-
-        staffReviewReasonDetail.addEventListener('blur', () => slackNudge.hide());
-    }
-
-    // Returns true when the flag is either unticked or ticked with a reason chosen.
-    // Surfaces the inline error and returns false otherwise.
-    function staffReviewFlagIsValid() {
-        if (!staffReviewCheckbox?.checked) {
-            return true;
-        }
-
-        if (staffReviewReason && !staffReviewReason.value) {
-            // An automatic flag records no reason, so an auto-flagged image arrives ticked
-            // with the select empty. Demanding a reason there blocked Save outright -- and on
-            // a searched queue, where Skip is not offered, that left no way off the image at
-            // all. Leaving such a flag alone is allowed; raising a new one still needs a why.
-            if (staffReviewCheckbox.dataset.arrivedFlagged === 'true'
-                && !staffReviewCheckbox.dataset.arrivedReason) {
-                return true;
-            }
-
-            staffReviewReasonError?.classList.remove('d-none');
-            staffReviewReason.classList.add('is-invalid');
-            staffReviewReasonWrapper?.classList.remove('d-none');
-            staffReviewReason.focus();
-            return false;
-        }
-
-        return true;
     }
 
     // Initialize popovers
@@ -585,17 +493,6 @@
             function submitAnnotations(skip=false, species=false, activity=false, imageReported=false) {
                 const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-                // A staff review flag without a reason is rejected server-side, so stop here
-                // and show the annotator why instead of losing their submission. Callers may
-                // already have started their spinner, so wind it back before bailing out.
-                if (!staffReviewFlagIsValid()) {
-                    $("#skip-spinner").hide();
-                    $("#save-spinner").hide();
-                    const skipButton = document.getElementById("skip_annotations");
-                    if (skipButton) skipButton.disabled = false;
-                    return;
-                }
-
                 // Make sure every entry has a categorization if not single categorization
                 // This is for Species and Activity
                 {% block multiple_category_check %}
@@ -630,21 +527,7 @@
                     'batch_tag_images': JSON.stringify(selectedBatchTagImages),
                 }
 
-                // Handle staff_review_needed flag.
-                // Only send it when the checkbox is actually on the page, so that any submit
-                // path without the control leaves the existing flag untouched server-side
-                // rather than silently clearing it.
-                if (staffReviewCheckbox) {
-                    data['staff_review_needed'] = staffReviewCheckbox.checked;
-
-                    if (staffReviewCheckbox.checked) {
-                        data['staff_review_reason'] = staffReviewReason?.value ?? '';
-
-                        if (staffReviewReason?.value === 'other') {
-                            data['staff_review_reason_detail'] = staffReviewReasonDetail?.value ?? '';
-                        }
-                    }
-                }
+                data['staff_review_needed'] = document.getElementById('staff-review-needed')?.checked ?? false;
 
                 // Handle image_reported flag
                 // If the 'Report Image' button was clicked we directly set it.

@@ -87,14 +87,13 @@ class TestAutoFlagThreshold:
 
     def test_a_deliberate_flag_is_not_overwritten_by_the_automatic_one(self, image):
         """An annotator's reason must survive the threshold being crossed later."""
-        image.flag_for_staff_review(source=StaffReviewFlagSource.MANUAL, reason="species_id")
+        image.flag_for_staff_review(source=StaffReviewFlagSource.MANUAL)
         skip_by(image, 3)
 
         auto_flag_for_staff(image)
 
         image.refresh_from_db()
         assert image.flag_source == StaffReviewFlagSource.MANUAL
-        assert image.flag_reason == "species_id"
 
 
 @pytest.mark.django_db
@@ -127,7 +126,7 @@ class TestAnnotatingClearsTheFlag:
         staff = User.objects.create_user(
             email="clearing-staff@example.com", password="testpass123", is_staff=True
         )
-        image.flag_for_staff_review(source=StaffReviewFlagSource.MANUAL, reason="species_id")
+        image.flag_for_staff_review(source=StaffReviewFlagSource.MANUAL)
 
         self._annotate(staff, image)
 
@@ -140,7 +139,7 @@ class TestAnnotatingClearsTheFlag:
         expert = User.objects.create_user(
             email="clearing-expert@example.com", password="testpass123", is_expert=True
         )
-        image.flag_for_staff_review(source=StaffReviewFlagSource.MANUAL, reason="species_id")
+        image.flag_for_staff_review(source=StaffReviewFlagSource.MANUAL)
 
         self._annotate(expert, image)
 
@@ -150,7 +149,7 @@ class TestAnnotatingClearsTheFlag:
     def test_an_ordinary_volunteer_does_not_clear_the_flag(self, image):
         """Guards the rule above from becoming "anyone annotating clears it"."""
         volunteer = User.objects.create_user(email="clearing-vol@example.com", password="testpass123")
-        image.flag_for_staff_review(source=StaffReviewFlagSource.MANUAL, reason="species_id")
+        image.flag_for_staff_review(source=StaffReviewFlagSource.MANUAL)
 
         self._annotate(volunteer, image)
 
@@ -188,7 +187,7 @@ class TestFlagIsScopedToThePipelineThatRanOut:
     def test_a_deliberate_flag_covers_every_pipeline(self, image):
         """An annotator ticking the box is asking staff to look at the image, not at one
         pipeline's worth of it."""
-        image.flag_for_staff_review(source=StaffReviewFlagSource.MANUAL, reason="species_id")
+        image.flag_for_staff_review(source=StaffReviewFlagSource.MANUAL)
 
         image.refresh_from_db()
         assert image.species_review_needed is True
@@ -241,7 +240,7 @@ class TestStaffReviewIsNotUndone:
         auto_flag_for_staff(image)
         image.clear_staff_review_flag()
 
-        image.flag_for_staff_review(source=StaffReviewFlagSource.MANUAL, reason="species_id")
+        image.flag_for_staff_review(source=StaffReviewFlagSource.MANUAL)
 
         image.refresh_from_db()
         assert image.staff_review_needed is True

@@ -3,7 +3,8 @@ Tests for images search_images view.
 """
 
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 from unittest.mock import patch
 
 import pytest
@@ -15,7 +16,6 @@ from images.models import (
     BoundingBox,
     CameraStationAction,
     Image,
-    StaffReviewFlagReason,
     StaffReviewFlagSource,
     Upload,
 )
@@ -23,7 +23,6 @@ from images.views.search_images import (
     REVIEW_SESSION_GAP,
     SearchImagesForm,
     SearchImagesView,
-    flagged_by_display,
     review_session_anchor,
 )
 from locations.models import Area, CameraStation, County, MacroSite, MicroSite
@@ -295,53 +294,72 @@ class TestSearchImagesView:
         assert "results" in data
         assert len(data["results"]) == 1
 
-    def test_post_with_date_filter_trigger_timestamp(self, client_logged_in, upload):
+    @pytest.mark.parametrize(
+        "frozen_utc_now",
+        [
+            # Mid-morning in Los Angeles: the UTC date and the local date agree.
+            datetime(2026, 9, 7, 17, 54, tzinfo=dt_timezone.utc),
+            # Evening in Los Angeles (17:21 on the 6th): UTC has already rolled
+            # over to the 7th while the local date is still the 6th. The view
+            # filters on a local-midnight-to-local-midnight window, so anything
+            # deriving the date from UTC picks tomorrow's window and matches
+            # nothing. This is the ~7h/day window the test used to fail in.
+            datetime(2026, 9, 7, 0, 21, tzinfo=dt_timezone.utc),
+        ],
+        ids=["utc-and-local-same-date", "utc-a-day-ahead-of-local"],
+    )
+    def test_post_with_date_filter_trigger_timestamp(self, client_logged_in, upload, frozen_utc_now):
         """Test POST with date filter on trigger timestamp."""
         from django.utils import timezone
 
-        today = timezone.localtime().date()
+        with patch("django.utils.timezone.now", return_value=frozen_utc_now):
+            # The searchable date is the one the user sees in their own
+            # timezone, which is what the view builds its window from --
+            # timezone.now().date() would be the UTC date and select the
+            # wrong day every evening in Los Angeles.
+            today = timezone.localdate()
 
-        # Create image with today's timestamp
-        Image.objects.create(
-            upload=upload,
-            dropbox_file_name="today.jpg",
-            dropbox_file_path="/test/today.jpg",
-            dropbox_file_path_display="/test/today.jpg",
-            dropbox_content_hash="hash_today",
-            dropbox_file_id="file_id_today",
-            file_size=1024,
-            trigger_timestamp=timezone.now(),
-            thumbnail_gcloud_path="test/today_thumb.jpg",
-        )
+            # Create image with today's timestamp
+            Image.objects.create(
+                upload=upload,
+                dropbox_file_name="today.jpg",
+                dropbox_file_path="/test/today.jpg",
+                dropbox_file_path_display="/test/today.jpg",
+                dropbox_content_hash="hash_today",
+                dropbox_file_id="file_id_today",
+                file_size=1024,
+                trigger_timestamp=timezone.now(),
+                thumbnail_gcloud_path="test/today_thumb.jpg",
+            )
 
-        # Create image with yesterday's timestamp
-        yesterday = timezone.now() - timedelta(days=1)
-        Image.objects.create(
-            upload=upload,
-            dropbox_file_name="yesterday.jpg",
-            dropbox_file_path="/test/yesterday.jpg",
-            dropbox_file_path_display="/test/yesterday.jpg",
-            dropbox_content_hash="hash_yesterday",
-            dropbox_file_id="file_id_yesterday",
-            file_size=1024,
-            trigger_timestamp=yesterday,
-            thumbnail_gcloud_path="test/yesterday_thumb.jpg",
-        )
+            # Create image with yesterday's timestamp
+            yesterday = timezone.now() - timedelta(days=1)
+            Image.objects.create(
+                upload=upload,
+                dropbox_file_name="yesterday.jpg",
+                dropbox_file_path="/test/yesterday.jpg",
+                dropbox_file_path_display="/test/yesterday.jpg",
+                dropbox_content_hash="hash_yesterday",
+                dropbox_file_id="file_id_yesterday",
+                file_size=1024,
+                trigger_timestamp=yesterday,
+                thumbnail_gcloud_path="test/yesterday_thumb.jpg",
+            )
 
-        url = reverse("images:search_images")
-        response = client_logged_in.post(
-            url,
-            {
-                "macrosites": json.dumps([]),
-                "camera_stations": json.dumps([]),
-                "volunteers": json.dumps([]),
-                "species": json.dumps([]),
-                "species_ai": json.dumps([]),
-                "search_type": json.dumps("OR"),
-                "date": str(today),
-                "time_filter_type": "TT",
-            },
-        )
+            url = reverse("images:search_images")
+            response = client_logged_in.post(
+                url,
+                {
+                    "macrosites": json.dumps([]),
+                    "camera_stations": json.dumps([]),
+                    "volunteers": json.dumps([]),
+                    "species": json.dumps([]),
+                    "species_ai": json.dumps([]),
+                    "search_type": json.dumps("OR"),
+                    "date": str(today),
+                    "time_filter_type": "TT",
+                },
+            )
 
         assert response.status_code == 200
         data = json.loads(response.content)
@@ -353,7 +371,9 @@ class TestSearchImagesView:
         """Test POST with date range filter."""
         from django.utils import timezone
 
-        today = timezone.localtime().date()
+        # Local date, not the UTC one -- see test_post_with_date_filter_trigger_timestamp.
+        # The wide window hides the off-by-one here, but the assumption is the same.
+        today = timezone.localdate()
         start_date = today - timedelta(days=7)
         end_date = today + timedelta(days=1)
 
@@ -681,50 +701,6 @@ class TestSearchImagesView:
 
 
 @pytest.mark.django_db
-class TestFlaggedByDisplay:
-    """The Flagged by column's server-side name assembly."""
-
-    def test_human_annotator_uses_name(self):
-        row = {
-            "flagged_by__type": "human",
-            "flagged_by__human__name": "Ada Lovelace",
-            "flagged_by__human__email": "ada@example.com",
-            "flagged_by__bot__name": None,
-        }
-        assert flagged_by_display(row) == "Ada Lovelace"
-
-    def test_human_annotator_falls_back_to_email(self):
-        """User.name is optional, so a blank one must not render an empty cell."""
-        row = {
-            "flagged_by__type": "human",
-            "flagged_by__human__name": "",
-            "flagged_by__human__email": "ada@example.com",
-            "flagged_by__bot__name": None,
-        }
-        assert flagged_by_display(row) == "ada@example.com"
-
-    def test_bot_annotator_uses_bot_name(self):
-        row = {
-            "flagged_by__type": "bot",
-            "flagged_by__human__name": None,
-            "flagged_by__human__email": None,
-            "flagged_by__bot__name": "MegaDetector",
-        }
-        assert flagged_by_display(row) == "MegaDetector"
-
-    def test_unflagged_image_is_blank_not_none(self):
-        """Auto-flagged and unflagged images have no annotator. The template joins this
-        straight into a cell, so it must be a string rather than None."""
-        row = {
-            "flagged_by__type": None,
-            "flagged_by__human__name": None,
-            "flagged_by__human__email": None,
-            "flagged_by__bot__name": None,
-        }
-        assert flagged_by_display(row) == ""
-
-
-@pytest.mark.django_db
 class TestReviewSessionAnchor:
     """The NEW badge cutoff, and when a review session rolls over."""
 
@@ -794,7 +770,6 @@ class TestSearchResultsNewBadge:
             thumbnail_gcloud_path=f"test/{name}_thumb.jpg",
             staff_review_needed=True,
             flag_source=StaffReviewFlagSource.MANUAL,
-            flag_reason=StaffReviewFlagReason.SPECIES_ID,
             flagged_at=flagged_at,
         )
 
@@ -906,38 +881,19 @@ class TestSearchResultsFlaggedBy:
             **kwargs,
         )
 
-    def test_manual_flag_returns_flagger_name(self, client_logged_in, upload):
-        volunteer = User.objects.create_user(
-            email="volunteer@example.com", password="testpass123", name="Grace Hopper"
-        )
-        annotator = Annotator.objects.create(type="human", human=volunteer)
-        self._flagged_image(
-            upload,
-            "manual_flag",
-            flag_source=StaffReviewFlagSource.MANUAL,
-            flag_reason=StaffReviewFlagReason.SPECIES_ID,
-            flagged_by=annotator,
-        )
-
-        results = self._search_flagged(client_logged_in)
-
-        assert len(results) == 1
-        assert results[0]["flagged_by_name"] == "Grace Hopper"
-
-    def test_auto_flag_returns_blank_flagger(self, client_logged_in, upload):
-        """Auto-flagged images have no one to attribute the flag to."""
+    def test_auto_flag_is_labelled(self, client_logged_in, upload):
         self._flagged_image(upload, "auto_flag", flag_source=StaffReviewFlagSource.AUTO_SKIPS)
 
         results = self._search_flagged(client_logged_in)
 
         assert len(results) == 1
-        assert results[0]["flagged_by_name"] == ""
+        assert results[0]["flag_label"] == "Auto-flagged"
 
-    def test_legacy_flag_without_provenance_returns_blank(self, client_logged_in, upload):
-        """Flags predating provenance have no source and no flagger, and must not 500."""
+    def test_legacy_flag_without_provenance_is_blank_not_a_crash(self, client_logged_in, upload):
+        """Flags predating provenance have no source recorded, and must not 500."""
         self._flagged_image(upload, "legacy_flag")
 
         results = self._search_flagged(client_logged_in)
 
         assert len(results) == 1
-        assert results[0]["flagged_by_name"] == ""
+        assert results[0]["flag_label"] == ""

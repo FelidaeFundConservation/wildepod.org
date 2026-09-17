@@ -14,7 +14,6 @@ from images.models import (
     CameraStationAction,
     Image,
     ImageQueue,
-    StaffReviewFlagReason,
     StaffReviewFlagSource,
     Upload,
 )
@@ -89,8 +88,6 @@ def make_flagged_image(upload, name, flagger=None):
         species_ai_detections="['Unknown']",
         staff_review_needed=True,
         flag_source=StaffReviewFlagSource.MANUAL,
-        flag_reason=StaffReviewFlagReason.SPECIES_ID,
-        flagged_by=flagger,
         flagged_at=timezone.now(),
     )
 
@@ -160,9 +157,6 @@ class TestBulkClearFlag:
         image.refresh_from_db()
         assert image.staff_review_needed is False
         assert image.flag_source == ""
-        assert image.flag_reason == ""
-        assert image.flag_reason_detail == ""
-        assert image.flagged_by is None
         assert image.flagged_at is None
 
     def test_clears_every_field_the_model_calls_cleared(self, client_logged_in, upload):
@@ -198,7 +192,7 @@ class TestBulkClearFlag:
         """
         flagged = make_flagged_image(upload, "flagged")
         ordinary = make_flagged_image(upload, "ordinary")
-        Image.objects.filter(id=ordinary.id).update(staff_review_needed=False, flag_source="", flag_reason="")
+        Image.objects.filter(id=ordinary.id).update(staff_review_needed=False, flag_source="")
 
         response = post_action(client_logged_in, "clear_flag", [flagged.id, ordinary.id])
 

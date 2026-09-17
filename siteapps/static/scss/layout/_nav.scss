@@ -130,7 +130,7 @@ header {
 // the browser shows anything, long enough that people conclude there is no
 // label at all. This appears immediately, and only on the wide layout where the
 // icons stand alone.
-@media (min-width: 992px) {
+@media (min-width: core.$lg) {
     .nav-icon-link {
         position: relative;
 

@@ -236,6 +236,41 @@ def vote(obj, annotator: Annotator, accept: bool):
             obj.save()  # persist created_by reassignment
 
 
+def bbox_children(bbox_obj):
+    """
+    Every Category / Species / Activity row hanging off a bounding box, as one
+    flat list. Kept in a single place so the reject-vote propagation here and
+    the child->bbox validity cascade in views/annotation.py always agree on
+    what "this bbox's children" means — if a fourth annotation type is ever
+    added, both sides pick it up from this one edit.
+
+    Reads through prefetch_related caches when the caller set them up.
+    """
+    return list(bbox_obj.category_set.all()) + list(bbox_obj.species_set.all()) + list(bbox_obj.activity_set.all())
+
+
+def reject_children(children, annotators):
+    """
+    Cast a reject vote from each of `annotators` onto each object in
+    `children` (Category / Species / Activity rows) via vote(). Mirrors
+    vote()'s normal semantics, including its edge case: if one of the
+    annotators is the child's own creator and it has no other accepts,
+    vote() deletes the child outright rather than leaving it INVALID (the
+    same as directly self-rejecting any other annotation would). Once a
+    child is deleted mid-loop (obj.delete() clears its pk), this stops
+    voting on it for the remaining annotators instead of operating on a
+    deleted row, which would raise a ValueError from the M2M manager.
+
+    `children` is taken as a plain list (not re-queried here) so callers
+    that already fetched it via prefetch_related keep that efficiency.
+    """
+    for child in children:
+        for annotator in annotators:
+            if child.pk is None:
+                break
+            vote(child, annotator, accept=False)
+
+
 def set_image_checked_by(annotation_type, image, annotator):
     """Add an annotator to the annotation checked_by"""
     # Set image to "checked" by the annotator
@@ -354,6 +389,23 @@ def handle_bbox_deletions(initial_bboxes, formatted_annotations, user, annotator
                     # vote() updates M2M only; bbox.validity is owned by
                     # calculate*AnnotationFlags which runs later in the request.
                     vote(bbox_obj, annotator, accept=False)
+
+                    # Rejecting the bbox is how a volunteer says "this box
+                    # shouldn't exist" — they don't separately vote on its
+                    # Category/Species/Activity children. Without this, a
+                    # child that nobody directly votes on sits at UNCERTAIN
+                    # forever (only its creator's implicit vote), which the
+                    # child->bbox cascade in _recompute_bbox_validity_for_image
+                    # would then read as "UNCERTAIN" and never resolve the bbox
+                    # (or the image) at all. Casting the same reject vote on
+                    # each child routes it through the normal single source of
+                    # truth (compute_validity), the same way any other reject
+                    # vote would (including vote()'s usual self-reject-deletes
+                    # edge case if `annotator` happens to be a child's own
+                    # creator), and the existing cascade rule takes it from
+                    # there.
+                    reject_children(bbox_children(bbox_obj), [annotator])
+
                     logging.info(f"Rejected bounding box with id {bbox_id}. Object still exists in rejected state.")
             except ObjectDoesNotExist:
                 logging.info(f"Bounding box with id {bbox_id} doesn't exist in image {image.id}. Skipping deletion.")
@@ -391,6 +443,18 @@ def edit_bbox_coordinates(user, bbox_obj, formatted_annotations, annotator, imag
     else:
         # Original bounding box was modified significantly by the annotator. Cast a reject vote on the original.
         vote(bbox_obj, annotator, accept=False)
+
+        # Same reasoning as handle_bbox_deletions(): redrawing a box this far
+        # is a rejection of the original, and the annotator never votes on the
+        # original's Category/Species/Activity children separately — the tags
+        # they submit land on the replacement box created below. Without this,
+        # those children keep only their creator's implicit vote, sit at
+        # UNCERTAIN forever, and hold the superseded box (and so the whole
+        # image's category pipeline) UNCERTAIN no matter how many volunteers
+        # redraw it. Propagating the vote lets them resolve through the normal
+        # compute_validity() path and the child->bbox cascade.
+        reject_children(bbox_children(bbox_obj), [annotator])
+
         # Create a new bounding box
         bbox_obj = create_bbox(
             annotation_type=OBJECT_ANNOTATION_TYPE,
@@ -731,9 +795,7 @@ def process_annotations(
     user: settings.AUTH_USER_MODEL,
     social_media_worthy_vote: int,
     batch_tag_images: list,
-    staff_review_needed: bool | None = None,
-    staff_review_reason: str = "",
-    staff_review_reason_detail: str = "",
+    staff_review_needed: bool = False,
     image_reported: bool | None = None,
     skip: bool = False,
 ):
@@ -748,38 +810,9 @@ def process_annotations(
     image = Image.objects.get(id=image_id)
     logging.info("Successfully retrieved image object")
 
-    # Update the staff review flag
-    # - None: preserve current value (checkbox not present on the submitting page)
-    # - True: annotator deliberately flagged it, with a reason
-    # - False: annotator explicitly cleared it
-    if staff_review_needed is True:
-        # The checkbox arrives already ticked on an image that is already flagged, so most
-        # submissions of staff_review_needed=True are "leave it as it is", not a new flag.
-        # Re-flagging those would rewrite flagged_by to whoever happened to save next, reset
-        # flagged_at, and turn an automatic flag into a manual one -- destroying the very
-        # provenance the annotate page shows above the instructions.
-        flag_unchanged = (
-            image.staff_review_needed
-            and image.flag_reason == (staff_review_reason or "")
-            and image.flag_reason_detail == (staff_review_reason_detail or "")
-        )
-
-        if not flag_unchanged:
-            image.flag_for_staff_review(
-                source=StaffReviewFlagSource.MANUAL,
-                annotator=annotator,
-                reason=staff_review_reason,
-                reason_detail=staff_review_reason_detail,
-                save=False,
-            )
-            logging.info(f"Image {image.id} flagged for staff review by '{user.name}' (reason: {staff_review_reason})")
-    elif staff_review_needed is False and _is_staff_or_expert(annotator):
-        # Only staff and experts can take an image out of the review queue. The flags are
-        # scoped per pipeline, so an image flagged for species review is still offered to
-        # volunteers for activity annotation -- and the review checkbox is on that page too.
-        # Without this role check, a volunteer unticking it there would clear a review that
-        # staff had not done, and the image would quietly leave their queue.
-        image.clear_staff_review_flag(save=False)
+    # Preserve existing staff review state.
+    # Staff review flagging is controlled by dedicated flows (e.g. auto-flagging),
+    # not by general annotation submission payloads.
 
     # Update the image reported flag
     # - None: preserve current value (not sent from frontend)
@@ -824,9 +857,7 @@ def process_species_annotations(
     user: settings.AUTH_USER_MODEL,
     social_media_worthy_vote: int,
     batch_tag_images: list,
-    staff_review_needed: bool | None = None,
-    staff_review_reason: str = "",
-    staff_review_reason_detail: str = "",
+    staff_review_needed: bool = False,
     image_reported: bool | None = None,
     skip: bool = False,
 ) -> bool:
@@ -842,8 +873,6 @@ def process_species_annotations(
         user=user,
         social_media_worthy_vote=social_media_worthy_vote,
         staff_review_needed=staff_review_needed,
-        staff_review_reason=staff_review_reason,
-        staff_review_reason_detail=staff_review_reason_detail,
         image_reported=image_reported,
         skip=skip,
         batch_tag_images=batch_tag_images,
@@ -859,9 +888,7 @@ def process_activity_annotations(
     user: settings.AUTH_USER_MODEL,
     social_media_worthy_vote: int,
     batch_tag_images: list,
-    staff_review_needed: bool | None = None,
-    staff_review_reason: str = "",
-    staff_review_reason_detail: str = "",
+    staff_review_needed: bool = False,
     image_reported: bool | None = None,
     skip: bool = False,
 ) -> bool:
@@ -877,8 +904,6 @@ def process_activity_annotations(
         user=user,
         social_media_worthy_vote=social_media_worthy_vote,
         staff_review_needed=staff_review_needed,
-        staff_review_reason=staff_review_reason,
-        staff_review_reason_detail=staff_review_reason_detail,
         image_reported=image_reported,
         skip=skip,
         batch_tag_images=batch_tag_images,

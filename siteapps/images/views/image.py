@@ -27,7 +27,6 @@ from images.models import (
     ImageQueue,
     Species,
     SpeciesName,
-    StaffReviewFlagReason,
     Upload,
 )
 from images.views import species_pipeline_query
@@ -49,9 +48,6 @@ class ImageDetailView(LoginRequiredMixin, DetailView):
         context["dropbox_prefix"] = settings.DROPBOX_URL_PREFIX
         context["social_media_worthy"] = img_obj.social_media_worthy
         context["staff_review_needed"] = img_obj.staff_review_needed
-        # Without these the Reason select renders empty, and since a flag without a reason is
-        # rejected, the Flag for Staff Review checkbox on this page cannot be used at all.
-        context["staff_review_flag_reasons"] = StaffReviewFlagReason.choices
 
         # Which sequence Previous/Next walk. Reaching this page from a search result is the
         # obvious click -- the thumbnail is a link, the queue is a smaller button under it --

@@ -34,6 +34,13 @@
         <label class="form-check-label"
                for="staff-review-needed"
                style="font-size: 14px">&nbsp; Flag for Staff Review?</label>
+        {# Says which kind of flag it is: the automatic threshold, or one recorded before
+           provenance existed. Staff cannot act on a flag they cannot tell apart. #}
+        {% if image.staff_review_needed and image.flag_reason_display %}
+            <div class="mt-2 ms-1 text-muted" style="font-size: 11px">
+                <i class="bi bi-flag"></i>&nbsp;{{ image.flag_reason_display }}
+            </div>
+        {% endif %}
         {% endif %}
         <br>
         {% if user.is_staff %}

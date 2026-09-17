@@ -192,12 +192,21 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
                 filterset &= Q(trigger_timestamp__gte=start_dt, trigger_timestamp__lt=end_dt)
             elif time_filter_type == LAST_ANNOTATED_TYPE:
                 filterset &= Q(boundingbox__species__created__date=date) | Q(boundingbox__species__modified__date=date)
+        # Both ends inclusive. The field is labelled "End Of Date Range", which reads as "up to
+        # and including this day" -- but this compared __lt against the end day's midnight, so
+        # a search for the 1st to the 15th quietly returned the 1st to the 14th, and picking a
+        # single day returned nothing at all.
+        #
+        # Fixed by advancing the end of the window a day rather than by comparing on __date:
+        # a __date lookup resolves in the current timezone while the value handed to it here
+        # is a plain date, which is the UTC/local mismatch the explicit windows above exist to
+        # avoid. This is the same half-open window the single-date branch already builds.
         if start_date and end_date:
             if time_filter_type == TRIGGER_TIMESTAMP_TYPE:
                 parsed_start = datetime.fromisoformat(str(start_date)).date()
                 parsed_end = datetime.fromisoformat(str(end_date)).date()
                 start_dt = timezone.make_aware(datetime.combine(parsed_start, time.min), local_tz)
-                end_dt = timezone.make_aware(datetime.combine(parsed_end, time.min), local_tz)
+                end_dt = timezone.make_aware(datetime.combine(parsed_end, time.min), local_tz) + timedelta(days=1)
                 filterset &= Q(
                     trigger_timestamp__gte=start_dt,
                     trigger_timestamp__lt=end_dt,
@@ -205,10 +214,10 @@ class SearchImagesView(LoginRequiredMixin, StaffuserRequiredMixin, FormView):
             elif time_filter_type == LAST_ANNOTATED_TYPE:
                 filterset &= Q(
                     boundingbox__species__created__date__gte=start_date,
-                    boundingbox__species__created__date__lt=end_date,
+                    boundingbox__species__created__date__lte=end_date,
                 ) | Q(
                     boundingbox__species__modified__date__gte=start_date,
-                    boundingbox__species__modified__date__lt=end_date,
+                    boundingbox__species__modified__date__lte=end_date,
                 )
 
         if hour:

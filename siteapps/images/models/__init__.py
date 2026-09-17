@@ -14,6 +14,6 @@ from .annotation import (
     SpeciesSubgroup,
 )
 from .annotator import Annotator, Bot
-from .image import Image, ImageQueue
+from .image import Image, ImageQueue, StaffReviewFlagSource
 from .raw_sql import *
 from .upload import CameraStationAction, TimeCorrection, Upload

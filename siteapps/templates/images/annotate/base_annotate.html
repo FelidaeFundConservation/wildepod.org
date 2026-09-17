@@ -10,19 +10,10 @@
           rel="stylesheet" />
 {% endblock header_includes %}
 {% block content %}
+    {# Flag and report status render under Instructions in nav-menu/base.html, where they read #}
+    {# as context for the image rather than a page-wide alert. This block is kept so pages can #}
+    {# still put a genuine site-wide notice here.                                              #}
     {% block notice %}
-        {% if image.staff_review_needed %}
-            <div class="alert alert-warning" role="alert">
-                <i class="bi bi-info-circle"></i>&nbsp;&nbsp;
-                Staff review has been requested for this image.&nbsp;&nbsp;&nbsp;&nbsp;
-            </div>
-        {% endif %}
-        {% if image.image_reported %}
-            <div class="alert alert-danger" role="alert">
-                <i class="bi bi-exclamation-triangle"></i>&nbsp;&nbsp;
-                This image has been reported by a user.&nbsp;&nbsp;&nbsp;&nbsp;
-            </div>
-        {% endif %}
     {% endblock notice %}
     {% block missing_annotations_element %}
     {% endblock missing_annotations_element %}
@@ -163,8 +154,21 @@
                             data-bs-dismiss="modal"
                             aria-label="Close"></button>
                 </div>
+                {# "Inappropriate" was too narrow: most reports are not offensive images but #}
+                {# ones that should never have reached the pool -- somebody at the camera,   #}
+                {# a blank frame. Reporting and flagging read as the same gesture to a       #}
+                {# volunteer, so this spells out which one to reach for.                     #}
                 <div class="modal-body">
-                    <p>This will report this image as inappropriate and remove it from general annotation.</p>
+                    <p>
+                        This image will be taken out of the annotation pool for good and sent to staff.
+                        Use it for images that should not be annotated at all &mdash; somebody
+                        standing at the camera, a blank frame, anything not worth identifying.
+                    </p>
+                    <p>
+                        <strong>Not sure what the animal is?</strong> That is a different thing.
+                        Press <strong>Skip</strong> to pass it to another volunteer &mdash; an
+                        image enough people skip goes to staff on its own.
+                    </p>
                     <p class="mb-0">
                         <strong>Click OK to continue.</strong>
                     </p>
@@ -196,6 +200,8 @@
           href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.css" />
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.js"></script>
     <script>
+    // NOTE: do not preventDefault() on the label click here -- that silently stops the label
+    // from toggling the checkbox, which made the flag look unsettable (see #510).
     let staffReviewLabel = document.querySelector('label[for="staff-review-needed"]');
     if (staffReviewLabel) {
         staffReviewLabel.addEventListener('click', function(event) {
@@ -437,7 +443,6 @@
                     'initial_bboxes': JSON.stringify(bboxes),
                     'annotations': JSON.stringify(anno.getAnnotations()),
                     'social_media_worthy_vote': socialMediaWorthyVote,
-                    'staff_review_needed': document.getElementById('staff-review-needed')?.checked ?? false,
                     'custom_annotations': '{{custom_annotations}}',
                     'staff_review': '{{staff_review}}',
                     'reported_images': '{{reported_images}}',
@@ -445,6 +450,8 @@
                     'is_reannotation': '{{ is_reannotation }}',
                     'batch_tag_images': JSON.stringify(selectedBatchTagImages),
                 }
+
+                data['staff_review_needed'] = document.getElementById('staff-review-needed')?.checked ?? false;
 
                 // Handle image_reported flag
                 // If the 'Report Image' button was clicked we directly set it.

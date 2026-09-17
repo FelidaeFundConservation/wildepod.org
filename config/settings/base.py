@@ -233,6 +233,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "siteapps.users.context_processors.allauth_settings",
                 "siteapps.home.context_processors.global_settings",
+                "images.context_processors.pending_uploads",
             ],
         },
     }

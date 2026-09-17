@@ -172,7 +172,7 @@ jobs:
           proxy_pid=$!
 
           for attempt in {1..30}; do
-            if ! kill -0 "$proxy_pid" 2>/devnull; then
+            if ! kill -0 "$proxy_pid" 2>/dev/null; then
               echo "Cloud SQL Proxy exited before opening port ${{ env.STAGING_DB_PORT }}"
               cat cloud-sql-proxy.log
               exit 1

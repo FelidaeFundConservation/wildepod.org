@@ -332,6 +332,14 @@ function renderBoundingBoxPreviews(imageElementID, anno) {
         let annotationText = annotation.body[0].value && annotation.body[0].value != 'unannotated' ? annotation.body[0].value : "(No Annotation)";
         let highlight = annotationText == "(No Annotation)" ? `style="background-color: #FFCCCB"` : "";
 
+        // A tag the image arrived with, rather than one set in this session -- the widget sets
+        // `updated` whenever a person picks a species. Staff opening a flagged image from a
+        // search are shown its existing tags already filled in, which reads as work they have
+        // just done unless it says otherwise.
+        const existingTagBadge = (annotationText !== "(No Annotation)" && !annotation.body[0].updated)
+            ? `<span class="badge rounded-pill bg-light text-muted border ms-1" style="font-size: 9px">existing</span>`
+            : "";
+
         // Remove the pound sign to work with Jquery
         const cleanedId = annotation.id.replace("#", "");
         const boxColor = uniqueColors[(boxNum - 1) % uniqueColors.length];
@@ -356,7 +364,7 @@ function renderBoundingBoxPreviews(imageElementID, anno) {
             <div class="card-body m-0 fw-bold">
                 <button class="hide-${cleanedId} border-0 bg-transparent"><i class="bi bi-eye"></i></button>
                 <button class="delete-${cleanedId} border-0 bg-transparent"><i class="bi bi-trash text-danger"></i></button>
-                <span ${highlight} class="annotation-label-${cleanedId} small">&nbsp;&nbsp;${categoryIcon}&nbsp;&nbsp;${annotationText}${confidence}&nbsp;&nbsp;&nbsp;</span>
+                <span ${highlight} class="annotation-label-${cleanedId} small">&nbsp;&nbsp;${categoryIcon}&nbsp;&nbsp;${annotationText}${confidence}&nbsp;&nbsp;&nbsp;</span>${existingTagBadge}
             </div>
         </div>`
 

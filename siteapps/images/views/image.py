@@ -281,7 +281,7 @@ class BulkImageActionView(LoginRequiredMixin, StaffuserRequiredMixin, View):
         # clear_staff_review_flag() instance by instance. The values come from the model either
         # way, including the review timestamp -- without it the automatic skip threshold would
         # flag every one of these again as soon as a volunteer skipped it.
-        cleared = images.update(**Image.cleared_staff_review_values())
+        cleared = images.filter(staff_review_needed=True).update(**Image.cleared_staff_review_values())
 
         return JsonResponse({"success": True, "action": self.CLEAR_FLAG, "count": cleared})
 

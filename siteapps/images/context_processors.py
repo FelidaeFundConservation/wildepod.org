@@ -28,8 +28,16 @@ def expert_assignment(request):
     # Counting them would put a number in the nav that nobody asked for.
     assigned = ImageQueue.objects.filter(assigned_to__human=user).exclude(image_order=[])
 
-    return {
-        "assigned_image_count": sum(
-            max(len(queue.image_order) - queue.position, 0) for queue in assigned
-        )
-    }
+    # Counted against the queue's membership rather than off the length of image_order:
+    # ordered_images() serves only the images that still exist, so an assigned image deleted
+    # afterwards leaves its id in the order and would be counted as work that is no longer
+    # there -- a nav item promising images the searched flow never shows.
+    remaining = 0
+
+    for queue in assigned:
+        pending_ids = queue.image_order[queue.position :]
+
+        if pending_ids:
+            remaining += queue.images.filter(id__in=pending_ids).count()
+
+    return {"assigned_image_count": remaining}

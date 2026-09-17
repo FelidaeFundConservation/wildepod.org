@@ -146,6 +146,17 @@ class TestExpertAssignmentNav:
         assert self.count_for(expert) == 0
         assert "Assigned to me" not in self.nav_for(expert)
 
+    def test_a_deleted_image_stops_being_counted(self, client_logged_in, upload, expert):
+        """image_order keeps the id of an image deleted after assignment, and ordered_images()
+        skips it -- so counting the order itself promises work the searched flow never shows,
+        and leaves the nav item up after the last surviving image is done."""
+        images = [make_image(upload, f"deletable_{index}") for index in range(2)]
+        assign(client_logged_in, expert, images)
+
+        images[0].delete()
+
+        assert self.count_for(expert) == 1
+
     def test_a_second_assignment_adds_to_the_count(self, client_logged_in, upload, expert):
         assign(client_logged_in, expert, [make_image(upload, "batch_one")])
         assign(client_logged_in, expert, [make_image(upload, "batch_two")])

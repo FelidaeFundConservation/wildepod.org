@@ -71,6 +71,20 @@ class TestAutoApproveSingleHumanRoutine:
         assert image.has_humans is True
         assert image.has_animals is False
         assert image.has_uncertain_bbox is False
+        automation_annotator = get_automation_annotator()
+        automation_annotator.refresh_from_db()
+        assert automation_annotator.total_auto_approved_images == 1
+
+    def test_retry_does_not_increment_automation_counter(self):
+        """Repeated upload processing of the same image is idempotent."""
+        image = _single_human_image()
+
+        assert auto_approve_single_human(image) is True
+        assert auto_approve_single_human(image) is False
+
+        automation_annotator = get_automation_annotator()
+        automation_annotator.refresh_from_db()
+        assert automation_annotator.total_auto_approved_images == 1
 
     def test_approval_records_automation_bot_vote(self):
         """The person category carries the automation bot's accept vote (audit trail)."""

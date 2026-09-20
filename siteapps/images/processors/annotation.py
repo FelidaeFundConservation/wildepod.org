@@ -20,6 +20,7 @@ from images.models import (
     Image,
     Species,
     SpeciesName,
+    StaffReviewFlagSource,
     Upload,
 )
 from images.models.annotation import Validity
@@ -857,7 +858,7 @@ def process_species_annotations(
     social_media_worthy_vote: int,
     batch_tag_images: list,
     staff_review_needed: bool = False,
-    image_reported: bool = False,
+    image_reported: bool | None = None,
     skip: bool = False,
 ) -> bool:
     """Function to process a list of annotations for MegaDetector's Object Detection model
@@ -888,7 +889,7 @@ def process_activity_annotations(
     social_media_worthy_vote: int,
     batch_tag_images: list,
     staff_review_needed: bool = False,
-    image_reported: bool = False,
+    image_reported: bool | None = None,
     skip: bool = False,
 ) -> bool:
     """Function to process a list of annotations for MegaDetector's Object Detection model

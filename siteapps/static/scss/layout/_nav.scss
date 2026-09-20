@@ -88,6 +88,27 @@ header {
     }
 }
 
+// The one dropdown item with a badge in front of it, which costs it enough
+// width to wrap where its siblings do not. Nowrap lets the Upload menu size
+// itself to this item instead; scoped to this link so the other three menus
+// keep the shared 14rem and do not grow to fit their own longest label.
+.nav-pending-uploads {
+    white-space: nowrap;
+}
+
+// Count of the signed-in user's uploads still waiting to be finalized. Rides on
+// the existing "Upload" tab rather than claiming a nav slot of its own, so the
+// bar gains no width and nothing wraps.
+.nav-pending-badge {
+    background-color: core.$color-pending;
+    color: core.$color-nav-active;
+    font-family: core.$font-family-nav;
+    font-size: 0.7em;
+    font-weight: 600;
+    vertical-align: middle;
+    padding: 0.3em 0.6em;
+}
+
 // The nav sits at 1.1-1.2em, wide enough that a full-size button pushes the
 // account icon onto a second line. Hold the CTA to one line.
 .nav-cta {

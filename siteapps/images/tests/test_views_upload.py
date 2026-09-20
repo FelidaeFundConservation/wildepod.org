@@ -408,6 +408,36 @@ class TestUploadListView:
         assert processing in response.context["processing"]
         assert response.context["num_processing"] >= 1
 
+    @pytest.mark.parametrize("is_staff", [False, True])
+    def test_context_excludes_deleted_pending(self, client, user, camera_station, is_staff):
+        """Soft-deleted uploads stay out of the Pending tab, matching the nav badge's count"""
+        action, _ = CameraStationAction.objects.get_or_create(action="DEPLOY")
+
+        user.is_staff = is_staff
+        user.save()
+
+        def make_pending(name, deleted):
+            return Upload.objects.create(
+                camera_station=camera_station,
+                volunteer=user,
+                date_retrieved=timezone.now(),
+                last_action=action,
+                dropbox_folder_name=name,
+                dropbox_folder_path=f"/test/{name}",
+                deleted=deleted,
+            )
+
+        active = make_pending("active", deleted=False)
+        deleted = make_pending("deleted", deleted=True)
+
+        client.force_login(user)
+        response = client.get(reverse("images:list_uploads"))
+
+        assert active in response.context["pending"]
+        assert deleted not in response.context["pending"]
+        assert response.context["num_pending"] == 1
+        assert response.context["nav_pending_upload_count"] == 1
+
     def test_context_excludes_other_user_pending_for_regular_user(self, client, user, camera_station):
         """Test regular user only sees their own pending uploads"""
         from django.utils import timezone

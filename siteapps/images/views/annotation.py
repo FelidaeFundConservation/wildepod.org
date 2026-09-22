@@ -1143,6 +1143,8 @@ def populate_view_context(
 
             upcoming = queue_images.exclude(exclusion_condition, id=image_id)
 
+        upcoming = queue_images.exclude(exclusion_condition, id=image_id)
+
         # View all images in the queue
         context["grid_images_w_boxes"] = [
             [image_obj, BoundingBox.objects.filter(image=image_obj, validity__in=["VALID", "UNCERTAIN"])]

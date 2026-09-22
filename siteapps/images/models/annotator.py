@@ -65,6 +65,12 @@ class Annotator(TimeStampedModel):
     total_species_annotations = models.IntegerField(null=True)
     total_activity_annotations = models.IntegerField(null=True)
 
+    # Number of images completed by an automation annotator. This is deliberately
+    # separate from the volunteer annotation counters above: one automated
+    # decision may create both a bounding-box and category vote, but completes
+    # one image.
+    total_auto_approved_images = models.PositiveIntegerField(default=0)
+
     # Preferences
     prioritize_tagging_animals = models.DateTimeField(null=True, blank=True)
 

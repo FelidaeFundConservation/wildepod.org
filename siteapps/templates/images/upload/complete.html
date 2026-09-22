@@ -204,6 +204,9 @@
             // Links opening a new tab (Dropbox, the Uploads shortcut) leave this
             // page intact, so they are deliberately not intercepted.
             if (link.target === '_blank') return;
+            // The nav-bar pending-upload link points back at this very upload, so
+            // warning about "leaving" it would be nonsense.
+            if (link.hasAttribute('data-no-unfinalized-warning')) return;
             var href = link.getAttribute('href');
             if (!href || href.charAt(0) === '#' || href.indexOf('javascript:') === 0 || href.indexOf('mailto:') === 0) return;
 

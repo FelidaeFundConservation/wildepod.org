@@ -47,18 +47,10 @@
                         {% if image.flagged_at %}
                             <div class="text-muted">on {{ image.flagged_at|date:"j M Y" }}</div>
                         {% endif %}
-                        {# Resolving the flag is the point of the visit, so the control for it belongs #}
-                        {# here rather than three tabs away under Image > Options. Same checkbox, kept #}
-                        {# in step both ways so there is still one answer to "is this flagged".        #}
+                        {# No control to resolve the flag here: saving annotations as staff or an #}
+                        {# expert clears it, and the bulk action on Search Images clears a batch.  #}
                         {% if user.is_staff or user.is_expert %}
-                            <div class="mt-2 border-top pt-2">
-                                <input class="form-check-input"
-                                       type="checkbox"
-                                       id="keep-staff-review-flag"
-                                       checked="checked">
-                                <label class="form-check-label" for="keep-staff-review-flag">&nbsp;This still needs review</label>
-                                <div class="text-muted mt-1">Untick and Save to mark it reviewed.</div>
-                            </div>
+                            <div class="text-muted mt-1">Save your annotations to mark it reviewed.</div>
                         {% endif %}
                     </div>
                 {% endif %}

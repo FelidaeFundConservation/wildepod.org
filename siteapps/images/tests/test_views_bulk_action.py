@@ -418,9 +418,10 @@ class TestBulkAssignExpert:
             beside_save = page[button_bar : button_bar + 2500]
             assert 'id="next_image"' in beside_save or 'aria-label="Step through images"' in beside_save
 
-    def test_the_flag_is_resolvable_from_where_it_is_read(self, client_logged_in, upload, expert):
-        """The control for clearing a flag used to be three tabs away under Image > Options,
-        so an image could be reviewed and saved and stay in the review queue for ever."""
+    def test_the_flag_is_explained_where_it_is_read(self, client_logged_in, upload, expert):
+        """Why the image is in the queue leads the panel, and how it gets resolved is said
+        there too -- an expert used to review an image, save, and leave it flagged for ever
+        with nothing on the page saying otherwise."""
         image = make_flagged_image(upload, "resolve_me")
         post_action(client_logged_in, "assign_expert", [image.id], expert_id=str(expert.id))
 
@@ -428,8 +429,8 @@ class TestBulkAssignExpert:
         expert_client.force_login(expert)
         html = expert_client.get(reverse("images:searched_annotate_species")).content.decode()
 
-        assert 'id="keep-staff-review-flag"' in html
-        assert "Untick and Save to mark it reviewed." in html
+        assert "Staff review requested" in html
+        assert "Save your annotations to mark it reviewed." in html
         # The reason leads, above the generic "what species is this?" prompt
         assert html.index("Staff review requested") < html.index("What species does the image have?")
         # Django's {# #} runs to end of line only, so a comment written across several lines

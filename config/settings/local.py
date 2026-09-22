@@ -65,8 +65,23 @@ ADMIN_URL_SUFFIX = ""
 # Use local file storage instead of Google Cloud Storage for local development
 MEDIA_ROOT = str(ROOT_DIR / "media")  # noqa F405
 MEDIA_URL = "/media/"
+# NOTE: MEDIA_URL must stay relative here -- config/urls.py serves media via
+# django.conf.urls.static.static(), which returns no routes at all if MEDIA_URL has a
+# netloc. views.annotation.get_pil_image() reads thumbnails straight off MEDIA_ROOT when
+# MEDIA_URL is relative, so local thumbnails work without an absolute URL.
 # Note: For local development, you'll need to serve media files with:
 # python manage.py runserver --insecure (or configure your local server to serve media)
+
+
+# DATASTORE
+# ------------------------------------------------------------------------------
+# base.py sets DATASTORE_CLIENT = None for local settings, which makes every annotation
+# view raise AttributeError on settings.DATASTORE_CLIENT.key(...). Swap in an in-memory
+# stand-in so the annotation queues (including the staff review queue) work locally.
+# State is per-process and resets on autoreload.
+from ._local_datastore import LocalDatastoreClient  # noqa: E402
+
+DATASTORE_CLIENT = LocalDatastoreClient()
 
 # EMAIL
 # ------------------------------------------------------------------------------

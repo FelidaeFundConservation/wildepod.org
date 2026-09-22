@@ -20,8 +20,10 @@ from .annotation import (
 )
 from .check_email import CheckDropbox2FAEmailView
 from .image import (
+    BulkImageActionView,
     CreatePrecomputedQueueView,
     ImageDetailView,
+    MoveSearchedQueueCursorView,
     PrecomputeImageQueuesView,
     SetImageQueuePartitionView,
 )

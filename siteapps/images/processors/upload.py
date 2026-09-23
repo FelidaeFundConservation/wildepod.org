@@ -14,6 +14,7 @@ from io import BytesIO
 import dropbox
 import requests
 from django.conf import settings
+from django.db.models import Q
 from images.models import Image, Upload
 from images.utils.dropbox_client import create_dropbox_client
 from PIL import Image as PILImage
@@ -51,10 +52,8 @@ def setup_dropbox_paths(upload_obj, data_sheet, dbx=None):
         f" {upload_obj.camera_station.station_id}".lower()
     )
 
-    # Handle duplicates from soft deletions
-    duplicates = Upload.objects.filter(dropbox_folder_name=upload_obj.dropbox_folder_name).count()
-    if duplicates > 0:
-        upload_obj.dropbox_folder_name = upload_obj.dropbox_folder_name + f" ({duplicates})"
+    # Handle duplicates from soft deletions and same-day repeat retrievals
+    upload_obj.dropbox_folder_name = allocate_dropbox_folder_name(upload_obj.dropbox_folder_name)
 
     # Generate the full path
     upload_obj.dropbox_folder_path = f"/{upload_obj.dropbox_folder_name}"
@@ -78,7 +77,61 @@ def setup_dropbox_paths(upload_obj, data_sheet, dbx=None):
     if data_sheet:
         clone_data_sheet(data_sheet, upload_obj.data_sheet.name, upload_obj.dropbox_folder_name, dbx)
     else:
-        response = dbx.files_create_folder(upload_obj.dropbox_folder_path)
+        create_dropbox_folder(upload_obj.dropbox_folder_path, dbx)
+
+
+def allocate_dropbox_folder_name(base_name):
+    """Return the first folder name in the `base_name`, `base_name (1)`, `base_name (2)` ... series
+    that no upload has already claimed.
+
+    `base_name` carries the retrieval date but not the time, and soft-deleted uploads keep their
+    name forever, so collisions are routine rather than exceptional: a station checked twice in one
+    day collides, and so does a volunteer who deletes a failed upload and starts over.
+
+    This used to count the rows holding `base_name` and append that count, which only ever produced
+    `(1)`. The first collision resolved, and every attempt after it was handed `(1)` again -- a name
+    already taken. `dropbox_folder_name` and `dropbox_folder_path` are both unique and neither is a
+    form field, so ModelForm.validate_unique() skips them and the clash surfaced as an unhandled
+    IntegrityError, i.e. a Server Error on the volunteer's screen, permanently, for that station and
+    date. Walking the taken names fixes the third upload and every one after it.
+    """
+    taken = set(
+        Upload.objects.filter(
+            Q(dropbox_folder_name=base_name) | Q(dropbox_folder_name__startswith=f"{base_name} (")
+        ).values_list("dropbox_folder_name", flat=True)
+    )
+
+    if base_name not in taken:
+        return base_name
+
+    suffix = 1
+    while f"{base_name} ({suffix})" in taken:
+        suffix += 1
+
+    return f"{base_name} ({suffix})"
+
+
+def create_dropbox_folder(folder_path, dbx):
+    """Create the upload's Dropbox folder, treating one that already exists as success.
+
+    A folder can outlive the attempt that created it. Dropbox is set up here against an unsaved
+    Upload, so anything that fails between this call and the row being written leaves a folder
+    behind that no row names -- including every attempt that hit the duplicate-name bug above.
+    allocate_dropbox_folder_name() only knows about names in the database, so the next attempt
+    hands back that same name and Dropbox answers files_create_folder with path/conflict/folder.
+
+    An empty folder at that path is exactly what this function exists to produce, so a conflict is
+    not a failure worth a 500. Anything else is still raised.
+    """
+    try:
+        dbx.files_create_folder(folder_path)
+    except dropbox.exceptions.ApiError as exc:
+        error = exc.error
+        is_conflict = hasattr(error, "is_path") and error.is_path() and error.get_path().is_conflict()
+        if not is_conflict:
+            raise
+
+        logging.info(f"Dropbox folder {folder_path} already exists. Reusing it for this upload.")
 
 
 def clone_data_sheet(file, sheet_name, dropbox_folder_name, dbx=None):

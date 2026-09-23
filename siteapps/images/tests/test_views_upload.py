@@ -1299,6 +1299,48 @@ class TestUploadCreateViewFormValid:
         call_args = mock_setup.call_args[0]
         assert isinstance(call_args[0], Upload)
 
+    @patch("images.processors.upload.create_dropbox_client")
+    def test_repeated_uploads_for_one_station_and_date_do_not_error(
+        self, mock_create_client, client, user, camera_station
+    ):
+        """Creating several uploads for the same station and date keeps redirecting to Finalize.
+
+        The generated Dropbox folder name has no time component, so same-day retrievals share a
+        base name. The old suffix logic gave the third attempt a name the second already held, and
+        because dropbox_folder_path is unique and not a form field the clash escaped
+        ModelForm.validate_unique() and reached the volunteer as a Server Error.
+        """
+        client.force_login(user)
+        action, _ = CameraStationAction.objects.get_or_create(action="DEPLOY")
+
+        mock_dbx = Mock()
+        mock_dbx.file_requests_create.return_value = Mock(
+            id="req", url="https://dropbox.com/req", is_open=True
+        )
+        mock_create_client.return_value = mock_dbx
+
+        for minute in range(4):
+            form_data = {
+                "camera_station": camera_station.id,
+                "volunteer": user.id,
+                "date_retrieved_0": "2026-03-20",
+                "date_retrieved_1": f"14:{minute:02d}:00",
+                "last_action": action.id,
+                "upload_method": "E",
+                "data_sheet": "",
+            }
+
+            response = client.post(reverse("images:create_upload"), data=form_data)
+
+            assert response.status_code == 302, (
+                f"upload {minute + 1} did not reach Finalize: "
+                f"{response.context['form'].errors if response.context else response.status_code}"
+            )
+
+        uploads = Upload.objects.filter(camera_station=camera_station)
+        assert uploads.count() == 4
+        assert len({upload.dropbox_folder_path for upload in uploads}) == 4
+
 
 # UploadListView Filtering Tests
 # ------------------------------------------------------------------------------

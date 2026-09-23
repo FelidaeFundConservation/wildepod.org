@@ -307,6 +307,7 @@ class TestSetupDropboxPaths:
 
         mock_dbx = Mock()
         mock_dbx.files_create_folder.side_effect = conflict
+        mock_dbx.files_list_folder.return_value = Mock(entries=[])
         mock_create_client.return_value = mock_dbx
 
         upload = Upload(
@@ -321,6 +322,85 @@ class TestSetupDropboxPaths:
 
         mock_dbx.files_create_folder.assert_called_once()
         upload.save()
+
+    @patch('images.processors.upload.create_dropbox_client')
+    def test_setup_dropbox_paths_refuses_a_dropbox_folder_that_holds_files(
+        self, mock_create_client, camera_station, regular_user, camera_station_action
+    ):
+        """A folder with files in it belongs to another upload, so it must not be adopted.
+
+        Hard-deleting an Upload row from the admin leaves its Dropbox folder behind with the
+        images still in it, and name allocation only reads rows, so the name looks free. Reusing
+        it would hand those images to this upload once process_upload lists the path.
+        """
+        import dropbox as dropbox_sdk
+
+        from images.processors.upload import setup_dropbox_paths
+
+        conflict = dropbox_sdk.exceptions.ApiError(
+            request_id="req",
+            error=dropbox_sdk.files.CreateFolderError.path(
+                dropbox_sdk.files.WriteError.conflict(dropbox_sdk.files.WriteConflictError.folder)
+            ),
+            user_message_text=None,
+            user_message_locale=None,
+        )
+
+        mock_dbx = Mock()
+        mock_dbx.files_create_folder.side_effect = conflict
+        mock_dbx.files_list_folder.return_value = Mock(entries=[Mock(name="IMG_0001.JPG")])
+        mock_create_client.return_value = mock_dbx
+
+        upload = Upload(
+            camera_station=camera_station,
+            date_retrieved=timezone.now(),
+            last_action=camera_station_action,
+            volunteer=regular_user,
+            upload_method="D",
+        )
+
+        with pytest.raises(ValueError, match="not empty"):
+            setup_dropbox_paths(upload, None, dbx=mock_dbx)
+
+    @patch('images.processors.upload.create_dropbox_client')
+    def test_setup_dropbox_paths_refuses_a_file_occupying_the_folder_path(
+        self, mock_create_client, camera_station, regular_user, camera_station_action
+    ):
+        """A conflict with a file is not a folder we can reuse.
+
+        WriteError.is_conflict() covers files and ancestors too. Accepting one would save an
+        Upload pointing at something that is not a directory, and the failure would resurface
+        later and far from here, inside files_list_folder during processing.
+        """
+        import dropbox as dropbox_sdk
+
+        from images.processors.upload import setup_dropbox_paths
+
+        file_conflict = dropbox_sdk.exceptions.ApiError(
+            request_id="req",
+            error=dropbox_sdk.files.CreateFolderError.path(
+                dropbox_sdk.files.WriteError.conflict(dropbox_sdk.files.WriteConflictError.file)
+            ),
+            user_message_text=None,
+            user_message_locale=None,
+        )
+
+        mock_dbx = Mock()
+        mock_dbx.files_create_folder.side_effect = file_conflict
+        mock_create_client.return_value = mock_dbx
+
+        upload = Upload(
+            camera_station=camera_station,
+            date_retrieved=timezone.now(),
+            last_action=camera_station_action,
+            volunteer=regular_user,
+            upload_method="D",
+        )
+
+        with pytest.raises(dropbox_sdk.exceptions.ApiError):
+            setup_dropbox_paths(upload, None, dbx=mock_dbx)
+
+        mock_dbx.files_list_folder.assert_not_called()
 
     @patch('images.processors.upload.create_dropbox_client')
     def test_setup_dropbox_paths_reraises_non_conflict_dropbox_errors(

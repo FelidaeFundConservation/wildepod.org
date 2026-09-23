@@ -112,26 +112,44 @@ def allocate_dropbox_folder_name(base_name):
 
 
 def create_dropbox_folder(folder_path, dbx):
-    """Create the upload's Dropbox folder, treating one that already exists as success.
+    """Create the upload's Dropbox folder, reusing an *empty* folder already at that path.
 
     A folder can outlive the attempt that created it. Dropbox is set up here against an unsaved
     Upload, so anything that fails between this call and the row being written leaves a folder
     behind that no row names -- including every attempt that hit the duplicate-name bug above.
     allocate_dropbox_folder_name() only knows about names in the database, so the next attempt
     hands back that same name and Dropbox answers files_create_folder with path/conflict/folder.
+    An empty folder there is exactly what this call was trying to produce, so that is not a
+    failure worth a 500.
 
-    An empty folder at that path is exactly what this function exists to produce, so a conflict is
-    not a failure worth a 500. Anything else is still raised.
+    Reuse stops at empty, though. A folder holding files belongs to some other upload -- hard
+    deleting an Upload row from the admin leaves one behind, images and all -- and adopting it
+    would hand that upload's images to this one, because process_upload ingests whatever
+    get_dropbox_file_listing() finds under the path. Quietly mixing two sets of images is worse
+    than the error it would replace, so an occupied path still raises, as does a conflict with a
+    file rather than a folder, and every other ApiError.
     """
     try:
         dbx.files_create_folder(folder_path)
+        return
     except dropbox.exceptions.ApiError as exc:
         error = exc.error
-        is_conflict = hasattr(error, "is_path") and error.is_path() and error.get_path().is_conflict()
-        if not is_conflict:
+        conflicts_with_a_folder = (
+            hasattr(error, "is_path")
+            and error.is_path()
+            and error.get_path().is_conflict()
+            and error.get_path().get_conflict().is_folder()
+        )
+        if not conflicts_with_a_folder:
             raise
 
-        logging.info(f"Dropbox folder {folder_path} already exists. Reusing it for this upload.")
+    if dbx.files_list_folder(folder_path).entries:
+        raise ValueError(
+            f"Dropbox folder {folder_path} already exists and is not empty, so it belongs to"
+            " another upload. Refusing to reuse it."
+        )
+
+    logging.info(f"Reusing the existing empty Dropbox folder {folder_path} for this upload.")
 
 
 def clone_data_sheet(file, sheet_name, dropbox_folder_name, dbx=None):

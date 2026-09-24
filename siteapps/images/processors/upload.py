@@ -118,66 +118,66 @@ def candidate_dropbox_folder_names(base_name):
 
 
 def reserve_dropbox_folder(base_name, dbx, max_candidates=MAX_FOLDER_NAME_CANDIDATES):
-    """Return the name of a folder that is free in the database and now created in Dropbox.
+    """Return the name of a folder that no upload row holds and that we have just created.
 
-    An upload's folder name has to be free in two places that nothing keeps in agreement. The
-    database knows the names rows hold; Dropbox knows the folders that exist. They disagree in both
+    An upload's folder name has to be free in two places nothing keeps in agreement. The database
+    knows which names rows hold; Dropbox knows which folders exist. They disagree in both
     directions -- a row hard-deleted from the admin leaves its folder behind with the images still
-    in it, and an attempt that failed before its row was written leaves an empty folder no row
-    names. Asking only the database, then creating the folder and hoping, is what produced every
-    folder-related failure on this path.
+    in it, and an attempt that failed before its row was written leaves a folder no row names.
+    Asking only the database, then creating the folder and hoping, produced every folder-related
+    failure on this path.
 
-    So the database only proposes. Dropbox decides, by whether the folder can actually be claimed,
-    and a name it rejects is simply not free: take the next candidate. An occupied folder is a
-    reason to move on, not to fail -- erroring there would leave the volunteer exactly as stuck as
-    the duplicate-name bug did, on the same station and date, which is the whole thing this is
-    meant to fix.
+    So the database only proposes; Dropbox decides, by whether the folder can be created at all. A
+    name it will not give us is not free, and the answer is the next candidate, not an error --
+    failing there would leave the volunteer as stuck on that station and date as the duplicate-name
+    bug did, which is the thing this is meant to fix.
+
+    Only a folder we created ourselves is ever used. Anything already at the path is left alone,
+    whatever is or is not inside it. See claim_dropbox_folder() for why "it looks empty, so it is
+    probably mine" is not good enough.
     """
     for candidate in islice(candidate_dropbox_folder_names(base_name), max_candidates):
         if claim_dropbox_folder(f"/{candidate}", dbx):
             return candidate
 
-        logging.warning(
-            f"Dropbox folder /{candidate} exists and holds files, so it belongs to another upload."
-            " Trying the next name."
-        )
+        logging.warning(f"Dropbox path /{candidate} is already occupied. Trying the next name.")
 
-    # Every candidate occupied means something is wrong that picking another name will not fix.
+    # Every candidate occupied is not something another name will fix.
     raise ValueError(f"Could not find a free Dropbox folder for '{base_name}' in {max_candidates} attempts.")
 
 
 def claim_dropbox_folder(folder_path, dbx):
-    """Create `folder_path`, or adopt it if it is already there and empty. True if it is ours.
+    """Create `folder_path`. True if we created it; False if anything was already there.
 
-    An empty folder is exactly what this call is trying to produce, so a conflict with one is
-    success -- that is the orphan left by an attempt that failed before its row was written, and
-    refusing it would keep a station stuck behind its own earlier failure.
+    Nothing pre-existing is reused, and that is deliberate -- an earlier version of this reused a
+    folder that was empty, on the reasoning that an empty folder is exactly what this call is
+    trying to produce.
 
-    A folder with files in it is a different matter: it belongs to some other upload, and adopting
-    it would hand that upload's images to this one, because process_upload ingests whatever
-    get_dropbox_file_listing() finds under the path. Report it as not ours and let the caller move
-    on. A conflict with a *file* rather than a folder is not something another name would fix, so
-    that raises, as does every other ApiError.
+    Emptiness does not establish ownership. A file request is created before
+    UploadCreateView.form_valid() saves the row, so an attempt that fails at the save leaves an
+    *empty* folder with a live request still pointing into it, and a hard-deleted upload that never
+    received images leaves the same thing behind with its URL in someone's browser history.
+    Adopting either gives the new upload a folder that a second, unknown, still-open request writes
+    into: files arriving through that URL are ingested as this upload's images, and nothing ever
+    closes it, because completion only closes requests recorded on a row.
+
+    Creating the folder is also what makes concurrent creates safe. Two requests proposing the same
+    name both reach this point; Dropbox gives it to exactly one of them, and the other moves on to
+    the next candidate, so they can never race to insert the same unique name.
+
+    Any conflict -- a folder, a file, a file in the way of the path -- means the name is taken and
+    another one will do. Every other ApiError is a real failure and raises.
     """
     try:
         dbx.files_create_folder(folder_path)
         return True
     except dropbox.exceptions.ApiError as exc:
         error = exc.error
-        conflicts_with_a_folder = (
-            hasattr(error, "is_path")
-            and error.is_path()
-            and error.get_path().is_conflict()
-            and error.get_path().get_conflict().is_folder()
-        )
-        if not conflicts_with_a_folder:
+        path_is_occupied = hasattr(error, "is_path") and error.is_path() and error.get_path().is_conflict()
+        if not path_is_occupied:
             raise
 
-    if dbx.files_list_folder(folder_path).entries:
         return False
-
-    logging.info(f"Reusing the existing empty Dropbox folder {folder_path} for this upload.")
-    return True
 
 
 def clone_data_sheet(file, sheet_name, dropbox_folder_name, dbx=None):

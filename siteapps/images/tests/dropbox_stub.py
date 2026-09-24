@@ -17,19 +17,21 @@ import dropbox
 
 
 class FakeDropbox:
-    def __init__(self, occupied=None):
+    def __init__(self, occupied=None, always_conflict=False):
         # path -> list of entry names. Contents are never consulted by the code under test --
         # they are here so a test can assert a foreign folder was left untouched.
         self.folders = dict(occupied or {})
         # path -> WriteConflictError kind, for paths blocked by something other than a folder
         self.conflicts = {}
+        # Refuse every path, however named -- used to drive name allocation to exhaustion.
+        self.always_conflict = always_conflict
         self.file_requests = []
         self.uploads = []
         self.create_attempts = 0
 
     def files_create_folder(self, path):
         self.create_attempts += 1
-        if path in self.folders or path in self.conflicts:
+        if self.always_conflict or path in self.folders or path in self.conflicts:
             kind = self.conflicts.get(path, dropbox.files.WriteConflictError.folder)
             raise dropbox.exceptions.ApiError(
                 request_id="req",

@@ -6,6 +6,8 @@
 """
 Tests for images upload processor functions.
 """
+import re
+
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime, timedelta, timezone as dt_timezone
@@ -375,11 +377,17 @@ class TestSetupDropboxPaths:
         assert dbx.folders[f"/{base}"] == ["data_sheet/theirs.pdf"]
 
     @patch('images.processors.upload.create_dropbox_client')
-    def test_setup_dropbox_paths_gives_up_after_exhausting_candidate_names(
+    def test_setup_dropbox_paths_falls_back_to_a_unique_name_when_the_numbers_run_out(
         self, mock_create_client, camera_station, regular_user, camera_station_action
     ):
-        """Every candidate occupied is not something another name will fix."""
-        from images.processors.upload import MAX_FOLDER_NAME_CANDIDATES, setup_dropbox_paths
+        """Running out of numbered names must not block the volunteer.
+
+        Orphan folders from failed saves and folders left by hard-deleted rows are never
+        reclaimed, so the supply of readable "(n)" names for one station and date only shrinks.
+        Exhausting it used to raise, which is an error the volunteer cannot clear on that station
+        and date -- exactly where this branch started.
+        """
+        from images.processors.upload import MAX_ORDINAL_SUFFIX, setup_dropbox_paths
 
         upload = Upload(
             camera_station=camera_station,
@@ -390,8 +398,36 @@ class TestSetupDropboxPaths:
         )
         base = _base_folder_name(upload)
         occupied = {f"/{base}": ["x"]}
-        occupied.update({f"/{base} ({n})": ["x"] for n in range(1, MAX_FOLDER_NAME_CANDIDATES + 5)})
+        occupied.update({f"/{base} ({n})": ["x"] for n in range(1, MAX_ORDINAL_SUFFIX + 1)})
         dbx = FakeDropbox(occupied=occupied)
+
+        setup_dropbox_paths(upload, None, dbx=dbx)
+
+        # A readable ordinal was not available, so the name carries a unique suffix instead.
+        assert upload.dropbox_folder_name.startswith(f"{base} (")
+        assert upload.dropbox_folder_name not in occupied
+        assert not re.fullmatch(r"\(\d+\)", upload.dropbox_folder_name[len(base) + 1 :])
+        upload.save()
+
+    @patch('images.processors.upload.create_dropbox_client')
+    def test_setup_dropbox_paths_gives_up_if_dropbox_refuses_every_name(
+        self, mock_create_client, camera_station, regular_user, camera_station_action
+    ):
+        """The remaining raise is an invariant guard, not a path a busy station can reach.
+
+        It takes Dropbox refusing every name including the unique ones, which no further name
+        would fix either.
+        """
+        from images.processors.upload import MAX_FOLDER_NAME_CANDIDATES, setup_dropbox_paths
+
+        upload = Upload(
+            camera_station=camera_station,
+            date_retrieved=timezone.now(),
+            last_action=camera_station_action,
+            volunteer=regular_user,
+            upload_method="E",
+        )
+        dbx = FakeDropbox(always_conflict=True)
 
         with pytest.raises(ValueError, match="Could not find a free Dropbox folder"):
             setup_dropbox_paths(upload, None, dbx=dbx)

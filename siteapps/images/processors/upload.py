@@ -34,9 +34,14 @@ logging.getLogger("dropbox").setLevel(logging.WARNING)
 MAX_THREADS_FOR_IMAGE_PROCESSING = 10
 MAX_THREADS_FOR_DROPBOX_API = 15
 
-# How many folder names to try before giving up. Generous: a station legitimately retrieved
-# several times in a day, plus old occupied folders, should never come close.
-MAX_FOLDER_NAME_CANDIDATES = 25
+# How many readable "(1)", "(2)" ... names to offer before falling back to a unique suffix.
+# Generous: a station legitimately retrieved several times in a day never comes close.
+MAX_ORDINAL_SUFFIX = 25
+
+# Total names to try before giving up. The margin over MAX_ORDINAL_SUFFIX is spent on
+# unique-suffix candidates, which do not realistically collide, so exhausting this is an
+# invariant failure rather than something a busy station can reach.
+MAX_FOLDER_NAME_CANDIDATES = MAX_ORDINAL_SUFFIX + 5
 
 
 def setup_dropbox_paths(upload_obj, data_sheet, dbx=None):
@@ -84,7 +89,7 @@ def setup_dropbox_paths(upload_obj, data_sheet, dbx=None):
 
 
 def candidate_dropbox_folder_names(base_name):
-    """Yield `base_name`, `base_name (1)`, `base_name (2)` ... skipping any an upload already holds.
+    """Yield `base_name`, `base_name (1)`, `base_name (2)` ... skipping any name an upload holds.
 
     `base_name` carries the retrieval date but not the time, and soft-deleted uploads keep their
     name forever, so collisions are routine rather than exceptional: a station checked twice in one
@@ -99,6 +104,13 @@ def candidate_dropbox_folder_names(base_name):
 
     These are candidates, not answers. A name free in the database can still be occupied in
     Dropbox, which is the other half of the same problem -- see reserve_dropbox_folder().
+
+    Past MAX_ORDINAL_SUFFIX the numbering gives way to a unique suffix. Ordinals are the readable
+    form and what anyone browsing Dropbox expects, but they are a finite supply that only ever
+    shrinks: orphan folders from failed saves and folders left by hard-deleted rows are never
+    reclaimed, by design. Running out would put a volunteer back where this branch started --
+    an error they cannot clear, on one station and date, forever. A name nobody can read beats
+    that, and it only appears once something is already wrong.
     """
     taken = set(
         Upload.objects.filter(
@@ -109,12 +121,20 @@ def candidate_dropbox_folder_names(base_name):
     if base_name not in taken:
         yield base_name
 
-    suffix = 1
-    while True:
+    for suffix in range(1, MAX_ORDINAL_SUFFIX + 1):
         candidate = f"{base_name} ({suffix})"
         if candidate not in taken:
             yield candidate
-        suffix += 1
+
+    while True:
+        candidate = f"{base_name} ({uuid.uuid4().hex[:8]})"
+        if candidate not in taken:
+            logging.warning(
+                f"Ran out of numbered Dropbox folder names for '{base_name}'. Falling back to"
+                f" '{candidate}'. Orphaned folders are probably accumulating for this station"
+                " and date."
+            )
+            yield candidate
 
 
 def reserve_dropbox_folder(base_name, dbx, max_candidates=MAX_FOLDER_NAME_CANDIDATES):
@@ -130,7 +150,8 @@ def reserve_dropbox_folder(base_name, dbx, max_candidates=MAX_FOLDER_NAME_CANDID
     So the database only proposes; Dropbox decides, by whether the folder can be created at all. A
     name it will not give us is not free, and the answer is the next candidate, not an error --
     failing there would leave the volunteer as stuck on that station and date as the duplicate-name
-    bug did, which is the thing this is meant to fix.
+    bug did, which is the thing this is meant to fix. Names held by rows cost nothing here: the
+    generator skips them without yielding, so only names Dropbox refuses consume the budget.
 
     Only a folder we created ourselves is ever used. Anything already at the path is left alone,
     whatever is or is not inside it. See claim_dropbox_folder() for why "it looks empty, so it is
@@ -142,7 +163,8 @@ def reserve_dropbox_folder(base_name, dbx, max_candidates=MAX_FOLDER_NAME_CANDID
 
         logging.warning(f"Dropbox path /{candidate} is already occupied. Trying the next name.")
 
-    # Every candidate occupied is not something another name will fix.
+    # Unreachable short of Dropbox refusing every name, including the unique ones, which no
+    # further name would fix either.
     raise ValueError(f"Could not find a free Dropbox folder for '{base_name}' in {max_candidates} attempts.")
 
 

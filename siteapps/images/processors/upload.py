@@ -68,16 +68,19 @@ def setup_dropbox_paths(upload_obj, data_sheet, dbx=None):
         upload_obj.dropbox_request_url = response.url
         upload_obj.dropbox_request_open = response.is_open
     else:
-        # Don't need to create the folder anymore, as cloning the datasheet to the subfolder already created it
-
         # Construct and encode the absolute dropbox url
         upload_obj.dropbox_direct_url = settings.DROPBOX_URL_PREFIX + quote(upload_obj.dropbox_folder_path, safe=":/")
+
+    # Claim the folder before writing anything into it, whether or not there is a datasheet.
+    # clone_data_sheet() uploads to a path under the folder with WriteMode.overwrite, which creates
+    # the folder as a side effect and would happily write into one that already belongs to another
+    # upload -- so leaving the datasheet path to create the folder implicitly, as it used to, skipped
+    # every check create_dropbox_folder() makes.
+    create_dropbox_folder(upload_obj.dropbox_folder_path, dbx)
 
     # Save a copy of the datasheet in dropbox
     if data_sheet:
         clone_data_sheet(data_sheet, upload_obj.data_sheet.name, upload_obj.dropbox_folder_name, dbx)
-    else:
-        create_dropbox_folder(upload_obj.dropbox_folder_path, dbx)
 
 
 def allocate_dropbox_folder_name(base_name):

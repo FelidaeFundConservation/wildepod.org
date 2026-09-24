@@ -8,7 +8,7 @@ Tests for images upload processor functions.
 """
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from django.utils import timezone
 from django.core.files.uploadedfile import SimpleUploadedFile
 
@@ -215,7 +215,10 @@ class TestSetupDropboxPaths:
         )
         mock_create_client.return_value = mock_dbx
 
-        date_retrieved = timezone.now()
+        # Fixed, not timezone.now(): the folder name is built from date_retrieved.date(), so a base
+        # time late enough in the UTC day would push the later offsets onto tomorrow's date, change
+        # the base name mid-loop, and fail this test for a few hours every day.
+        date_retrieved = datetime(2026, 3, 20, 6, 0, tzinfo=dt_timezone.utc)
         names = []
 
         # Five retrievals off the same station on the same day. Distinct times, because
@@ -254,7 +257,10 @@ class TestSetupDropboxPaths:
         )
         mock_create_client.return_value = mock_dbx
 
-        date_retrieved = timezone.now()
+        # Fixed for the same reason as above -- a rolling base time could put the fresh upload on a
+        # different date, giving it a different base name and passing this test without ever
+        # exercising the allocation it is here to check.
+        date_retrieved = datetime(2026, 3, 20, 6, 0, tzinfo=dt_timezone.utc)
         taken = []
 
         for hour in range(3):
@@ -361,6 +367,51 @@ class TestSetupDropboxPaths:
 
         with pytest.raises(ValueError, match="not empty"):
             setup_dropbox_paths(upload, None, dbx=mock_dbx)
+
+    @patch('images.processors.upload.create_dropbox_client')
+    def test_setup_dropbox_paths_checks_the_folder_even_when_a_datasheet_is_uploaded(
+        self, mock_create_client, camera_station, regular_user, camera_station_action
+    ):
+        """The datasheet path must not be able to write into another upload's folder.
+
+        clone_data_sheet() uploads to a path under the folder with WriteMode.overwrite, which
+        creates the folder as a side effect. Letting it do so implicitly skipped every check
+        create_dropbox_folder() makes, so a populated folder was silently adopted -- and that
+        upload's datasheet overwritten -- on exactly the path the emptiness check exists for.
+        """
+        import dropbox as dropbox_sdk
+
+        from images.processors.upload import setup_dropbox_paths
+
+        conflict = dropbox_sdk.exceptions.ApiError(
+            request_id="req",
+            error=dropbox_sdk.files.CreateFolderError.path(
+                dropbox_sdk.files.WriteError.conflict(dropbox_sdk.files.WriteConflictError.folder)
+            ),
+            user_message_text=None,
+            user_message_locale=None,
+        )
+
+        mock_dbx = Mock()
+        mock_dbx.files_create_folder.side_effect = conflict
+        mock_dbx.files_list_folder.return_value = Mock(entries=[Mock(name="IMG_0001.JPG")])
+        mock_create_client.return_value = mock_dbx
+
+        upload = Upload(
+            camera_station=camera_station,
+            date_retrieved=timezone.now(),
+            last_action=camera_station_action,
+            volunteer=regular_user,
+            upload_method="D",
+        )
+        data_sheet = SimpleUploadedFile("sheet.pdf", b"datasheet bytes")
+        upload.data_sheet = data_sheet
+
+        with pytest.raises(ValueError, match="not empty"):
+            setup_dropbox_paths(upload, data_sheet, dbx=mock_dbx)
+
+        # The datasheet must not have been written into someone else's folder.
+        mock_dbx.files_upload.assert_not_called()
 
     @patch('images.processors.upload.create_dropbox_client')
     def test_setup_dropbox_paths_refuses_a_file_occupying_the_folder_path(

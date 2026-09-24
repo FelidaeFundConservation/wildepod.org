@@ -369,6 +369,47 @@ class TestSetupDropboxPaths:
             setup_dropbox_paths(upload, None, dbx=mock_dbx)
 
     @patch('images.processors.upload.create_dropbox_client')
+    def test_setup_dropbox_paths_claims_the_folder_before_opening_a_file_request(
+        self, mock_create_client, camera_station, regular_user, camera_station_action
+    ):
+        """No file request may be opened against a folder we turn out not to own.
+
+        A file request is a live, open door into its destination. Creating one and only then
+        failing the emptiness check would leave an active request writing into another upload's
+        folder, behind a page that reported an error to the volunteer.
+        """
+        import dropbox as dropbox_sdk
+
+        from images.processors.upload import setup_dropbox_paths
+
+        conflict = dropbox_sdk.exceptions.ApiError(
+            request_id="req",
+            error=dropbox_sdk.files.CreateFolderError.path(
+                dropbox_sdk.files.WriteError.conflict(dropbox_sdk.files.WriteConflictError.folder)
+            ),
+            user_message_text=None,
+            user_message_locale=None,
+        )
+
+        mock_dbx = Mock()
+        mock_dbx.files_create_folder.side_effect = conflict
+        mock_dbx.files_list_folder.return_value = Mock(entries=[Mock(name="IMG_0001.JPG")])
+        mock_create_client.return_value = mock_dbx
+
+        upload = Upload(
+            camera_station=camera_station,
+            date_retrieved=timezone.now(),
+            last_action=camera_station_action,
+            volunteer=regular_user,
+            upload_method="E",
+        )
+
+        with pytest.raises(ValueError, match="not empty"):
+            setup_dropbox_paths(upload, None, dbx=mock_dbx)
+
+        mock_dbx.file_requests_create.assert_not_called()
+
+    @patch('images.processors.upload.create_dropbox_client')
     def test_setup_dropbox_paths_checks_the_folder_even_when_a_datasheet_is_uploaded(
         self, mock_create_client, camera_station, regular_user, camera_station_action
     ):

@@ -57,6 +57,17 @@ def setup_dropbox_paths(upload_obj, data_sheet, dbx=None):
 
     # Generate the full path
     upload_obj.dropbox_folder_path = f"/{upload_obj.dropbox_folder_name}"
+
+    # Claim the folder before anything is pointed at it or written into it.
+    #
+    # This has to come first, not just before the datasheet. A file request is a live, open door
+    # into its destination: create one and then fail the emptiness check, and we have left an
+    # active request writing into another upload's folder behind a page that reported an error.
+    # And clone_data_sheet() uploads with WriteMode.overwrite, which creates the folder as a side
+    # effect -- so letting the datasheet path create it implicitly, as it used to, skipped every
+    # check create_dropbox_folder() makes.
+    create_dropbox_folder(upload_obj.dropbox_folder_path, dbx)
+
     if upload_obj.upload_method == "E" and upload_obj._state.adding:
         # Now create a folder request. The path will always be relative to the app root.
         # The entire directory structure, for now, will be flat under the App directory
@@ -70,13 +81,6 @@ def setup_dropbox_paths(upload_obj, data_sheet, dbx=None):
     else:
         # Construct and encode the absolute dropbox url
         upload_obj.dropbox_direct_url = settings.DROPBOX_URL_PREFIX + quote(upload_obj.dropbox_folder_path, safe=":/")
-
-    # Claim the folder before writing anything into it, whether or not there is a datasheet.
-    # clone_data_sheet() uploads to a path under the folder with WriteMode.overwrite, which creates
-    # the folder as a side effect and would happily write into one that already belongs to another
-    # upload -- so leaving the datasheet path to create the folder implicitly, as it used to, skipped
-    # every check create_dropbox_folder() makes.
-    create_dropbox_folder(upload_obj.dropbox_folder_path, dbx)
 
     # Save a copy of the datasheet in dropbox
     if data_sheet:

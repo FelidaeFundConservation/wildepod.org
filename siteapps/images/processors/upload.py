@@ -10,10 +10,12 @@ import time
 import uuid
 from datetime import timedelta
 from io import BytesIO
+from itertools import islice
 
 import dropbox
 import requests
 from django.conf import settings
+from django.db.models import Q
 from images.models import Image, Upload
 from images.utils.dropbox_client import create_dropbox_client
 from PIL import Image as PILImage
@@ -31,6 +33,15 @@ logging.getLogger("dropbox").setLevel(logging.WARNING)
 # For now, this isn't critical since the processing is largely async
 MAX_THREADS_FOR_IMAGE_PROCESSING = 10
 MAX_THREADS_FOR_DROPBOX_API = 15
+
+# How many readable "(1)", "(2)" ... names to offer before falling back to a unique suffix.
+# Generous: a station legitimately retrieved several times in a day never comes close.
+MAX_ORDINAL_SUFFIX = 25
+
+# Total names to try before giving up. The margin over MAX_ORDINAL_SUFFIX is spent on
+# unique-suffix candidates, which do not realistically collide, so exhausting this is an
+# invariant failure rather than something a busy station can reach.
+MAX_FOLDER_NAME_CANDIDATES = MAX_ORDINAL_SUFFIX + 5
 
 
 def setup_dropbox_paths(upload_obj, data_sheet, dbx=None):
@@ -51,13 +62,13 @@ def setup_dropbox_paths(upload_obj, data_sheet, dbx=None):
         f" {upload_obj.camera_station.station_id}".lower()
     )
 
-    # Handle duplicates from soft deletions
-    duplicates = Upload.objects.filter(dropbox_folder_name=upload_obj.dropbox_folder_name).count()
-    if duplicates > 0:
-        upload_obj.dropbox_folder_name = upload_obj.dropbox_folder_name + f" ({duplicates})"
-
-    # Generate the full path
+    # Settle on a folder that is free in the database *and* claimable in Dropbox, and create it.
+    # Nothing below may point at or write into the folder until it is ours: the file request is a
+    # live door into its destination, and clone_data_sheet() uploads with WriteMode.overwrite,
+    # which would create the folder as a side effect and write into whatever is already there.
+    upload_obj.dropbox_folder_name = reserve_dropbox_folder(upload_obj.dropbox_folder_name, dbx)
     upload_obj.dropbox_folder_path = f"/{upload_obj.dropbox_folder_name}"
+
     if upload_obj.upload_method == "E" and upload_obj._state.adding:
         # Now create a folder request. The path will always be relative to the app root.
         # The entire directory structure, for now, will be flat under the App directory
@@ -69,16 +80,126 @@ def setup_dropbox_paths(upload_obj, data_sheet, dbx=None):
         upload_obj.dropbox_request_url = response.url
         upload_obj.dropbox_request_open = response.is_open
     else:
-        # Don't need to create the folder anymore, as cloning the datasheet to the subfolder already created it
-
         # Construct and encode the absolute dropbox url
         upload_obj.dropbox_direct_url = settings.DROPBOX_URL_PREFIX + quote(upload_obj.dropbox_folder_path, safe=":/")
 
     # Save a copy of the datasheet in dropbox
     if data_sheet:
         clone_data_sheet(data_sheet, upload_obj.data_sheet.name, upload_obj.dropbox_folder_name, dbx)
-    else:
-        response = dbx.files_create_folder(upload_obj.dropbox_folder_path)
+
+
+def candidate_dropbox_folder_names(base_name):
+    """Yield `base_name`, `base_name (1)`, `base_name (2)` ... skipping any name an upload holds.
+
+    `base_name` carries the retrieval date but not the time, and soft-deleted uploads keep their
+    name forever, so collisions are routine rather than exceptional: a station checked twice in one
+    day collides, and so does a volunteer who deletes a failed upload and starts over.
+
+    This used to count the rows holding `base_name` and append that count, which only ever produced
+    `(1)`. The first collision resolved, and every attempt after it was handed `(1)` again -- a name
+    already taken. `dropbox_folder_name` and `dropbox_folder_path` are both unique and neither is a
+    form field, so ModelForm.validate_unique() skips them and the clash surfaced as an unhandled
+    IntegrityError, i.e. a Server Error on the volunteer's screen, permanently, for that station and
+    date.
+
+    These are candidates, not answers. A name free in the database can still be occupied in
+    Dropbox, which is the other half of the same problem -- see reserve_dropbox_folder().
+
+    Past MAX_ORDINAL_SUFFIX the numbering gives way to a unique suffix. Ordinals are the readable
+    form and what anyone browsing Dropbox expects, but they are a finite supply that only ever
+    shrinks: orphan folders from failed saves and folders left by hard-deleted rows are never
+    reclaimed, by design. Running out would put a volunteer back where this branch started --
+    an error they cannot clear, on one station and date, forever. A name nobody can read beats
+    that, and it only appears once something is already wrong.
+    """
+    taken = set(
+        Upload.objects.filter(
+            Q(dropbox_folder_name=base_name) | Q(dropbox_folder_name__startswith=f"{base_name} (")
+        ).values_list("dropbox_folder_name", flat=True)
+    )
+
+    if base_name not in taken:
+        yield base_name
+
+    for suffix in range(1, MAX_ORDINAL_SUFFIX + 1):
+        candidate = f"{base_name} ({suffix})"
+        if candidate not in taken:
+            yield candidate
+
+    while True:
+        candidate = f"{base_name} ({uuid.uuid4().hex[:8]})"
+        if candidate not in taken:
+            logging.warning(
+                f"Ran out of numbered Dropbox folder names for '{base_name}'. Falling back to"
+                f" '{candidate}'. Orphaned folders are probably accumulating for this station"
+                " and date."
+            )
+            yield candidate
+
+
+def reserve_dropbox_folder(base_name, dbx, max_candidates=MAX_FOLDER_NAME_CANDIDATES):
+    """Return the name of a folder that no upload row holds and that we have just created.
+
+    An upload's folder name has to be free in two places nothing keeps in agreement. The database
+    knows which names rows hold; Dropbox knows which folders exist. They disagree in both
+    directions -- a row hard-deleted from the admin leaves its folder behind with the images still
+    in it, and an attempt that failed before its row was written leaves a folder no row names.
+    Asking only the database, then creating the folder and hoping, produced every folder-related
+    failure on this path.
+
+    So the database only proposes; Dropbox decides, by whether the folder can be created at all. A
+    name it will not give us is not free, and the answer is the next candidate, not an error --
+    failing there would leave the volunteer as stuck on that station and date as the duplicate-name
+    bug did, which is the thing this is meant to fix. Names held by rows cost nothing here: the
+    generator skips them without yielding, so only names Dropbox refuses consume the budget.
+
+    Only a folder we created ourselves is ever used. Anything already at the path is left alone,
+    whatever is or is not inside it. See claim_dropbox_folder() for why "it looks empty, so it is
+    probably mine" is not good enough.
+    """
+    for candidate in islice(candidate_dropbox_folder_names(base_name), max_candidates):
+        if claim_dropbox_folder(f"/{candidate}", dbx):
+            return candidate
+
+        logging.warning(f"Dropbox path /{candidate} is already occupied. Trying the next name.")
+
+    # Unreachable short of Dropbox refusing every name, including the unique ones, which no
+    # further name would fix either.
+    raise ValueError(f"Could not find a free Dropbox folder for '{base_name}' in {max_candidates} attempts.")
+
+
+def claim_dropbox_folder(folder_path, dbx):
+    """Create `folder_path`. True if we created it; False if anything was already there.
+
+    Nothing pre-existing is reused, and that is deliberate -- an earlier version of this reused a
+    folder that was empty, on the reasoning that an empty folder is exactly what this call is
+    trying to produce.
+
+    Emptiness does not establish ownership. A file request is created before
+    UploadCreateView.form_valid() saves the row, so an attempt that fails at the save leaves an
+    *empty* folder with a live request still pointing into it, and a hard-deleted upload that never
+    received images leaves the same thing behind with its URL in someone's browser history.
+    Adopting either gives the new upload a folder that a second, unknown, still-open request writes
+    into: files arriving through that URL are ingested as this upload's images, and nothing ever
+    closes it, because completion only closes requests recorded on a row.
+
+    Creating the folder is also what makes concurrent creates safe. Two requests proposing the same
+    name both reach this point; Dropbox gives it to exactly one of them, and the other moves on to
+    the next candidate, so they can never race to insert the same unique name.
+
+    Any conflict -- a folder, a file, a file in the way of the path -- means the name is taken and
+    another one will do. Every other ApiError is a real failure and raises.
+    """
+    try:
+        dbx.files_create_folder(folder_path)
+        return True
+    except dropbox.exceptions.ApiError as exc:
+        error = exc.error
+        path_is_occupied = hasattr(error, "is_path") and error.is_path() and error.get_path().is_conflict()
+        if not path_is_occupied:
+            raise
+
+        return False
 
 
 def clone_data_sheet(file, sheet_name, dropbox_folder_name, dbx=None):

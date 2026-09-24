@@ -13,12 +13,14 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from django.contrib.auth.models import AnonymousUser
+from django.db import DatabaseError
 from django.test import RequestFactory
 from django.urls import reverse
 from django.utils import timezone
 
 from images.forms import UploadForm
 from images.models import CameraStationAction, TimeCorrection, Upload
+from images.tests.dropbox_stub import FakeDropbox
 from images.views.upload import (
     UploadCompleteView,
     UploadCreateView,
@@ -1298,6 +1300,98 @@ class TestUploadCreateViewFormValid:
         # Verify it was called with the upload object
         call_args = mock_setup.call_args[0]
         assert isinstance(call_args[0], Upload)
+
+    @patch("images.processors.upload.create_dropbox_client")
+    def test_repeated_uploads_for_one_station_and_date_do_not_error(
+        self, mock_create_client, client, user, camera_station
+    ):
+        """Creating several uploads for the same station and date keeps redirecting to Finalize.
+
+        The generated Dropbox folder name has no time component, so same-day retrievals share a
+        base name. The old suffix logic gave the third attempt a name the second already held, and
+        because dropbox_folder_path is unique and not a form field the clash escaped
+        ModelForm.validate_unique() and reached the volunteer as a Server Error.
+        """
+        client.force_login(user)
+        action, _ = CameraStationAction.objects.get_or_create(action="DEPLOY")
+
+        mock_dbx = Mock()
+        mock_dbx.file_requests_create.return_value = Mock(
+            id="req", url="https://dropbox.com/req", is_open=True
+        )
+        mock_create_client.return_value = mock_dbx
+
+        for minute in range(4):
+            form_data = {
+                "camera_station": camera_station.id,
+                "volunteer": user.id,
+                "date_retrieved_0": "2026-03-20",
+                "date_retrieved_1": f"14:{minute:02d}:00",
+                "last_action": action.id,
+                "upload_method": "E",
+                "data_sheet": "",
+            }
+
+            response = client.post(reverse("images:create_upload"), data=form_data)
+
+            assert response.status_code == 302, (
+                f"upload {minute + 1} did not reach Finalize: "
+                f"{response.context['form'].errors if response.context else response.status_code}"
+            )
+
+        uploads = Upload.objects.filter(camera_station=camera_station)
+        assert uploads.count() == 4
+        assert len({upload.dropbox_folder_path for upload in uploads}) == 4
+
+    @patch("images.processors.upload.create_dropbox_client")
+    def test_retry_after_a_failed_save_does_not_reuse_the_orphaned_folder(
+        self, mock_create_client, client, user, camera_station
+    ):
+        """The failure/retry sequence, end to end through the view.
+
+        Dropbox is set up against an unsaved Upload, so a save that fails leaves behind a folder
+        *and* a live file request that no row records. The retry must not adopt that folder: a
+        second request would then point at the same destination, files arriving through the first
+        URL would be ingested as the new upload's images, and nothing would ever close it, because
+        completion only closes requests recorded on a row.
+        """
+        client.force_login(user)
+        action, _ = CameraStationAction.objects.get_or_create(action="DEPLOY")
+        dbx = FakeDropbox()
+        mock_create_client.return_value = dbx
+
+        def post(minute):
+            return client.post(
+                reverse("images:create_upload"),
+                data={
+                    "camera_station": camera_station.id,
+                    "volunteer": user.id,
+                    "date_retrieved_0": "2026-03-20",
+                    "date_retrieved_1": f"14:{minute:02d}:00",
+                    "last_action": action.id,
+                    "upload_method": "E",
+                    "data_sheet": "",
+                },
+            )
+
+        # First attempt: Dropbox succeeds, the row never lands.
+        with patch.object(Upload, "save", side_effect=DatabaseError("connection lost")):
+            with pytest.raises(DatabaseError):
+                post(0)
+
+        assert Upload.objects.count() == 0
+        orphan_folder, orphan_request = next(iter(dbx.folders)), dbx.file_requests[0][1]
+        assert orphan_request == orphan_folder  # the request points into the orphaned folder
+
+        # Retry: must take a different folder, and must not point a second request at the orphan.
+        assert post(1).status_code == 302
+
+        upload = Upload.objects.get()
+        assert upload.dropbox_folder_path != orphan_folder
+        assert [destination for _, destination in dbx.file_requests] == [orphan_folder, upload.dropbox_folder_path]
+        # Nothing was written into the orphan, and no upload claims it.
+        assert dbx.folders[orphan_folder] == []
+        assert not Upload.objects.filter(dropbox_folder_path=orphan_folder).exists()
 
 
 # UploadListView Filtering Tests

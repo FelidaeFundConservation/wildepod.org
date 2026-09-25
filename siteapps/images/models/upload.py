@@ -77,6 +77,7 @@ class Upload(TimeStampedModel):
     volunteer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
     img_count = models.IntegerField(default=0)
+    processed_img_count = models.IntegerField(default=0)
     
     # User-reported image count at upload creation time
     user_image_count = models.IntegerField(

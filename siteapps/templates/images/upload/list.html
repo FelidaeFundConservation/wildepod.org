@@ -270,6 +270,12 @@
                                             <text class="w-100 small">
                                             <span id="status-{{ object.id }}" class="text-center">?/? (..checking)</span>
                                             </text>
+                                            <text class="w-100 small">
+                                            <span id="camera-status-{{ object.id }}" class="text-center">Camera Station: ?/? (..checking)</span>
+                                            </text>
+                                            <text class="w-100 small">
+                                            <span id="macro-status-{{ object.id }}" class="text-center">Macro Site: ?/? (..checking)</span>
+                                            </text>
                                             {% if user.is_staff %}
                                                 <br>
                                                 <br>
@@ -302,6 +308,30 @@
                                                      class="progress-bar progress-bar-striped progress-bar-animated bg-warning">
                                                     ?
                                                 </div>
+                                            </div>
+                                            <div id="camera-bar-{{ object.id }}"
+                                                class="progress mt-2"
+                                                role="progressbar"
+                                                aria-label="Camera Station Progress {{ object.id }}"
+                                                aria-valuenow="0"
+                                                aria-valuemin="0"
+                                                aria-valuemax="100">
+                                               <div id="camera-progress-{{ object.id }}"
+                                                    class="progress-bar progress-bar-striped progress-bar-animated bg-info">
+                                                   ?
+                                               </div>
+                                            </div>
+                                            <div id="macro-bar-{{ object.id }}"
+                                                class="progress mt-2"
+                                                role="progressbar"
+                                                aria-label="Macro Site Progress {{ object.id }}"
+                                                aria-valuenow="0"
+                                                aria-valuemin="0"
+                                                aria-valuemax="100">
+                                               <div id="macro-progress-{{ object.id }}"
+                                                    class="progress-bar progress-bar-striped progress-bar-animated bg-success">
+                                                   ?
+                                               </div>
                                             </div>
                                         </div>
                                     </div>
@@ -557,6 +587,28 @@
 
     let periodic_check;
 
+    function updateProgress(upload_id, status_key, total_key, processed_key, prefix, stalledClass, emptyLabel) {
+        const total = status_key[total_key];
+        const processed = status_key[processed_key];
+        const percentage = total > 0 ? Math.trunc((processed / total) * 10000) / 100 : 0;
+        $(`#${prefix}-status-${upload_id}`).html(`${emptyLabel}: ${processed}/${total}`);
+
+        const bar = $(`#${prefix}-bar-${upload_id}`);
+        const progress = $(`#${prefix}-progress-${upload_id}`);
+
+        if (percentage > 0 || (total > 0 && processed === total)) {
+            progress.html(`${percentage}%`);
+            progress.removeClass(stalledClass);
+            progress.css("width", `${percentage}%`);
+            bar.attr("aria-valuenow", `${percentage}`);
+        }
+        else {
+            progress.html(`Stalled`);
+            progress.addClass(stalledClass);
+            progress.css("width", `100%`);
+        }
+    }
+
     function checkStatus() {
         const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
         console.log(JSON.stringify(uploads_in_process))
@@ -576,12 +628,32 @@
                         if (upload_status["valid"]){
                             if (upload_status["total_images"] > 0 && upload_status["total_images"] == upload_status["processed_images"]) {
                                 $("#status-" + upload_id).toggleClass("d-none");
+                                $("#camera-status-" + upload_id).toggleClass("d-none");
+                                $("#macro-status-" + upload_id).toggleClass("d-none");
                                 $("#view-" + upload_id).toggleClass("d-none");
                             }
                             else {
                                 let percentage = upload_status["processed_images"] / upload_status["total_images"];
                                 percentage = Math.trunc(percentage * 10000) / 100;
                                 $("#status-" + upload_id).html(upload_status["processed_images"] + "/" + upload_status["total_images"]);
+                                updateProgress(
+                                    upload_id,
+                                    upload_status,
+                                    "camera_station_total_images",
+                                    "camera_station_processed_images",
+                                    "camera",
+                                    "bg-danger",
+                                    "Camera Station"
+                                );
+                                updateProgress(
+                                    upload_id,
+                                    upload_status,
+                                    "macro_site_total_images",
+                                    "macro_site_processed_images",
+                                    "macro",
+                                    "bg-danger",
+                                    "Macro Site"
+                                );
                                 uploads_in_process.push(upload_id)
 
                                 const bar = $(`#bar-${upload_id}`);

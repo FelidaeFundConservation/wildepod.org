@@ -40,6 +40,8 @@ class County(TimeStampedModel):
 class MacroSite(TimeStampedModel):
     name = models.CharField("Macro-site name", max_length=250, unique=True)
     county = models.ForeignKey(County, on_delete=models.PROTECT)
+    total_img_count = models.IntegerField(default=0)
+    processed_img_count = models.IntegerField(default=0)
 
     # History of model instance changes
     history = HistoricalRecords()
@@ -219,6 +221,8 @@ class CameraStation(TimeStampedModel):
 
     # Additional free text comments about the specific camera station
     comments = models.TextField("Instructions/Comments", blank=True)
+    total_img_count = models.IntegerField(default=0)
+    processed_img_count = models.IntegerField(default=0)
 
     def __str__(self):
         return (

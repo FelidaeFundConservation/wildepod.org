@@ -41,7 +41,8 @@ RUNNING_ON_APP_ENGINE = os.environ.get("GAE_ENV")
 RUNNING_IN_CI = os.environ.get("DJANGO_CI_MODE", "")
 
 # Check if running with local settings (no GCP dependencies)
-USING_LOCAL_SETTINGS = os.environ.get("DJANGO_SETTINGS_MODULE", "").endswith(".local")
+settings_module = os.environ.get("DJANGO_SETTINGS_MODULE", "")
+USING_LOCAL_SETTINGS = settings_module.endswith(".local") or settings_module.endswith("_local")
 
 # Note that you can run locally without local settings (eg:- debugging with staging/prod settings).
 # However the reverse is not true, you cannot run in cloud with local settings.

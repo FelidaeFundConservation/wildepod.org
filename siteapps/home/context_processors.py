@@ -14,4 +14,7 @@ def global_settings(request):
         "is_bhutan": "bhutan" in settings.WSGI_APPLICATION,
         "is_local": "local" in settings.WSGI_APPLICATION,
         "google_maps_api_key": settings.GOOGLE_MAPS_API_KEY,
+        "fundraiseup_account_key": settings.FUNDRAISEUP_ACCOUNT_KEY,
+        "fundraiseup_form": settings.FUNDRAISEUP_FORM,
+        "fundraiseup_livemode": settings.FUNDRAISEUP_LIVEMODE,
     }

@@ -46,6 +46,7 @@
         {% endblock fonts %}
         {% block header_includes %}
         {% endblock header_includes %}
+        {% include '_fundraiseup.html' %}
         <!-- Custom Style Sheets -->
         <link rel="stylesheet" type="text/css" href="{% static 'css/main.css' %}">
     </head>
@@ -264,6 +265,17 @@
                             {% else %}
                                 <li class="nav-item mx-1">
                                     <a class="nav-link" href="{% url 'account_login' %}">Sign In</a>
+                                </li>
+                            {% endif %}
+                            {% if fundraiseup_account_key %}
+                                <li class="nav-item mx-1">
+                                    <a class="nav-link nav-icon-link"
+                                       href="#?form={{ fundraiseup_form|urlencode }}"
+                                       data-label="Donate"
+                                       aria-label="Donate">
+                                        <i class="bi bi-heart"></i>
+                                        <span class="d-lg-none ms-1">Donate</span>
+                                    </a>
                                 </li>
                             {% endif %}
                         </ul>

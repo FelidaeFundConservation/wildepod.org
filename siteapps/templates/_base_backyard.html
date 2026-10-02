@@ -46,6 +46,7 @@
         {% endblock fonts %}
         {% block header_includes %}
         {% endblock header_includes %}
+        {% include '_fundraiseup.html' %}
         <!-- Custom Style Sheets -->
         <link rel="stylesheet" type="text/css" href="{% static 'css/main.css' %}">
     </head>
@@ -70,6 +71,13 @@
                     </button>
                     <div class="navbar-collapse collapse w-100" id="collapsingNavbar">
                         <ul class="navbar-nav ms-auto w-100 justify-content-end text-center">
+                            {% if fundraiseup_account_key %}
+                                <li class="nav-item mx-1 d-flex align-items-center justify-content-center">
+                                    <a class="btn btn-light nav-cta" href="#?form={{ fundraiseup_form|urlencode }}">
+                                        Donate
+                                    </a>
+                                </li>
+                            {% endif %}
                         </ul>
                     </div>
                 </div>

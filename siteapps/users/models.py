@@ -36,6 +36,21 @@ class User(AbstractUser, TimeStampedModel):
     # Phone number if needed
     phone_number = models.CharField("Phone Number", max_length=25, blank=True)
 
+    # When this user last worked the staff review queue, used to mark newly arrived images as
+    # NEW. Two timestamps rather than one: overwriting a single field on arrival would clear
+    # every badge the moment the page loaded, before anything had been looked at.
+    #
+    # last_review_visit_at moves to "now" when a review session starts, and
+    # previous_review_visit_at keeps the start of the session before it. NEW means "flagged
+    # since the last time I sat down with this queue", so it is the older of the two that the
+    # badge compares against, and it holds still for the whole session.
+    #
+    # Both are None for a user who has never opened the queue, which shows no badges at all.
+    # That is deliberate: on a first visit every image is equally unseen, so badging the lot
+    # would say nothing.
+    last_review_visit_at = models.DateTimeField(null=True, blank=True)
+    previous_review_visit_at = models.DateTimeField(null=True, blank=True)
+
     # History of model instance changes
     history = HistoricalRecords()
 

@@ -10,6 +10,7 @@ from .views import (
     AnnotateActivityView,
     AnnotateSpeciesView,
     ApplyTimeCorrectionView,
+    BulkImageActionView,
     ChangeAnnotationView,
     CheckDropbox2FAEmailView,
     CreatePrecomputedQueueView,
@@ -19,6 +20,7 @@ from .views import (
     GetRecentTagsView,
     ImageDetailView,
     ModifyUploadSetImagesView,
+    MoveSearchedQueueCursorView,
     PrecomputeImageQueuesView,
     PreviewTimeCorrectionsView,
     SavePreviousImageToReturnToView,
@@ -108,6 +110,11 @@ urlpatterns = [
         name="create_precomputed_queue",
     ),
     path(
+        "bulk-action/",
+        BulkImageActionView.as_view(),
+        name="bulk_image_action",
+    ),
+    path(
         "queue/precompute/",
         PrecomputeImageQueuesView.as_view(),
         name="precompute_queues",
@@ -126,6 +133,11 @@ urlpatterns = [
         "set-queue-partition/",
         SetImageQueuePartitionView.as_view(),
         name="set_queue_partition",
+    ),
+    path(
+        "move-searched-queue-cursor/",
+        MoveSearchedQueueCursorView.as_view(),
+        name="move_searched_queue_cursor",
     ),
     path(
         "get-recent-tags/",

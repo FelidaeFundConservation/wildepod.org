@@ -46,7 +46,7 @@ Complete guide for deploying WildePod Django application to Google Cloud Platfor
    sudo mv cloud-sql-proxy /usr/local/bin/
    ```
 
-3. **Python 3.10+** with uv
+3. **Python 3.14+** with uv
    ```bash
    curl -LsSf https://astral.sh/uv/install.sh | sh
    uv sync

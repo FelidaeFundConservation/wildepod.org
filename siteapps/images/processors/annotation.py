@@ -9,8 +9,20 @@ from typing import Any, Dict, Optional
 
 from django.conf import settings
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
-from django.db.models import Count, Q, Sum
-from images.models import Activity, ActivityType, Annotator, BoundingBox, Category, Image, Species, SpeciesName, Upload
+from django.db.models import Count, F, Q, Sum
+from images.models import (
+    Activity,
+    ActivityType,
+    Annotator,
+    Bot,
+    BoundingBox,
+    Category,
+    Image,
+    Species,
+    SpeciesName,
+    StaffReviewFlagSource,
+    Upload,
+)
 from images.models.annotation import Validity
 
 # TODO: This entire module is very hacky and needs to be refactored
@@ -26,6 +38,14 @@ UNKNOWN_CATEGORY = "unknown"
 PERSON_CATEGORY = "person"
 ANIMAL_CATEGORY = "animal"
 VEHICLE_CATEGORY = "vehicle"
+
+# The automation criterion applied to single high-confidence human images, and the identity
+# of the dedicated automation bot whose accept vote auto-completes them. This is a distinct
+# Bot from the detection MegaDetector so that ordinary detection votes keep normal (weight 1)
+# authority while only the automation annotator carries expert-equivalent (weight 5) authority.
+SINGLE_HUMAN_RULE = "single_human"
+AUTOMATION_BOT_NAME = "MegaDetector-Auto"
+AUTOMATION_BOT_VERSION = "v5a.0.0"
 
 # Vote weight model: normal=1, staff/expert=5, threshold>=2 for VALID, <=-2 for INVALID.
 # Future tier splits (expert vs staff) only require updating _weight() — the
@@ -53,6 +73,7 @@ class VoteResult:
     - staff_override: True if validity was decided by a staff/expert overriding
       via last-vote-wins (set only when called from vote() at vote time)
     """
+
     validity: Optional[str]
     score: int
     accepted_count: int
@@ -63,12 +84,18 @@ class VoteResult:
 
 
 def _is_staff_or_expert(annotator: Optional[Annotator]) -> bool:
-    """Role check — kept independent of vote weight so future tier splits don't break it."""
-    return bool(
-        annotator
-        and annotator.human
-        and (annotator.human.is_staff or annotator.human.is_expert)
-    )
+    """Override-authority check — kept independent of vote weight so future tier splits don't break it.
+
+    True for staff/expert human annotators and for automation bot annotators (those carrying an
+    ``automation_criteria``). A criteria-bearing automation annotator's vote therefore wins outright
+    (last-vote-wins) and carries expert-equivalent weight, so a single automated accept completes the
+    annotation the same way an expert human's would.
+    """
+    if not annotator:
+        return False
+    if annotator.human and (annotator.human.is_staff or annotator.human.is_expert):
+        return True
+    return bool(annotator.automation_criteria)
 
 
 def _weight(annotator: Optional[Annotator]) -> int:
@@ -115,8 +142,13 @@ def compute_validity(
             validity = Validity.INVALID
             score = -_weight(annotator)
         return VoteResult(
-            validity, score, accepted_count, rejected_count,
-            staff_accept_count, staff_reject_count, staff_override=True,
+            validity,
+            score,
+            accepted_count,
+            rejected_count,
+            staff_accept_count,
+            staff_reject_count,
+            staff_override=True,
         )
 
     # Weighted sum (creator's vote always counts)
@@ -131,8 +163,13 @@ def compute_validity(
     else:
         validity = Validity.UNCERTAIN
     return VoteResult(
-        validity, score, accepted_count, rejected_count,
-        staff_accept_count, staff_reject_count, staff_override=False,
+        validity,
+        score,
+        accepted_count,
+        rejected_count,
+        staff_accept_count,
+        staff_reject_count,
+        staff_override=False,
     )
 
 
@@ -197,6 +234,41 @@ def vote(obj, annotator: Annotator, accept: bool):
             obj.created_by = other_annotator
             obj.accepted_by.remove(other_annotator)
             obj.save()  # persist created_by reassignment
+
+
+def bbox_children(bbox_obj):
+    """
+    Every Category / Species / Activity row hanging off a bounding box, as one
+    flat list. Kept in a single place so the reject-vote propagation here and
+    the child->bbox validity cascade in views/annotation.py always agree on
+    what "this bbox's children" means — if a fourth annotation type is ever
+    added, both sides pick it up from this one edit.
+
+    Reads through prefetch_related caches when the caller set them up.
+    """
+    return list(bbox_obj.category_set.all()) + list(bbox_obj.species_set.all()) + list(bbox_obj.activity_set.all())
+
+
+def reject_children(children, annotators):
+    """
+    Cast a reject vote from each of `annotators` onto each object in
+    `children` (Category / Species / Activity rows) via vote(). Mirrors
+    vote()'s normal semantics, including its edge case: if one of the
+    annotators is the child's own creator and it has no other accepts,
+    vote() deletes the child outright rather than leaving it INVALID (the
+    same as directly self-rejecting any other annotation would). Once a
+    child is deleted mid-loop (obj.delete() clears its pk), this stops
+    voting on it for the remaining annotators instead of operating on a
+    deleted row, which would raise a ValueError from the M2M manager.
+
+    `children` is taken as a plain list (not re-queried here) so callers
+    that already fetched it via prefetch_related keep that efficiency.
+    """
+    for child in children:
+        for annotator in annotators:
+            if child.pk is None:
+                break
+            vote(child, annotator, accept=False)
 
 
 def set_image_checked_by(annotation_type, image, annotator):
@@ -317,6 +389,23 @@ def handle_bbox_deletions(initial_bboxes, formatted_annotations, user, annotator
                     # vote() updates M2M only; bbox.validity is owned by
                     # calculate*AnnotationFlags which runs later in the request.
                     vote(bbox_obj, annotator, accept=False)
+
+                    # Rejecting the bbox is how a volunteer says "this box
+                    # shouldn't exist" — they don't separately vote on its
+                    # Category/Species/Activity children. Without this, a
+                    # child that nobody directly votes on sits at UNCERTAIN
+                    # forever (only its creator's implicit vote), which the
+                    # child->bbox cascade in _recompute_bbox_validity_for_image
+                    # would then read as "UNCERTAIN" and never resolve the bbox
+                    # (or the image) at all. Casting the same reject vote on
+                    # each child routes it through the normal single source of
+                    # truth (compute_validity), the same way any other reject
+                    # vote would (including vote()'s usual self-reject-deletes
+                    # edge case if `annotator` happens to be a child's own
+                    # creator), and the existing cascade rule takes it from
+                    # there.
+                    reject_children(bbox_children(bbox_obj), [annotator])
+
                     logging.info(f"Rejected bounding box with id {bbox_id}. Object still exists in rejected state.")
             except ObjectDoesNotExist:
                 logging.info(f"Bounding box with id {bbox_id} doesn't exist in image {image.id}. Skipping deletion.")
@@ -354,6 +443,18 @@ def edit_bbox_coordinates(user, bbox_obj, formatted_annotations, annotator, imag
     else:
         # Original bounding box was modified significantly by the annotator. Cast a reject vote on the original.
         vote(bbox_obj, annotator, accept=False)
+
+        # Same reasoning as handle_bbox_deletions(): redrawing a box this far
+        # is a rejection of the original, and the annotator never votes on the
+        # original's Category/Species/Activity children separately — the tags
+        # they submit land on the replacement box created below. Without this,
+        # those children keep only their creator's implicit vote, sit at
+        # UNCERTAIN forever, and hold the superseded box (and so the whole
+        # image's category pipeline) UNCERTAIN no matter how many volunteers
+        # redraw it. Propagating the vote lets them resolve through the normal
+        # compute_validity() path and the child->bbox cascade.
+        reject_children(bbox_children(bbox_obj), [annotator])
+
         # Create a new bounding box
         bbox_obj = create_bbox(
             annotation_type=OBJECT_ANNOTATION_TYPE,
@@ -577,6 +678,135 @@ def process_activity(formatted_annotations, bbox_id, bbox_obj, annotator):
         activity_obj = None
 
 
+def get_automation_annotator() -> Annotator:
+    """Return the dedicated automation bot Annotator used for single-human auto-approvals.
+
+    Lazily creates a distinct ``Bot`` (``AUTOMATION_BOT_NAME``) and a bot ``Annotator`` carrying
+    ``automation_criteria=SINGLE_HUMAN_RULE``. The criterion makes the annotator count as an
+    override authority in the voting logic (see ``_is_staff_or_expert``), so its single accept vote
+    completes the annotation without additional consensus. Using a Bot separate from the detection
+    MegaDetector keeps ordinary detection votes at normal weight while only this annotator carries
+    expert-equivalent weight.
+
+    The ``automation_criteria`` field also serves as the durable, parsable audit marker of an
+    automated decision: which model (via the bot FK) under which criterion.
+
+    Returns:
+        The bot ``Annotator`` used for automated single-human approvals.
+    """
+    detection_task_type = "Object Detection"
+    detection_model_api_url = f"{settings.MEGADETECTOR_URL}/annotate/" if settings.MEGADETECTOR_URL else None
+
+    bot, created = Bot.objects.get_or_create(
+        name=AUTOMATION_BOT_NAME,
+        version=AUTOMATION_BOT_VERSION,
+        defaults={"task_type": detection_task_type, "model_api_url": detection_model_api_url},
+    )
+    if created:
+        logging.info(f"Automation bot '{AUTOMATION_BOT_NAME}' created for automated approvals.")
+    else:
+        # Backfill provenance fields on a pre-existing bot (e.g. one created before this change)
+        # so its row stays consistent with the other MegaDetector bot rows.
+        bot_updates = {}
+        if bot.task_type != detection_task_type:
+            bot_updates["task_type"] = detection_task_type
+        if detection_model_api_url and bot.model_api_url != detection_model_api_url:
+            bot_updates["model_api_url"] = detection_model_api_url
+        if bot_updates:
+            for field, value in bot_updates.items():
+                setattr(bot, field, value)
+            bot.save(update_fields=list(bot_updates))
+
+    annotator, created = Annotator.objects.get_or_create(
+        type="bot",
+        bot=bot,
+        defaults={"automation_criteria": SINGLE_HUMAN_RULE},
+    )
+    if created:
+        logging.info("Automation bot annotator created.")
+    elif annotator.automation_criteria != SINGLE_HUMAN_RULE:
+        # Backfill the criterion if the annotator pre-existed without it.
+        annotator.automation_criteria = SINGLE_HUMAN_RULE
+        annotator.save(update_fields=["automation_criteria"])
+
+    return annotator
+
+
+def auto_approve_single_human(
+    image: Image,
+    confidence_cutoff: float | None = None,
+    *,
+    automation_annotator: Annotator | None = None,
+) -> bool:
+    """Auto-complete an image if it contains exactly one high-confidence human bounding box.
+
+    When the image has a single bounding box whose category is `person` and whose confidence meets
+    the supplied cutoff (or `settings.SINGLE_HUMAN_AUTO_APPROVE_CONFIDENCE` by default), the
+    automation bot annotator votes to accept the box and its category. This completes the category
+    pipeline through the normal voting logic, while the species pipeline is marked complete
+    directly because a human-only image has no wildlife to identify. The automation annotator's
+    ``automation_criteria`` is the audit marker of the decision.
+
+    Args:
+        image: The processed image to evaluate. Must already have `processed=True`.
+        confidence_cutoff: Minimum bounding-box confidence. Uses the configured default when None.
+        automation_annotator: An already-resolved automation annotator. Backlog callers should
+            pass this to avoid repeating the bot and annotator lookups for every image.
+
+    Returns:
+        True if the image qualified and was auto-approved, False otherwise.
+    """
+    ############### eligibility check ###############
+    bounding_boxes = list(BoundingBox.objects.filter(image=image))
+    if len(bounding_boxes) != 1:
+        return False
+
+    bbox = bounding_boxes[0]
+    cutoff = settings.SINGLE_HUMAN_AUTO_APPROVE_CONFIDENCE if confidence_cutoff is None else confidence_cutoff
+
+    category = Category.objects.filter(bounding_box=bbox, name=PERSON_CATEGORY).first()
+    if category is None or bbox.confidence < cutoff:
+        return False
+
+    annotator = automation_annotator or get_automation_annotator()
+
+    # The upload processor can be retried. The automation accept vote is the
+    # durable idempotency marker, so an already-approved image must not increase
+    # the counter again.
+    if category.accepted_by.filter(pk=annotator.pk).exists():
+        return False
+
+    logging.info(f"Auto-approving single-human image {image.id} (confidence {bbox.confidence} >= {cutoff}).")
+
+    ############### cast automation votes ###############
+    # Imported lazily to avoid a circular import (views.annotation imports from this module).
+    from images.views.annotation import calculateCategoryAnnotationFlags
+
+    vote(bbox, annotator, accept=True)
+    vote(category, annotator, accept=True)
+
+    ############### complete pipelines ###############
+    # Category completes through the normal voting logic (the expert vote resolves the box + category).
+    calculateCategoryAnnotationFlags(image)
+
+    # Species has no annotation object to vote on for a human-only image, so set it directly.
+    image.species_pipeline_complete = True
+
+    # Re-set and re-save the image so it won't be caught in the queue query. This is initially set
+    # right when the bounding box is created and rather than touching that code we can do this.
+    image.has_uncertain_bbox = image.boundingbox_set.filter(validity="UNCERTAIN").exists()
+    image.save()
+
+    # Use an F expression so concurrent image-processing workers cannot lose
+    # increments. The command's bulk path performs the equivalent update once
+    # per batch.
+    Annotator.objects.filter(pk=annotator.pk).update(
+        total_auto_approved_images=F("total_auto_approved_images") + 1
+    )
+
+    return True
+
+
 # Refactoring of all three processor functions
 def process_annotations(
     annotation_type: str,
@@ -601,8 +831,9 @@ def process_annotations(
     image = Image.objects.get(id=image_id)
     logging.info("Successfully retrieved image object")
 
-    # Update the staff review flag
-    image.staff_review_needed = bool(staff_review_needed)
+    # Preserve existing staff review state.
+    # Staff review flagging is controlled by dedicated flows (e.g. auto-flagging),
+    # not by general annotation submission payloads.
 
     # Update the image reported flag
     # - None: preserve current value (not sent from frontend)
@@ -648,7 +879,7 @@ def process_species_annotations(
     social_media_worthy_vote: int,
     batch_tag_images: list,
     staff_review_needed: bool = False,
-    image_reported: bool = False,
+    image_reported: bool | None = None,
     skip: bool = False,
 ) -> bool:
     """Function to process a list of annotations for MegaDetector's Object Detection model
@@ -679,7 +910,7 @@ def process_activity_annotations(
     social_media_worthy_vote: int,
     batch_tag_images: list,
     staff_review_needed: bool = False,
-    image_reported: bool = False,
+    image_reported: bool | None = None,
     skip: bool = False,
 ) -> bool:
     """Function to process a list of annotations for MegaDetector's Object Detection model

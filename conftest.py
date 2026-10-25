@@ -111,6 +111,19 @@ def admin_client(superuser, client):
 
 
 @pytest.fixture(autouse=True)
+def datastore_client(settings):
+    """Give every test a working Datastore client.
+
+    base.py sets DATASTORE_CLIENT = None outside production, so any view that reads or
+    writes the annotation queue raises AttributeError on None. A fresh in-memory client
+    per test also keeps queue state from leaking between them.
+    """
+    from images.tests.datastore_stub import LocalDatastoreClient
+
+    settings.DATASTORE_CLIENT = LocalDatastoreClient()
+
+
+@pytest.fixture(autouse=True)
 def media_storage(settings, tmpdir):
     """Use temporary directory for media files during tests."""
     settings.MEDIA_ROOT = tmpdir.strpath

@@ -56,4 +56,23 @@ jobs:
         run: sass --style compressed ./siteapps/static/scss/main.scss:./siteapps/static/css/main.css
 
       - name: Collect static files
-        run: uv run python manage.py collectstatic --noinput --settings=config.settings.ci
+        run: |
+          set -euo pipefail
+          # Some dependencies (jazzmin) ship minified CSS ending in a
+          # `/*# sourceMappingURL=... */` comment but no accompanying .map file.
+          # whitenoise's manifest storage resolves those references during
+          # collectstatic post-processing and hard-fails on the missing file.
+          # Drop the dangling references before collecting. Mirrors the same
+          # step in deploy-staging.yml / deploy-prod.yml, except this removes
+          # only the comment rather than the whole line, so a dependency that
+          # ever emits the comment inline doesn't lose its stylesheet.
+          while IFS= read -r css_file; do
+            if ! grep -q 'sourceMappingURL' "$css_file"; then
+              continue
+            fi
+            map_file="${css_file}.map"
+            if [[ ! -f "$map_file" && ! -f "${css_file%.css}.map" ]]; then
+              sed -i 's|/\*# sourceMappingURL=[^*]*\*/||g' "$css_file"
+            fi
+          done < <(find .venv -type f -name '*.css')
+          uv run python manage.py collectstatic --noinput --settings=config.settings.ci

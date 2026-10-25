@@ -1,6 +1,6 @@
 # WildePod Voting Consensus
 
-How WildePod decides whether a Category, Species, Activity, or BoundingBox annotation should be considered _valid_, _invalid_, or _uncertain_, and how that decision is computed, persisted, and queried.
+How WildePod decides whether a Category, Species, Activity, or BoundingBox annotation should be considered _valid_, _invalid_, or _uncertain_, and how that decision is computed, persisted, and queried. For the full request-to-database flow this rule sits inside (bbox lifecycle, batch tagging, auto-approval), see [`ANNOTATION_PIPELINE.md`](./ANNOTATION_PIPELINE.md).
 
 ## Table of Contents
 - [TL;DR](#tldr)
@@ -184,7 +184,9 @@ A `BoundingBox` has its own M2M votes (`accepted_by` / `rejected_by`) but `bbox.
 
 This means a bbox is considered valid as long as it has _any_ valid categorization (animal / person / vehicle), species, or activity. A bbox with no annotations on it (e.g. after all its categories are rejected) cascades to `UNSEEN`.
 
-The bbox's own M2M votes are still recorded by `vote()` for audit purposes but no longer drive bbox validity directly — children dictate the answer.
+The bbox's own M2M votes are still recorded by `vote()` for audit purposes but do not feed the cascade formula above directly — children dictate the answer. In practice they still influence it: **rejecting a bbox propagates the same reject vote onto its existing Category/Species/Activity children** via `reject_children()` (`processors/annotation.py`), called from both places a bbox gets rejected — `handle_bbox_deletions()` (the box was dropped from the submission) and `edit_bbox_coordinates()` (the box was redrawn past the 2% tolerance, so the original is rejected and replaced). This keeps the two in sync without special-casing the cascade itself — a rejected child reaches `INVALID` through the normal `compute_validity()` path (or gets deleted outright if the rejecter is also its own creator with no other accepts, per `vote()`'s usual self-reject edge case), and the cascade rule above takes it from there.
+
+This propagation was added after a bug where it was missing: a volunteer rejecting a bogus/duplicate bbox (e.g. a bad auto-detection) only voted on the bbox's own M2M, never on its children. An orphaned child nobody separately voted on then sat at `UNCERTAIN` forever (just its creator's implicit vote, never reaching the ±2 threshold), and since the cascade treats *any* `UNCERTAIN` child as `UNCERTAIN` for the whole bbox — and the image-level pipeline gate blocks on *any* `UNCERTAIN` bbox in the image — one dead phantom box could permanently stall an otherwise fully-resolved image. See PR [#569](https://github.com/FelidaeFundConservation/wildepod.org/pull/569), which found this affected ~378K images in prod, and the one-off `backfill_orphaned_bbox_rejections` management command that sweeps images stuck under the pre-fix behavior.
 
 ---
 
@@ -260,7 +262,7 @@ After deploy + backfill, every annotation has a stored `validity`. `calculate*An
 
 - **A bbox can have `validity = VALID` while its child Species has `validity = NULL`.** This is a transient state during deploy/backfill — once backfill runs, child validity is populated and the bbox cascade fires on the next `calculate*AnnotationFlags` invocation.
 
-- **Bbox-level rejections don't directly invalidate the bbox.** Under the new model, only child consensus matters for bbox validity. In practice this rarely diverges from the bbox's own vote pattern, but it's a real semantic change from the previous implementation.
+- **Bbox-level rejections don't directly invalidate the bbox — only child consensus does.** This was originally assumed to rarely diverge from the bbox's own vote pattern; in practice, before `reject_children()` was added (PR [#569](https://github.com/FelidaeFundConservation/wildepod.org/pull/569)), it diverged badly whenever a rejected bbox had a child nobody separately voted on — the child stayed `UNCERTAIN` forever and blocked the whole image. Both rejection paths (`handle_bbox_deletions()` and `edit_bbox_coordinates()`) now cast the bbox's reject vote onto its children too, so the two stay in sync in the normal case; a bbox can still end up out of step with its own M2M state if a child gets its own independent votes.
 
 - **Staff vote conflicts** (one staff accepts, another rejects the same annotation) cancel out in the weighted sum. The plan is to use last-staff-vote-wins at write time, but for historical data the resolution is "whatever the weighted sum says" — an acceptable approximation since such conflicts are rare and the M2M tables have no `voted_at` timestamp to do better.
 
@@ -274,11 +276,13 @@ After deploy + backfill, every annotation has a stored `validity`. `calculate*An
 | -------------------------------------- | ---------------------------------------------------------- |
 | The rule (`compute_validity`)          | `siteapps/images/processors/annotation.py`                 |
 | The M2M-only `vote()` helper           | `siteapps/images/processors/annotation.py`                 |
+| Bbox-rejection → child-rejection propagation (`reject_children`, `bbox_children`) | `siteapps/images/processors/annotation.py`, called from `handle_bbox_deletions()` and `edit_bbox_coordinates()` |
 | Validity field definitions             | `siteapps/images/models/annotation.py`                     |
 | `calculate*AnnotationFlags` (the writer) | `siteapps/images/views/annotation.py`                    |
 | ORM manager methods                    | `siteapps/images/models/annotation.py` (`BaseAnnotationManager`) |
 | Schema migration                       | `siteapps/images/migrations/0056_add_validity_to_annotations.py` |
 | Backfill command                       | `siteapps/images/management/commands/backfill_validity.py` |
 | Dry-run report                         | `siteapps/images/management/commands/report_validity_flips.py` |
+| Sweep for images stuck by the pre-#569 missing child-propagation bug | `siteapps/images/management/commands/backfill_orphaned_bbox_rejections.py` |
 | Test coverage                          | `siteapps/images/tests/test_compute_validity.py`           |
 | Export SQL (separate, uses same rule)  | `siteapps/exports/export_images.sql`                       |

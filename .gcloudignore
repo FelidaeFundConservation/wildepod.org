@@ -13,6 +13,7 @@
 # below:
 .git
 .gitignore
+!staticfiles/
 
 # Custom ignore
 local/

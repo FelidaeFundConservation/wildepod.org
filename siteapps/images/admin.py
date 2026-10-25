@@ -90,6 +90,8 @@ class BotAdmin(SimpleHistoryAdmin):
 @admin.register(Annotator)
 class AnnotatorAdmin(SimpleHistoryAdmin):
     search_fields = ["human__name", "bot__name"]
+    list_display = ["__str__", "type", "automation_criteria"]
+    list_filter = ["type", "automation_criteria"]
 
 
 @admin.register(BoundingBox)

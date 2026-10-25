@@ -10,6 +10,11 @@ on:
         options:
           - prod
           - bhutan
+      promote:
+        description: "Promote deployed version to receive traffic"
+        required: true
+        type: boolean
+        default: true
       run_migrations:
         description: "Run database migrations after deploy"
         required: true
@@ -22,16 +27,22 @@ on:
         default: false
 
 env:
-  # Real values are stored as GitHub Actions repository variables.
-  # Set them under: Settings → Secrets and variables → Actions → Variables
-  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
-  GCP_DB_INSTANCE: ${{ vars.GCP_DB_INSTANCE }}
-  GCP_REGION: ${{ vars.GCP_REGION }}
+  # Real values are stored as GitHub Actions repository variables or secrets.
+  # Set them under: Settings → Secrets and variables → Actions
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+  GCP_DB_INSTANCE: ${{ vars.GCP_DB_INSTANCE || secrets.GCP_DB_INSTANCE || 'wildepoddb' }}
+  GCP_REGION: ${{ vars.GCP_REGION || secrets.GCP_REGION || 'us-west2' }}
+  # Optional per-environment overrides; fallback keeps existing behavior.
+  PROD_DB_INSTANCE: ${{ vars.PROD_DB_INSTANCE || secrets.PROD_DB_INSTANCE || vars.GCP_DB_INSTANCE || secrets.GCP_DB_INSTANCE || 'wildepoddb' }}
+  BHUTAN_DB_INSTANCE: ${{ vars.BHUTAN_DB_INSTANCE || secrets.BHUTAN_DB_INSTANCE || vars.GCP_DB_INSTANCE || secrets.GCP_DB_INSTANCE || 'wildepoddb' }}
+  PROD_SETTINGS_NAME: ${{ vars.PROD_SETTINGS_NAME || secrets.PROD_SETTINGS_NAME || 'django_settings' }}
+  BHUTAN_SETTINGS_NAME: ${{ vars.BHUTAN_SETTINGS_NAME || secrets.BHUTAN_SETTINGS_NAME || 'django_settings' }}
   DB_PORT: 5440
 
 jobs:
   deploy:
     name: Deploy to ${{ inputs.environment }}${{ inputs.dryrun && ' (dry run)' || '' }}
+    environment: ${{ inputs.environment }}
     runs-on: ubuntu-latest
     env:
       DJANGO_SETTINGS_MODULE: config.settings.ci
@@ -67,30 +78,86 @@ jobs:
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Validate deploy configuration
+        run: |
+          missing=0
+          project_id_source=""
+
+          if [ -n "${{ vars.GCP_PROJECT_ID }}" ]; then
+            project_id_source="vars.GCP_PROJECT_ID"
+          elif [ -n "${{ secrets.GCP_PROJECT_ID }}" ]; then
+            project_id_source="secrets.GCP_PROJECT_ID"
+          else
+            project_id_source="missing"
+          fi
+
+          if [ -z "${{ env.GCP_PROJECT_ID }}" ]; then
+            echo "Missing required setting: GCP_PROJECT_ID (set vars.GCP_PROJECT_ID or secrets.GCP_PROJECT_ID)"
+            missing=1
+          fi
+
+          if [ -z "${{ env.GCP_REGION }}" ]; then
+            echo "Missing required setting: GCP_REGION (set vars.GCP_REGION or secrets.GCP_REGION)"
+            missing=1
+          fi
+
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+          echo "Project ID source: ${project_id_source}"
+          echo "Deploy target environment: ${{ inputs.environment }}"
+          echo "Deploy project: ${{ env.GCP_PROJECT_ID }}"
+          echo "Deploy region: ${{ env.GCP_REGION }}"
+          echo "Promote version: ${{ inputs.promote }}"
+
       - name: Collect static files
-        run: uv run python manage.py collectstatic --noinput --settings=config.settings.ci
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.prod
+          DJANGO_CI_MODE: ""
+          GOOGLE_CLOUD_PROJECT: ${{ env.GCP_PROJECT_ID }}
+          SETTINGS_NAME: ${{ env.PROD_SETTINGS_NAME }}
+        run: |
+          set -euo pipefail
+          while IFS= read -r css_file; do
+            map_file="${css_file%.css}.map"
+            if [[ ! -f "$map_file" ]]; then
+              sed -i '/sourceMappingURL=.*\.map/d' "$css_file"
+            fi
+          done < <(find .venv -type f -name '*.css')
+          uv run python manage.py collectstatic --noinput --settings=config.settings.prod
 
       - name: Deploy to App Engine
         if: ${{ !inputs.dryrun }}
-        run: gcloud app deploy ${{ inputs.environment }}.yaml --quiet --project=${{ env.GCP_PROJECT_ID }}
+        run: |
+          PROMOTE_FLAG="--promote"
+          if [ "${{ inputs.promote }}" = "false" ]; then
+            PROMOTE_FLAG="--no-promote"
+          fi
+          gcloud app deploy ${{ inputs.environment }}.yaml --quiet --project=${{ env.GCP_PROJECT_ID }} $PROMOTE_FLAG
 
       - name: Dry Run - Skip actual deployment
         if: ${{ inputs.dryrun }}
         run: |
+          PROMOTE_FLAG="--promote"
+          if [ "${{ inputs.promote }}" = "false" ]; then
+            PROMOTE_FLAG="--no-promote"
+          fi
           echo "## Dry Run Summary" >> $GITHUB_STEP_SUMMARY
           echo "DRY RUN enabled - skipping actual deployment." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Would have run: \`gcloud app deploy ${{ inputs.environment }}.yaml --quiet --project=${{ env.GCP_PROJECT_ID }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "Would have run: \`gcloud app deploy ${{ inputs.environment }}.yaml --quiet --project=${{ env.GCP_PROJECT_ID }} $PROMOTE_FLAG\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "All pre-deployment steps (dependencies, SASS compilation, static files) completed successfully." >> $GITHUB_STEP_SUMMARY
 
   migrate:
     name: Run Migrations (${{ inputs.environment }})${{ inputs.dryrun && ' (dry run)' || '' }}
     needs: deploy
-    if: ${{ inputs.run_migrations }}
+    if: ${{ inputs.run_migrations && !inputs.dryrun }}
+    environment: ${{ inputs.environment }}
     runs-on: ubuntu-latest
     env:
-      GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_PROJECT_ID }}
+      GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
       USE_CLOUD_SQL_AUTH_PROXY: "True"
       DB_PORT: 5440
     steps:
@@ -115,17 +182,66 @@ jobs:
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Validate migration configuration
+        run: |
+          missing=0
+          project_id_source=""
+
+          if [ -n "${{ vars.GCP_PROJECT_ID }}" ]; then
+            project_id_source="vars.GCP_PROJECT_ID"
+          elif [ -n "${{ secrets.GCP_PROJECT_ID }}" ]; then
+            project_id_source="secrets.GCP_PROJECT_ID"
+          else
+            project_id_source="missing"
+          fi
+
+          if [ -z "${{ env.GCP_PROJECT_ID }}" ]; then
+            echo "Missing required setting: GCP_PROJECT_ID (set vars.GCP_PROJECT_ID or secrets.GCP_PROJECT_ID)"
+            missing=1
+          fi
+
+          if [ -z "${{ env.GCP_REGION }}" ]; then
+            echo "Missing required setting: GCP_REGION (set vars.GCP_REGION or secrets.GCP_REGION)"
+            missing=1
+          fi
+
+          target_db_instance=""
+          if [ "${{ inputs.environment }}" = "prod" ]; then
+            target_db_instance="${{ env.PROD_DB_INSTANCE }}"
+          else
+            target_db_instance="${{ env.BHUTAN_DB_INSTANCE }}"
+          fi
+
+          if [ -z "$target_db_instance" ]; then
+            echo "Missing required setting: DB Instance Name (set PROD_DB_INSTANCE, BHUTAN_DB_INSTANCE, or GCP_DB_INSTANCE in vars or secrets)"
+            missing=1
+          fi
+
+          if [ -z "${{ env.DB_PORT }}" ]; then
+            echo "Missing required setting: DB_PORT"
+            missing=1
+          fi
+
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+          echo "Project ID source: ${project_id_source}"
+          echo "Target Environment: ${{ inputs.environment }}"
+          echo "Target Cloud SQL Instance Name: ${target_db_instance}"
+          echo "Full Cloud SQL Connection String: ${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:${target_db_instance}"
+
       - name: Resolve DB config for ${{ inputs.environment }}
         id: db-config
         run: |
           if [ "${{ inputs.environment }}" = "prod" ]; then
-            echo "instance=${{ vars.GCP_PROJECT_ID }}:${{ vars.GCP_REGION }}:${{ vars.GCP_DB_INSTANCE }}" >> $GITHUB_OUTPUT
+            echo "instance=${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:${{ env.PROD_DB_INSTANCE }}" >> $GITHUB_OUTPUT
             echo "settings=config.settings.prod" >> $GITHUB_OUTPUT
-            echo "settings_name=django_settings" >> $GITHUB_OUTPUT
+            echo "settings_name=${{ env.PROD_SETTINGS_NAME }}" >> $GITHUB_OUTPUT
           else
-            echo "instance=${{ vars.GCP_PROJECT_ID }}:${{ vars.GCP_REGION }}:${{ vars.GCP_DB_INSTANCE }}" >> $GITHUB_OUTPUT
+            echo "instance=${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:${{ env.BHUTAN_DB_INSTANCE }}" >> $GITHUB_OUTPUT
             echo "settings=config.settings.bhutan" >> $GITHUB_OUTPUT
-            echo "settings_name=django_settings" >> $GITHUB_OUTPUT
+            echo "settings_name=${{ env.BHUTAN_SETTINGS_NAME }}" >> $GITHUB_OUTPUT
           fi
 
       - name: Download Cloud SQL Proxy
@@ -135,22 +251,55 @@ jobs:
 
       - name: Start Cloud SQL Proxy
         run: |
-          ./cloud-sql-proxy --port=${{ env.DB_PORT }} ${{ steps.db-config.outputs.instance }} &
-          sleep 3
+          set -euo pipefail
+          ./cloud-sql-proxy \
+            --address=127.0.0.1 \
+            --port=${{ env.DB_PORT }} \
+            "${{ steps.db-config.outputs.instance }}" > cloud-sql-proxy.log 2>&1 &
+          proxy_pid=$!
+
+          for attempt in {1..30}; do
+            if ! kill -0 "$proxy_pid" 2>/dev/null; then
+              echo "Cloud SQL Proxy exited before opening port ${{ env.DB_PORT }}"
+              cat cloud-sql-proxy.log
+              exit 1
+            fi
+
+            if nc -z 127.0.0.1 "${{ env.DB_PORT }}"; then
+              echo "Cloud SQL Proxy is listening on 127.0.0.1:${{ env.DB_PORT }}"
+              exit 0
+            fi
+
+            sleep 1
+          done
+
+          echo "Cloud SQL Proxy did not open port ${{ env.DB_PORT }}"
+          cat cloud-sql-proxy.log
+          exit 1
 
       - name: Run migrations
         if: ${{ !inputs.dryrun }}
         env:
           SETTINGS_NAME: ${{ steps.db-config.outputs.settings_name }}
         run: |
-          uv run python manage.py migrate --settings=${{ steps.db-config.outputs.settings }} 2>&1 | tee migration_output.txt
+          set -o pipefail
+          if ! uv run python manage.py migrate --settings=${{ steps.db-config.outputs.settings }} 2>&1 | tee migration_output.txt; then
+            echo "::error::Database migration failed. Cloud SQL Proxy output log:"
+            cat cloud-sql-proxy.log 2>/dev/null || true
+            exit 1
+          fi
 
       - name: Dry Run - Show pending migrations
         if: ${{ inputs.dryrun }}
         env:
           SETTINGS_NAME: ${{ steps.db-config.outputs.settings_name }}
         run: |
-          uv run python manage.py migrate --plan --settings=${{ steps.db-config.outputs.settings }} 2>&1 | tee migration_output.txt
+          set -o pipefail
+          if ! uv run python manage.py migrate --plan --settings=${{ steps.db-config.outputs.settings }} 2>&1 | tee migration_output.txt; then
+            echo "::error::Database migration dry-run failed. Cloud SQL Proxy output log:"
+            cat cloud-sql-proxy.log 2>/dev/null || true
+            exit 1
+          fi
 
       - name: Write migration summary
         if: always()
@@ -159,3 +308,9 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat migration_output.txt 2>/dev/null || echo "(no migration output available)" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
+          if [ -f cloud-sql-proxy.log ]; then
+            echo "### Cloud SQL Proxy Log" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat cloud-sql-proxy.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi

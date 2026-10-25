@@ -110,38 +110,38 @@
     <div class="container mt-2 mt-md-3 rounded bg-white p-3">
         <nav>
             <div class="nav nav-tabs" id="nav-tab" role="tablist">
-                <a class="nav-link"
+                <a class="nav-link {% if active_tab == 'pending' %}active{% endif %}"
                    id="nav-pending-tab"
                    data-bs-toggle="tab"
                    href="#nav-pending"
                    role="tab"
                    aria-controls="nav-pending"
-                   aria-selected="false">
+                   aria-selected="{% if active_tab == 'pending' %}true{% else %}false{% endif %}">
                     <text class="small">
                     Pending ({{ num_pending }})
                     </text>
                 </a>
-                <a class="nav-link"
+                <a class="nav-link {% if active_tab == 'processing' %}active{% endif %}"
                    id="nav-processing-tab"
                    data-bs-toggle="tab"
                    href="#nav-processing"
                    role="tab"
                    aria-controls="nav-processing"
-                   aria-selected="false">
+                   aria-selected="{% if active_tab == 'processing' %}true{% else %}false{% endif %}">
                     <text class="small">Processing ({{ num_processing }})</text>
                 </a>
-                <a class="nav-link active"
+                <a class="nav-link {% if active_tab == 'complete' %}active{% endif %}"
                    id="nav-complete-tab"
                    data-bs-toggle="tab"
                    href="#nav-complete"
                    role="tab"
                    aria-controls="nav-complete"
-                   aria-selected="false">
+                   aria-selected="{% if active_tab == 'complete' %}true{% else %}false{% endif %}">
                     <text class="small">Complete ({{ object_list|length }} of {{ num_completed }} shown)</text>
                 </a>
             </div>
             <div class="tab-content upload-container">
-                <div class="tab-pane fade p-0 text-center"
+                <div class="tab-pane fade p-0 text-center {% if active_tab == 'pending' %}show active{% endif %}"
                      id="nav-pending"
                      role="tabpanel"
                      aria-labelledby="nav-pending-tab">
@@ -212,7 +212,7 @@
                         </div>
                     {% endif %}
                 </div>
-                <div class="tab-pane fade p-0 text-center"
+                <div class="tab-pane fade p-0 text-center {% if active_tab == 'processing' %}show active{% endif %}"
                      id="nav-processing"
                      role="tabpanel"
                      aria-labelledby="nav-processing-tab">
@@ -316,7 +316,7 @@
                         </div>
                     {% endif %}
                 </div>
-                <div class="tab-pane fade show active p-0 text-center"
+                <div class="tab-pane fade p-0 text-center {% if active_tab == 'complete' %}show active{% endif %}"
                      id="nav-complete"
                      role="tabpanel"
                      aria-labelledby="nav-complete-tab">

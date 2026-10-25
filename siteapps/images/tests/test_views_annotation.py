@@ -32,7 +32,9 @@ from images.views.annotation import (
     SavePreviousImageToReturnToView,
     calculate_image_luma,
     get_pil_image,
+    calculateCategoryAnnotationFlags,
 )
+from images.processors.annotation import vote, handle_bbox_deletions, edit_bbox_coordinates
 from images.models import (
     Image,
     BoundingBox,
@@ -708,3 +710,129 @@ class TestAnnotationWorkflows:
         client.force_login(staff_user)
         # Test that staff can access/manage the bbox
         assert BoundingBox.objects.filter(id=bbox.id).exists()
+
+
+@pytest.mark.django_db
+class TestOrphanedRejectedBboxDoesNotBlockPipeline:
+    """
+    Regression test: a bogus/duplicate bounding box that volunteers reject
+    (via handle_bbox_deletions, the real "reject this box" entry point)
+    without ever separately tagging its category/species must not permanently
+    block category_pipeline_complete for the rest of the image, even though
+    the real bounding box already has a fully resolved, valid tag.
+
+    Per VOTING_LOGIC.md, bbox.validity is derived purely from its children's
+    validity (not from the bbox's own accepted_by/rejected_by) — so the fix
+    is for handle_bbox_deletions() to propagate a bbox-level reject vote onto
+    the bbox's existing children too, letting them resolve to INVALID through
+    the normal single source of truth (compute_validity), which then flows
+    into the bbox through the existing child->bbox cascade unchanged.
+    """
+
+    def test_rejected_bbox_with_orphaned_category_does_not_block_image(self, image, user):
+        image.processed = True
+        image.save()
+        creator, _ = Annotator.objects.get_or_create(type="human", human=user)
+
+        # The real, correctly-tagged bounding box: creator + 1 accept reaches
+        # the VALID threshold (score >= 2).
+        good_bbox = BoundingBox.objects.create(image=image, x=0.1, y=0.1, w=0.3, h=0.3, created_by=creator)
+        good_category = Category.objects.create(bounding_box=good_bbox, name="vehicle", created_by=creator)
+        accepter = Annotator.objects.get_or_create(
+            type="human", human=User.objects.create_user(email="accepter@test.com", password="pass")
+        )[0]
+        vote(good_category, accepter, accept=True)
+
+        # A bogus bounding box with an auto-created Category that nobody ever
+        # votes on directly -- volunteers only reject the box itself, via the
+        # same "omit this bbox from my submission" flow the UI uses.
+        bad_bbox = BoundingBox.objects.create(image=image, x=0.6, y=0.6, w=0.2, h=0.2, created_by=creator)
+        bad_category = Category.objects.create(bounding_box=bad_bbox, name="vehicle", created_by=creator)
+
+        # 3 volunteers reject the bogus box (score 1 - 3 = -2, past the
+        # INVALID threshold once propagated to its child).
+        for i in range(3):
+            rejecter_user = User.objects.create_user(email=f"rejecter{i}@test.com", password="pass")
+            rejecter, _ = Annotator.objects.get_or_create(type="human", human=rejecter_user)
+            handle_bbox_deletions(
+                initial_bboxes=[str(bad_bbox.id)],
+                formatted_annotations={},
+                user=rejecter_user,
+                annotator=rejecter,
+                image=image,
+            )
+
+        bad_category.refresh_from_db()
+        assert bad_category.accepted_by.count() == 0
+        assert bad_category.rejected_by.count() == 3
+
+        calculateCategoryAnnotationFlags(image)
+
+        bad_category.refresh_from_db()
+        bad_bbox.refresh_from_db()
+        assert bad_category.validity == "INVALID"
+        assert bad_bbox.validity == "INVALID"
+        assert image.category_pipeline_complete is True
+
+
+@pytest.mark.django_db
+class TestRedrawnBboxDoesNotOrphanItsChildren:
+    """
+    Same orphaned-child failure mode as TestOrphanedRejectedBboxDoesNotBlockPipeline,
+    but reached through edit_bbox_coordinates() instead of handle_bbox_deletions():
+    when a volunteer redraws an existing box far enough to exceed the 2% tolerance,
+    the original box is reject-voted and a replacement box is created. The original's
+    Category/Species/Activity children must receive that reject vote too — otherwise
+    they sit at UNCERTAIN forever (only their creator's implicit vote), which keeps
+    the superseded box UNCERTAIN and blocks the image's category pipeline no matter
+    how many volunteers redraw it.
+    """
+
+    def _redraw(self, bbox, user, annotator, image):
+        edit_bbox_coordinates(
+            user=user,
+            bbox_obj=bbox,
+            formatted_annotations={
+                str(bbox.id): {
+                    # far outside the 2% in-place-edit tolerance
+                    "x": 0.60,
+                    "y": 0.60,
+                    "w": 0.20,
+                    "h": 0.20,
+                    "category": "vehicle",
+                    "confidence": 1.0,
+                }
+            },
+            annotator=annotator,
+            image=image,
+        )
+
+    def test_superseded_bbox_children_receive_the_reject_vote(self, image, user):
+        image.processed = True
+        image.save()
+        creator, _ = Annotator.objects.get_or_create(type="human", human=user)
+
+        original_bbox = BoundingBox.objects.create(image=image, x=0.10, y=0.10, w=0.30, h=0.30, created_by=creator)
+        original_category = Category.objects.create(bounding_box=original_bbox, name="vehicle", created_by=creator)
+
+        # 3 volunteers each redraw the box significantly. None is the creator,
+        # none is staff/expert, so each takes the reject-and-replace path.
+        for i in range(3):
+            redrawer_user = User.objects.create_user(email=f"redrawer{i}@test.com", password="pass")
+            redrawer, _ = Annotator.objects.get_or_create(type="human", human=redrawer_user)
+            self._redraw(original_bbox, redrawer_user, redrawer, image)
+
+        original_bbox.refresh_from_db()
+        assert original_bbox.rejected_by.count() == 3
+
+        # The superseded box's child must have collected those same 3 rejects
+        # (creator weight 1 - 3 rejects = -2, the INVALID threshold).
+        original_category.refresh_from_db()
+        assert original_category.rejected_by.count() == 3
+
+        calculateCategoryAnnotationFlags(image)
+
+        original_category.refresh_from_db()
+        original_bbox.refresh_from_db()
+        assert original_category.validity == "INVALID"
+        assert original_bbox.validity == "INVALID"

@@ -28,6 +28,7 @@ from images.processors.annotation import (
     handle_bbox_additions,
     handle_bbox_deletions,
     handle_bbox_updates,
+    process_annotations,
     set_image_checked_by,
     set_image_skipped_by,
     vote,
@@ -341,6 +342,29 @@ class TestSetImageSkippedBy:
         set_image_skipped_by(ACTIVITY_ANNOTATION_TYPE, test_image, human_annotator)
 
         assert human_annotator in test_image.activity_skipped_by.all()
+
+
+@pytest.mark.django_db
+class TestProcessAnnotations:
+    def test_process_annotations_does_not_update_staff_review_flag_from_request(self, test_image, user):
+        """Submitted staff review values are ignored by annotation processing."""
+        assert test_image.staff_review_needed is False
+
+        success = process_annotations(
+            SPECIES_ANNOTATION_TYPE,
+            image_id=test_image.id,
+            annotations=[],
+            initial_bboxes=[],
+            user=user,
+            social_media_worthy_vote=0,
+            batch_tag_images=[],
+            staff_review_needed=True,
+            skip=True,
+        )
+
+        assert success is True
+        test_image.refresh_from_db()
+        assert test_image.staff_review_needed is False
 
 
 @pytest.mark.django_db

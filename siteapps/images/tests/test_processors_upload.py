@@ -6,9 +6,11 @@
 """
 Tests for images upload processor functions.
 """
+import re
+
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime
+from datetime import datetime, timedelta, timezone as dt_timezone
 from django.utils import timezone
 from django.core.files.uploadedfile import SimpleUploadedFile
 
@@ -24,6 +26,7 @@ from images.processors.upload import (
     process_dropbox_file,
     get_dropbox_item_count,
 )
+from images.tests.dropbox_stub import FakeDropbox, base_folder_name as _base_folder_name
 from locations.models import Area, County, MacroSite, MicroSite, CameraStation
 from users.models import User
 
@@ -195,6 +198,358 @@ class TestSetupDropboxPaths:
         
         # Folder name should have (1) appended for duplicate
         assert new_upload.dropbox_folder_name != existing_upload.dropbox_folder_name
+
+    @patch('images.processors.upload.create_dropbox_client')
+    def test_setup_dropbox_paths_names_are_unique_past_the_second_upload(
+        self, mock_create_client, camera_station, regular_user, camera_station_action
+    ):
+        """Every upload for one station and date gets a name no other upload holds.
+
+        The generated name has no time component, so same-day retrievals all start from the same
+        base. The old count-based suffix handed "(1)" to the third upload and every one after it,
+        and since dropbox_folder_path is unique and not a form field, that reached the database as
+        an unhandled IntegrityError -- a Server Error on the create-upload page.
+        """
+        from images.processors.upload import setup_dropbox_paths
+
+        mock_dbx = Mock()
+        mock_dbx.file_requests_create.return_value = Mock(
+            id="request789", url="https://dropbox.com/request3", is_open=True
+        )
+        mock_create_client.return_value = mock_dbx
+
+        # Fixed, not timezone.now(): the folder name is built from date_retrieved.date(), so a base
+        # time late enough in the UTC day would push the later offsets onto tomorrow's date, change
+        # the base name mid-loop, and fail this test for a few hours every day.
+        date_retrieved = datetime(2026, 3, 20, 6, 0, tzinfo=dt_timezone.utc)
+        names = []
+
+        # Five retrievals off the same station on the same day. Distinct times, because
+        # unique_together on (camera_station, date_retrieved) is what the form already rejects.
+        for hour in range(5):
+            upload = Upload(
+                camera_station=camera_station,
+                date_retrieved=date_retrieved + timedelta(hours=hour),
+                last_action=camera_station_action,
+                volunteer=regular_user,
+                upload_method="E",
+            )
+            setup_dropbox_paths(upload, None, dbx=mock_dbx)
+            upload.save()
+            names.append(upload.dropbox_folder_name)
+
+        assert len(set(names)) == len(names), f"duplicate folder names handed out: {names}"
+
+        base = names[0]
+        assert names == [base] + [f"{base} ({n})" for n in range(1, 5)]
+
+    @patch('images.processors.upload.create_dropbox_client')
+    def test_setup_dropbox_paths_skips_names_held_by_deleted_uploads(
+        self, mock_create_client, camera_station, regular_user, camera_station_action
+    ):
+        """Soft-deleted uploads keep their folder name, so the next attempt must step over it.
+
+        This is the delete-and-retry loop a volunteer runs after a failed upload, and the case the
+        duplicate handling was originally added for.
+        """
+        from images.processors.upload import setup_dropbox_paths
+
+        mock_dbx = Mock()
+        mock_dbx.file_requests_create.return_value = Mock(
+            id="request999", url="https://dropbox.com/request4", is_open=True
+        )
+        mock_create_client.return_value = mock_dbx
+
+        # Fixed for the same reason as above -- a rolling base time could put the fresh upload on a
+        # different date, giving it a different base name and passing this test without ever
+        # exercising the allocation it is here to check.
+        date_retrieved = datetime(2026, 3, 20, 6, 0, tzinfo=dt_timezone.utc)
+        taken = []
+
+        for hour in range(3):
+            upload = Upload(
+                camera_station=camera_station,
+                date_retrieved=date_retrieved + timedelta(hours=hour),
+                last_action=camera_station_action,
+                volunteer=regular_user,
+                upload_method="E",
+            )
+            setup_dropbox_paths(upload, None, dbx=mock_dbx)
+            upload.deleted = True
+            upload.save()
+            taken.append(upload.dropbox_folder_name)
+
+        fresh = Upload(
+            camera_station=camera_station,
+            date_retrieved=date_retrieved + timedelta(hours=3),
+            last_action=camera_station_action,
+            volunteer=regular_user,
+            upload_method="E",
+        )
+        setup_dropbox_paths(fresh, None, dbx=mock_dbx)
+
+        assert fresh.dropbox_folder_name not in taken
+        fresh.save()  # would raise IntegrityError if the name were still taken
+
+    @patch('images.processors.upload.create_dropbox_client')
+    def test_setup_dropbox_paths_steps_over_a_dropbox_folder_that_holds_files(
+        self, mock_create_client, camera_station, regular_user, camera_station_action
+    ):
+        """An occupied folder means that name is not free, so take the next one and carry on.
+
+        Hard-deleting an Upload row from the admin leaves its Dropbox folder behind with the images
+        still in it, and the database no longer holds the name, so it looks free. Writing into it
+        would hand those images to this upload once process_upload lists the path -- but failing
+        would leave the volunteer as stuck on that station and date as the duplicate-name bug did,
+        which is the thing this is all meant to fix. So: step over it.
+        """
+        from images.processors.upload import setup_dropbox_paths
+
+        upload = Upload(
+            camera_station=camera_station,
+            date_retrieved=timezone.now(),
+            last_action=camera_station_action,
+            volunteer=regular_user,
+            upload_method="E",
+        )
+        base = _base_folder_name(upload)
+        dbx = FakeDropbox(occupied={f"/{base}": ["IMG_0001.JPG"]})
+
+        setup_dropbox_paths(upload, None, dbx=dbx)
+
+        assert upload.dropbox_folder_name == f"{base} (1)"
+        assert upload.dropbox_folder_path == f"/{base} (1)"
+        # The occupied folder was left exactly as it was found.
+        assert dbx.folders[f"/{base}"] == ["IMG_0001.JPG"]
+        upload.save()
+
+    @patch('images.processors.upload.create_dropbox_client')
+    def test_setup_dropbox_paths_points_the_file_request_at_the_folder_it_claimed(
+        self, mock_create_client, camera_station, regular_user, camera_station_action
+    ):
+        """A file request is a live door into its destination, so it must open onto our folder.
+
+        Opening one against the first candidate and only then discovering the folder is someone
+        else's leaves an active request writing into their images.
+        """
+        from images.processors.upload import setup_dropbox_paths
+
+        upload = Upload(
+            camera_station=camera_station,
+            date_retrieved=timezone.now(),
+            last_action=camera_station_action,
+            volunteer=regular_user,
+            upload_method="E",
+        )
+        base = _base_folder_name(upload)
+        dbx = FakeDropbox(occupied={f"/{base}": ["IMG_0001.JPG"]})
+
+        setup_dropbox_paths(upload, None, dbx=dbx)
+
+        assert [destination for _, destination in dbx.file_requests] == [f"/{base} (1)"]
+
+    @patch('images.processors.upload.create_dropbox_client')
+    def test_setup_dropbox_paths_writes_the_datasheet_into_the_folder_it_claimed(
+        self, mock_create_client, camera_station, regular_user, camera_station_action
+    ):
+        """clone_data_sheet() uploads with WriteMode.overwrite, creating the folder as a side effect.
+
+        Left to run on an unclaimed name it would write into -- and overwrite the datasheet of --
+        whichever upload owns that folder.
+        """
+        from images.processors.upload import setup_dropbox_paths
+
+        upload = Upload(
+            camera_station=camera_station,
+            date_retrieved=timezone.now(),
+            last_action=camera_station_action,
+            volunteer=regular_user,
+            upload_method="D",
+        )
+        base = _base_folder_name(upload)
+        dbx = FakeDropbox(occupied={f"/{base}": ["data_sheet/theirs.pdf"]})
+
+        data_sheet = SimpleUploadedFile("sheet.pdf", b"datasheet bytes")
+        upload.data_sheet = data_sheet
+        setup_dropbox_paths(upload, data_sheet, dbx=dbx)
+
+        assert [path for path, _ in dbx.uploads] == [f"/{base} (1)/data_sheet/sheet.pdf"]
+        assert dbx.folders[f"/{base}"] == ["data_sheet/theirs.pdf"]
+
+    @patch('images.processors.upload.create_dropbox_client')
+    def test_setup_dropbox_paths_falls_back_to_a_unique_name_when_the_numbers_run_out(
+        self, mock_create_client, camera_station, regular_user, camera_station_action
+    ):
+        """Running out of numbered names must not block the volunteer.
+
+        Orphan folders from failed saves and folders left by hard-deleted rows are never
+        reclaimed, so the supply of readable "(n)" names for one station and date only shrinks.
+        Exhausting it used to raise, which is an error the volunteer cannot clear on that station
+        and date -- exactly where this branch started.
+        """
+        from images.processors.upload import MAX_ORDINAL_SUFFIX, setup_dropbox_paths
+
+        upload = Upload(
+            camera_station=camera_station,
+            date_retrieved=timezone.now(),
+            last_action=camera_station_action,
+            volunteer=regular_user,
+            upload_method="E",
+        )
+        base = _base_folder_name(upload)
+        occupied = {f"/{base}": ["x"]}
+        occupied.update({f"/{base} ({n})": ["x"] for n in range(1, MAX_ORDINAL_SUFFIX + 1)})
+        dbx = FakeDropbox(occupied=occupied)
+
+        setup_dropbox_paths(upload, None, dbx=dbx)
+
+        # A readable ordinal was not available, so the name carries a unique suffix instead.
+        assert upload.dropbox_folder_name.startswith(f"{base} (")
+        assert upload.dropbox_folder_name not in occupied
+        assert not re.fullmatch(r"\(\d+\)", upload.dropbox_folder_name[len(base) + 1 :])
+        upload.save()
+
+    @patch('images.processors.upload.create_dropbox_client')
+    def test_setup_dropbox_paths_gives_up_if_dropbox_refuses_every_name(
+        self, mock_create_client, camera_station, regular_user, camera_station_action
+    ):
+        """The remaining raise is an invariant guard, not a path a busy station can reach.
+
+        It takes Dropbox refusing every name including the unique ones, which no further name
+        would fix either.
+        """
+        from images.processors.upload import MAX_FOLDER_NAME_CANDIDATES, setup_dropbox_paths
+
+        upload = Upload(
+            camera_station=camera_station,
+            date_retrieved=timezone.now(),
+            last_action=camera_station_action,
+            volunteer=regular_user,
+            upload_method="E",
+        )
+        dbx = FakeDropbox(always_conflict=True)
+
+        with pytest.raises(ValueError, match="Could not find a free Dropbox folder"):
+            setup_dropbox_paths(upload, None, dbx=dbx)
+
+        assert dbx.create_attempts == MAX_FOLDER_NAME_CANDIDATES
+        assert dbx.file_requests == []
+
+    @patch('images.processors.upload.create_dropbox_client')
+    def test_setup_dropbox_paths_never_reuses_a_folder_it_did_not_create(
+        self, mock_create_client, camera_station, regular_user, camera_station_action
+    ):
+        """An empty folder is stepped over too -- emptiness does not establish ownership.
+
+        A file request is created before the row is saved, so a save that fails leaves an empty
+        folder with a live request still pointing into it, and a hard-deleted upload that never
+        received images leaves the same thing with its URL in someone's history. Adopting either
+        would give this upload a folder a second, still-open request writes into.
+        """
+        from images.processors.upload import setup_dropbox_paths
+
+        upload = Upload(
+            camera_station=camera_station,
+            date_retrieved=timezone.now(),
+            last_action=camera_station_action,
+            volunteer=regular_user,
+            upload_method="E",
+        )
+        base = _base_folder_name(upload)
+        dbx = FakeDropbox(occupied={f"/{base}": []})  # empty: the orphan-with-live-request shape
+
+        setup_dropbox_paths(upload, None, dbx=dbx)
+
+        assert upload.dropbox_folder_name == f"{base} (1)"
+        assert [destination for _, destination in dbx.file_requests] == [f"/{base} (1)"]
+        upload.save()
+
+    @patch('images.processors.upload.create_dropbox_client')
+    def test_setup_dropbox_paths_steps_over_a_file_in_the_way_of_the_path(
+        self, mock_create_client, camera_station, regular_user, camera_station_action
+    ):
+        """A file sitting at the folder path is just another taken name."""
+        import dropbox as dropbox_sdk
+
+        from images.processors.upload import setup_dropbox_paths
+
+        upload = Upload(
+            camera_station=camera_station,
+            date_retrieved=timezone.now(),
+            last_action=camera_station_action,
+            volunteer=regular_user,
+            upload_method="E",
+        )
+        base = _base_folder_name(upload)
+        dbx = FakeDropbox()
+        dbx.conflicts[f"/{base}"] = dropbox_sdk.files.WriteConflictError.file
+
+        setup_dropbox_paths(upload, None, dbx=dbx)
+
+        assert upload.dropbox_folder_name == f"{base} (1)"
+
+    @patch('images.processors.upload.create_dropbox_client')
+    def test_concurrent_creates_cannot_land_on_the_same_folder_name(
+        self, mock_create_client, camera_station, regular_user, camera_station_action
+    ):
+        """Dropbox folder creation is the arbiter, so two racing creates get different names.
+
+        Both see the same set of names held by rows and propose the same candidate; exactly one
+        create succeeds, and the loser moves on. Without that, both would have carried the same
+        name to an insert and the second would have raised the IntegrityError this branch exists
+        to remove.
+        """
+        from images.processors.upload import setup_dropbox_paths
+
+        dbx = FakeDropbox()  # one shared Dropbox, as two web workers would see
+        names = []
+
+        for _ in range(2):
+            upload = Upload(
+                camera_station=camera_station,
+                date_retrieved=timezone.now(),
+                last_action=camera_station_action,
+                volunteer=regular_user,
+                upload_method="E",
+            )
+            # Neither has been saved, so the database proposes the same candidate to both.
+            setup_dropbox_paths(upload, None, dbx=dbx)
+            names.append(upload.dropbox_folder_name)
+
+        assert len(set(names)) == 2, f"both creates took the same name: {names}"
+
+    @patch('images.processors.upload.create_dropbox_client')
+    def test_setup_dropbox_paths_reraises_non_conflict_dropbox_errors(
+        self, mock_create_client, camera_station, regular_user, camera_station_action
+    ):
+        """Only a path conflict is swallowed. A real Dropbox failure still surfaces."""
+        import dropbox as dropbox_sdk
+
+        from images.processors.upload import setup_dropbox_paths
+
+        insufficient_space = dropbox_sdk.exceptions.ApiError(
+            request_id="req",
+            error=dropbox_sdk.files.CreateFolderError.path(
+                dropbox_sdk.files.WriteError.insufficient_space
+            ),
+            user_message_text=None,
+            user_message_locale=None,
+        )
+
+        mock_dbx = Mock()
+        mock_dbx.files_create_folder.side_effect = insufficient_space
+        mock_create_client.return_value = mock_dbx
+
+        upload = Upload(
+            camera_station=camera_station,
+            date_retrieved=timezone.now(),
+            last_action=camera_station_action,
+            volunteer=regular_user,
+            upload_method="D",
+        )
+
+        with pytest.raises(dropbox_sdk.exceptions.ApiError):
+            setup_dropbox_paths(upload, None, dbx=mock_dbx)
 
 
 @pytest.mark.django_db

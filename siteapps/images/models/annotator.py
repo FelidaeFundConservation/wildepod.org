@@ -65,8 +65,30 @@ class Annotator(TimeStampedModel):
     total_species_annotations = models.IntegerField(null=True)
     total_activity_annotations = models.IntegerField(null=True)
 
+    # Number of images completed by an automation annotator. This is deliberately
+    # separate from the volunteer annotation counters above: one automated
+    # decision may create both a bounding-box and category vote, but completes
+    # one image.
+    total_auto_approved_images = models.PositiveIntegerField(default=0)
+
     # Preferences
     prioritize_tagging_animals = models.DateTimeField(null=True, blank=True)
+
+    # Automation criteria this annotator applies when auto-annotating images.
+    # Null for ordinary human/detection-bot annotators. Set (e.g. "single_human") on a
+    # dedicated automation bot annotator whose accept vote should auto-complete matching
+    # images: a criteria-bearing annotator is treated like an expert in the voting logic
+    # (see processors.annotation._is_staff_or_expert), so its single vote validates the
+    # annotation. It is also the durable, parsable audit marker of an automated decision
+    # (which model via the bot FK, which criterion via this field).
+    automation_criteria = models.CharField(
+        "Automation Criteria",
+        max_length=50,
+        choices=[("single_human", "Single Human")],
+        null=True,
+        blank=True,
+        default=None,
+    )
 
     def __str__(self):
         if self.type == "human":

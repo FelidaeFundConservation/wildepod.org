@@ -3,7 +3,8 @@ Tests for images search_images view.
 """
 
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 from unittest.mock import patch
 
 import pytest
@@ -245,53 +246,72 @@ class TestSearchImagesView:
         assert "results" in data
         assert len(data["results"]) == 1
 
-    def test_post_with_date_filter_trigger_timestamp(self, client_logged_in, upload):
+    @pytest.mark.parametrize(
+        "frozen_utc_now",
+        [
+            # Mid-morning in Los Angeles: the UTC date and the local date agree.
+            datetime(2026, 9, 7, 17, 54, tzinfo=dt_timezone.utc),
+            # Evening in Los Angeles (17:21 on the 6th): UTC has already rolled
+            # over to the 7th while the local date is still the 6th. The view
+            # filters on a local-midnight-to-local-midnight window, so anything
+            # deriving the date from UTC picks tomorrow's window and matches
+            # nothing. This is the ~7h/day window the test used to fail in.
+            datetime(2026, 9, 7, 0, 21, tzinfo=dt_timezone.utc),
+        ],
+        ids=["utc-and-local-same-date", "utc-a-day-ahead-of-local"],
+    )
+    def test_post_with_date_filter_trigger_timestamp(self, client_logged_in, upload, frozen_utc_now):
         """Test POST with date filter on trigger timestamp."""
         from django.utils import timezone
 
-        today = timezone.now().date()
+        with patch("django.utils.timezone.now", return_value=frozen_utc_now):
+            # The searchable date is the one the user sees in their own
+            # timezone, which is what the view builds its window from --
+            # timezone.now().date() would be the UTC date and select the
+            # wrong day every evening in Los Angeles.
+            today = timezone.localdate()
 
-        # Create image with today's timestamp
-        Image.objects.create(
-            upload=upload,
-            dropbox_file_name="today.jpg",
-            dropbox_file_path="/test/today.jpg",
-            dropbox_file_path_display="/test/today.jpg",
-            dropbox_content_hash="hash_today",
-            dropbox_file_id="file_id_today",
-            file_size=1024,
-            trigger_timestamp=timezone.now(),
-            thumbnail_gcloud_path="test/today_thumb.jpg",
-        )
+            # Create image with today's timestamp
+            Image.objects.create(
+                upload=upload,
+                dropbox_file_name="today.jpg",
+                dropbox_file_path="/test/today.jpg",
+                dropbox_file_path_display="/test/today.jpg",
+                dropbox_content_hash="hash_today",
+                dropbox_file_id="file_id_today",
+                file_size=1024,
+                trigger_timestamp=timezone.now(),
+                thumbnail_gcloud_path="test/today_thumb.jpg",
+            )
 
-        # Create image with yesterday's timestamp
-        yesterday = timezone.now() - timedelta(days=1)
-        Image.objects.create(
-            upload=upload,
-            dropbox_file_name="yesterday.jpg",
-            dropbox_file_path="/test/yesterday.jpg",
-            dropbox_file_path_display="/test/yesterday.jpg",
-            dropbox_content_hash="hash_yesterday",
-            dropbox_file_id="file_id_yesterday",
-            file_size=1024,
-            trigger_timestamp=yesterday,
-            thumbnail_gcloud_path="test/yesterday_thumb.jpg",
-        )
+            # Create image with yesterday's timestamp
+            yesterday = timezone.now() - timedelta(days=1)
+            Image.objects.create(
+                upload=upload,
+                dropbox_file_name="yesterday.jpg",
+                dropbox_file_path="/test/yesterday.jpg",
+                dropbox_file_path_display="/test/yesterday.jpg",
+                dropbox_content_hash="hash_yesterday",
+                dropbox_file_id="file_id_yesterday",
+                file_size=1024,
+                trigger_timestamp=yesterday,
+                thumbnail_gcloud_path="test/yesterday_thumb.jpg",
+            )
 
-        url = reverse("images:search_images")
-        response = client_logged_in.post(
-            url,
-            {
-                "macrosites": json.dumps([]),
-                "camera_stations": json.dumps([]),
-                "volunteers": json.dumps([]),
-                "species": json.dumps([]),
-                "species_ai": json.dumps([]),
-                "search_type": json.dumps("OR"),
-                "date": str(today),
-                "time_filter_type": "TT",
-            },
-        )
+            url = reverse("images:search_images")
+            response = client_logged_in.post(
+                url,
+                {
+                    "macrosites": json.dumps([]),
+                    "camera_stations": json.dumps([]),
+                    "volunteers": json.dumps([]),
+                    "species": json.dumps([]),
+                    "species_ai": json.dumps([]),
+                    "search_type": json.dumps("OR"),
+                    "date": str(today),
+                    "time_filter_type": "TT",
+                },
+            )
 
         assert response.status_code == 200
         data = json.loads(response.content)
@@ -303,7 +323,9 @@ class TestSearchImagesView:
         """Test POST with date range filter."""
         from django.utils import timezone
 
-        today = timezone.now().date()
+        # Local date, not the UTC one -- see test_post_with_date_filter_trigger_timestamp.
+        # The wide window hides the off-by-one here, but the assumption is the same.
+        today = timezone.localdate()
         start_date = today - timedelta(days=7)
         end_date = today + timedelta(days=1)
 
@@ -340,6 +362,63 @@ class TestSearchImagesView:
         data = json.loads(response.content)
         assert "results" in data
         assert len(data["results"]) == 1
+
+    def _search_range(self, client, upload, start, end):
+        from django.utils import timezone
+
+        Image.objects.get_or_create(
+            upload=upload,
+            dropbox_file_name="on_the_end_day.jpg",
+            defaults=dict(
+                dropbox_file_path="/test/on_the_end_day.jpg",
+                dropbox_file_path_display="/test/on_the_end_day.jpg",
+                dropbox_content_hash="hash_end_day",
+                dropbox_file_id="file_id_end_day",
+                file_size=1024,
+                # Late in the day, so an end bound that only reaches midnight would miss it
+                trigger_timestamp=timezone.localtime().replace(hour=23, minute=30),
+                thumbnail_gcloud_path="test/end_day_thumb.jpg",
+            ),
+        )
+
+        response = client.post(
+            reverse("images:search_images"),
+            {
+                "macrosites": json.dumps([]),
+                "camera_stations": json.dumps([]),
+                "volunteers": json.dumps([]),
+                "species": json.dumps([]),
+                "species_ai": json.dumps([]),
+                "search_type": json.dumps("OR"),
+                "time_filter_type": "TT",
+                "start_date": str(start),
+                "end_date": str(end),
+            },
+        )
+        assert response.status_code == 200
+        return json.loads(response.content)["results"]
+
+    def test_date_range_includes_the_end_day(self, client_logged_in, upload):
+        """The field is labelled "End Of Date Range", so it must cover the whole of that day.
+        An exclusive bound silently trimmed the last day off every search."""
+        from django.utils import timezone
+
+        today = timezone.localtime().date()
+
+        results = self._search_range(client_logged_in, upload, today - timedelta(days=7), today)
+
+        assert any(r["dropbox_file_name"] == "on_the_end_day.jpg" for r in results)
+
+    def test_a_single_day_range_finds_that_day(self, client_logged_in, upload):
+        """Start and end on the same day is the natural way to ask for one day's images, and
+        with an exclusive end bound it could only ever return nothing."""
+        from django.utils import timezone
+
+        today = timezone.localtime().date()
+
+        results = self._search_range(client_logged_in, upload, today, today)
+
+        assert any(r["dropbox_file_name"] == "on_the_end_day.jpg" for r in results)
 
     def test_post_with_staff_review_needed_filter(self, client_logged_in, upload):
         """Test POST with staff_review_needed filter."""

@@ -243,13 +243,13 @@ class UploadListView(LoginRequiredMixin, ListView):
         filter_uploads(context, self)
 
         if self.request.user.is_staff or self.request.user.is_superuser:
-            context["pending"] = Upload.objects.filter(upload_complete=False).order_by("-created")
+            context["pending"] = Upload.objects.filter(upload_complete=False, deleted=False).order_by("-created")
             context["processing"] = Upload.objects.filter(upload_complete=True, processed=False).order_by("-created")
 
         else:
-            context["pending"] = Upload.objects.filter(upload_complete=False, volunteer=self.request.user).order_by(
-                "-created"
-            )
+            context["pending"] = Upload.objects.filter(
+                upload_complete=False, deleted=False, volunteer=self.request.user
+            ).order_by("-created")
             context["processing"] = Upload.objects.filter(
                 upload_complete=True, processed=False, volunteer=self.request.user
             ).order_by("-created")
@@ -261,6 +261,11 @@ class UploadListView(LoginRequiredMixin, ListView):
 
         context["num_pending"] = context["pending"].count()
         context["num_processing"] = context["processing"].count()
+
+        # Which tab opens on load. The nav-bar pending badge links here with
+        # ?tab=pending; Bootstrap will not open a tab from a URL hash alone.
+        requested_tab = self.request.GET.get("tab")
+        context["active_tab"] = requested_tab if requested_tab in ("pending", "processing", "complete") else "complete"
 
         paginator = Paginator(context["object_list"], 99)
         page_number = self.request.GET.get("page")

@@ -358,3 +358,10 @@ EXPORT_URL_SUFFIX = env("EXPORT_URL_SUFFIX", default=None)  # Stored in GCP Secr
 
 # Google Maps API (optional for local development)
 GOOGLE_MAPS_API_KEY = env("GOOGLE_MAPS_API_KEY", default=None)
+
+# Fundraise Up donation widget. The account key is public (it ships in page source);
+# leave it empty to keep the widget and Donate button off.
+FUNDRAISEUP_ACCOUNT_KEY = env("FUNDRAISEUP_ACCOUNT_KEY", default="")
+FUNDRAISEUP_FORM = env("FUNDRAISEUP_FORM", default="donate")
+# False forces Fundraise Up test mode: checkout takes test cards only
+FUNDRAISEUP_LIVEMODE = True

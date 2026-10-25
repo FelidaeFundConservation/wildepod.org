@@ -419,6 +419,9 @@ EOF
         cat > "$APP_YAML" <<EOF
 runtime: python310
 instance_class: F1
+labels:
+  app_name: wildepod
+  environment: development
 service: ${SERVICE_NAME}
 entrypoint: gunicorn -t 2400 -b :\$PORT ${NAME_PREFIX//-/_}:app
 

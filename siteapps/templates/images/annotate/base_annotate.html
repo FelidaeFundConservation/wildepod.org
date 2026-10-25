@@ -512,6 +512,30 @@
                 })
             }
 
+            {% if user.is_staff %}
+                // Staff can remove an incorrect box from the Image tab and send
+                // the updated image through the normal workflow in one action.
+                $("#delete-selected-box-and-continue").click(function(e){
+                    e.preventDefault();
+
+                    const selectedAnnotation = anno.getSelected();
+                    if (!selectedAnnotation) {
+                        alert("Please select a box on the image before deleting it.");
+                        return;
+                    }
+
+                    if (!confirm("Delete the selected box and continue?")) {
+                        return;
+                    }
+
+                    anno.removeAnnotation(selectedAnnotation.id);
+                    $(this).prop("disabled", true);
+                    $("#save_annotations").prop("disabled", true);
+                    $("#skip_annotations").prop("disabled", true);
+                    submitAnnotations(skip = false);
+                });
+            {% endif %}
+
 
             {% if user.is_staff %}
                 window.staffDeleteAnnotation = function () {

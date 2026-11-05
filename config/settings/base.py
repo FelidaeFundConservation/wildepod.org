@@ -234,6 +234,7 @@ TEMPLATES = [
                 "siteapps.users.context_processors.allauth_settings",
                 "siteapps.home.context_processors.global_settings",
                 "images.context_processors.pending_uploads",
+                "images.context_processors.expert_assignment",
             ],
         },
     }

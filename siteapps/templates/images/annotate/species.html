@@ -62,6 +62,9 @@
         for (const annotation of anno.getAnnotations()) {
             annotation.body[0].value = species
             annotation.body[0].confidence = 1.0
+            // Same marker the per-box widget sets, so a tag applied from the dropdown is not
+            // mistaken for one the image arrived with.
+            annotation.body[0].updated = true
         }
     }
 {% endblock multiple_category_check %}
@@ -218,6 +221,7 @@ observer.observe(document, { attributes: false, childList: true, characterData: 
             for (annotation of annotations) {
                 annotation.body[0].value = selectedOption;
                 annotation.body[0].confidence = 1.0;
+                annotation.body[0].updated = true;
             }
 
             anno.setAnnotations(annotations);

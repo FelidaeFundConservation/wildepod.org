@@ -1,0 +1,13 @@
+.git
+.github
+.venv
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.coverage
+htmlcov/
+cloud-sql-proxy
+cloud-sql-proxy.log
+migration_output.txt

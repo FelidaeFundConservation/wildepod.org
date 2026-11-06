@@ -24,6 +24,8 @@
 }
 
 .card-emphasis {
-    filter: drop-shadow(10px 4px 4px #0000004c);
-    box-shadow: 0px 0px 3px 5px #0000007f;
+    // A box-shadow, not filter: drop-shadow(). A filter makes the card a stacking
+    // context, which traps anything that overflows it (the annotation dialog)
+    // beneath the header's z-index. On an opaque rectangle the two look the same.
+    box-shadow: 10px 4px 4px #0000004c, 0px 0px 3px 5px #0000007f;
 }

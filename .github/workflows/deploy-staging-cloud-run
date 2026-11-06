@@ -1,0 +1,149 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+  GCP_DB_INSTANCE: ${{ vars.GCP_DB_INSTANCE || secrets.GCP_DB_INSTANCE || 'wildepoddb' }}
+  GCP_REGION: ${{ vars.GCP_REGION || secrets.GCP_REGION || 'us-west2' }}
+  STAGING_DB_PORT: 5440
+  STAGING_SETTINGS_NAME: ${{ vars.STAGING_SETTINGS_NAME || secrets.STAGING_SETTINGS_NAME || 'django_settings' }}
+  BYPASS_FLAKE8: "true"
+  # Name of your Google Artifact Registry repository
+  GAR_REPO: "staging-repo"
+  SERVICE_NAME: "wildepod-staging"
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.ci
+      DJANGO_CI_MODE: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      - name: Install dependencies
+        run: uv sync --extra dev
+      - name: Run tests
+        run: uv run pytest
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            coverage.xml
+            htmlcov/
+          if-no-files-found: warn
+      - name: Run flake8
+        if: ${{ env.BYPASS_FLAKE8 != 'true' }}
+        run: uv run flake8
+
+  deploy:
+    name: Build & Deploy to Cloud Run
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for GCP Registry
+        run: |
+          gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and Push Container Image
+        run: |
+          IMAGE_URI="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GAR_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
+          docker build -t $IMAGE_URI .
+          docker push $IMAGE_URI
+
+      - name: Deploy revision to Cloud Run
+        run: |
+          IMAGE_URI="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.GAR_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image=$IMAGE_URI \
+            --region=${{ env.GCP_REGION }} \
+            --platform=managed \
+            --add-cloudsql-instances="${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:${{ env.GCP_DB_INSTANCE }}" \
+            --quiet
+
+  migrate:
+    name: Run Migrations
+    needs: deploy
+    runs-on: ubuntu-latest
+    env:
+      GOOGLE_CLOUD_PROJECT: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+      USE_CLOUD_SQL_AUTH_PROXY: "True"
+      SETTINGS_NAME: ${{ vars.STAGING_SETTINGS_NAME || secrets.STAGING_SETTINGS_NAME || 'django_settings' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      - name: Install dependencies
+        run: uv sync
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+      - name: Download Cloud SQL Proxy
+        run: |
+          curl -o cloud-sql-proxy https://googleapis.com
+          chmod +x cloud-sql-proxy
+      - name: Start Cloud SQL Proxy
+        run: |
+          set -euo pipefail
+          ./cloud-sql-proxy \
+            --address=127.0.0.1 \
+            --port=${{ env.STAGING_DB_PORT }} \
+            "${{ env.GCP_PROJECT_ID }}:${{ env.GCP_REGION }}:${{ env.GCP_DB_INSTANCE }}" > cloud-sql-proxy.log 2>&1 &
+          proxy_pid=$!
+          for attempt in {1..30}; do
+            if ! kill -0 "$proxy_pid" 2>/dev/null; then
+              echo "Cloud SQL Proxy exited"
+              cat cloud-sql-proxy.log
+              exit 1
+            fi
+            if nc -z 127.0.0.1 "${{ env.STAGING_DB_PORT }}"; then
+              echo "Cloud SQL Proxy listening"
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
+      - name: Run migrations
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          if ! uv run python manage.py migrate --settings=config.settings.staging 2>&1 | tee migration_output.txt; then
+            cat cloud-sql-proxy.log 2>/dev/null || true
+            exit 1
+          fi
+      - name: Write migration summary
+        if: always()
+        run: |
+          echo "## Staging Migrations" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> \$GITHUB_STEP_SUMMARY
+          cat migration_output.txt 2>/dev/null || echo "(no migration output available)" >> \$GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

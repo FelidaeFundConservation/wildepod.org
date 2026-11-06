@@ -261,18 +261,6 @@
                                         <span class="d-lg-none ms-1">Instructions</span>
                                     </a>
                                 </li>
-                                {% if not is_bhutan %}
-                                    <li class="nav-item mx-1">
-                                        <a class="nav-link nav-icon-link"
-                                           href="https://docs.google.com/document/d/11QqbthtvRm6DnAGILqiUxhMhRr-fNp2y8R1nT1IMcpo/edit?usp=sharing"
-                                           target="_blank"
-                                           data-label="Feedback"
-                                           aria-label="Feedback">
-                                            <i class="bi bi-pencil-square"></i>
-                                            <span class="d-lg-none ms-1">Feedback</span>
-                                        </a>
-                                    </li>
-                                {% endif %}
                             {% else %}
                                 <li class="nav-item mx-1">
                                     <a class="nav-link" href="{% url 'account_login' %}">Sign In</a>

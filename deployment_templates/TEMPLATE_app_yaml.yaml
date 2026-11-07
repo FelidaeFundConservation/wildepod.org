@@ -12,7 +12,7 @@
 # Documentation: https://cloud.google.com/appengine/docs/standard/python3/config/appref
 
 # Python runtime version
-runtime: python310
+runtime: python314
 
 # App Engine instance class
 # F1 = 128MB RAM, 600MHz CPU (default, lowest cost)
